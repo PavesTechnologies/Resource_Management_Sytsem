@@ -7,9 +7,12 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+import javax.crypto.spec.SecretKeySpec;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +47,14 @@ public class SecurityConfig {
 
 
         return http.build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        // Replace with your actual secret key or JWK Set URI
+        String secretKey = "replace_with_a_very_strong_secret_key_atleast_32chars";
+        SecretKeySpec secretKeySpec = new SecretKeySpec(secretKey.getBytes(), "HmacSHA256");
+        return NimbusJwtDecoder.withSecretKey(secretKeySpec).build();
     }
 
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
