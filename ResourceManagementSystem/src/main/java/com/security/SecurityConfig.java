@@ -28,12 +28,15 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> {
-                })
+                .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/public/**", "/api/**").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/topic/**").permitAll()
+                        .requestMatchers(
+                                "/public/**",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+                        .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception
@@ -45,16 +48,7 @@ public class SecurityConfig {
                         )
                 );
 
-
         return http.build();
-    }
-
-    @Bean
-    public JwtDecoder jwtDecoder() {
-        // Replace with your actual secret key or JWK Set URI
-        String secretKey = "replace_with_a_very_strong_secret_key_atleast_32chars";
-        SecretKeySpec secretKeySpec = new SecretKeySpec(secretKey.getBytes(), "HmacSHA256");
-        return NimbusJwtDecoder.withSecretKey(secretKeySpec).build();
     }
 
     private JwtAuthenticationConverter jwtAuthenticationConverter() {

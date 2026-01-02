@@ -1,20 +1,22 @@
 package com.controller;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Controller
+@RestController
 @RequestMapping("/api/client")
-@EnableMethodSecurity
 @CrossOrigin
+@SecurityRequirement(name = "bearerAuth")
 public class ClientController {
     @GetMapping("/test")
     @PreAuthorize("hasAnyRole('HR', 'MANAGER', 'GENERAL')")
-    public void test(){
-        System.out.println("All Done");
+    public String test(){
+         return "All Done";
     }
 }
