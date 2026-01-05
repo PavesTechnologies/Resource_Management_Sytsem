@@ -17,6 +17,13 @@ public class ClientController {
     @GetMapping("/test")
     @PreAuthorize("hasAnyRole('HR', 'MANAGER', 'GENERAL')")
     public String test(){
-         return "All Done";
+         return "All Done ranga";
+    }
+
+    @GetMapping("/testing")
+    @PreAuthorize("hasRole('AK')")
+    public String testw()
+    {
+        return "nenu";
     }
 }
