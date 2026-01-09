@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/client")
 @CrossOrigin
-//@SecurityRequirement(name = "bearerAuth")
 public class ClientController {
     @GetMapping("/test")
     @PreAuthorize("hasAnyRole('HR', 'MANAGER', 'GENERAL')")
