@@ -8,7 +8,7 @@ import lombok.*;
 @Setter
 @Getter
 public class ApiResponse<T> {
-    private boolean success;
+    private Boolean success;
     private String message;
     private T data;
 }

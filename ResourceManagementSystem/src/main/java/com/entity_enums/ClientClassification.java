@@ -1,4 +1,4 @@
-package com.entity_enums.skill_enums;
+package com.entity_enums;
 
 public class ClientClassification {
 }
