@@ -6,6 +6,8 @@ import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.client_enums.ClientType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
 
@@ -28,6 +30,9 @@ public class Client {
     @Column(nullable = false)
     private ClientType clientType;
 
+    @Column(nullable = false)
+    private String email;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PriorityLevel priorityLevel;
@@ -47,6 +52,21 @@ public class Client {
     @Enumerated(EnumType.STRING)
     private RecordStatus status;
 
+    @Column(nullable = false)
+    private Boolean isSLA;
+
+    @Column(nullable = false)
+    private Boolean isCompliance;
+
+    @Column(nullable = false)
+    private Boolean isEscalationContact;
+
+    @Column(nullable = false)
+    private Boolean isAssets;
+
+    @CreatedDate
     private LocalDateTime createdAt;
+
+    @LastModifiedDate
     private LocalDateTime updatedAt;
 }

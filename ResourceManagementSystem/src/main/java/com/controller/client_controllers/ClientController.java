@@ -1,6 +1,9 @@
 package com.controller.client_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.ClientDTO;
+import com.dto.ClientFilterDTO;
+import com.dto.PageResponse;
 import com.entity.client_entities.Client;
 import com.service_interface.client_service_interface.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,4 +25,16 @@ public class ClientController {
     {
         return clientService.createClient(client);
     }
+
+    @GetMapping("search")
+    @PreAuthorize("hasRole('HR-MANAGER')")
+    public ApiResponse<PageResponse<ClientDTO>> searchClients(
+            @ModelAttribute ClientFilterDTO filter,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return clientService.searchClients(filter, page, size);
+    }
+
+
 }
