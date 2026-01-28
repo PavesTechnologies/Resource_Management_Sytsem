@@ -4,6 +4,8 @@ import com.dto.*;
 import com.entity.client_entities.Client;
 import org.springframework.http.ResponseEntity;
 
+import java.util.List;
+
 public interface ClientService {
     ResponseEntity<ApiResponse> createClient(Client client);
     ApiResponse<PageResponse<ClientDTO>> searchClients(
@@ -13,5 +15,6 @@ public interface ClientService {
     );
 
     ResponseEntity<ApiResponse> countClients();
-    ResponseEntity<ApiResponse<Client>> clientDetails(Long id);
+    ResponseEntity<ApiResponse<List<Client>>> clientDetails();
+
 }
