@@ -26,6 +26,27 @@ public class ClientAssetController {
                 .body(response);
     }
 
+    @PutMapping("/{assetId}")
+    public ResponseEntity<ApiResponse<String>> update(
+            @PathVariable Long assetId,
+            @RequestBody ClientAsset asset) {
+
+        ApiResponse<String> response = service.updateClientAsset(assetId, asset);
+        return ResponseEntity
+                .status(response.getSuccess() ? HttpStatus.OK : HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
+    @DeleteMapping("/{assetId}")
+    public ResponseEntity<ApiResponse<String>> delete(
+            @PathVariable Long assetId) {
+
+        ApiResponse<String> response = service.deleteClientAsset(assetId);
+        return ResponseEntity
+                .status(response.getSuccess() ? HttpStatus.OK : HttpStatus.BAD_REQUEST)
+                .body(response);
+    }
+
     // FETCH ENABLEMENTS BY CLIENT
     @GetMapping("/client/{clientId}")
     public ResponseEntity<ApiResponse<?>> getAssetsByClient(

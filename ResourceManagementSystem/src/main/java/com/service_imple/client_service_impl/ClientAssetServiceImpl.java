@@ -51,6 +51,54 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             );
         }
     }
+    @Override
+    public ApiResponse<String> updateClientAsset(Long assetId, ClientAsset asset) {
+        try {
+            ClientAsset existing = assetRepository.findById(assetId)
+                    .orElseThrow(() -> new RuntimeException("Asset not found"));
+
+            existing.setAssetName(asset.getAssetName());
+            existing.setDescription(asset.getDescription());
+            existing.setAssetCategory(asset.getAssetCategory());
+            existing.setAssetType(asset.getAssetType());
+            existing.setQuantity(asset.getQuantity());
+            existing.setUpdatedAt(LocalDateTime.now());
+
+            assetRepository.save(existing);
+
+            return new ApiResponse<>(true,
+                    "Client asset updated successfully.",
+                    null);
+
+        } catch (Exception e) {
+            return new ApiResponse<>(false,
+                    "Client asset update failed: " + e.getMessage(),
+                    null);
+        }
+    }
+
+    // SOFT DELETE (DEACTIVATE)
+    @Override
+    public ApiResponse<String> deleteClientAsset(Long assetId) {
+        try {
+            ClientAsset asset = assetRepository.findById(assetId)
+                    .orElseThrow(() -> new RuntimeException("Asset not found"));
+
+            asset.setStatus(AssetStatus.INACTIVE);
+            asset.setUpdatedAt(LocalDateTime.now());
+
+            assetRepository.save(asset);
+
+            return new ApiResponse<>(true,
+                    "Client asset deactivated successfully.",
+                    null);
+
+        } catch (Exception e) {
+            return new ApiResponse<>(false,
+                    "Client asset deletion failed: " + e.getMessage(),
+                    null);
+        }
+    }
 
     @Override
     public ApiResponse<?> getAssetsByClient(Long clientId) {
