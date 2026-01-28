@@ -14,4 +14,6 @@ public interface ClientService {
             int page,
             int size
     );
+
+    ResponseEntity<ApiResponse> countClients();
 }
