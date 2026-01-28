@@ -23,6 +23,7 @@ public class ClientController {
     @PreAuthorize("hasRole('HR-MANAGER')")
     public ResponseEntity<ApiResponse> createClient(@RequestBody Client client)
     {
+        System.out.println(client.toString());
         return clientService.createClient(client);
     }
 
