@@ -12,4 +12,12 @@ public class ApiResponse<T> {
     private String message;
     private T data;
 
+    public ApiResponse<T> getAPIResponse(Boolean result,String msg,T dataa)
+    {
+        ApiResponse<T> apiResponse=new ApiResponse<>();
+        apiResponse.setSuccess(result);
+        apiResponse.setMessage(msg);
+        apiResponse.setData(dataa);
+        return apiResponse;
+    }
 }
