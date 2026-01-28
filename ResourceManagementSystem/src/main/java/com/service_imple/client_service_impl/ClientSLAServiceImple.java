@@ -8,7 +8,9 @@ import com.repo.client_repo.ClientSLARepo;
 import com.service_interface.client_service_interface.ClientSLAService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
 
+@Service
 public class ClientSLAServiceImple implements ClientSLAService {
 
 

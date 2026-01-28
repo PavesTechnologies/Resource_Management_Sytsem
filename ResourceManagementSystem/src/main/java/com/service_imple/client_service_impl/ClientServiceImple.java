@@ -2,6 +2,7 @@ package com.service_imple.client_service_impl;
 
 import com.dto.*;
 import com.entity.client_entities.Client;
+import com.entity_enums.centralised_enums.RecordStatus;
 import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientMapper;
@@ -207,9 +208,9 @@ public class ClientServiceImple implements ClientService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<Client>> clientDetails(Long id) {
-        Client c=clientRepo.findById(id).orElseThrow(() -> new ClientException("Client Not Found"));
-        return ResponseEntity.ok(new ApiResponse<>(true, "Client Found", c));
+    public ResponseEntity<ApiResponse<List<Client>>> clientDetails() {
+        List<Client> clients = clientRepo.findByStatus(RecordStatus.ACTIVE);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Clients fetched successfully", clients));
     }
 }
 

@@ -1,12 +1,15 @@
 package com.dto;
 
 import lombok.*;
+import org.hibernate.annotations.Comment;
+import org.springframework.stereotype.Component;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Setter
 @Getter
+@Component
 public class ApiResponse<T> {
     private Boolean success;
     private String message;

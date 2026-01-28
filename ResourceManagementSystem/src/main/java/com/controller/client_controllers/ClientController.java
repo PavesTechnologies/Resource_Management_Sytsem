@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/client")
 @CrossOrigin
@@ -40,9 +42,16 @@ public class ClientController {
         return clientService.countClients();
     }
 
-    @GetMapping("/clientDetails/{clientId}")
-    public ResponseEntity<ApiResponse<Client>> getClientDetails(@PathVariable Long clientId) {
-        return clientService.clientDetails(clientId);
+    @GetMapping("/get-all-clients")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<List<Client>>> getClientDetails() {
+        return clientService.clientDetails();
     }
+
+//    @GetMapping("/get-admin-kpi")
+//    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+//    public ResponseEntity<AdminKPIDTO> getAdminKPI() {
+//        return clientService.getAdminKPI();
+//    }
 
 }
