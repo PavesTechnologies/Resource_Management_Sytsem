@@ -4,6 +4,7 @@ import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.client_enums.ClientType;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @ToString
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
 public class Client {
 
     @Id
