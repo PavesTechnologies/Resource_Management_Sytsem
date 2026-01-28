@@ -3,6 +3,7 @@ package com.entity.client_entities;
 
 import com.entity_enums.client_enums.AssetCategory;
 import com.entity_enums.client_enums.AssetStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
 public class ClientAsset {
 
     @Id
@@ -22,10 +24,14 @@ public class ClientAsset {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "client_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Client client;
 
     @Column(nullable = false)
     private String assetName;
+
+    @Column(nullable = false)
+    private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -34,7 +40,7 @@ public class ClientAsset {
     @Column(nullable = false)
     private String assetType;
 
-    private String serialOrLicense;
+//    private String serialOrLicense;
 
     private Integer quantity;
 
