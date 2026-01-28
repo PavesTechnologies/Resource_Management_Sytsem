@@ -9,6 +9,5 @@ import java.util.Optional;
 
 @Repository
 public interface ClientRepo extends JpaRepository<Client,Long>, JpaSpecificationExecutor<Client> {
-    Optional<Client> findById(Long aLong);
-
+//    Optional<Client> findById(Long aLong);
 }

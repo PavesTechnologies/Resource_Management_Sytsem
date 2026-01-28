@@ -1,10 +1,8 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.ApiResponse;
-import com.dto.ClientDTO;
-import com.dto.ClientFilterDTO;
-import com.dto.PageResponse;
+import com.dto.*;
 import com.entity.client_entities.Client;
+import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientMapper;
 import com.service_interface.client_service_interface.ClientService;
@@ -21,6 +19,8 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+
 import jakarta.persistence.criteria.Predicate;
 
 import static org.springframework.util.StringUtils.hasText;
@@ -204,6 +204,12 @@ public class ClientServiceImple implements ClientService {
     public ResponseEntity<ApiResponse> countClients() {
         clientRepo.findAll().size();
         return null;
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<Client>> clientDetails(Long id) {
+        Client c=clientRepo.findById(id).orElseThrow(() -> new ClientException("Client Not Found"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Client Found", c));
     }
 }
 

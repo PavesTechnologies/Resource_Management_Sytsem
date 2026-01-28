@@ -1,9 +1,6 @@
 package com.controller.client_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.ClientDTO;
-import com.dto.ClientFilterDTO;
-import com.dto.PageResponse;
+import com.dto.*;
 import com.entity.client_entities.Client;
 import com.service_interface.client_service_interface.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,5 +40,9 @@ public class ClientController {
         return clientService.countClients();
     }
 
+    @GetMapping("/clientDetails/{clientId}")
+    public ResponseEntity<ApiResponse<Client>> getClientDetails(@PathVariable Long clientId) {
+        return clientService.clientDetails(clientId);
+    }
 
 }

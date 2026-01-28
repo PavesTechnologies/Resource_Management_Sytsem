@@ -1,9 +1,6 @@
 package com.service_interface.client_service_interface;
 
-import com.dto.ApiResponse;
-import com.dto.ClientDTO;
-import com.dto.ClientFilterDTO;
-import com.dto.PageResponse;
+import com.dto.*;
 import com.entity.client_entities.Client;
 import org.springframework.http.ResponseEntity;
 
@@ -16,4 +13,5 @@ public interface ClientService {
     );
 
     ResponseEntity<ApiResponse> countClients();
+    ResponseEntity<ApiResponse<Client>> clientDetails(Long id);
 }
