@@ -20,7 +20,7 @@ public class ClientController {
     ClientService clientService;
 
     @PostMapping("create")
-    @PreAuthorize("hasRole('HR-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse> createClient(@RequestBody Client client)
     {
         System.out.println(client.toString());
@@ -28,13 +28,19 @@ public class ClientController {
     }
 
     @GetMapping("search")
-    @PreAuthorize("hasRole('HR-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN')")
     public ApiResponse<PageResponse<ClientDTO>> searchClients(
             @ModelAttribute ClientFilterDTO filter,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         return clientService.searchClients(filter, page, size);
+    }
+
+    @GetMapping("/count")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse> countClients() {
+        return clientService.countClients();
     }
 
 

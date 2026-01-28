@@ -11,14 +11,12 @@ public class ClientFilterDTO {
     private String clientType;
     private String priorityLevel;
     private String deliveryModel;
-    private String regionCode;
-    private String regionName;
+//    private String regionCode;
+    private String countryName;
     private String defaultTimezone;
     private String status;
 
     private LocalDateTime createdFrom;
     private LocalDateTime createdTo;
-    private LocalDateTime updatedFrom;
-    private LocalDateTime updatedTo;
 }
 

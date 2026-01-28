@@ -61,16 +61,16 @@ public class ClientServiceImple implements ClientService {
                     predicates.add(cb.equal(root.get("priorityLevel"), filter.getPriorityLevel()));
                 }
 
-                if (hasText(filter.getDeliveryModel())) {
-                    predicates.add(cb.equal(root.get("deliveryModel"), filter.getDeliveryModel()));
-                }
+//                if (hasText(filter.getDeliveryModel())) {
+//                    predicates.add(cb.equal(root.get("deliveryModel"), filter.getDeliveryModel()));
+//                }
+//
+//                if (hasText(filter.getRegionCode())) {
+//                    predicates.add(cb.equal(root.get("regionCode"), filter.getRegionCode()));
+//                }
 
-                if (hasText(filter.getRegionCode())) {
-                    predicates.add(cb.equal(root.get("regionCode"), filter.getRegionCode()));
-                }
-
-                if (hasText(filter.getRegionName())) {
-                    predicates.add(cb.equal(root.get("regionName"), filter.getRegionName()));
+                if (hasText(filter.getCountryName())) {
+                    predicates.add(cb.equal(root.get("countryName"), filter.getCountryName()));
                 }
 
                 if (hasText(filter.getDefaultTimezone())) {
@@ -91,15 +91,15 @@ public class ClientServiceImple implements ClientService {
                             root.get("createdAt"), filter.getCreatedTo()));
                 }
 
-                if (filter.getUpdatedFrom() != null) {
-                    predicates.add(cb.greaterThanOrEqualTo(
-                            root.get("updatedAt"), filter.getUpdatedFrom()));
-                }
-
-                if (filter.getUpdatedTo() != null) {
-                    predicates.add(cb.lessThanOrEqualTo(
-                            root.get("updatedAt"), filter.getUpdatedTo()));
-                }
+//                if (filter.getUpdatedFrom() != null) {
+//                    predicates.add(cb.greaterThanOrEqualTo(
+//                            root.get("updatedAt"), filter.getUpdatedFrom()));
+//                }
+//
+//                if (filter.getUpdatedTo() != null) {
+//                    predicates.add(cb.lessThanOrEqualTo(
+//                            root.get("updatedAt"), filter.getUpdatedTo()));
+//                }
 
                 // ✅ No predicates → return ALL records
                 return cb.and(predicates.toArray(new Predicate[0]));
@@ -198,6 +198,12 @@ public class ClientServiceImple implements ClientService {
             response.setData(null);
             return response;
         }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> countClients() {
+        clientRepo.findAll().size();
+        return null;
     }
 }
 
