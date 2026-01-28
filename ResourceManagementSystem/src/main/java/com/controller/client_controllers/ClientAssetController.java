@@ -4,16 +4,18 @@ package com.controller.client_controllers;
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientAsset;
 import com.service_imple.client_service_impl.ClientAssetServiceImpl;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@RequiredArgsConstructor
 @RestController
 @RequestMapping("api/clinet-assets")
 public class ClientAssetController {
     private final ClientAssetServiceImpl service;
+
+    public ClientAssetController(ClientAssetServiceImpl service) {
+        this.service = service;
+    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<String>> createClientAsset(
