@@ -43,15 +43,15 @@ public class ClientController {
     }
 
     @GetMapping("/get-all-clients")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<List<Client>>> getClientDetails() {
         return clientService.clientDetails();
     }
 
-//    @GetMapping("/get-admin-kpi")
-//    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
-//    public ResponseEntity<AdminKPIDTO> getAdminKPI() {
-//        return clientService.getAdminKPI();
-//    }
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<Client>> getClientById(@PathVariable Long id) {
+        return clientService.getClientById(id);
+    }
 
 }
