@@ -212,5 +212,11 @@ public class ClientServiceImple implements ClientService {
         List<Client> clients = clientRepo.findByStatus(RecordStatus.ACTIVE);
         return ResponseEntity.ok(new ApiResponse<>(true, "Clients fetched successfully", clients));
     }
+
+    @Override
+    public ResponseEntity<ApiResponse<Client>> getClientById(Long id) {
+        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client not found"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Client fetched successfully", client));
+    }
 }
 

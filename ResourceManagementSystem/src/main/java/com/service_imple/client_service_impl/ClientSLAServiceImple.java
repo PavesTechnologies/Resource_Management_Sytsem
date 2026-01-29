@@ -57,8 +57,6 @@ public class ClientSLAServiceImple implements ClientSLAService {
     @Override
     public ResponseEntity<ApiResponse> getClientSLA(Long clientId) {
         List<ClientSLA> sla=clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientException("Failed to fentch client sla"));
-
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Fentched Successfully",sla));
-
     }
 }
