@@ -40,7 +40,8 @@ public class ClientAsset {
     @Column(nullable = false)
     private String assetType;
 
-//    private String serialOrLicense;
+    @Column(name = "serial_number", unique = true)
+    private String serialNumber;
 
     private Integer quantity;
 

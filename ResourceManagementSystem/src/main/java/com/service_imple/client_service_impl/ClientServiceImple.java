@@ -280,6 +280,9 @@ public class ClientServiceImple implements ClientService {
         } catch (Exception e) {
             return ResponseEntity.ok(new ApiResponse<>(false, "Error fetching admin KPI data: " + e.getMessage(), null));
         }
+    public ResponseEntity<ApiResponse<Client>> getClientById(Long id) {
+        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client not found"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Client fetched successfully", client));
     }
 }
 
