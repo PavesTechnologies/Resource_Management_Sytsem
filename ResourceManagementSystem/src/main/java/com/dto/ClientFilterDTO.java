@@ -2,7 +2,7 @@ package com.dto;
 
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 public class ClientFilterDTO {
@@ -16,7 +16,7 @@ public class ClientFilterDTO {
     private String defaultTimezone;
     private String status;
 
-    private LocalDateTime createdFrom;
-    private LocalDateTime createdTo;
+    private LocalDate createdFrom;
+    private LocalDate createdTo;
 }
 

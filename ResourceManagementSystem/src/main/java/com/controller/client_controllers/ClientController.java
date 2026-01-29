@@ -48,10 +48,10 @@ public class ClientController {
         return clientService.clientDetails();
     }
 
-//    @GetMapping("/get-admin-kpi")
-//    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
-//    public ResponseEntity<AdminKPIDTO> getAdminKPI() {
-//        return clientService.getAdminKPI();
-//    }
+    @GetMapping("/get-admin-kpi")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPIDetials() {
+        return clientService.getAdminKPI();
+    }
 
 }
