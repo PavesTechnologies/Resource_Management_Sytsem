@@ -31,8 +31,8 @@ public class ClientAsset {
     @Column(nullable = false)
     private String assetName;
 
-    @Column(nullable = false)
-    private String description;
+//    @Column
+//    private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -41,8 +41,8 @@ public class ClientAsset {
     @Column(nullable = false)
     private String assetType;
 
-    @Column(name = "serial_number", unique = true)
-    private String serialNumber;
+//    @Column(name = "serial_number", unique = true)
+//    private String serialNumber;
 
     private Integer quantity;
 

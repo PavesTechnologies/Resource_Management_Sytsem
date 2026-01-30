@@ -25,6 +25,8 @@ public class ClientAssetAssignment {
     @JoinColumn(name = "asset_id", nullable = false)
     private ClientAsset asset;
 
+    @Column(name = "serial_number", nullable = false, unique = true)
+    private String serialNumber;
     // UI fields
     private String resourceName;
     private String projectName;
@@ -36,6 +38,7 @@ public class ClientAssetAssignment {
     private LocalDate actualReturnDate;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private EnablementAssignmentStatus assignmentStatus;
 
     private String assignedBy;
@@ -43,7 +46,7 @@ public class ClientAssetAssignment {
     private String locationDetails;
 
     @Column(length = 500)
-    private String remarks;
+    private String description;
 
     private Boolean active;
 }
