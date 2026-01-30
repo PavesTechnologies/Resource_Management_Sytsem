@@ -14,6 +14,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,32 +31,17 @@ public class ClientAssetServiceImpl implements ClientAssetService {
                     asset.getClient().getClientId()
             ).orElseThrow(() -> new RuntimeException("Client not found"));
 
-            if (asset.getAssetCategory() == AssetCategory.DEVICE) {
-                if (asset.getSerialNumber() == null || asset.getSerialNumber().isBlank()) {
-                    throw new RuntimeException("Serial number is required for device assets");
-                }
-
-                asset.setSerialNumber(asset.getSerialNumber().trim().toUpperCase());
-            }
-
             asset.setClient(client);
             asset.setStatus(AssetStatus.ACTIVE);
             asset.setCreatedAt(LocalDateTime.now());
 
             assetRepository.save(asset);
 
-            return new ApiResponse<>(true, "Client asset created successfully.", null);
+            return new ApiResponse<>(true,
+                    "Client asset created successfully.",
+                    null);
 
-        }
-        catch (DataIntegrityViolationException e) {
-            // 🔴 UNIQUE constraint violation
-            return new ApiResponse<>(
-                    false,
-                    "Serial number already exists",
-                    null
-            );
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             return new ApiResponse<>(
                     false,
                     "Client asset creation failed: " + e.getMessage(),
@@ -63,26 +50,15 @@ public class ClientAssetServiceImpl implements ClientAssetService {
         }
     }
 
+
+
     @Override
     public ApiResponse<String> updateClientAsset(Long assetId, ClientAsset asset) {
         try {
             ClientAsset existing = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
 
-            if (existing.getAssetCategory() == AssetCategory.DEVICE
-                    && asset.getSerialNumber() != null) {
-
-                // 🔴 UNIQUE SERIAL CHECK (exclude same asset)
-//                if (assetRepository.existsBySerialNumberAndAssetIdNot(
-//                        asset.getSerialNumber(), assetId)) {
-//                    throw new RuntimeException("Serial number already exists");
-//                }
-
-                existing.setSerialNumber(asset.getSerialNumber());
-            }
-
             existing.setAssetName(asset.getAssetName());
-            existing.setDescription(asset.getDescription());
             existing.setAssetCategory(asset.getAssetCategory());
             existing.setAssetType(asset.getAssetType());
             existing.setQuantity(asset.getQuantity());
@@ -90,11 +66,9 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
             assetRepository.save(existing);
 
-            return new ApiResponse<>(
-                    true,
+            return new ApiResponse<>(true,
                     "Client asset updated successfully.",
-                    null
-            );
+                    null);
 
         } catch (Exception e) {
             return new ApiResponse<>(
@@ -104,6 +78,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             );
         }
     }
+
 
 
     // SOFT DELETE (DEACTIVATE)
@@ -145,4 +120,47 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             );
         }
     }
+
+    @Override
+    public Map<String, Object> getAssetManagementDashboard() {
+        Map<String, Object> dashboard = new HashMap<>();
+        dashboard.put("totalAssets", getTotalAssetsCount().get("data"));
+        dashboard.put("assignedAssets", getAssignedAssetsCount().get("data"));
+        dashboard.put("availableAssets", getAvailableAssetsCount().get("data"));
+        dashboard.put("utilizationPercentage", getAssetUtilizationPercentage().get("data"));
+        return Map.of("success", true, "message", "Asset management dashboard data", "data", dashboard);
+    }
+
+    @Override
+    public Map<String, Object> getTotalAssetsCount() {
+        long totalAssets = assetRepository.count();
+        return Map.of("success", true, "message", "Total assets count", "data", totalAssets);
+    }
+
+    @Override
+    public Map<String, Object> getAssignedAssetsCount() {
+        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+        return Map.of("success", true, "message", "Assigned assets count", "data", assignedAssets);
+    }
+
+    @Override
+    public Map<String, Object> getAvailableAssetsCount() {
+        long totalAssets = assetRepository.count();
+        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+        long availableAssets = totalAssets - assignedAssets;
+        return Map.of("success", true, "message", "Available assets count", "data", availableAssets);
+    }
+
+    @Override
+    public Map<String, Object> getAssetUtilizationPercentage() {
+        long totalAssets = assetRepository.count();
+        if (totalAssets == 0) {
+            return Map.of("success", true, "message", "Utilization percentage", "data", 0.0);
+        }
+        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+        double utilization = (assignedAssets * 100.0) / totalAssets;
+        return Map.of("success", true, "message", "Asset utilization percentage", "data", Math.round(utilization * 100.0) / 100.0);
+    }
+
+
 }

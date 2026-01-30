@@ -13,6 +13,8 @@ public interface ClientAssetAssignmentService {
     ApiResponse<Void> deleteAssignment(Long assignmentId);
 
     ApiResponse<?> getAllAssignments();
+    
+    ApiResponse<?> getAssignmentsByAssetId(Long assetId);
 
     ApiResponse<Void> returnAsset(
             Long assignmentId,

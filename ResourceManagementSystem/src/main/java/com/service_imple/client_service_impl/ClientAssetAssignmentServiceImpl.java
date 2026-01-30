@@ -1,9 +1,11 @@
 package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
+import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
+import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -27,8 +30,22 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Client asset not found"));
 
+            // 🔴 SERIAL NUMBER VALIDATION
+            if (assignment.getSerialNumber() == null ||
+                    assignment.getSerialNumber().isBlank()) {
+                throw new RuntimeException("Serial number is mandatory while assigning asset");
+            }
+
+            String serial = assignment.getSerialNumber().trim().toUpperCase();
+
+            if (assignmentRepository.existsBySerialNumber(serial)) {
+                throw new RuntimeException("Serial number already assigned to another asset");
+            }
+
+            assignment.setSerialNumber(serial);
             assignment.setAsset(asset);
             assignment.setAssignmentStatus(EnablementAssignmentStatus.ASSIGNED);
+            assignment.setAssignedDate(LocalDate.now());
             assignment.setActive(true);
 
             assignmentRepository.save(assignment);
@@ -38,6 +55,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                     "Asset assigned successfully",
                     null
             );
+
         } catch (Exception e) {
             return new ApiResponse<>(
                     false,
@@ -46,6 +64,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             );
         }
     }
+
 
     // UPDATE ASSIGNMENT
     @Override
@@ -56,8 +75,21 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
         try {
             ClientAssetAssignment assignment =
                     assignmentRepository.findById(assignmentId)
-                            .orElseThrow(() ->
-                                    new RuntimeException("Assignment not found"));
+                            .orElseThrow(() -> new RuntimeException("Assignment not found"));
+
+            // 🔴 SERIAL NUMBER UPDATE VALIDATION
+            if (updated.getSerialNumber() != null &&
+                    !updated.getSerialNumber().isBlank()) {
+
+                String serial = updated.getSerialNumber().trim().toUpperCase();
+
+                if (assignmentRepository
+                        .existsBySerialNumberAndAssignmentIdNot(serial, assignmentId)) {
+                    throw new RuntimeException("Serial number already assigned to another asset");
+                }
+
+                assignment.setSerialNumber(serial);
+            }
 
             assignment.setResourceName(updated.getResourceName());
             assignment.setProjectName(updated.getProjectName());
@@ -65,8 +97,11 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             assignment.setAssignedBy(updated.getAssignedBy());
             assignment.setLocationType(updated.getLocationType());
             assignment.setLocationDetails(updated.getLocationDetails());
-            assignment.setRemarks(updated.getRemarks());
-            assignment.setAssignmentStatus(updated.getAssignmentStatus());
+            assignment.setDescription(updated.getDescription());
+
+            if(updated.getAssignmentStatus()!=null){
+                assignment.setAssignmentStatus(updated.getAssignmentStatus());
+            }
 
             assignmentRepository.save(assignment);
 
@@ -75,6 +110,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                     "Asset assignment updated successfully",
                     null
             );
+
         } catch (Exception e) {
             return new ApiResponse<>(
                     false,
@@ -83,6 +119,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             );
         }
     }
+
 
     // DELETE (SOFT)
     @Override
@@ -118,8 +155,8 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
         try {
             return new ApiResponse<>(
                     true,
-                    "Assigned assets fetched successfully",
-                    assignmentRepository.findByActiveTrue()
+                    "All asset assignments retrieved successfully",
+                    assignmentRepository.findAll()
             );
         } catch (Exception e) {
             return new ApiResponse<>(
@@ -128,6 +165,12 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                     null
             );
         }
+    }
+
+    @Override
+    public ApiResponse<?> getAssignmentsByAssetId(Long assetId) {
+        List<ClientAssetAssignment> list=assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(()-> new ClientException("Assignments not found"));
+        return new ApiResponse<>(true,"Fetched Assigned Assets Successfully",list);
     }
 
     // RETURN ASSET (LOCKED API)
@@ -152,7 +195,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             }
 
             assignment.setActualReturnDate(actualReturnDate);
-            assignment.setRemarks(remarks);
+            assignment.setDescription(remarks);
             assignment.setAssignmentStatus(EnablementAssignmentStatus.RETURNED);
             assignment.setActive(false);
 
