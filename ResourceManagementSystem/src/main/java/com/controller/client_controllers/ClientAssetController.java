@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/clinet-assets")
+@RequestMapping("/api/clinet-assets")
 public class ClientAssetController {
     private final ClientAssetServiceImpl service;
 

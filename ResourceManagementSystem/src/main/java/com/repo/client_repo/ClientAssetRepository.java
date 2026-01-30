@@ -8,7 +8,4 @@ import java.util.List;
 public interface ClientAssetRepository extends JpaRepository<ClientAsset, Long> {
     List<ClientAsset> findByClient_ClientId(Long clientId);
 
-    boolean existsBySerialNumber(String serialNumber);
-
-    boolean existsBySerialNumberAndAssetIdNot(String serialNumber, Long assetId);
 }

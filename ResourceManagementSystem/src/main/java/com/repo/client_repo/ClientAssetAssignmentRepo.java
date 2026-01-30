@@ -7,4 +7,11 @@ import java.util.List;
 
 public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssignment, Long> {
     List<ClientAssetAssignment> findByActiveTrue();
+
+    boolean existsBySerialNumber(String serialNumber);
+
+    boolean existsBySerialNumberAndAssignmentIdNot(
+            String serialNumber,
+            Long assignmentId
+    );
 }
