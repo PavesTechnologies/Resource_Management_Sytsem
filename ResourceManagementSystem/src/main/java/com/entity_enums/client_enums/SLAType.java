@@ -1,7 +1,7 @@
 package com.entity_enums.client_enums;
 
 public enum SLAType {
-    CERTIFICATION,
-    CLEARANCE,
-    TOOL_ACCESS
+    NEW_DEMAND,
+    REPLACEMENT,
+    EMERGENCY
 }
