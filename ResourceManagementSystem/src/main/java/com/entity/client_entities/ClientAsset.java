@@ -3,6 +3,7 @@ package com.entity.client_entities;
 
 import com.entity_enums.client_enums.AssetCategory;
 import com.entity_enums.client_enums.AssetStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -40,7 +41,8 @@ public class ClientAsset {
     @Column(nullable = false)
     private String assetType;
 
-//    private String serialOrLicense;
+    @Column(name = "serial_number", unique = true)
+    private String serialNumber;
 
     private Integer quantity;
 
