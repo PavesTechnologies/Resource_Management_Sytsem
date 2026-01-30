@@ -63,14 +63,6 @@ public class ClientServiceImple implements ClientService {
                     predicates.add(cb.equal(root.get("priorityLevel"), filter.getPriorityLevel()));
                 }
 
-//                if (hasText(filter.getDeliveryModel())) {
-//                    predicates.add(cb.equal(root.get("deliveryModel"), filter.getDeliveryModel()));
-//                }
-//
-//                if (hasText(filter.getRegionCode())) {
-//                    predicates.add(cb.equal(root.get("regionCode"), filter.getRegionCode()));
-//                }
-
                 if (hasText(filter.getCountryName())) {
                     predicates.add(cb.equal(root.get("countryName"), filter.getCountryName()));
                 }
@@ -92,16 +84,6 @@ public class ClientServiceImple implements ClientService {
                     predicates.add(cb.lessThanOrEqualTo(
                             root.get("createdAt"), filter.getCreatedTo().atTime(23, 59, 59)));
                 }
-
-//                if (filter.getUpdatedFrom() != null) {
-//                    predicates.add(cb.greaterThanOrEqualTo(
-//                            root.get("updatedAt"), filter.getUpdatedFrom()));
-//                }
-//
-//                if (filter.getUpdatedTo() != null) {
-//                    predicates.add(cb.lessThanOrEqualTo(
-//                            root.get("updatedAt"), filter.getUpdatedTo()));
-//                }
 
                 // ✅ No predicates → return ALL records
                 return cb.and(predicates.toArray(new Predicate[0]));
@@ -238,37 +220,37 @@ public class ClientServiceImple implements ClientService {
             // Get current year and previous year
             int currentYear = java.time.Year.now().getValue();
             int previousYear = currentYear - 1;
-
+            
             // Get all clients
             List<Client> allClients = clientRepo.findAll();
-
+            
             // Get active clients
             List<Client> activeClients = clientRepo.findByStatus(RecordStatus.ACTIVE);
-
+            
             // Calculate total clients
             int totalClients = allClients.size();
-
+            
             // Calculate active clients
             int activeClientsCount = activeClients.size();
-
+            
             // Get clients created in current year and previous year for growth calculation
             List<Client> currentYearClients = allClients.stream()
-                .filter(client -> client.getCreatedAt() != null &&
+                .filter(client -> client.getCreatedAt() != null && 
                                client.getCreatedAt().getYear() == currentYear)
                 .toList();
-
+            
             List<Client> previousYearClients = allClients.stream()
-                .filter(client -> client.getCreatedAt() != null &&
+                .filter(client -> client.getCreatedAt() != null && 
                                client.getCreatedAt().getYear() == previousYear)
                 .toList();
-
+            
             int currentYearClientCount = currentYearClients.size();
             int previousYearClientCount = previousYearClients.size();
-
+            
             // Calculate growth percentage
             double growthPercentage = 0.0;
             boolean isGrowthPositive = false;
-
+            
             if (previousYearClientCount > 0) {
                 growthPercentage = ((double)(currentYearClientCount - previousYearClientCount) / previousYearClientCount) * 100;
                 isGrowthPositive = growthPercentage >= 0;
@@ -276,13 +258,13 @@ public class ClientServiceImple implements ClientService {
                 growthPercentage = 100.0; // 100% growth if no previous year clients but have current year clients
                 isGrowthPositive = true;
             }
-
+            
             // Create yearly client counts map for UI chart
             Map<Integer, Integer> yearlyClientCounts = Map.of(
                 previousYear, previousYearClientCount,
                 currentYear, currentYearClientCount
             );
-
+            
             // Create KPI DTO
             AdminKPIDTO adminKPIDTO = new AdminKPIDTO();
             adminKPIDTO.setTotalClients(totalClients);
@@ -292,9 +274,9 @@ public class ClientServiceImple implements ClientService {
             adminKPIDTO.setPreviousPeriodClientCount(previousYearClientCount);
             adminKPIDTO.setGrowthPositive(isGrowthPositive);
             adminKPIDTO.setYearlyClientCounts(yearlyClientCounts);
-
+            
             return ResponseEntity.ok(new ApiResponse<>(true, "Admin KPI data fetched successfully", adminKPIDTO));
-
+            
         } catch (Exception e) {
             return ResponseEntity.ok(new ApiResponse<>(false, "Error fetching admin KPI data: " + e.getMessage(), null));
         }
