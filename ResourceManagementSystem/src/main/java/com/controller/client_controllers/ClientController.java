@@ -22,7 +22,6 @@ public class ClientController {
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse> createClient(@RequestBody Client client)
     {
-        System.out.println(client.toString());
         return clientService.createClient(client);
     }
 
@@ -53,10 +52,21 @@ public class ClientController {
     public ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPIDetials() {
         return clientService.getAdminKPI();
     }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<Client>> getClientById(@PathVariable Long id) {
         return clientService.getClientById(id);
     }
 
+    @PutMapping("/update-client")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Client>> updateClientDetails(@RequestBody Client clientDetails) {
+        return clientService.updateClient(clientDetails);
+    }
+
+    @DeleteMapping("/delete-client/{clientId}")
+    public ResponseEntity<ApiResponse> deleteClient(@PathVariable Long clientId) {
+        return clientService.deleteClient(clientId);
+    }
 }

@@ -46,6 +46,7 @@ public class ClientSLAServiceImple implements ClientSLAService {
     @Override
     public ResponseEntity<ApiResponse> deleteClientSLA(Long id) {
         ClientSLA sla=clientSLARepo.findById(id).get();
+        clientSLARepo.deleteById(id);
         if(sla!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Deleted Successfully",sla));
         }

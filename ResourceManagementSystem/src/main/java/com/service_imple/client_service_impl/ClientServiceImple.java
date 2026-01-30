@@ -287,5 +287,23 @@ public class ClientServiceImple implements ClientService {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client not found"));
         return ResponseEntity.ok(new ApiResponse<>(true, "Client fetched successfully", client));
     }
+
+    @Override
+    public ResponseEntity<ApiResponse<Client>> updateClient(Client client) {
+        Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientException("Client Not Found!"));
+        client.setCreatedAt(clientDetails.getCreatedAt());
+        client.setUpdatedAt(LocalDateTime.now());
+        Client updatedDetails = clientRepo.save(client);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Client Details Updated.", null));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> deleteClient(Long id) {
+        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client Not Found!"));
+        client.setStatus(RecordStatus.INACTIVE);
+        client.setUpdatedAt(LocalDateTime.now());
+        clientRepo.save(client);
+        return ResponseEntity.ok(new ApiResponse(true, "Client Deleted Successfully!", null));
+    }
 }
 
