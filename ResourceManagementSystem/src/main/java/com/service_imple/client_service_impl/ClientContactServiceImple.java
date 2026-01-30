@@ -27,7 +27,7 @@ public class ClientContactServiceImple implements ClientContactService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Created Successfully",Contact));
         }
         else {
-            throw new ClientException("Clinet Contact creation Failed");
+            throw new ClientException("Client Contact creation Failed");
         }
     }
 
