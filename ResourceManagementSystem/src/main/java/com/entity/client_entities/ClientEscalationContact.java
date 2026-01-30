@@ -23,6 +23,7 @@ public class ClientEscalationContact {
     private String contactRole;
     private String email;
     private String phone;
-    private Integer escalationLevel;
+    private String escalationLevel;
+    private Boolean activeFlag;
 }
 
