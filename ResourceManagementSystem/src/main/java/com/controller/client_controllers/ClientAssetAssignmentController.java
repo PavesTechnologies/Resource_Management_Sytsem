@@ -1,0 +1,70 @@
+package com.controller.client_controllers;
+
+
+import com.entity.client_entities.ClientAssetAssignment;
+import com.service_interface.client_service_interface.ClientAssetAssignmentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+
+@RestController
+@RequestMapping("/api/client-asset-assignments")
+public class ClientAssetAssignmentController {
+    @Autowired
+    private ClientAssetAssignmentService service;
+
+    @PostMapping("/{assetId}")
+    public ResponseEntity<?> assignAsset(
+            @PathVariable Long assetId,
+            @RequestBody ClientAssetAssignment assignment) {
+
+        return ResponseEntity.ok(
+                service.assignAsset(assetId, assignment)
+        );
+    }
+
+    @PutMapping("/{assignmentId}")
+    public ResponseEntity<?> updateAssignment(
+            @PathVariable Long assignmentId,
+            @RequestBody ClientAssetAssignment assignment) {
+
+        return ResponseEntity.ok(
+                service.updateAssignment(assignmentId, assignment)
+        );
+    }
+
+    @DeleteMapping("/{assignmentId}")
+    public ResponseEntity<?> deleteAssignment(
+            @PathVariable Long assignmentId) {
+
+        return ResponseEntity.ok(
+                service.deleteAssignment(assignmentId)
+        );
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAssignments() {
+
+        return ResponseEntity.ok(
+                service.getAllAssignments()
+        );
+    }
+
+    @PutMapping("/return/{assignmentId}")
+    public ResponseEntity<?> returnAsset(
+            @PathVariable Long assignmentId,
+            @RequestParam("actualReturnDate")
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate actualReturnDate,
+            @RequestParam(value = "remarks", required = false)
+            String remarks) {
+
+        return ResponseEntity.ok(
+                service.returnAsset(assignmentId, actualReturnDate, remarks)
+        );
+    }
+
+}

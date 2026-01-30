@@ -16,6 +16,7 @@ public interface ClientService {
 
     ResponseEntity<ApiResponse> countClients();
     ResponseEntity<ApiResponse<List<Client>>> clientDetails();
+    ResponseEntity<ApiResponse<Client>> getClientById(Long id);
 
     ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI();
 

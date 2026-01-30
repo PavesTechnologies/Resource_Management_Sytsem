@@ -53,5 +53,10 @@ public class ClientController {
     public ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPIDetials() {
         return clientService.getAdminKPI();
     }
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<Client>> getClientById(@PathVariable Long id) {
+        return clientService.getClientById(id);
+    }
 
 }
