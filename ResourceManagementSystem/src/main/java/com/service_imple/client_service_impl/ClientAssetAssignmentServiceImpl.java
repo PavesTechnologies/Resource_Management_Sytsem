@@ -1,9 +1,11 @@
 package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
+import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
+import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -152,8 +155,8 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
         try {
             return new ApiResponse<>(
                     true,
-                    "Assigned assets fetched successfully",
-                    assignmentRepository.findByActiveTrue()
+                    "All asset assignments retrieved successfully",
+                    assignmentRepository.findAll()
             );
         } catch (Exception e) {
             return new ApiResponse<>(
@@ -162,6 +165,12 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                     null
             );
         }
+    }
+
+    @Override
+    public ApiResponse<?> getAssignmentsByAssetId(Long assetId) {
+        List<ClientAssetAssignment> list=assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(()-> new ClientException("Assignments not found"));
+        return new ApiResponse<>(true,"Fetched Assigned Assets Successfully",list);
     }
 
     // RETURN ASSET (LOCKED API)

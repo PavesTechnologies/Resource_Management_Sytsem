@@ -8,8 +8,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/clinet-assets")
+@RequestMapping("/api/client-assets")
 public class ClientAssetController {
     private final ClientAssetServiceImpl service;
 
@@ -60,4 +62,31 @@ public class ClientAssetController {
                 .status(response.getSuccess() ? HttpStatus.OK : HttpStatus.BAD_REQUEST)
                 .body(response);
     }
+
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> getAssetManagementDashboard() {
+        return ResponseEntity.ok(service.getAssetManagementDashboard());
+    }
+
+    @GetMapping("/total-assets")
+    public ResponseEntity<Map<String, Object>> getTotalAssets() {
+        return ResponseEntity.ok(service.getTotalAssetsCount());
+    }
+
+    @GetMapping("/assigned-assets")
+    public ResponseEntity<Map<String, Object>> getAssignedAssets() {
+        return ResponseEntity.ok(service.getAssignedAssetsCount());
+    }
+
+    @GetMapping("/available-assets")
+    public ResponseEntity<Map<String, Object>> getAvailableAssets() {
+        return ResponseEntity.ok(service.getAvailableAssetsCount());
+    }
+
+    @GetMapping("/utilization-percentage")
+    public ResponseEntity<Map<String, Object>> getAssetUtilizationPercentage() {
+        return ResponseEntity.ok(service.getAssetUtilizationPercentage());
+    }
+
 }
