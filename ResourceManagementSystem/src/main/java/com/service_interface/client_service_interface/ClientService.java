@@ -20,4 +20,7 @@ public interface ClientService {
 
     ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI();
 
+    ResponseEntity<ApiResponse<Client>> updateClient(Client client);
+    ResponseEntity<ApiResponse> deleteClient(Long id);
+
 }
