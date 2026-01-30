@@ -18,4 +18,6 @@ public interface ClientService {
     ResponseEntity<ApiResponse<List<Client>>> clientDetails();
     ResponseEntity<ApiResponse<Client>> getClientById(Long id);
 
+    ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI();
+
 }
