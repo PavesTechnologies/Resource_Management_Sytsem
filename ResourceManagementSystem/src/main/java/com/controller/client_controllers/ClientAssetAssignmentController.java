@@ -45,6 +45,11 @@ public class ClientAssetAssignmentController {
         );
     }
 
+    @GetMapping("/by-asset/{assetId}")
+    public ResponseEntity<?> getAssignmentsByAssetId(@PathVariable Long assetId) {
+        return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
+    }
+
     @GetMapping
     public ResponseEntity<?> getAssignments() {
 

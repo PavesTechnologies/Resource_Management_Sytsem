@@ -14,6 +14,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -118,4 +120,47 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             );
         }
     }
+
+    @Override
+    public Map<String, Object> getAssetManagementDashboard() {
+        Map<String, Object> dashboard = new HashMap<>();
+        dashboard.put("totalAssets", getTotalAssetsCount().get("data"));
+        dashboard.put("assignedAssets", getAssignedAssetsCount().get("data"));
+        dashboard.put("availableAssets", getAvailableAssetsCount().get("data"));
+        dashboard.put("utilizationPercentage", getAssetUtilizationPercentage().get("data"));
+        return Map.of("success", true, "message", "Asset management dashboard data", "data", dashboard);
+    }
+
+    @Override
+    public Map<String, Object> getTotalAssetsCount() {
+        long totalAssets = assetRepository.count();
+        return Map.of("success", true, "message", "Total assets count", "data", totalAssets);
+    }
+
+    @Override
+    public Map<String, Object> getAssignedAssetsCount() {
+        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+        return Map.of("success", true, "message", "Assigned assets count", "data", assignedAssets);
+    }
+
+    @Override
+    public Map<String, Object> getAvailableAssetsCount() {
+        long totalAssets = assetRepository.count();
+        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+        long availableAssets = totalAssets - assignedAssets;
+        return Map.of("success", true, "message", "Available assets count", "data", availableAssets);
+    }
+
+    @Override
+    public Map<String, Object> getAssetUtilizationPercentage() {
+        long totalAssets = assetRepository.count();
+        if (totalAssets == 0) {
+            return Map.of("success", true, "message", "Utilization percentage", "data", 0.0);
+        }
+        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+        double utilization = (assignedAssets * 100.0) / totalAssets;
+        return Map.of("success", true, "message", "Asset utilization percentage", "data", Math.round(utilization * 100.0) / 100.0);
+    }
+
+
 }
