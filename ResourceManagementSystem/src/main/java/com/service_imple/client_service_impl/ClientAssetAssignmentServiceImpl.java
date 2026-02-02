@@ -8,6 +8,7 @@ import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
+import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,13 +23,24 @@ import java.util.Map;
 public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentService {
     private final ClientAssetRepository assetRepository;
     private final ClientAssetAssignmentRepo assignmentRepository;
-
+    private final ClientRepo clientRepo;
     // ASSIGN ASSET
     @Override
     public ApiResponse<Void> assignAsset(Long assetId, ClientAssetAssignment assignment) {
         try {
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Client asset not found"));
+
+            long assignedCount =
+                    assignmentRepository.countByAsset_AssetIdAndActiveTrue(assetId);
+
+            if (assignedCount >= asset.getQuantity()) {
+                return new ApiResponse<>(
+                        false,
+                        "Assignment failed. No available assets to assign.",
+                        null
+                );
+            }
 
             // 🔴 SERIAL NUMBER VALIDATION
             if (assignment.getSerialNumber() == null ||
@@ -45,8 +57,22 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             assignment.setSerialNumber(serial);
             assignment.setAsset(asset);
             assignment.setAssignmentStatus(EnablementAssignmentStatus.ASSIGNED);
-            assignment.setAssignedDate(LocalDate.now());
+//            assignment.setAssignedDate(LocalDate.now());
             assignment.setActive(true);
+
+            LocalDate today = LocalDate.now();
+
+            if (assignment.getAssignedDate() != null &&
+                    !assignment.getAssignedDate().isEqual(today)) {
+                return new ApiResponse<>(
+                        false,
+                        "Assigned date must be today's date.",
+                        null
+                );
+            }
+
+            assignment.setAssignedDate(today);
+
 
             assignmentRepository.save(assignment);
 
@@ -129,6 +155,15 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                     assignmentRepository.findById(assignmentId)
                             .orElseThrow(() ->
                                     new RuntimeException("Assignment not found"));
+
+            if (assignment.getAssignmentStatus() == EnablementAssignmentStatus.ASSIGNED) {
+                return new ApiResponse<>(
+                        false,
+                        "Assigned asset cannot be deleted. Please return the asset first.",
+                        null
+                );
+            }
+
 
             assignment.setActive(false);
             assignment.setAssignmentStatus(EnablementAssignmentStatus.RETURNED);
