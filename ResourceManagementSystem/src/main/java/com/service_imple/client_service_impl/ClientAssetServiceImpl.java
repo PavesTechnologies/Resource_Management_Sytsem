@@ -6,6 +6,7 @@ import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientAsset;
 import com.entity_enums.client_enums.AssetCategory;
 import com.entity_enums.client_enums.AssetStatus;
+import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientAssetService;
@@ -23,6 +24,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
     private final ClientAssetRepository assetRepository;
     private final ClientRepo clientRepository;
+    private final ClientAssetAssignmentRepo assignmentRepo;
 
     @Override
     public ApiResponse<String> createClientAsset(ClientAsset asset) {
@@ -58,6 +60,18 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             ClientAsset existing = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
 
+            long assignedCount =
+                    assignmentRepo.countByAsset_AssetIdAndActiveTrue(assetId);
+
+            if (asset.getQuantity() < assignedCount) {
+                return new ApiResponse<>(
+                        false,
+                        "Quantity cannot be reduced below assigned assets ("
+                                + assignedCount + " already assigned).",
+                        null
+                );
+            }
+
             existing.setAssetName(asset.getAssetName());
             existing.setAssetCategory(asset.getAssetCategory());
             existing.setAssetType(asset.getAssetType());
@@ -66,9 +80,11 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
             assetRepository.save(existing);
 
-            return new ApiResponse<>(true,
+            return new ApiResponse<>(
+                    true,
                     "Client asset updated successfully.",
-                    null);
+                    null
+            );
 
         } catch (Exception e) {
             return new ApiResponse<>(
@@ -81,6 +97,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
 
 
+
     // SOFT DELETE (DEACTIVATE)
     @Override
     public ApiResponse<String> deleteClientAsset(Long assetId) {
@@ -88,21 +105,36 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
 
+            long assignedCount =
+                    assignmentRepo.countByAsset_AssetIdAndActiveTrue(assetId);
+
+            if (assignedCount > 0) {
+                return new ApiResponse<>(
+                        false,
+                        "Asset cannot be deleted because it has active assignments.",
+                        null
+                );
+            }
+
             asset.setStatus(AssetStatus.INACTIVE);
             asset.setUpdatedAt(LocalDateTime.now());
-
             assetRepository.save(asset);
 
-            return new ApiResponse<>(true,
+            return new ApiResponse<>(
+                    true,
                     "Client asset deactivated successfully.",
-                    null);
+                    null
+            );
 
         } catch (Exception e) {
-            return new ApiResponse<>(false,
+            return new ApiResponse<>(
+                    false,
                     "Client asset deletion failed: " + e.getMessage(),
-                    null);
+                    null
+            );
         }
     }
+
 
     @Override
     public ApiResponse<?> getAssetsByClient(Long clientId) {
@@ -122,18 +154,60 @@ public class ClientAssetServiceImpl implements ClientAssetService {
     }
 
     @Override
-    public Map<String, Object> getAssetManagementDashboard() {
-        Map<String, Object> dashboard = new HashMap<>();
-        dashboard.put("totalAssets", getTotalAssetsCount().get("data"));
-        dashboard.put("assignedAssets", getAssignedAssetsCount().get("data"));
-        dashboard.put("availableAssets", getAvailableAssetsCount().get("data"));
-        dashboard.put("utilizationPercentage", getAssetUtilizationPercentage().get("data"));
-        return Map.of("success", true, "message", "Asset management dashboard data", "data", dashboard);
+    public ApiResponse<ClientAsset> getAssetById(Long assetId) {
+        try {
+            ClientAsset asset = assetRepository.findById(assetId)
+                    .orElseThrow(() -> new RuntimeException("Asset not found"));
+
+            return new ApiResponse<>(
+                    true,
+                    "Asset fetched successfully",
+                    asset
+            );
+        } catch (Exception e) {
+            return new ApiResponse<>(
+                    false,
+                    "Failed to fetch asset: " + e.getMessage(),
+                    null
+            );
+        }
     }
+
+
+    @Override
+    public Map<String, Object> getAssetManagementDashboard() {
+
+        Map<String, Object> data = new HashMap<>();
+
+        data.put("totalAssets",
+                assetRepository.sumQuantity());
+
+        data.put("assignedAssets",
+                assignmentRepo.countActiveAssigned());
+
+        long total = assetRepository.sumQuantity();
+        long assigned = assignmentRepo.countActiveAssigned();
+
+        data.put("availableAssets",
+                Math.max(0, total - assigned));
+
+        double utilization =
+                total == 0 ? 0.0 : (assigned * 100.0) / total;
+
+        data.put("utilizationPercentage",
+                Math.round(utilization * 100.0) / 100.0);
+
+        return Map.of(
+                "success", true,
+                "message", "Asset management dashboard data",
+                "data", data
+        );
+    }
+
 
     @Override
     public Map<String, Object> getTotalAssetsCount() {
-        long totalAssets = assetRepository.count();
+        long totalAssets = assetRepository.sumQuantity();
         return Map.of("success", true, "message", "Total assets count", "data", totalAssets);
     }
 
@@ -153,14 +227,59 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
     @Override
     public Map<String, Object> getAssetUtilizationPercentage() {
-        long totalAssets = assetRepository.count();
-        if (totalAssets == 0) {
-            return Map.of("success", true, "message", "Utilization percentage", "data", 0.0);
-        }
-        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
-        double utilization = (assignedAssets * 100.0) / totalAssets;
-        return Map.of("success", true, "message", "Asset utilization percentage", "data", Math.round(utilization * 100.0) / 100.0);
-    }
 
+        Long total = assetRepository.sumQuantity();
+
+        if (total == null || total == 0) {
+            return Map.of(
+                    "success", true,
+                    "data", 0.0
+            );
+        }
+
+        long assigned = assignmentRepo.countActiveAssigned();
+
+        double utilization = (assigned * 100.0) / total;
+
+        return Map.of(
+                "success", true,
+                "data", Math.round(utilization * 100.0) / 100.0
+        );
+    }
+    @Override
+    public Map<String, Object> getAssetDashboardByClient(Long clientId) {
+
+        long totalUnits =
+                assetRepository.sumActiveQuantityByClient(clientId);
+
+        long assignedUnits =
+                assignmentRepo.countAssignedUnitsByClient(clientId);
+
+        // 🚨 SAFETY: NEVER allow assigned > total
+        if (assignedUnits > totalUnits) {
+            assignedUnits = totalUnits;
+        }
+
+        long availableUnits = totalUnits - assignedUnits;
+
+        double utilization =
+                totalUnits == 0 ? 0.0 :
+                        (assignedUnits * 100.0) / totalUnits;
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("totalAssets", totalUnits);
+        data.put("assignedAssets", assignedUnits);
+        data.put("availableAssets", availableUnits);
+        data.put(
+                "utilizationPercentage",
+                Math.round(utilization * 100.0) / 100.0
+        );
+
+        return Map.of(
+                "success", true,
+                "message", "Client asset dashboard data",
+                "data", data
+        );
+    }
 
 }

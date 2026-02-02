@@ -3,11 +3,14 @@ package com.controller.client_controllers;
 
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientAsset;
+import com.entity.client_entities.ClientAssetAssignment;
+import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.service_imple.client_service_impl.ClientAssetServiceImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -63,6 +66,21 @@ public class ClientAssetController {
                 .body(response);
     }
 
+    @GetMapping("/{assetId}")
+    public ResponseEntity<ApiResponse<ClientAsset>> getAssetById(
+            @PathVariable Long assetId) {
+        
+        ApiResponse<ClientAsset> response = service.getAssetById(assetId);
+        
+        return ResponseEntity
+                .status(response.getSuccess() ? HttpStatus.OK : HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+//    @GetMapping("/dashboard")
+//    public ResponseEntity<Map<String, Object>> dashboard() {
+//        return ResponseEntity.ok(service.getAssetManagementDashboard());
+//    }
+
 
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getAssetManagementDashboard() {
@@ -88,5 +106,15 @@ public class ClientAssetController {
     public ResponseEntity<Map<String, Object>> getAssetUtilizationPercentage() {
         return ResponseEntity.ok(service.getAssetUtilizationPercentage());
     }
+
+    @GetMapping("/dashboard/client/{clientId}")
+    public ResponseEntity<Map<String, Object>> getDashboardByClient(
+            @PathVariable Long clientId) {
+
+        return ResponseEntity.ok(
+                service.getAssetDashboardByClient(clientId)
+        );
+    }
+
 
 }
