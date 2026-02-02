@@ -30,6 +30,7 @@
 		<java.version>21</java.version>
 		<lombok.version>1.18.36</lombok.version>
 		<org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
+		<debezium.version>2.5.4.Final</debezium.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -109,6 +110,19 @@
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.5.0</version>
 		</dependency>
+		<dependency>
+			<groupId>io.debezium</groupId>
+			<artifactId>debezium-embedded</artifactId>
+			<version>${debezium.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.debezium</groupId>
+			<artifactId>debezium-connector-mysql</artifactId>
+			<version>${debezium.version}</version>
+		</dependency>
+
+
 
 	</dependencies>
 

@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+## CDC
+# CDC (Debezium runtime-specific)
+ResourceManagementSystem/src/main/java/com/cdc/
+
+# Local project bootstrap entities
+ResourceManagementSystem/src/main/java/com/entity/Project.java
+ResourceManagementSystem/src/main/java/com/repo/ProjectRepository.java
+
