@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ClientDTO {
-    @JsonIgnore
+
     private Long clientId;
     private String clientName;
     private String clientType;
