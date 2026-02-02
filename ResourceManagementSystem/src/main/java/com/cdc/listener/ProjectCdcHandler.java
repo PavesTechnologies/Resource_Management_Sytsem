@@ -1,6 +1,12 @@
 package com.cdc.listener;
 
+import com.cdc.mapping.ColumnMapping;
+import com.cdc.mapping.ProjectCdcMappingRegistry;
+import com.cdc.util.CdcValueConverter;
+import com.cdc.util.DebeziumChangeDetector;
+import com.cdc.util.ReflectionUtil;
 import com.entity.Project;
+import com.entity_enums.ProjectStatus;
 import com.repo.ProjectRepository;
 import io.debezium.engine.RecordChangeEvent;
 import org.apache.kafka.connect.data.Struct;
@@ -8,7 +14,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.Set;
 
 @Component
 public class ProjectCdcHandler {
@@ -21,79 +27,94 @@ public class ProjectCdcHandler {
 
     public void handleEvent(RecordChangeEvent<SourceRecord> event) {
 
-        SourceRecord record = event.record();
-        Struct value = (Struct) record.value();
+        Struct value = (Struct) event.record().value();
         if (value == null) return;
 
-        String op = value.getString("op"); // c, u, d, r
+        String op = value.getString("op");
 
-        // Ignore snapshot read events
+        // Ignore snapshot reads
         if ("r".equals(op)) return;
 
-        // INSERT or UPDATE
-        if ("c".equals(op) || "u".equals(op)) {
+        Struct before = value.getStruct("before");
+        Struct after = value.getStruct("after");
 
-            Struct after = value.getStruct("after");
-            if (after == null) return;
+        // DELETE (after == null)
+        if ("d".equals(op)) {
+            if (before == null) return;
 
-            // PMS: projects.id
-            Long projectId = ((Number) after.get("id")).longValue();
+            Long pmsProjectId =
+                    ((Number) before.get("id")).longValue();
 
-            Optional<Project> existing = projectRepository.findById(projectId);
+            projectRepository.findById(pmsProjectId)
+                    .ifPresent(p -> {
+                        p.setProjectStatus(null); // soft delete decision
+                        p.setLastSyncedAt(LocalDateTime.now());
+                        projectRepository.save(p);
+                    });
+            return;
+        }
+        // DELETE (soft delete)
+        if ("d".equals(op)) {
+            if (before == null) return;
 
-            if (existing.isEmpty()) {
+            Long pmsProjectId =
+                    ((Number) before.get("id")).longValue();
 
-                LocalDateTime now = LocalDateTime.now();
+            projectRepository.findById(pmsProjectId)
+                    .ifPresent(project -> {
+                        project.setProjectStatus(ProjectStatus.ARCHIVED); // soft delete
+                        project.setLastSyncedAt(LocalDateTime.now());
+                        projectRepository.save(project);
+                    });
 
-                Project p = Project.builder()
-                        // 🔑 from PMS
-                        .projectId(projectId)
-
-                        // 🧱 REQUIRED RMS FIELDS (DEFAULT STRINGS)
-                        .projectName("PENDING_FROM_PMS")
-                        .clientId(null) // if nullable in DB, else set -1
-                        .projectStatus("DRAFT")
-                        .lifecycleStage("INITIATION")
-
-                        .deliveryModel("OFFSHORE")
-                        .primaryLocation("UNKNOWN")
-
-                        .projectManagerId(null)
-                        .resourceManagerId(null)
-                        .deliveryLeadId(null)
-
-                        .riskLevel("LOW")
-                        .priorityLevel("LOW")
-
-                        // 🔄 CDC metadata
-                        .sourceSystem("PMS")
-                        .externalRefId("PMS_" + projectId)
-
-                        // 🕒 audit
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .lastSyncedAt(now)
-
-                        .build();
-
-                projectRepository.save(p);
-
-            } else {
-                Project p = existing.get();
-                p.setLastSyncedAt(LocalDateTime.now());
-                projectRepository.save(p);
-            }
             return;
         }
 
-        // DELETE
-        if ("d".equals(op)) {
 
-            Struct before = value.getStruct("before");
-            if (before == null) return;
+        // INSERT or UPDATE
+        if (after == null) return;
 
-            Long projectId = ((Number) before.get("id")).longValue();
-            projectRepository.archiveByProjectId(projectId);
+        Long pmsProjectId =
+                ((Number) after.get("id")).longValue();
+
+        Project rmsProject = projectRepository
+                .findById(pmsProjectId)
+                .orElseGet(() -> {
+                    Project p = new Project();
+                    p.setPmsProjectId(pmsProjectId);
+                    return p;
+                });
+
+        Set<String> changedColumns =
+                DebeziumChangeDetector.detectChangedColumns(before, after);
+
+        for (String pmsColumn : changedColumns) {
+
+            ColumnMapping mapping =
+                    ProjectCdcMappingRegistry.PMS_TO_RMS.get(pmsColumn);
+
+            if (mapping == null) continue;
+
+            Object rawValue = after.schema().field(pmsColumn) != null
+                    ? after.get(pmsColumn)
+                    : null;
+
+            Object converted =
+                    CdcValueConverter.convert(
+                            rawValue,
+                            mapping.getFieldType(),
+                            mapping.getEnumClass()
+                    );
+
+            ReflectionUtil.setField(
+                    rmsProject,
+                    mapping.getRmsField(),
+                    converted
+            );
         }
+
+        rmsProject.setLastSyncedAt(LocalDateTime.now());
+
+        projectRepository.save(rmsProject);
     }
 }

@@ -1,15 +1,24 @@
 package com.cdc.config;
 
+import io.debezium.config.Configuration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-@Configuration
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+@org.springframework.context.annotation.Configuration
 public class DebeziumConfig {
 
-    @Bean
-    public io.debezium.config.Configuration debeziumConfiguration() {
+    private static final String CDC_BASE_DIR =
+            System.getProperty("user.home") + "/rms-cdc";
 
-        return io.debezium.config.Configuration.create()
+    @Bean
+    public Configuration debeziumConfiguration() {
+
+        createDirIfMissing(CDC_BASE_DIR);
+
+        return Configuration.create()
 
                 .with("name", "pms-project-cdc")
 
@@ -26,28 +35,41 @@ public class DebeziumConfig {
                 .with("database.server.name", "pms_mysql")
                 .with("topic.prefix", "pms")
 
-
-                // ONLY this table
+                // Capture ONLY required table
                 .with("database.include.list", "ajay")
                 .with("table.include.list", "ajay.projects")
 
-                // Snapshot is READ-ONLY
-                .with("snapshot.mode", "initial")
+                // ✅ PERMANENT FIX
+                .with("snapshot.mode", "when_needed")
 
-                // Offset storage (restart safe)
+                // Offset storage (dynamic & team-safe)
                 .with("offset.storage",
                         "org.apache.kafka.connect.storage.FileOffsetBackingStore")
                 .with("offset.storage.file.filename",
-                        "C:/debezium-offsets/pms-project-offsets.dat")
+                        CDC_BASE_DIR + "/pms-project-offsets.dat")
 
+                // Schema history (file-based, no Kafka)
                 .with("schema.history.internal",
                         "io.debezium.storage.file.history.FileSchemaHistory")
                 .with("schema.history.internal.file.filename",
-                        "C:/debezium-offsets/pms-schema-history.dat")
+                        CDC_BASE_DIR + "/pms-schema-history.dat")
+
+                .with("schema.history.internal.store.only.captured.tables.ddl", "true")
+                .with("schema.history.internal.skip.unparseable.ddl", "true")
 
                 .with("include.schema.changes", "false")
 
                 .build();
     }
-}
 
+    private void createDirIfMissing(String dir) {
+        try {
+            Path path = Paths.get(dir);
+            if (!Files.exists(path)) {
+                Files.createDirectories(path);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create CDC directory", e);
+        }
+    }
+}

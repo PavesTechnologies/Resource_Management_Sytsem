@@ -1,85 +1,97 @@
 package com.entity;
 
+import com.entity_enums.ProjectStage;
+import com.entity_enums.ProjectStatus;
+import com.entity_enums.centralised_enums.DeliveryModel;
+import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity_enums.centralised_enums.RiskLevel;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "project")
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Project {
 
-    // 🔑 Primary Key (numeric, sourced from PMS)
+
     @Id
-    @Column(name = "project_id")
-    private Long projectId;
+    @Column(name = "pms_project_id", unique = true)
+    private Long pmsProjectId;
 
-    @Column(name = "project_name")
-    private String projectName;
+    @Column(nullable = false)
+    private String name;
 
+    // Client reference (cross-system safe)
     @Column(name = "client_id")
-    private Long clientId;
+    private UUID clientId;
 
-    // 📌 Status & Lifecycle
-    @Column(name = "project_status")
-    private String projectStatus;
-
-    @Column(name = "lifecycle_stage")
-    private String lifecycleStage;
-
-    // 📅 Timeline
-    @Column(name = "start_date")
-    private LocalDate startDate;
-
-    @Column(name = "end_date")
-    private LocalDate endDate;
-
-    // 🏢 Delivery model & location
-    @Column(name = "delivery_model")
-    private String deliveryModel;
-
-    @Column(name = "primary_location")
-    private String primaryLocation;
-
-    // 👥 Ownership
+    // Business owner / sponsor
     @Column(name = "project_manager_id")
     private Long projectManagerId;
 
+    // Resource Manager
     @Column(name = "resource_manager_id")
     private Long resourceManagerId;
 
-    @Column(name = "delivery_lead_id")
-    private Long deliveryLeadId;
+    // Delivery Owner
+    @Column(name = "delivery_owner_id")
+    private Long deliveryOwnerId;
 
-    // ⚠️ Risk & priority
-    @Column(name = "risk_level")
-    private String riskLevel;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_model", length = 20)
+    private DeliveryModel deliveryModel;
+
+    @Column(name = "primary_location", length = 100)
+    private String primaryLocation;
+
+    /* =====================
+       RISK & PRIORITY (USED BY RMS)
+       ===================== */
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "risk_level", length = 20)
+    private RiskLevel riskLevel;
 
     @Column(name = "risk_level_updated_at")
     private LocalDateTime riskLevelUpdatedAt;
 
-    @Column(name = "priority_level")
-    private String priorityLevel;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority_level", length = 20)
+    private PriorityLevel priorityLevel;
 
-    // 🔄 CDC metadata
-    @Column(name = "source_system")
-    private String sourceSystem;
+    /* =====================
+       BUDGET (SYNCED FROM PMS)
+       ===================== */
 
-    @Column(name = "external_ref_id", unique = true)
-    private String externalRefId;
+    // Approved budget snapshot (read-only)
+    @Column(name = "project_budget", precision = 15, scale = 2)
+    private BigDecimal projectBudget;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Column(name = "project_budget_currency", length = 3)
+    private String projectBudgetCurrency;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "project_status", length = 20)
+    private ProjectStatus projectStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "lifecycle_stage", length = 30)
+    private ProjectStage lifecycleStage;
 
     @Column(name = "last_synced_at")
-    private LocalDateTime lastSyncedAt;
-}
+    private LocalDateTime LastSyncedAt;
 
+    /* =====================
+       AUDIT
+       ===================== */
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+}
