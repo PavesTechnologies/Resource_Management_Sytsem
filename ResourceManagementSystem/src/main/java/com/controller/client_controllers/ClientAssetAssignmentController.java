@@ -1,6 +1,7 @@
 package com.controller.client_controllers;
 
 
+import com.dto.ApiResponse;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +71,13 @@ public class ClientAssetAssignmentController {
         return ResponseEntity.ok(
                 service.returnAsset(assignmentId, actualReturnDate, remarks)
         );
+    }
+
+    @GetMapping("/asset/{assetId}")
+    public ResponseEntity<ApiResponse<?>> getByAsset(
+            @PathVariable Long assetId) {
+
+        return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
     }
 
 }

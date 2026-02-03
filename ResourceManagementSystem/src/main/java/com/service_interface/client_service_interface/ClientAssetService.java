@@ -10,10 +10,13 @@ public interface ClientAssetService {
     ApiResponse<String> updateClientAsset(Long assetId, ClientAsset asset);
     ApiResponse<String> deleteClientAsset(Long assetId);
     ApiResponse<?> getAssetsByClient(Long ClientId);
+    ApiResponse<ClientAsset> getAssetById(Long assetId);
 
     Map<String, Object> getAssetManagementDashboard();
     Map<String, Object> getTotalAssetsCount();
     Map<String, Object> getAssignedAssetsCount();
     Map<String, Object> getAvailableAssetsCount();
     Map<String, Object> getAssetUtilizationPercentage();
+    Map<String, Object> getAssetDashboardByClient(Long clientId);
+
 }
