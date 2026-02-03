@@ -5,13 +5,14 @@ import com.entity_enums.skill_enums.AppliesToType;
 import com.dto.UserDTO;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface SkillRequirementService {
 
     SkillRequirement addRequirement(
             AppliesToType appliesToType,
             Long appliesToId,
-            Long skillId,
+            UUID skillId,
             String proficiencyName,
             Boolean mandatory,
             UserDTO user

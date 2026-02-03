@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -28,19 +29,19 @@ public class SkillTaxonomyQueryDaoImpl implements SkillTaxonomyQueryDao {
     }
 
     @Override
-    public Optional<Skill> findActiveSkillByNameAndCategory(String skillName, Long categoryId) {
+    public Optional<Skill> findActiveSkillByNameAndCategory(String skillName, UUID categoryId) {
         return skillRepo.findBySkillNameIgnoreCase(skillName)
                 .filter(skill -> skill.getCategory().getCategoryId().equals(categoryId))
                 .filter(Skill::getActiveFlag);
     }
 
     @Override
-    public List<Skill> findActiveSkillsByCategory(Long categoryId) {
+    public List<Skill> findActiveSkillsByCategory(UUID categoryId) {
         return skillRepo.findByCategoryCategoryIdAndActiveFlagTrue(categoryId);
     }
 
     @Override
-    public List<SubSkill> findActiveSubSkillsBySkill(Long skillId) {
+    public List<SubSkill> findActiveSubSkillsBySkill(UUID skillId) {
         return subSkillRepo.findBySkillSkillIdAndActiveFlagTrue(skillId);
     }
 }

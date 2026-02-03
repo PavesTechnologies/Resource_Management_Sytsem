@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/client-assets")
@@ -35,7 +36,7 @@ public class ClientAssetController {
 
     @PutMapping("/{assetId}")
     public ResponseEntity<ApiResponse<String>> update(
-            @PathVariable Long assetId,
+            @PathVariable UUID assetId,
             @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.updateClientAsset(assetId, asset);
@@ -46,7 +47,7 @@ public class ClientAssetController {
 
     @DeleteMapping("/{assetId}")
     public ResponseEntity<ApiResponse<String>> delete(
-            @PathVariable Long assetId) {
+            @PathVariable UUID assetId) {
 
         ApiResponse<String> response = service.deleteClientAsset(assetId);
         return ResponseEntity
@@ -57,7 +58,7 @@ public class ClientAssetController {
     // FETCH ENABLEMENTS BY CLIENT
     @GetMapping("/client/{clientId}")
     public ResponseEntity<ApiResponse<?>> getAssetsByClient(
-            @PathVariable Long clientId) {
+            @PathVariable UUID clientId) {
 
         ApiResponse<?> response = service.getAssetsByClient(clientId);
 
@@ -68,7 +69,7 @@ public class ClientAssetController {
 
     @GetMapping("/{assetId}")
     public ResponseEntity<ApiResponse<ClientAsset>> getAssetById(
-            @PathVariable Long assetId) {
+            @PathVariable UUID assetId) {
         
         ApiResponse<ClientAsset> response = service.getAssetById(assetId);
         
@@ -109,7 +110,7 @@ public class ClientAssetController {
 
     @GetMapping("/dashboard/client/{clientId}")
     public ResponseEntity<Map<String, Object>> getDashboardByClient(
-            @PathVariable Long clientId) {
+            @PathVariable UUID clientId) {
 
         return ResponseEntity.ok(
                 service.getAssetDashboardByClient(clientId)

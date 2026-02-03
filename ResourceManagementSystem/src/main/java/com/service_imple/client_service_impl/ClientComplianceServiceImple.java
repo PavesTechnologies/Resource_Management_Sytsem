@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class ClientComplianceServiceImple implements ClientComplianceService {
@@ -42,7 +43,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClientCompliance(Long id) {
+    public ResponseEntity<ApiResponse> deleteClientCompliance(UUID id) {
         ClientCompliance Compliance=clientComplianceRepo.findById(id).get();
         if(Compliance!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Deleted Successfully",Compliance));
@@ -53,7 +54,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getClientCompliance(Long clientId) {
+    public ResponseEntity<ApiResponse> getClientCompliance(UUID clientId) {
         List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientException("Failed to fentch client Compliance"));
 
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Fentched Successfully",Compliance));

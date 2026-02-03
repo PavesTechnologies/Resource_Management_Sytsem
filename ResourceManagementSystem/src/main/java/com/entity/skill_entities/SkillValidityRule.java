@@ -3,6 +3,8 @@ package com.entity.skill_entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "skill_validity_rule")
 @Getter
@@ -14,7 +16,7 @@ public class SkillValidityRule {
 
     @Id
     @Column(name = "skill_id")
-    private Long skillId;
+    private UUID skillId;
 
     @Column(name = "validity_period_months")
     private Integer validityPeriodMonths;

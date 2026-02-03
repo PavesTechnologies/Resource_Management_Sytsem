@@ -9,6 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/client")
@@ -55,7 +56,7 @@ public class ClientController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse<Client>> getClientById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Client>> getClientById(@PathVariable UUID id) {
         return clientService.getClientById(id);
     }
 
@@ -66,7 +67,7 @@ public class ClientController {
     }
 
     @DeleteMapping("/delete-client/{clientId}")
-    public ResponseEntity<ApiResponse> deleteClient(@PathVariable Long clientId) {
+    public ResponseEntity<ApiResponse> deleteClient(@PathVariable UUID clientId) {
         return clientService.deleteClient(clientId);
     }
 }

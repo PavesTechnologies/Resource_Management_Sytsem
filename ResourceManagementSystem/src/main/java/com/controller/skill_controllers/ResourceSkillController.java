@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/resource-skills")
@@ -26,7 +27,7 @@ public class ResourceSkillController {
     @PostMapping
     public ResponseEntity<ApiResponse<ResourceSkill>> addOrUpdate(
             @RequestParam Long resourceId,
-            @RequestParam Long skillId,
+            @RequestParam UUID skillId,
             @RequestParam(required = false) LocalDate lastUsedDate,
             @RequestParam(required = false) LocalDate expiryDate,
             @CurrentUser UserDTO user) {

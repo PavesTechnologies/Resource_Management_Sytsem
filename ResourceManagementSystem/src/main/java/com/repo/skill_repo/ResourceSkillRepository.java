@@ -5,10 +5,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, Long> {
+public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UUID> {
 
-    Optional<ResourceSkill> findByResourceIdAndSkillId(Long resourceId, Long skillId);
+    Optional<ResourceSkill> findByResourceIdAndSkillId(Long resourceId, UUID skillId);
 
     List<ResourceSkill> findByResourceIdAndActiveFlagTrue(Long resourceId);
 }

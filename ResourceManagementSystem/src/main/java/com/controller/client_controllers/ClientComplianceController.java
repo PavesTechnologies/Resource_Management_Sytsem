@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 
 @RestController
 @RequestMapping("/api/client-compliance")
@@ -29,13 +31,13 @@ public class ClientComplianceController {
 
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> deleteClientCompliance(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse> deleteClientCompliance(@PathVariable UUID id) {
         return clientComplianceService.deleteClientCompliance(id);
     }
 
     @GetMapping("/clientCompliance/{clientId}")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse> getClientCompliance(@PathVariable Long clientId) {
+    public ResponseEntity<ApiResponse> getClientCompliance(@PathVariable UUID clientId) {
         return clientComplianceService.getClientCompliance(clientId);
     }
 }

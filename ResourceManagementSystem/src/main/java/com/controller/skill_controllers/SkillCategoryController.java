@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/skill-categories")
@@ -37,7 +38,7 @@ public class SkillCategoryController {
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<SkillCategory>> update(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestParam String categoryName,
             @CurrentUser UserDTO user) {
 
@@ -51,7 +52,7 @@ public class SkillCategoryController {
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deactivate(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @CurrentUser UserDTO user) {
 
         service.deactivateCategory(id, user);

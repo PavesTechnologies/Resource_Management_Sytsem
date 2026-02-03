@@ -5,16 +5,17 @@ import com.dto.UserDTO;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface SkillCategoryService {
 
     SkillCategory createCategory(String categoryName, UserDTO user);
 
-    SkillCategory updateCategory(Long categoryId, String categoryName, UserDTO user);
+    SkillCategory updateCategory(UUID categoryId, String categoryName, UserDTO user);
 
-    void deactivateCategory(Long categoryId, UserDTO user);
+    void deactivateCategory(UUID categoryId, UserDTO user);
 
-    Optional<SkillCategory> getActiveCategory(Long categoryId);
+    Optional<SkillCategory> getActiveCategory(UUID categoryId);
 
     List<SkillCategory> getAllActiveCategories();
 }

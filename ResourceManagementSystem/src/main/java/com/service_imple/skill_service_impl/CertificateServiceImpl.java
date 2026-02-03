@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +20,7 @@ public class CertificateServiceImpl implements CertificateService {
     private final SkillAuditService auditService;
 
     @Override
-    public Certificate assignCertificate(Long skillId,
+    public Certificate assignCertificate(UUID skillId,
                                          String certificateId,
                                          String providerName,
                                          String certificateFile,
@@ -28,7 +29,7 @@ public class CertificateServiceImpl implements CertificateService {
                                          UserDTO user) {
 
         Certificate cert = Certificate.builder()
-                .certificateId(certificateId)
+                .certificateId(UUID.randomUUID()) // Generate UUID for certificate ID
                 .skillId(skillId)
                 .providerName(providerName)
                 .certificateFile(certificateFile)
@@ -41,7 +42,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         auditService.auditCreate(
                 "CERTIFICATE",
-                saved.getCertificateId(),
+                saved.getCertificateId().toString(),
                 saved,
                 user.getEmail()
         );
@@ -50,7 +51,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Optional<Certificate> getActiveCertificate(Long skillId) {
+    public Optional<Certificate> getActiveCertificate(UUID skillId) {
         return certificateRepo.findBySkillIdAndActiveFlagTrue(skillId);
     }
 }

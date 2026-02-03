@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "client_audit_log")
@@ -14,8 +15,8 @@ import java.time.LocalDateTime;
 public class ClientAuditLog {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long auditId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID auditId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")

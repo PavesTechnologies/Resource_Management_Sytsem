@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -283,7 +284,7 @@ public class ClientServiceImple implements ClientService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<Client>> getClientById(Long id) {
+    public ResponseEntity<ApiResponse<Client>> getClientById(UUID id) {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client not found"));
         return ResponseEntity.ok(new ApiResponse<>(true, "Client fetched successfully", client));
     }
@@ -298,7 +299,7 @@ public class ClientServiceImple implements ClientService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClient(Long id) {
+    public ResponseEntity<ApiResponse> deleteClient(UUID id) {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client Not Found!"));
         client.setStatus(RecordStatus.INACTIVE);
         client.setUpdatedAt(LocalDateTime.now());

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,7 +24,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Override
     public ResourceSkill addOrUpdateResourceSkill(
             Long resourceId,
-            Long skillId,
+            UUID skillId,
             LocalDate lastUsedDate,
             LocalDate expiryDate,
             UserDTO user) {
