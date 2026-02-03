@@ -31,7 +31,9 @@ public class DebeziumConfig {
                 .with("database.user", "avnadmin")
                 .with("database.password", "AVNS_GAUyWTQz-MGNiSAVpPS")
 
-                .with("database.server.id", "607724949")
+                //.with("database.server.id", "607724949")
+                .with("database.server.id",
+                        String.valueOf(Math.abs(new java.util.Random().nextInt(100_000)) + 5000))
                 .with("database.server.name", "pms_mysql")
                 .with("topic.prefix", "pms")
 
