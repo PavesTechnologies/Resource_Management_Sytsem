@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -21,7 +22,7 @@ public class DeliveryRoleQueryDaoImpl implements DeliveryRoleQueryDao {
     }
 
     @Override
-    public Optional<DeliveryRole> findActiveRoleById(Long roleId) {
+    public Optional<DeliveryRole> findActiveRoleById(UUID roleId) {
         return roleRepo.findById(roleId)
                 .filter(DeliveryRole::getActiveFlag);
     }

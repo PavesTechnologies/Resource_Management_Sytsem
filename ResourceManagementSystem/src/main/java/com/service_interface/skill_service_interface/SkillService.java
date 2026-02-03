@@ -5,11 +5,12 @@ import com.dto.UserDTO;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface SkillService {
 
     Skill createSkill(
-            Long categoryId,
+            UUID categoryId,
             String skillName,
             String description,
             boolean isCertification,
@@ -18,16 +19,16 @@ public interface SkillService {
     );
 
     Skill updateSkill(
-            Long skillId,
+            UUID skillId,
             String skillName,
             String description,
             String proficiencyName,
             UserDTO user
     );
 
-    void deactivateSkill(Long skillId, UserDTO user);
+    void deactivateSkill(UUID skillId, UserDTO user);
 
-    Optional<Skill> getActiveSkill(Long skillId);
+    Optional<Skill> getActiveSkill(UUID skillId);
 
-    List<Skill> getActiveSkillsByCategory(Long categoryId);
+    List<Skill> getActiveSkillsByCategory(UUID categoryId);
 }

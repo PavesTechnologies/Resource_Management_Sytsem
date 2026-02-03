@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name="resource_enablement_assignment")
@@ -18,8 +19,8 @@ import java.time.LocalDateTime;
 @Builder
 public class ResourceEnablementAssignment {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long assignmentId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID assignmentId;
 
     // Which resource
     private Long resourceId;   // employee / contractor ID

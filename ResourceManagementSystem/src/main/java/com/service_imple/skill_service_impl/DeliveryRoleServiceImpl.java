@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +46,7 @@ public class DeliveryRoleServiceImpl implements DeliveryRoleService {
     }
 
     @Override
-    public void deactivateRole(Long roleId, UserDTO user) {
+    public void deactivateRole(UUID roleId, UserDTO user) {
         DeliveryRole role = roleRepo.findById(roleId)
                 .orElseThrow(() -> new IllegalStateException("Role not found"));
 
@@ -70,7 +71,7 @@ public class DeliveryRoleServiceImpl implements DeliveryRoleService {
     }
 
     @Override
-    public Optional<DeliveryRole> getActiveRole(Long roleId) {
+    public Optional<DeliveryRole> getActiveRole(UUID roleId) {
         return roleRepo.findById(roleId).filter(DeliveryRole::getActiveFlag);
     }
 

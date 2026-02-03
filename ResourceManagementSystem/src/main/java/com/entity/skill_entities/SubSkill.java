@@ -3,6 +3,8 @@ package com.entity.skill_entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(
         name = "sub_skill",
@@ -16,9 +18,9 @@ import lombok.*;
 public class SubSkill {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "sub_skill_id")
-    private Long subSkillId;
+    private UUID subSkillId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "skill_id", nullable = false)

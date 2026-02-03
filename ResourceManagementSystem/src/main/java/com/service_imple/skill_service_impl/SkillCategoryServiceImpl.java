@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +44,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     }
 
     @Override
-    public SkillCategory updateCategory(Long categoryId, String categoryName, UserDTO user) {
+    public SkillCategory updateCategory(UUID categoryId, String categoryName, UserDTO user) {
         SkillCategory existing = categoryRepo.findById(categoryId)
                 .orElseThrow(() -> new IllegalStateException("Category not found"));
 
@@ -69,7 +70,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     }
 
     @Override
-    public void deactivateCategory(Long categoryId, UserDTO user) {
+    public void deactivateCategory(UUID categoryId, UserDTO user) {
         SkillCategory existing = categoryRepo.findById(categoryId)
                 .orElseThrow(() -> new IllegalStateException("Category not found"));
 
@@ -96,7 +97,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     }
 
     @Override
-    public Optional<SkillCategory> getActiveCategory(Long categoryId) {
+    public Optional<SkillCategory> getActiveCategory(UUID categoryId) {
         return categoryRepo.findById(categoryId)
                 .filter(SkillCategory::getActiveFlag);
     }

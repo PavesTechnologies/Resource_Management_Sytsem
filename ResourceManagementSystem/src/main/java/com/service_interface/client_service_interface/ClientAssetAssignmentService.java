@@ -4,20 +4,21 @@ import com.dto.ApiResponse;
 import com.entity.client_entities.ClientAssetAssignment;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 public interface ClientAssetAssignmentService {
-    ApiResponse<Void> assignAsset(Long assetId, ClientAssetAssignment assignment);
+    ApiResponse<Void> assignAsset(UUID assetId, ClientAssetAssignment assignment);
 
-    ApiResponse<Void> updateAssignment(Long assignmentId, ClientAssetAssignment assignment);
+    ApiResponse<Void> updateAssignment(UUID assignmentId, ClientAssetAssignment assignment);
 
-    ApiResponse<Void> deleteAssignment(Long assignmentId);
+    ApiResponse<Void> deleteAssignment(UUID assignmentId);
 
     ApiResponse<?> getAllAssignments();
     
-    ApiResponse<?> getAssignmentsByAssetId(Long assetId);
+    ApiResponse<?> getAssignmentsByAssetId(UUID assetId);
 
     ApiResponse<Void> returnAsset(
-            Long assignmentId,
+            UUID assignmentId,
             LocalDate actualReturnDate,
             String remarks
     );

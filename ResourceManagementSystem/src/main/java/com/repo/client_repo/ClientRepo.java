@@ -8,9 +8,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface ClientRepo extends JpaRepository<Client,Long>, JpaSpecificationExecutor<Client> {
+public interface ClientRepo extends JpaRepository<Client,UUID>, JpaSpecificationExecutor<Client> {
 //    Optional<Client> findById(Long aLong);
     List<Client> findByStatus(RecordStatus status);
 }

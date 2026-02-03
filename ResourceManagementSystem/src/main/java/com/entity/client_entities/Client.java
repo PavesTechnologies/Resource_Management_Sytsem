@@ -12,6 +12,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "client")
@@ -24,8 +25,8 @@ import java.time.LocalDateTime;
 public class Client {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long clientId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID clientId;
 
     @JsonProperty("client_name")
     @Column(nullable = false)

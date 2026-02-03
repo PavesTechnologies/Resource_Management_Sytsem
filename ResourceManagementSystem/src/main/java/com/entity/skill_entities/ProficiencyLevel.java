@@ -3,6 +3,8 @@ package com.entity.skill_entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(
         name = "proficiency_level",
@@ -16,9 +18,9 @@ import lombok.*;
 public class ProficiencyLevel {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "proficiency_id")
-    private Long proficiencyId;
+    private UUID proficiencyId;
 
     @Column(name = "proficiency_code", nullable = false)
     private String proficiencyCode;

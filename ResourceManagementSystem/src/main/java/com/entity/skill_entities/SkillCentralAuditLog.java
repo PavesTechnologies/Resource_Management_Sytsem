@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "skill_central_audit_log")
@@ -15,9 +16,9 @@ import java.time.LocalDateTime;
 public class SkillCentralAuditLog {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "audit_id")
-    private Long auditId;
+    private UUID auditId;
 
     @Column(name = "entity_name", nullable = false)
     private String entityName;

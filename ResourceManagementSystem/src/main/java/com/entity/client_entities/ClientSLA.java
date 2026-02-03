@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "client_sla")
@@ -15,8 +16,8 @@ import java.time.LocalDateTime;
 public class ClientSLA {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long slaId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID slaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")

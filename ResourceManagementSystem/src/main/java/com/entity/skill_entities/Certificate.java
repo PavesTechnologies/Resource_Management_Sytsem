@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "certificate")
@@ -16,10 +17,10 @@ public class Certificate {
 
     @Id
     @Column(name = "certificate_id")
-    private String certificateId;
+    private UUID certificateId;
 
     @Column(name = "skill_id", nullable = false)
-    private Long skillId;
+    private UUID skillId;
 
     @Column(name = "provider_name")
     private String providerName;

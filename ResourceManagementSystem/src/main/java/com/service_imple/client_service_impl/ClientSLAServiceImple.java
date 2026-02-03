@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
+
 @Service
 public class ClientSLAServiceImple implements ClientSLAService {
 
@@ -44,7 +46,7 @@ public class ClientSLAServiceImple implements ClientSLAService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClientSLA(Long id) {
+    public ResponseEntity<ApiResponse> deleteClientSLA(UUID id) {
         ClientSLA sla=clientSLARepo.findById(id).get();
         clientSLARepo.deleteById(id);
         if(sla!=null) {
@@ -56,7 +58,7 @@ public class ClientSLAServiceImple implements ClientSLAService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getClientSLA(Long clientId) {
+    public ResponseEntity<ApiResponse> getClientSLA(UUID clientId) {
         List<ClientSLA> sla=clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientException("Failed to fentch client sla"));
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Fentched Successfully",sla));
     }

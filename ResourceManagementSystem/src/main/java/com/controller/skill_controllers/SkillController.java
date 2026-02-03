@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/skills")
@@ -24,7 +25,7 @@ public class SkillController {
     @PreAuthorize("hasRole('GENERAL')")
     @PostMapping
     public ResponseEntity<ApiResponse<Skill>> create(
-            @RequestParam Long categoryId,
+            @RequestParam UUID categoryId,
             @RequestParam String skillName,
             @RequestParam(required = false) String description,
             @RequestParam boolean isCertification,
@@ -42,7 +43,7 @@ public class SkillController {
     @PreAuthorize("hasRole('ADMIN,GENERAL')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<Skill>> update(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @RequestParam String skillName,
             @RequestParam(required = false) String description,
             @RequestParam(required = false) String proficiencyName,
@@ -59,7 +60,7 @@ public class SkillController {
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE_MANAGER')")
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<ApiResponse<List<Skill>>> getByCategory(
-            @PathVariable Long categoryId) {
+            @PathVariable UUID categoryId) {
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true,

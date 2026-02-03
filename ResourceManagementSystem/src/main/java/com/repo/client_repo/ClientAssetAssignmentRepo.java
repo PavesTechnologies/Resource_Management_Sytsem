@@ -8,21 +8,22 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssignment, Long> {
+public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssignment, UUID> {
     List<ClientAssetAssignment> findByActiveTrue();
 
     boolean existsBySerialNumber(String serialNumber);
 
     boolean existsBySerialNumberAndAssignmentIdNot(
             String serialNumber,
-            Long assignmentId
+            UUID assignmentId
     );
     
-    Optional<List<ClientAssetAssignment>> findByAsset_AssetId(Long assetId);
+    Optional<List<ClientAssetAssignment>> findByAsset_AssetId(UUID assetId);
 
-    long countByAsset_AssetIdAndActiveTrue(Long assetId);
+    long countByAsset_AssetIdAndActiveTrue(UUID assetId);
 
     @Query("""
             SELECT COUNT(a)
@@ -39,7 +40,7 @@ public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssi
     AND a.active = true
     AND a.assignmentStatus IN ('ASSIGNED','IN_USE')
 """)
-    long countActiveAssignedByClient(@Param("clientId")Long clientId);
+    long countActiveAssignedByClient(@Param("clientId")UUID clientId);
 
     @Query("""
     SELECT COUNT(a)
@@ -48,7 +49,7 @@ public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssi
     AND a.active = true
     AND a.assignmentStatus IN ('ASSIGNED','IN_USE')
 """)
-    long countAssignedUnitsByClient(Long clientId);
+    long countAssignedUnitsByClient(UUID clientId);
 
 
 }

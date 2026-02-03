@@ -5,6 +5,7 @@ import com.entity.client_entities.Client;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ClientService {
     ResponseEntity<ApiResponse> createClient(Client client);
@@ -16,11 +17,11 @@ public interface ClientService {
 
     ResponseEntity<ApiResponse> countClients();
     ResponseEntity<ApiResponse<List<Client>>> clientDetails();
-    ResponseEntity<ApiResponse<Client>> getClientById(Long id);
+    ResponseEntity<ApiResponse<Client>> getClientById(UUID id);
 
     ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI();
 
     ResponseEntity<ApiResponse<Client>> updateClient(Client client);
-    ResponseEntity<ApiResponse> deleteClient(Long id);
+    ResponseEntity<ApiResponse> deleteClient(UUID id);
 
 }

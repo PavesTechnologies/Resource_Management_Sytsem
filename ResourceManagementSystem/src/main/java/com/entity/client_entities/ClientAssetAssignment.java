@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Builder
 @Entity
@@ -18,8 +19,8 @@ import java.time.LocalDate;
 @Table(name = "client_asset_assignment")
 public class ClientAssetAssignment {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long assignmentId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID assignmentId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "asset_id", nullable = false)
