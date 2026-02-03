@@ -52,6 +52,10 @@ public class ProjectCdcMappingRegistry {
 
         PMS_TO_RMS.put("project_budget_currency",
                 new ColumnMapping("project_budget_currency", "projectBudgetCurrency", FieldType.STRING, null));
+        PMS_TO_RMS.put("start_date",
+                new ColumnMapping("start_date", "startDate", FieldType.LOCAL_DATE_TIME, null));
+        PMS_TO_RMS.put("end_date",
+                new ColumnMapping("end_date", "endDate", FieldType.LOCAL_DATE_TIME, null));
     }
 
     private ProjectCdcMappingRegistry() {}

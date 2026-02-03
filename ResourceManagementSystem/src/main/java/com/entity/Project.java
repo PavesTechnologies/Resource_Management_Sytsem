@@ -65,6 +65,13 @@ public class Project {
     @Column(name = "priority_level", length = 20)
     private PriorityLevel priorityLevel;
 
+    @Column(name = "start_date")
+    private LocalDateTime startDate;
+
+    @Column(name = "end_date")
+    private LocalDateTime endDate;
+
+
     /* =====================
        BUDGET (SYNCED FROM PMS)
        ===================== */
