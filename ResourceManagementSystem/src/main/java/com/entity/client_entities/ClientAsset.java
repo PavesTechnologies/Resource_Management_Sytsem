@@ -6,6 +6,9 @@ import com.entity_enums.client_enums.AssetStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -30,6 +33,12 @@ public class ClientAsset {
     private Client client;
 
     @Column(nullable = false)
+    @NotBlank(message = "Asset name is required")
+    @Size(min = 3, max = 100, message = "Asset name must be between 3 and 100 characters")
+    @Pattern(
+            regexp = "^[A-Za-z0-9\\s\\-_]+$",
+            message = "Asset name must contain only alphanumeric characters, spaces, hyphens, and underscores"
+    )
     private String assetName;
 
 //    @Column
