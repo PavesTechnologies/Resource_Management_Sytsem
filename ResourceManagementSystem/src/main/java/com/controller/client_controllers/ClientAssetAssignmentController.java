@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.time.LocalDate;
 
@@ -18,6 +19,7 @@ public class ClientAssetAssignmentController {
     private ClientAssetAssignmentService service;
 
     @PostMapping("/{assetId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> assignAsset(
             @PathVariable Long assetId,
             @RequestBody ClientAssetAssignment assignment) {
@@ -28,6 +30,7 @@ public class ClientAssetAssignmentController {
     }
 
     @PutMapping("/{assignmentId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> updateAssignment(
             @PathVariable Long assignmentId,
             @RequestBody ClientAssetAssignment assignment) {
@@ -38,6 +41,7 @@ public class ClientAssetAssignmentController {
     }
 
     @DeleteMapping("/{assignmentId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> deleteAssignment(
             @PathVariable Long assignmentId) {
 
@@ -47,11 +51,13 @@ public class ClientAssetAssignmentController {
     }
 
     @GetMapping("/by-asset/{assetId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> getAssignmentsByAssetId(@PathVariable Long assetId) {
         return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> getAssignments() {
 
         return ResponseEntity.ok(
@@ -60,6 +66,7 @@ public class ClientAssetAssignmentController {
     }
 
     @PutMapping("/return/{assignmentId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> returnAsset(
             @PathVariable Long assignmentId,
             @RequestParam("actualReturnDate")
@@ -74,6 +81,7 @@ public class ClientAssetAssignmentController {
     }
 
     @GetMapping("/asset/{assetId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getByAsset(
             @PathVariable Long assetId) {
 
