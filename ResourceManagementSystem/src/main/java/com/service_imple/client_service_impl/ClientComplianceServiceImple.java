@@ -1,6 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientCompliance;
 import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientComplianceRepo;

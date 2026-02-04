@@ -1,6 +1,6 @@
 package com.controller.skill_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.dto.UserDTO;
 import com.entity.skill_entities.Skill;
 import com.security.CurrentUser;

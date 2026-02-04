@@ -1,21 +1,22 @@
-package com.dto;
+package com.dto.client_dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ClientDetailsDTO {
+public class ClientFilterDTO {
+
     private String clientName;
     private String clientType;
     private String priorityLevel;
     private String deliveryModel;
+//    private String regionCode;
     private String countryName;
     private String defaultTimezone;
     private String status;
-//    private Projects projects;
+
+    private LocalDate createdFrom;
+    private LocalDate createdTo;
 }
+

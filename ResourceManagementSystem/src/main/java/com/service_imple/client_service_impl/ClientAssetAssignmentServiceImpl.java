@@ -1,7 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.ApiResponse;
-import com.entity.client_entities.Client;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
@@ -11,12 +10,10 @@ import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Service

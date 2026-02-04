@@ -1,7 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.controller.client_controllers.ClientSLAController;
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
 import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientSLARepo;
