@@ -5,12 +5,13 @@ import com.dto.UserDTO;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 public interface ResourceSkillService {
 
     ResourceSkill addOrUpdateResourceSkill(
             Long resourceId,
-            Long skillId,
+            UUID skillId,
             LocalDate lastUsedDate,
             LocalDate expiryDate,
             UserDTO user

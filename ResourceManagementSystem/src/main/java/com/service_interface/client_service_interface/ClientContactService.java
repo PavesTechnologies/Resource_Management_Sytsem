@@ -4,10 +4,12 @@ import com.dto.ApiResponse;
 import com.entity.client_entities.ClientEscalationContact;
 import org.springframework.http.ResponseEntity;
 
+import java.util.UUID;
+
 public interface ClientContactService {
     ResponseEntity<ApiResponse> createClientContact(ClientEscalationContact clientContact);
     ResponseEntity<ApiResponse> updateClientContact(ClientEscalationContact clientContact);
-    ResponseEntity<ApiResponse> deleteClientContact(Long id);
+    ResponseEntity<ApiResponse> deleteClientContact(UUID id);
 
-    ResponseEntity<ApiResponse> getClientContact(Long clientId);
+    ResponseEntity<ApiResponse> getClientContact(UUID clientId);
 }

@@ -5,7 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-public interface ClientSLARepo extends JpaRepository<ClientSLA,Long> {
-    Optional<List<ClientSLA>> findAllByClient_ClientId(Long aLong);
+public interface ClientSLARepo extends JpaRepository<ClientSLA,UUID> {
+    Optional<List<ClientSLA>> findAllByClient_ClientId(UUID clientId);
 }

@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,7 +47,7 @@ public class ResourceEnablementAssignmentServiceImpl implements ResourceEnableme
 
     @Override
     public ApiResponse<String> updateStatus(
-            Long assignmentId,
+            UUID assignmentId,
             EnablementAssignmentStatus status,
             String remarks) {
         try {

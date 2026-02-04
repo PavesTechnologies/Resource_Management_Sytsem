@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/resource-enablements")
@@ -29,7 +31,7 @@ public class ResourceEnablementAssignmentController {
 
     @PutMapping("/{assignmentId}/status")
     public ResponseEntity<ApiResponse<String>> updateStatus(
-            @PathVariable Long assignmentId,
+            @PathVariable UUID assignmentId,
             @RequestParam EnablementAssignmentStatus status,
             @RequestParam(required = false) String remarks) {
 

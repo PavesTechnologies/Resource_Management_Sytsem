@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +23,7 @@ public class SkillServiceImpl implements SkillService {
     private final SkillAuditService auditService;
 
     @Override
-    public Skill createSkill(Long categoryId, String skillName, String description,
+    public Skill createSkill(UUID categoryId, String skillName, String description,
                              boolean isCertification, String proficiencyName, UserDTO user) {
 
         SkillCategory category = categoryRepo.findById(categoryId)
@@ -54,7 +55,7 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    public Skill updateSkill(Long skillId, String skillName, String description,
+    public Skill updateSkill(UUID skillId, String skillName, String description,
                              String proficiencyName, UserDTO user) {
 
         Skill existing = skillRepo.findById(skillId)
@@ -85,7 +86,7 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    public void deactivateSkill(Long skillId, UserDTO user) {
+    public void deactivateSkill(UUID skillId, UserDTO user) {
         Skill existing = skillRepo.findById(skillId)
                 .orElseThrow(() -> new IllegalStateException("Skill not found"));
 
@@ -110,12 +111,12 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    public Optional<Skill> getActiveSkill(Long skillId) {
+    public Optional<Skill> getActiveSkill(UUID skillId) {
         return skillRepo.findById(skillId).filter(Skill::getActiveFlag);
     }
 
     @Override
-    public List<Skill> getActiveSkillsByCategory(Long categoryId) {
+    public List<Skill> getActiveSkillsByCategory(UUID categoryId) {
         return skillRepo.findByCategoryCategoryIdAndActiveFlagTrue(categoryId);
     }
 }

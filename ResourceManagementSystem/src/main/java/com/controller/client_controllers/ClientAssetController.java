@@ -11,8 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/client-assets")
@@ -26,7 +28,7 @@ public class ClientAssetController {
     @PostMapping
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<String>> createClientAsset(
-            @RequestBody ClientAsset asset) {
+            @Valid @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.createClientAsset(asset);
 
@@ -38,8 +40,8 @@ public class ClientAssetController {
     @PutMapping("/{assetId}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<String>> update(
-            @PathVariable Long assetId,
-            @RequestBody ClientAsset asset) {
+            @PathVariable UUID assetId,
+            @Valid @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.updateClientAsset(assetId, asset);
         return ResponseEntity
@@ -50,7 +52,7 @@ public class ClientAssetController {
     @DeleteMapping("/{assetId}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<String>> delete(
-            @PathVariable Long assetId) {
+            @PathVariable UUID assetId) {
 
         ApiResponse<String> response = service.deleteClientAsset(assetId);
         return ResponseEntity
@@ -62,7 +64,7 @@ public class ClientAssetController {
     @GetMapping("/client/{clientId}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAssetsByClient(
-            @PathVariable Long clientId) {
+            @PathVariable UUID clientId) {
 
         ApiResponse<?> response = service.getAssetsByClient(clientId);
 
@@ -74,7 +76,7 @@ public class ClientAssetController {
     @GetMapping("/{assetId}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<ClientAsset>> getAssetById(
-            @PathVariable Long assetId) {
+            @PathVariable UUID assetId) {
         
         ApiResponse<ClientAsset> response = service.getAssetById(assetId);
         
@@ -121,7 +123,7 @@ public class ClientAssetController {
     @GetMapping("/dashboard/client/{clientId}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<Map<String, Object>> getDashboardByClient(
-            @PathVariable Long clientId) {
+            @PathVariable UUID clientId) {
 
         return ResponseEntity.ok(
                 service.getAssetDashboardByClient(clientId)

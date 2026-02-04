@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +27,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     private final ClientRepo clientRepo;
     // ASSIGN ASSET
     @Override
-    public ApiResponse<Void> assignAsset(Long assetId, ClientAssetAssignment assignment) {
+    public ApiResponse<Void> assignAsset(UUID assetId, ClientAssetAssignment assignment) {
         try {
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Client asset not found"));
@@ -95,7 +96,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     // UPDATE ASSIGNMENT
     @Override
     public ApiResponse<Void> updateAssignment(
-            Long assignmentId,
+            UUID assignmentId,
             ClientAssetAssignment updated) {
 
         try {
@@ -149,7 +150,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
     // DELETE (SOFT)
     @Override
-    public ApiResponse<Void> deleteAssignment(Long assignmentId) {
+    public ApiResponse<Void> deleteAssignment(UUID assignmentId) {
         try {
             ClientAssetAssignment assignment =
                     assignmentRepository.findById(assignmentId)
@@ -203,7 +204,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     }
 
     @Override
-    public ApiResponse<?> getAssignmentsByAssetId(Long assetId) {
+    public ApiResponse<?> getAssignmentsByAssetId(UUID assetId) {
         List<ClientAssetAssignment> list=assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(()-> new ClientException("Assignments not found"));
         return new ApiResponse<>(true,"Fetched Assigned Assets Successfully",list);
     }
@@ -211,7 +212,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     // RETURN ASSET (LOCKED API)
     @Override
     public ApiResponse<Void> returnAsset(
-            Long assignmentId,
+            UUID assignmentId,
             LocalDate actualReturnDate,
             String remarks) {
 
