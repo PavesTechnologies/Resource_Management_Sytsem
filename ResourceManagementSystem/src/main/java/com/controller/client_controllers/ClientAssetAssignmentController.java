@@ -1,7 +1,7 @@
 package com.controller.client_controllers;
 
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import org.springframework.beans.factory.annotation.Autowired;

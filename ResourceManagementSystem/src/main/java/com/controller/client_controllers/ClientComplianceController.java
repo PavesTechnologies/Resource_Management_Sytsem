@@ -1,6 +1,6 @@
 package com.controller.client_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientCompliance;
 import com.service_interface.client_service_interface.ClientComplianceService;
 import org.springframework.beans.factory.annotation.Autowired;

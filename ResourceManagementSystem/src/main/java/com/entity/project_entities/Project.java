@@ -1,14 +1,13 @@
-package com.entity;
+package com.entity.project_entities;
 
-import com.entity_enums.ProjectStage;
-import com.entity_enums.ProjectStatus;
+import com.entity_enums.project_enums.ProjectStage;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

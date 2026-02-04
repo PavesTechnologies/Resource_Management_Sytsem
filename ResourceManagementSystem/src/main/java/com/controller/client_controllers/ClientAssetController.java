@@ -1,10 +1,8 @@
 package com.controller.client_controllers;
 
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientAsset;
-import com.entity.client_entities.ClientAssetAssignment;
-import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.service_imple.client_service_impl.ClientAssetServiceImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
-import java.util.List;
+
 import java.util.Map;
 import java.util.UUID;
 
