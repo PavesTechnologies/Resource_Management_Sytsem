@@ -1,4 +1,4 @@
-package com.dto.project_dto_v;
+package com.dto.project_dto;
 
 import lombok.Data;
 import java.time.LocalDateTime;

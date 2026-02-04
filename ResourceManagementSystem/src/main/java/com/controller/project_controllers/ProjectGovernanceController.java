@@ -1,11 +1,11 @@
-package com.controller.project_controllers_v;
+package com.controller.project_controllers;
 
 import com.dto.client_dto.ApiResponse;
-import com.dto.project_dto_v.DateValidationResponse;
-import com.dto.project_dto_v.DemandDateValidationRequest;
-import com.dto.project_dto_v.ProjectListDTO;
-import com.dto.project_dto_v.ProjectOverlapDTO;
-import com.service_interface.project_service_interface_v.ProjectGovernanceService;
+import com.dto.project_dto.DateValidationResponse;
+import com.dto.project_dto.DemandDateValidationRequest;
+import com.dto.project_dto.ProjectListDTO;
+import com.dto.project_dto.ProjectOverlapDTO;
+import com.service_interface.project_service_interface.ProjectGovernanceService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

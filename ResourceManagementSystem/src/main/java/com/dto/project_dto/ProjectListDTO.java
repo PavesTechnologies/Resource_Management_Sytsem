@@ -1,7 +1,7 @@
-package com.dto.project_dto_v;
+package com.dto.project_dto;
 
-import com.entity_enums.project_enums_v.ProjectStatus;
-import com.entity_enums.project_enums_v.ProjectStage;
+import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums.ProjectStage;
 
 public record ProjectListDTO(
         Long projectId,

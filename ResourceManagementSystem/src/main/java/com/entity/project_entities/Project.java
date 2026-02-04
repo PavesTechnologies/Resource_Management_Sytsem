@@ -1,8 +1,8 @@
-package com.entity.project_entities_v;
+package com.entity.project_entities;
 
-import com.entity_enums.project_enums_v.ProjectDataStatus;
-import com.entity_enums.project_enums_v.ProjectStage;
-import com.entity_enums.project_enums_v.ProjectStatus;
+import com.entity_enums.project_enums.ProjectDataStatus;
+import com.entity_enums.project_enums.ProjectStage;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
