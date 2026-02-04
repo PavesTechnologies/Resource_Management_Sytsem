@@ -1,11 +1,10 @@
 package com.service_imple.client_service_impl;
 
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.ClientEscalationContact;
 import com.global_exception_handler.ClientException;
 import com.repo.client_repo.ClientContactRepo;
-import com.service_interface.client_service_interface.ClientContactService;
 import com.service_interface.client_service_interface.ClientContactService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

@@ -1,16 +1,10 @@
-package com.dto;
+package com.dto.client_dto;
 
-import com.entity_enums.centralised_enums.DeliveryModel;
-import com.entity_enums.centralised_enums.PriorityLevel;
-import com.entity_enums.centralised_enums.RecordStatus;
-import com.entity_enums.client_enums.ClientType;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data

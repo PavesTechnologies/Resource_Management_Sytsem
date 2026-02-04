@@ -1,14 +1,14 @@
-package com.entity;
+package com.entity.project_entities;
 
-import com.entity_enums.ProjectStage;
-import com.entity_enums.ProjectStatus;
+import com.entity_enums.project_enums.ProjectDataStatus;
+import com.entity_enums.project_enums.ProjectStage;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -90,6 +90,10 @@ public class Project {
     @Enumerated(EnumType.STRING)
     @Column(name = "lifecycle_stage", length = 30)
     private ProjectStage lifecycleStage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "data_status", length = 20)
+    private ProjectDataStatus dataStatus;
 
     @Column(name = "last_synced_at")
     private LocalDateTime LastSyncedAt;

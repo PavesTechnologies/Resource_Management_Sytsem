@@ -1,6 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.*;
+import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.global_exception_handler.ClientException;
@@ -15,13 +15,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.persistence.criteria.Predicate;
@@ -99,19 +97,36 @@ public class ClientServiceImple implements ClientService {
 
     @Override
     public ResponseEntity<ApiResponse> createClient(Client client) {
-        client.setCreatedAt(LocalDateTime.now());
-        client.setUpdatedAt(LocalDateTime.now());
-        Client c = clientRepo.save(client);
+        try {
+            // Simple regex validation for client name
+            if (client.getClientName() == null || client.getClientName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name is required", null));
+            }
+            
+            if (!client.getClientName().matches("^[A-Za-z]+(?:[ .][A-Za-z]+)*$")) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name can contain only letters, spaces, and dots", null));
+            }
+            
+            if (client.getClientName().length() < 3 || client.getClientName().length() > 100) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name must be between 3 and 100 characters", null));
+            }
+            
+            client.setCreatedAt(LocalDateTime.now());
+            client.setUpdatedAt(LocalDateTime.now());
+            Client c = clientRepo.save(client);
 
-        ApiResponse<Client> apiResponse = new ApiResponse<>();
-        apiResponse.setSuccess(c!=null);
-        apiResponse.setMessage(c != null
-                ? "Client Created Successfully"
-                : "Client Creation Failed");
-        apiResponse.setData(c);
+            ApiResponse<Client> apiResponse = new ApiResponse<>();
+            apiResponse.setSuccess(c!=null);
+            apiResponse.setMessage(c != null
+                    ? "Client Created Successfully"
+                    : "Client Creation Failed");
+            apiResponse.setData(c);
 
-        return ResponseEntity.ok(apiResponse);
+            return ResponseEntity.ok(apiResponse);
 
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error creating client: " + e.getMessage(), null));
+        }
     }
 
     @Override
@@ -291,11 +306,29 @@ public class ClientServiceImple implements ClientService {
 
     @Override
     public ResponseEntity<ApiResponse<Client>> updateClient(Client client) {
-        Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientException("Client Not Found!"));
-        client.setCreatedAt(clientDetails.getCreatedAt());
-        client.setUpdatedAt(LocalDateTime.now());
-        Client updatedDetails = clientRepo.save(client);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Client Details Updated.", null));
+        try {
+            // Simple regex validation for client name
+            if (client.getClientName() == null || client.getClientName().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name is required", null));
+            }
+            
+            if (!client.getClientName().matches("^[A-Za-z]+(?:[ .][A-Za-z]+)*$")) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name can contain only letters, spaces, and dots", null));
+            }
+            
+            if (client.getClientName().length() < 3 || client.getClientName().length() > 100) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name must be between 3 and 100 characters", null));
+            }
+            
+            Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientException("Client Not Found!"));
+            client.setCreatedAt(clientDetails.getCreatedAt());
+            client.setUpdatedAt(LocalDateTime.now());
+            Client updatedDetails = clientRepo.save(client);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Client Details Updated.", updatedDetails));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error updating client: " + e.getMessage(), null));
+        }
     }
 
     @Override
