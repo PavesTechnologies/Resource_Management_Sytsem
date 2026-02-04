@@ -1,7 +1,7 @@
 package com.cdc.mapping;
 
-import com.entity_enums.project_enums.ProjectStage;
-import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums_v.ProjectStage;
+import com.entity_enums.project_enums_v.ProjectStatus;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
