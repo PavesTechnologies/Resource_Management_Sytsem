@@ -1,7 +1,8 @@
-package com.entity.project_entities;
+package com.entity.project_entities_v;
 
-import com.entity_enums.project_enums.ProjectStage;
-import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums_v.ProjectDataStatus;
+import com.entity_enums.project_enums_v.ProjectStage;
+import com.entity_enums.project_enums_v.ProjectStatus;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
@@ -89,6 +90,10 @@ public class Project {
     @Enumerated(EnumType.STRING)
     @Column(name = "lifecycle_stage", length = 30)
     private ProjectStage lifecycleStage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "data_status", length = 20)
+    private ProjectDataStatus dataStatus;
 
     @Column(name = "last_synced_at")
     private LocalDateTime LastSyncedAt;
