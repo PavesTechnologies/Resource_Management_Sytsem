@@ -60,6 +60,12 @@ public class ClientController {
         return clientService.getClientById(id);
     }
 
+    @GetMapping("/{id}/page-data")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<ClientProjectStatisticsDTO>> getClientProjectStatistics(@PathVariable UUID id) {
+        return clientService.getClientProjectStatistics(id);
+    }
+
     @PutMapping("/update-client")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Client>> updateClientDetails(@RequestBody Client clientDetails) {
