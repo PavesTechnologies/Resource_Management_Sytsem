@@ -2,15 +2,15 @@ package com.controller.client_controllers;
 
 
 import com.dto.ApiResponse;
+import com.dto.AssetAssignmentKPIDTo;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,21 +21,17 @@ public class ClientAssetAssignmentController {
     private ClientAssetAssignmentService service;
 
     @PostMapping("/{assetId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> assignAsset(
             @PathVariable UUID assetId,
-            @Valid @RequestBody ClientAssetAssignment assignment) {
+            @RequestBody ClientAssetAssignment assignment) {
 
-        return ResponseEntity.ok(
-                service.assignAsset(assetId, assignment)
-        );
+        return service.assignAsset(assetId, assignment);
     }
 
     @PutMapping("/{assignmentId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> updateAssignment(
             @PathVariable UUID assignmentId,
-            @Valid @RequestBody ClientAssetAssignment assignment) {
+            @RequestBody ClientAssetAssignment assignment) {
 
         return ResponseEntity.ok(
                 service.updateAssignment(assignmentId, assignment)
@@ -43,13 +39,10 @@ public class ClientAssetAssignmentController {
     }
 
     @DeleteMapping("/{assignmentId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> deleteAssignment(
             @PathVariable UUID assignmentId) {
 
-        return ResponseEntity.ok(
-                service.deleteAssignment(assignmentId)
-        );
+        return service.deleteAssignment(assignmentId);
     }
 
     @GetMapping("/by-asset/{assetId}")
@@ -58,7 +51,6 @@ public class ClientAssetAssignmentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> getAssignments() {
 
         return ResponseEntity.ok(
@@ -67,7 +59,6 @@ public class ClientAssetAssignmentController {
     }
 
     @PutMapping("/return/{assignmentId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> returnAsset(
             @PathVariable UUID assignmentId,
             @RequestParam("actualReturnDate")
@@ -82,11 +73,15 @@ public class ClientAssetAssignmentController {
     }
 
     @GetMapping("/asset/{assetId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getByAsset(
             @PathVariable UUID assetId) {
 
         return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
     }
 
+    @GetMapping("/kpi/{assetId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE_MANAGER')")
+    public ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(@PathVariable UUID assetId) {
+        return service.getKPI(assetId);
+    }
 }

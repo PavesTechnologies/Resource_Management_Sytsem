@@ -1,6 +1,6 @@
 package com.service_interface.client_service_interface;
 
-import com.dto.*;
+import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import org.springframework.http.ResponseEntity;
 

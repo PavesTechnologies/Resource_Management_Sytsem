@@ -1,6 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.*;
+import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.entity_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.RecordStatus;
@@ -17,14 +17,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import jakarta.persistence.criteria.Predicate;

@@ -1,6 +1,7 @@
 package com.repo.client_repo;
 
 import com.entity.client_entities.ClientAssetAssignment;
+import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,9 @@ public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssi
     List<ClientAssetAssignment> findByActiveTrue();
 
     boolean existsBySerialNumber(String serialNumber);
+
+    boolean existsBySerialNumberAndAssignmentStatus(String serialNumber, EnablementAssignmentStatus assignmentStatus);
+    long countByAsset_AssetIdAndAssignmentStatus(UUID assetId, EnablementAssignmentStatus assignmentStatus);
 
     boolean existsBySerialNumberAndAssignmentIdNot(
             String serialNumber,

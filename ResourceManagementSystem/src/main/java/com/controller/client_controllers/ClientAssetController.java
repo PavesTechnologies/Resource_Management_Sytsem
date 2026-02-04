@@ -9,9 +9,7 @@ import com.service_imple.client_service_impl.ClientAssetServiceImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.security.access.prepost.PreAuthorize;
 
-import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -26,9 +24,8 @@ public class ClientAssetController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<String>> createClientAsset(
-            @Valid @RequestBody ClientAsset asset) {
+            @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.createClientAsset(asset);
 
@@ -38,10 +35,9 @@ public class ClientAssetController {
     }
 
     @PutMapping("/{assetId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<String>> update(
             @PathVariable UUID assetId,
-            @Valid @RequestBody ClientAsset asset) {
+            @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.updateClientAsset(assetId, asset);
         return ResponseEntity
@@ -50,7 +46,6 @@ public class ClientAssetController {
     }
 
     @DeleteMapping("/{assetId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<String>> delete(
             @PathVariable UUID assetId) {
 
@@ -62,7 +57,6 @@ public class ClientAssetController {
 
     // FETCH ENABLEMENTS BY CLIENT
     @GetMapping("/client/{clientId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAssetsByClient(
             @PathVariable UUID clientId) {
 
@@ -74,7 +68,6 @@ public class ClientAssetController {
     }
 
     @GetMapping("/{assetId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<ClientAsset>> getAssetById(
             @PathVariable UUID assetId) {
         
@@ -90,38 +83,32 @@ public class ClientAssetController {
 //    }
 
 
-    @GetMapping("/dashboard")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<Map<String, Object>> getAssetManagementDashboard() {
-        return ResponseEntity.ok(service.getAssetManagementDashboard());
-    }
+//    @GetMapping("/utilization-percentage")
+//    public ResponseEntity<Map<String, Object>> getAssetUtilizationPercentage() {
+//        return ResponseEntity.ok(service.getAssetUtilizationPercentage());
+//    }
 
-    @GetMapping("/total-assets")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<Map<String, Object>> getTotalAssets() {
-        return ResponseEntity.ok(service.getTotalAssetsCount());
-    }
-
-    @GetMapping("/assigned-assets")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<Map<String, Object>> getAssignedAssets() {
-        return ResponseEntity.ok(service.getAssignedAssetsCount());
-    }
-
-    @GetMapping("/available-assets")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<Map<String, Object>> getAvailableAssets() {
-        return ResponseEntity.ok(service.getAvailableAssetsCount());
-    }
-
-    @GetMapping("/utilization-percentage")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<Map<String, Object>> getAssetUtilizationPercentage() {
-        return ResponseEntity.ok(service.getAssetUtilizationPercentage());
-    }
+//    @GetMapping("/dashboard")
+//    public ResponseEntity<Map<String, Object>> getAssetManagementDashboard() {
+//        return ResponseEntity.ok(service.getAssetManagementDashboard());
+//    }
+//
+//    @GetMapping("/total-assets")
+//    public ResponseEntity<Map<String, Object>> getTotalAssets() {
+//        return ResponseEntity.ok(service.getTotalAssetsCount());
+//    }
+//
+//    @GetMapping("/assigned-assets")
+//    public ResponseEntity<Map<String, Object>> getAssignedAssets() {
+//        return ResponseEntity.ok(service.getAssignedAssetsCount());
+//    }
+//
+//    @GetMapping("/available-assets")
+//    public ResponseEntity<Map<String, Object>> getAvailableAssets() {
+//        return ResponseEntity.ok(service.getAvailableAssetsCount());
+//    }
 
     @GetMapping("/dashboard/client/{clientId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<Map<String, Object>> getDashboardByClient(
             @PathVariable UUID clientId) {
 
@@ -129,4 +116,6 @@ public class ClientAssetController {
                 service.getAssetDashboardByClient(clientId)
         );
     }
+
+
 }

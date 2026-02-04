@@ -1,6 +1,6 @@
 package com.controller.client_controllers;
 
-import com.dto.*;
+import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.service_interface.client_service_interface.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;

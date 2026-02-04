@@ -1,4 +1,4 @@
-package com.entity_enums;
+package com.entity_enums.project_enums;
 
 public enum ProjectStage {
     INITIATION,
@@ -8,5 +8,8 @@ public enum ProjectStage {
     TESTING,
     DEPLOYMENT,
     MAINTENANCE,
-    COMPLETED
+    COMPLETED,
+    MOBILIZATION,
+    EXECUTION,
+    STABILIZATION
 }

@@ -1,17 +1,15 @@
 package com.service_imple.client_service_impl;
 
 
-import com.dto.ApiResponse;
+import com.dto.client_dto.ApiResponse;
 import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientAsset;
-import com.entity_enums.client_enums.AssetCategory;
 import com.entity_enums.client_enums.AssetStatus;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientAssetService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
