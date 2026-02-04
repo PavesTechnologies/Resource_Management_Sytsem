@@ -83,30 +83,30 @@ public class ClientAssetController {
 //    }
 
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<Map<String, Object>> getAssetManagementDashboard() {
-        return ResponseEntity.ok(service.getAssetManagementDashboard());
-    }
+//    @GetMapping("/utilization-percentage")
+//    public ResponseEntity<Map<String, Object>> getAssetUtilizationPercentage() {
+//        return ResponseEntity.ok(service.getAssetUtilizationPercentage());
+//    }
 
-    @GetMapping("/total-assets")
-    public ResponseEntity<Map<String, Object>> getTotalAssets() {
-        return ResponseEntity.ok(service.getTotalAssetsCount());
-    }
-
-    @GetMapping("/assigned-assets")
-    public ResponseEntity<Map<String, Object>> getAssignedAssets() {
-        return ResponseEntity.ok(service.getAssignedAssetsCount());
-    }
-
-    @GetMapping("/available-assets")
-    public ResponseEntity<Map<String, Object>> getAvailableAssets() {
-        return ResponseEntity.ok(service.getAvailableAssetsCount());
-    }
-
-    @GetMapping("/utilization-percentage")
-    public ResponseEntity<Map<String, Object>> getAssetUtilizationPercentage() {
-        return ResponseEntity.ok(service.getAssetUtilizationPercentage());
-    }
+//    @GetMapping("/dashboard")
+//    public ResponseEntity<Map<String, Object>> getAssetManagementDashboard() {
+//        return ResponseEntity.ok(service.getAssetManagementDashboard());
+//    }
+//
+//    @GetMapping("/total-assets")
+//    public ResponseEntity<Map<String, Object>> getTotalAssets() {
+//        return ResponseEntity.ok(service.getTotalAssetsCount());
+//    }
+//
+//    @GetMapping("/assigned-assets")
+//    public ResponseEntity<Map<String, Object>> getAssignedAssets() {
+//        return ResponseEntity.ok(service.getAssignedAssetsCount());
+//    }
+//
+//    @GetMapping("/available-assets")
+//    public ResponseEntity<Map<String, Object>> getAvailableAssets() {
+//        return ResponseEntity.ok(service.getAvailableAssetsCount());
+//    }
 
     @GetMapping("/dashboard/client/{clientId}")
     public ResponseEntity<Map<String, Object>> getDashboardByClient(

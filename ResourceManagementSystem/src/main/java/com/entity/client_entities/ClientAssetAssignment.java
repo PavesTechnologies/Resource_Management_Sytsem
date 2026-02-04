@@ -26,7 +26,7 @@ public class ClientAssetAssignment {
     @JoinColumn(name = "asset_id", nullable = false)
     private ClientAsset asset;
 
-    @Column(name = "serial_number", nullable = false, unique = true)
+    @Column(name = "serial_number", nullable = false)
     private String serialNumber;
     // UI fields
     private String resourceName;

@@ -2,11 +2,13 @@ package com.controller.client_controllers;
 
 
 import com.dto.ApiResponse;
+import com.dto.AssetAssignmentKPIDTo;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -23,9 +25,7 @@ public class ClientAssetAssignmentController {
             @PathVariable UUID assetId,
             @RequestBody ClientAssetAssignment assignment) {
 
-        return ResponseEntity.ok(
-                service.assignAsset(assetId, assignment)
-        );
+        return service.assignAsset(assetId, assignment);
     }
 
     @PutMapping("/{assignmentId}")
@@ -42,9 +42,7 @@ public class ClientAssetAssignmentController {
     public ResponseEntity<?> deleteAssignment(
             @PathVariable UUID assignmentId) {
 
-        return ResponseEntity.ok(
-                service.deleteAssignment(assignmentId)
-        );
+        return service.deleteAssignment(assignmentId);
     }
 
     @GetMapping("/by-asset/{assetId}")
@@ -81,4 +79,9 @@ public class ClientAssetAssignmentController {
         return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
     }
 
+    @GetMapping("/kpi/{assetId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE_MANAGER')")
+    public ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(@PathVariable UUID assetId) {
+        return service.getKPI(assetId);
+    }
 }
