@@ -2,8 +2,10 @@ package com.service_imple.client_service_impl;
 
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
+import com.entity_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.global_exception_handler.ClientException;
+import com.repo.ProjectRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientMapper;
 import com.service_interface.client_service_interface.ClientService;
@@ -16,6 +18,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +35,9 @@ public class ClientServiceImple implements ClientService {
 
     @Autowired
     ClientRepo clientRepo;
+
+    @Autowired
+    ProjectRepository projectRepository;
 
     private final ClientMapper clientMapper;
 
@@ -328,6 +334,37 @@ public class ClientServiceImple implements ClientService {
             
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error updating client: " + e.getMessage(), null));
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<ClientProjectStatisticsDTO>> getClientProjectStatistics(UUID clientId) {
+        try {
+            // Verify client exists
+            Client client = clientRepo.findById(clientId)
+                .orElseThrow(() -> new ClientException("Client not found"));
+            
+            // Get total projects for the client
+            Long totalProjects = projectRepository.countTotalProjectsByClientId(clientId);
+            
+            // Get active projects for the client
+            Long activeProjects = projectRepository.countProjectsByClientIdAndStatus(clientId, ProjectStatus.ACTIVE);
+            
+            // Get total spend (sum of project budgets) for the client
+            BigDecimal totalSpend = projectRepository.sumProjectBudgetByClientId(clientId);
+            
+            // Create and populate the DTO
+            ClientProjectStatisticsDTO statistics = new ClientProjectStatisticsDTO();
+            statistics.setTotalProjects(totalProjects);
+            statistics.setActiveProjects(activeProjects);
+            statistics.setTotalSpend(totalSpend);
+            
+            return ResponseEntity.ok(new ApiResponse<>(true, "Client project statistics fetched successfully", statistics));
+            
+        } catch (ClientException e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error fetching client project statistics: " + e.getMessage(), null));
         }
     }
 

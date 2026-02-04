@@ -20,6 +20,7 @@ public interface ClientService {
     ResponseEntity<ApiResponse<Client>> getClientById(UUID id);
 
     ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI();
+    ResponseEntity<ApiResponse<ClientProjectStatisticsDTO>> getClientProjectStatistics(UUID clientId);
 
     ResponseEntity<ApiResponse<Client>> updateClient(Client client);
     ResponseEntity<ApiResponse> deleteClient(UUID id);

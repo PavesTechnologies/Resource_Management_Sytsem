@@ -36,24 +36,11 @@ public class ProjectCdcHandler {
         if ("r".equals(op)) return;
 
         Struct before = value.getStruct("before");
-        Struct after = value.getStruct("after");
+        Struct after  = value.getStruct("after");
 
-        // DELETE (after == null)
-        if ("d".equals(op)) {
-            if (before == null) return;
-
-            Long pmsProjectId =
-                    ((Number) before.get("id")).longValue();
-
-            projectRepository.findById(pmsProjectId)
-                    .ifPresent(p -> {
-                        p.setProjectStatus(null); // soft delete decision
-                        p.setLastSyncedAt(LocalDateTime.now());
-                        projectRepository.save(p);
-                    });
-            return;
-        }
-        // DELETE (soft delete)
+        /* =========================
+           DELETE → SOFT DELETE
+           ========================= */
         if ("d".equals(op)) {
             if (before == null) return;
 
@@ -62,7 +49,7 @@ public class ProjectCdcHandler {
 
             projectRepository.findById(pmsProjectId)
                     .ifPresent(project -> {
-                        project.setProjectStatus(ProjectStatus.ARCHIVED); // soft delete
+                        project.setProjectStatus(ProjectStatus.ARCHIVED);
                         project.setLastSyncedAt(LocalDateTime.now());
                         projectRepository.save(project);
                     });
@@ -70,8 +57,9 @@ public class ProjectCdcHandler {
             return;
         }
 
-
-        // INSERT or UPDATE
+        /* =========================
+           INSERT / UPDATE
+           ========================= */
         if (after == null) return;
 
         Long pmsProjectId =
@@ -95,9 +83,10 @@ public class ProjectCdcHandler {
 
             if (mapping == null) continue;
 
-            Object rawValue = after.schema().field(pmsColumn) != null
-                    ? after.get(pmsColumn)
-                    : null;
+            Object rawValue =
+                    after.schema().field(pmsColumn) != null
+                            ? after.get(pmsColumn)
+                            : null;
 
             Object converted =
                     CdcValueConverter.convert(
@@ -114,7 +103,6 @@ public class ProjectCdcHandler {
         }
 
         rmsProject.setLastSyncedAt(LocalDateTime.now());
-
         projectRepository.save(rmsProject);
     }
 }
