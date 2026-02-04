@@ -5,6 +5,7 @@ import com.dto.UserDTO;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface DeliveryRoleService {
 
@@ -14,9 +15,9 @@ public interface DeliveryRoleService {
             UserDTO user
     );
 
-    void deactivateRole(Long roleId, UserDTO user);
+    void deactivateRole(UUID roleId, UserDTO user);
 
-    Optional<DeliveryRole> getActiveRole(Long roleId);
+    Optional<DeliveryRole> getActiveRole(UUID roleId);
 
     List<DeliveryRole> getAllActiveRoles();
 }

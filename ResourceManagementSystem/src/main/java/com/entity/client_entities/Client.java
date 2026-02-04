@@ -7,11 +7,15 @@ import com.entity_enums.client_enums.ClientType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "client")
@@ -24,11 +28,17 @@ import java.time.LocalDateTime;
 public class Client {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long clientId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID clientId;
 
     @JsonProperty("client_name")
     @Column(nullable = false)
+    @NotBlank(message = "Client name is required")
+    @Size(min = 3, max = 100, message = "Client name must be between 3 and 100 characters")
+    @Pattern(
+            regexp = "^[A-Za-z]+(?:[ .][A-Za-z]+)*$",
+            message = "Client name can contain only letters, spaces, and dots"
+    )
     private String clientName;
 
     @JsonProperty("client_type")

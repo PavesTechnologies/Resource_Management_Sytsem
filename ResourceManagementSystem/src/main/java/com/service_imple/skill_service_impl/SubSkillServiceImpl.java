@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +22,7 @@ public class SubSkillServiceImpl implements SubSkillService {
     private final SkillAuditService auditService;
 
     @Override
-    public SubSkill createSubSkill(Long skillId, String subSkillName,
+    public SubSkill createSubSkill(UUID skillId, String subSkillName,
                                    String description, boolean isCertification,
                                    String proficiencyName, UserDTO user) {
 
@@ -49,7 +50,7 @@ public class SubSkillServiceImpl implements SubSkillService {
     }
 
     @Override
-    public void deactivateSubSkill(Long subSkillId, UserDTO user) {
+    public void deactivateSubSkill(UUID subSkillId, UserDTO user) {
         SubSkill existing = subSkillRepo.findById(subSkillId)
                 .orElseThrow(() -> new IllegalStateException("Sub-skill not found"));
 
@@ -74,7 +75,7 @@ public class SubSkillServiceImpl implements SubSkillService {
     }
 
     @Override
-    public List<SubSkill> getActiveSubSkills(Long skillId) {
+    public List<SubSkill> getActiveSubSkills(UUID skillId) {
         return subSkillRepo.findBySkillSkillIdAndActiveFlagTrue(skillId);
     }
 }

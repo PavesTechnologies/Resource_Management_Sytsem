@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +19,7 @@ public class SkillValidityRuleServiceImpl implements SkillValidityRuleService {
     private final SkillAuditService auditService;
 
     @Override
-    public SkillValidityRule defineRule(Long skillId,
+    public SkillValidityRule defineRule(UUID skillId,
                                         Integer validityPeriodMonths,
                                         Integer recencyThresholdMonths,
                                         Boolean expiryRequired,
@@ -55,7 +56,7 @@ public class SkillValidityRuleServiceImpl implements SkillValidityRuleService {
     }
 
     @Override
-    public Optional<SkillValidityRule> getRule(Long skillId) {
+    public Optional<SkillValidityRule> getRule(UUID skillId) {
         return ruleRepo.findById(skillId);
     }
 }

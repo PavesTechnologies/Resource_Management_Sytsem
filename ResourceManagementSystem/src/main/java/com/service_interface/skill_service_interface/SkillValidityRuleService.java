@@ -4,16 +4,17 @@ import com.entity.skill_entities.SkillValidityRule;
 import com.dto.UserDTO;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface SkillValidityRuleService {
 
     SkillValidityRule defineRule(
-            Long skillId,
+            UUID skillId,
             Integer validityPeriodMonths,
             Integer recencyThresholdMonths,
             Boolean expiryRequired,
             UserDTO user
     );
 
-    Optional<SkillValidityRule> getRule(Long skillId);
+    Optional<SkillValidityRule> getRule(UUID skillId);
 }

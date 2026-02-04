@@ -7,9 +7,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.UUID;
 
-public interface ClientAssetRepository extends JpaRepository<ClientAsset, Long> {
-    List<ClientAsset> findByClient_ClientId(Long clientId);
+public interface ClientAssetRepository extends JpaRepository<ClientAsset, UUID> {
+    List<ClientAsset> findByClient_ClientId(UUID clientId);
 
     long countByStatus(AssetStatus status);
 
@@ -24,7 +25,7 @@ public interface ClientAssetRepository extends JpaRepository<ClientAsset, Long> 
     WHERE a.client.clientId = :clientId
     AND a.status = 'ACTIVE'
 """)
-    Long sumQuantityByClient(@Param("clientId")Long clientId);
+    Long sumQuantityByClient(@Param("clientId")UUID clientId);
 
     @Query("""
     SELECT COALESCE(SUM(a.quantity), 0)
@@ -32,7 +33,7 @@ public interface ClientAssetRepository extends JpaRepository<ClientAsset, Long> 
     WHERE a.client.clientId = :clientId
     AND a.status = 'ACTIVE'
 """)
-    Long sumActiveQuantityByClient(Long clientId);
+    Long sumActiveQuantityByClient(UUID clientId);
 
 
 

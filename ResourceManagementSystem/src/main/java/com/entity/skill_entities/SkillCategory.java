@@ -3,6 +3,8 @@ package com.entity.skill_entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(
         name = "skill_category",
@@ -16,9 +18,9 @@ import lombok.*;
 public class SkillCategory {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "category_id")
-    private Long categoryId;
+    private UUID categoryId;
 
     @Column(name = "category_name", nullable = false)
     private String categoryName;

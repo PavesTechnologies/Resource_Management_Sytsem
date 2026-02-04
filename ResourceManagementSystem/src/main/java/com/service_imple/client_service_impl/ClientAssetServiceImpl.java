@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -55,7 +56,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
 
     @Override
-    public ApiResponse<String> updateClientAsset(Long assetId, ClientAsset asset) {
+    public ApiResponse<String> updateClientAsset(UUID assetId, ClientAsset asset) {
         try {
             ClientAsset existing = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
@@ -100,7 +101,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
     // SOFT DELETE (DEACTIVATE)
     @Override
-    public ApiResponse<String> deleteClientAsset(Long assetId) {
+    public ApiResponse<String> deleteClientAsset(UUID assetId) {
         try {
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
@@ -137,7 +138,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
 
 
     @Override
-    public ApiResponse<?> getAssetsByClient(Long clientId) {
+    public ApiResponse<?> getAssetsByClient(UUID clientId) {
         try {
             return new ApiResponse<>(
                     true,
@@ -154,7 +155,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
     }
 
     @Override
-    public ApiResponse<ClientAsset> getAssetById(Long assetId) {
+    public ApiResponse<ClientAsset> getAssetById(UUID assetId) {
         try {
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Asset not found"));
@@ -247,7 +248,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
         );
     }
     @Override
-    public Map<String, Object> getAssetDashboardByClient(Long clientId) {
+    public Map<String, Object> getAssetDashboardByClient(UUID clientId) {
 
         long totalUnits =
                 assetRepository.sumActiveQuantityByClient(clientId);

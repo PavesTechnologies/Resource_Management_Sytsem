@@ -3,6 +3,8 @@ package com.entity.client_entities;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "client_escalation_contact")
 @Data
@@ -12,8 +14,8 @@ import lombok.*;
 public class ClientEscalationContact {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long contactId;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID contactId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")

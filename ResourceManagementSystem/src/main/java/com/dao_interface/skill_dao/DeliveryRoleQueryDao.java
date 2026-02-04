@@ -3,10 +3,11 @@ package com.dao_interface.skill_dao;
 import com.entity.skill_entities.DeliveryRole;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public interface DeliveryRoleQueryDao {
 
     Optional<DeliveryRole> findActiveRoleByName(String roleName);
 
-    Optional<DeliveryRole> findActiveRoleById(Long roleId);
+    Optional<DeliveryRole> findActiveRoleById(UUID roleId);
 }

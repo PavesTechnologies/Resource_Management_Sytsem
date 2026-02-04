@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(
@@ -18,14 +19,14 @@ import java.time.LocalDate;
 public class ResourceSkill {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
 
     @Column(name = "resource_id", nullable = false)
     private Long resourceId;
 
     @Column(name = "skill_id", nullable = false)
-    private Long skillId;
+    private UUID skillId;
 
     @Column(name = "last_used_date")
     private LocalDate lastUsedDate;

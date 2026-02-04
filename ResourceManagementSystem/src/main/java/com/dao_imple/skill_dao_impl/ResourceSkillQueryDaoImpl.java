@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -16,7 +17,7 @@ public class ResourceSkillQueryDaoImpl implements ResourceSkillQueryDao {
     private final ResourceSkillRepository resourceSkillRepo;
 
     @Override
-    public Optional<ResourceSkill> findActiveSkillForResource(Long resourceId, Long skillId) {
+    public Optional<ResourceSkill> findActiveSkillForResource(Long resourceId, UUID skillId) {
         return resourceSkillRepo.findByResourceIdAndSkillId(resourceId, skillId)
                 .filter(ResourceSkill::getActiveFlag);
     }

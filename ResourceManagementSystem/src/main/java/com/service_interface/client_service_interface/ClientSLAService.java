@@ -4,11 +4,13 @@ import com.dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
 import org.springframework.http.ResponseEntity;
 
+import java.util.UUID;
+
 public interface ClientSLAService {
 
     ResponseEntity<ApiResponse> createClientSLA(ClientSLA clientSLA);
     ResponseEntity<ApiResponse> updateClientSLA(ClientSLA clientSLA);
-    ResponseEntity<ApiResponse> deleteClientSLA(Long id);
+    ResponseEntity<ApiResponse> deleteClientSLA(UUID id);
 
-    ResponseEntity<ApiResponse> getClientSLA(Long clientId);
+    ResponseEntity<ApiResponse> getClientSLA(UUID clientId);
 }

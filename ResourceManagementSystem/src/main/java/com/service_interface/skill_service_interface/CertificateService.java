@@ -5,11 +5,12 @@ import com.dto.UserDTO;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface CertificateService {
 
     Certificate assignCertificate(
-            Long skillId,
+            UUID skillId,
             String certificateId,
             String providerName,
             String certificateFile,
@@ -18,5 +19,5 @@ public interface CertificateService {
             UserDTO user
     );
 
-    Optional<Certificate> getActiveCertificate(Long skillId);
+    Optional<Certificate> getActiveCertificate(UUID skillId);
 }

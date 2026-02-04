@@ -4,6 +4,8 @@ import com.entity_enums.skill_enums.AppliesToType;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "skill_requirement")
 @Getter
@@ -14,9 +16,9 @@ import lombok.*;
 public class SkillRequirement {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name = "requirement_id")
-    private Long requirementId;
+    private UUID requirementId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "applies_to_type", nullable = false)
@@ -26,7 +28,7 @@ public class SkillRequirement {
     private Long appliesToId;
 
     @Column(name = "skill_id", nullable = false)
-    private Long skillId;
+    private UUID skillId;
 
     @Column(name = "proficiency_name")
     private String proficiencyName;

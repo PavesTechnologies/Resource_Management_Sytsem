@@ -11,6 +11,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -18,7 +19,7 @@ import java.time.LocalDateTime;
 @Builder
 public class ClientDTO {
 
-    private Long clientId;
+    private UUID clientId;
     private String clientName;
     private String clientType;
     private String priorityLevel;

@@ -6,6 +6,7 @@ import com.entity.skill_entities.SubSkill;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface SkillTaxonomyQueryDao {
 
@@ -13,10 +14,10 @@ public interface SkillTaxonomyQueryDao {
 
     Optional<Skill> findActiveSkillByNameAndCategory(
             String skillName,
-            Long categoryId
+            UUID categoryId
     );
 
-    List<Skill> findActiveSkillsByCategory(Long categoryId);
+    List<Skill> findActiveSkillsByCategory(UUID categoryId);
 
-    List<SubSkill> findActiveSubSkillsBySkill(Long skillId);
+    List<SubSkill> findActiveSubSkillsBySkill(UUID skillId);
 }

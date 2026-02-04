@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/client-contact")
 public class ClientContactController {
@@ -28,13 +30,13 @@ public class ClientContactController {
 
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> deleteClientContact(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse> deleteClientContact(@PathVariable UUID id) {
         return clientContactService.deleteClientContact(id);
     }
 
     @GetMapping("/clientContact/{clientId}")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse> getClientContact(@PathVariable Long clientId) {
+    public ResponseEntity<ApiResponse> getClientContact(@PathVariable UUID clientId) {
         return clientContactService.getClientContact(clientId);
     }
 }
