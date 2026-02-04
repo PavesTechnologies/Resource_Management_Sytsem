@@ -28,7 +28,7 @@ public class ClientAssetAssignment {
     @NotNull(message = "Asset must be selected")
     private ClientAsset asset;
 
-    @Column(name = "serial_number", nullable = false, unique = true)
+    @Column(name = "serial_number", nullable = false)
     @NotBlank(message = "Serial number is required")
     @Size(max = 100, message = "Serial number must not exceed 100 characters")
     @Pattern(regexp = "^[A-Za-z0-9\\-_]+$", message = "Serial number must contain only alphanumeric characters, dash, and underscore")

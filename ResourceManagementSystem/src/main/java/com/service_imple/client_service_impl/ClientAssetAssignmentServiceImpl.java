@@ -1,6 +1,10 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.client_dto.ApiResponse;
+import com.dto.ApiResponse;
+import com.dto.AssetAssignmentDTO;
+import com.dto.AssetAssignmentKPIDTo;
+import com.dto.AssetResponseDTO;
+import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
@@ -10,10 +14,13 @@ import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -24,23 +31,18 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     private final ClientRepo clientRepo;
     // ASSIGN ASSET
     @Override
-    public ApiResponse<Void> assignAsset(UUID assetId, ClientAssetAssignment assignment) {
+    public ResponseEntity<?> assignAsset(UUID assetId, ClientAssetAssignment assignment) {
         try {
             ClientAsset asset = assetRepository.findById(assetId)
-                    .orElseThrow(() -> new RuntimeException("Client asset not found"));
+                    .orElseThrow(() -> new RuntimeException("Client asset not found!"));
 
             long assignedCount =
                     assignmentRepository.countByAsset_AssetIdAndActiveTrue(assetId);
 
             if (assignedCount >= asset.getQuantity()) {
-                return new ApiResponse<>(
-                        false,
-                        "Assignment failed. No available assets to assign.",
-                        null
-                );
+                throw  new RuntimeException("Assignment failed. No available assets to assign.");
             }
 
-            // 🔴 SERIAL NUMBER VALIDATION
             if (assignment.getSerialNumber() == null ||
                     assignment.getSerialNumber().isBlank()) {
                 throw new RuntimeException("Serial number is mandatory while assigning asset");
@@ -48,8 +50,11 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
             String serial = assignment.getSerialNumber().trim().toUpperCase();
 
+
             if (assignmentRepository.existsBySerialNumber(serial)) {
-                throw new RuntimeException("Serial number already assigned to another asset");
+                if (assignmentRepository.existsBySerialNumberAndAssignmentStatus(serial, EnablementAssignmentStatus.ASSIGNED)) {
+                    throw new RuntimeException("Serial number already assigned to another asset");
+                }
             }
 
             assignment.setSerialNumber(serial);
@@ -62,11 +67,11 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
             if (assignment.getAssignedDate() != null &&
                     !assignment.getAssignedDate().isEqual(today)) {
-                return new ApiResponse<>(
+                return ResponseEntity.badRequest().body(new ApiResponse<>(
                         false,
                         "Assigned date must be today's date.",
                         null
-                );
+                ));
             }
 
             assignment.setAssignedDate(today);
@@ -74,18 +79,18 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
             assignmentRepository.save(assignment);
 
-            return new ApiResponse<>(
+            return ResponseEntity.ok(new ApiResponse<>(
                     true,
                     "Asset assigned successfully",
                     null
-            );
+            ));
 
         } catch (Exception e) {
-            return new ApiResponse<>(
+            return ResponseEntity.badRequest().body(new ApiResponse<>(
                     false,
                     "Asset assignment failed: " + e.getMessage(),
                     null
-            );
+            ));
         }
     }
 
@@ -147,39 +152,27 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
     // DELETE (SOFT)
     @Override
-    public ApiResponse<Void> deleteAssignment(UUID assignmentId) {
-        try {
-            ClientAssetAssignment assignment =
-                    assignmentRepository.findById(assignmentId)
-                            .orElseThrow(() ->
-                                    new RuntimeException("Assignment not found"));
+    public ResponseEntity<?> deleteAssignment(UUID assignmentId) {
+        ClientAssetAssignment assignment =
+                assignmentRepository.findById(assignmentId)
+                        .orElseThrow(() ->
+                                new ClientException("Assignment not found"));
 
-            if (assignment.getAssignmentStatus() == EnablementAssignmentStatus.ASSIGNED) {
-                return new ApiResponse<>(
-                        false,
-                        "Assigned asset cannot be deleted. Please return the asset first.",
-                        null
-                );
-            }
-
-
-            assignment.setActive(false);
-            assignment.setAssignmentStatus(EnablementAssignmentStatus.RETURNED);
-
-            assignmentRepository.save(assignment);
-
-            return new ApiResponse<>(
-                    true,
-                    "Asset assignment deleted successfully",
-                    null
-            );
-        } catch (Exception e) {
-            return new ApiResponse<>(
-                    false,
-                    "Asset assignment deletion failed: " + e.getMessage(),
-                    null
-            );
+        if (assignment.getAssignmentStatus() == EnablementAssignmentStatus.ASSIGNED) {
+            return ResponseEntity.badRequest().body("Assign Asset can't be delete. Please return it first!");
         }
+
+
+        assignment.setActive(false);
+        assignment.setAssignmentStatus(EnablementAssignmentStatus.RETURNED);
+
+        assignmentRepository.save(assignment);
+
+        return ResponseEntity.ok( new ApiResponse<>(
+                true,
+                "Asset assignment deleted successfully",
+                null
+        ));
     }
 
     // GET ALL ACTIVE
@@ -202,11 +195,43 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
     @Override
     public ApiResponse<?> getAssignmentsByAssetId(UUID assetId) {
-        List<ClientAssetAssignment> list=assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(()-> new ClientException("Assignments not found"));
-        return new ApiResponse<>(true,"Fetched Assigned Assets Successfully",list);
+        ClientAsset asset =  assetRepository.findById(assetId).orElseThrow(() -> new ClientException("Asset Not Found!"));
+        AssetResponseDTO assetResponse = new AssetResponseDTO(
+                asset.getAssetId(),
+                asset.getAssetName(),
+                asset.getAssetCategory(),
+                asset.getAssetType(),
+                asset.getQuantity(),
+                asset.getStatus()
+        );
+        List<ClientAssetAssignment> assignments = assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(() -> new ClientException("Asset Not Found!"));
+        List<AssetAssignmentDTO> assignmentsDTO = assignments.stream().map(a -> new AssetAssignmentDTO(
+                a.getAssignmentId(),
+                a.getResourceName(),
+                a.getProjectName(),
+                a.getAssignedDate(),
+                a.getActualReturnDate(),
+                a.getAssignmentStatus(),
+                a.getSerialNumber(),
+                a.getLocationDetails(),
+                a.getAssignedBy(),
+                a.getDescription()
+        )).toList();
+
+        return new ApiResponse<>(true,"Fetched Assigned Assets Successfully", Map.of("asset",assetResponse,"assignments",assignmentsDTO));
     }
 
     // RETURN ASSET (LOCKED API)
+    @Override
+    public ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(UUID assetId) {
+        ClientAsset asset = assetRepository.findById(assetId).orElseThrow(() -> new ClientException("No Asset Found with the ID."));
+        long totalAssets = asset.getQuantity();
+        long activeAssignments = assignmentRepository.countByAsset_AssetIdAndAssignmentStatus(assetId, EnablementAssignmentStatus.ASSIGNED);
+        long availableAssets = Math.max(0, (totalAssets - activeAssignments));
+        long utilization = totalAssets > 0 ? Math.round((double) activeAssignments / totalAssets * 100) : 0;
+        return ResponseEntity.ok(new ApiResponse<>(true,"Fetched KPI Successfully", new AssetAssignmentKPIDTo(totalAssets, activeAssignments, availableAssets, utilization)));
+    }
+
     @Override
     public ApiResponse<Void> returnAsset(
             UUID assignmentId,
@@ -247,5 +272,4 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             );
         }
     }
-
 }
