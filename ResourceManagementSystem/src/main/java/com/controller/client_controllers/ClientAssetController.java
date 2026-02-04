@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class ClientAssetController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<String>> createClientAsset(
-            @RequestBody ClientAsset asset) {
+            @Valid @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.createClientAsset(asset);
 
@@ -37,7 +38,7 @@ public class ClientAssetController {
     @PutMapping("/{assetId}")
     public ResponseEntity<ApiResponse<String>> update(
             @PathVariable UUID assetId,
-            @RequestBody ClientAsset asset) {
+            @Valid @RequestBody ClientAsset asset) {
 
         ApiResponse<String> response = service.updateClientAsset(assetId, asset);
         return ResponseEntity

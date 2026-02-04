@@ -45,9 +45,20 @@ public class ClientAssetServiceImpl implements ClientAssetService {
                     null);
 
         } catch (Exception e) {
+            String errorMessage = "Client asset creation failed";
+            
+            // Handle specific JPA/transaction errors
+            if (e.getCause() != null && e.getCause().getMessage().contains("ConstraintViolationException")) {
+                errorMessage = "Asset creation failed: Invalid data provided";
+            } else if (e.getMessage() != null && e.getMessage().contains("could not execute statement")) {
+                errorMessage = "Asset creation failed: Database error occurred";
+            } else if (e.getMessage() != null && e.getMessage().contains("Could not commit JPA transaction")) {
+                errorMessage = "Asset creation failed: Unable to save asset. Please try again.";
+            }
+            
             return new ApiResponse<>(
                     false,
-                    "Client asset creation failed: " + e.getMessage(),
+                    errorMessage,
                     null
             );
         }
@@ -88,9 +99,20 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             );
 
         } catch (Exception e) {
+            String errorMessage = "Client asset update failed";
+            
+            // Handle specific JPA/transaction errors
+            if (e.getCause() != null && e.getCause().getMessage().contains("ConstraintViolationException")) {
+                errorMessage = "Asset update failed: Invalid data provided";
+            } else if (e.getMessage() != null && e.getMessage().contains("could not execute statement")) {
+                errorMessage = "Asset update failed: Database error occurred";
+            } else if (e.getMessage() != null && e.getMessage().contains("Could not commit JPA transaction")) {
+                errorMessage = "Asset update failed: Unable to update asset. Please try again.";
+            }
+            
             return new ApiResponse<>(
                     false,
-                    "Client asset update failed: " + e.getMessage(),
+                    errorMessage,
                     null
             );
         }
@@ -128,9 +150,20 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             );
 
         } catch (Exception e) {
+            String errorMessage = "Client asset deletion failed";
+            
+            // Handle specific JPA/transaction errors
+            if (e.getCause() != null && e.getCause().getMessage().contains("ConstraintViolationException")) {
+                errorMessage = "Asset deletion failed: Invalid data provided";
+            } else if (e.getMessage() != null && e.getMessage().contains("could not execute statement")) {
+                errorMessage = "Asset deletion failed: Database error occurred";
+            } else if (e.getMessage() != null && e.getMessage().contains("Could not commit JPA transaction")) {
+                errorMessage = "Asset deletion failed: Unable to delete asset. Please try again.";
+            }
+            
             return new ApiResponse<>(
                     false,
-                    "Client asset deletion failed: " + e.getMessage(),
+                    errorMessage,
                     null
             );
         }

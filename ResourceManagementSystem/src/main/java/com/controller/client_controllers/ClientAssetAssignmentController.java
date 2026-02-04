@@ -9,6 +9,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,7 +22,7 @@ public class ClientAssetAssignmentController {
     @PostMapping("/{assetId}")
     public ResponseEntity<?> assignAsset(
             @PathVariable UUID assetId,
-            @RequestBody ClientAssetAssignment assignment) {
+            @Valid @RequestBody ClientAssetAssignment assignment) {
 
         return ResponseEntity.ok(
                 service.assignAsset(assetId, assignment)
@@ -31,7 +32,7 @@ public class ClientAssetAssignmentController {
     @PutMapping("/{assignmentId}")
     public ResponseEntity<?> updateAssignment(
             @PathVariable UUID assignmentId,
-            @RequestBody ClientAssetAssignment assignment) {
+            @Valid @RequestBody ClientAssetAssignment assignment) {
 
         return ResponseEntity.ok(
                 service.updateAssignment(assignmentId, assignment)
