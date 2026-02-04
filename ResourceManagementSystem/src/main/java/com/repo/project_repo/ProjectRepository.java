@@ -1,6 +1,6 @@
-package com.repo.project_repo_v;
+package com.repo.project_repo;
 
-import com.entity.project_entities_v.Project;
+import com.entity.project_entities.Project;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

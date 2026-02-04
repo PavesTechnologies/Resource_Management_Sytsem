@@ -1,16 +1,16 @@
-package com.service_imple.project_service_imple_v;
+package com.service_imple.project_service_impl;
 
 import com.dto.client_dto.ApiResponse;
-import com.dto.project_dto_v.DateValidationResponse;
-import com.dto.project_dto_v.DemandDateValidationRequest;
-import com.dto.project_dto_v.ProjectListDTO;
-import com.dto.project_dto_v.ProjectOverlapDTO;
-import com.entity.project_entities_v.Project;
-import com.entity_enums.project_enums_v.ProjectStatus;
-import com.entity_enums.project_enums_v.ProjectStage;
-import com.entity_enums.project_enums_v.ProjectDataStatus;
-import com.repo.project_repo_v.ProjectRepository;
-import com.service_interface.project_service_interface_v.ProjectGovernanceService;
+import com.dto.project_dto.DateValidationResponse;
+import com.dto.project_dto.DemandDateValidationRequest;
+import com.dto.project_dto.ProjectListDTO;
+import com.dto.project_dto.ProjectOverlapDTO;
+import com.entity.project_entities.Project;
+import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums.ProjectStage;
+import com.entity_enums.project_enums.ProjectDataStatus;
+import com.repo.project_repo.ProjectRepository;
+import com.service_interface.project_service_interface.ProjectGovernanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

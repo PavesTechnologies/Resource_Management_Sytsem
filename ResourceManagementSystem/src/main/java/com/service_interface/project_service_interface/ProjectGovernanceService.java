@@ -1,10 +1,10 @@
-package com.service_interface.project_service_interface_v;
+package com.service_interface.project_service_interface;
 
 import com.dto.client_dto.ApiResponse;
-import com.dto.project_dto_v.DateValidationResponse;
-import com.dto.project_dto_v.DemandDateValidationRequest;
-import com.dto.project_dto_v.ProjectListDTO;
-import com.dto.project_dto_v.ProjectOverlapDTO;
+import com.dto.project_dto.DateValidationResponse;
+import com.dto.project_dto.DemandDateValidationRequest;
+import com.dto.project_dto.ProjectListDTO;
+import com.dto.project_dto.ProjectOverlapDTO;
 
 import java.util.List;
 
