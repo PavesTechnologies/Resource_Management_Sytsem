@@ -21,12 +21,13 @@ public class ClientSLAServiceImple implements ClientSLAService {
 
     @Autowired
     ApiResponse apiResponse;
+    
     @Override
-    public ResponseEntity<ApiResponse> createClientSLA(ClientSLA clientSLA) {
+    public ResponseEntity<ApiResponse<ClientSLA>> createClientSLA(ClientSLA clientSLA) {
         ClientSLA sla=clientSLARepo.save(clientSLA);
-        ApiResponse<ClientSLA> apiResponse= new ApiResponse<>();
+        ApiResponse<ClientSLA> response = new ApiResponse<>();
         if(sla!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Created Successfully",sla));
+            return ResponseEntity.ok(response.getAPIResponse(true,"Client SLA Created Successfully",sla));
         }
         else {
             throw new ClientExceptionHandler("Clinet Sla creation Failed");
@@ -34,10 +35,11 @@ public class ClientSLAServiceImple implements ClientSLAService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> updateClientSLA(ClientSLA clientSLA) {
+    public ResponseEntity<ApiResponse<ClientSLA>> updateClientSLA(ClientSLA clientSLA) {
         ClientSLA sla=clientSLARepo.save(clientSLA);
+        ApiResponse<ClientSLA> response = new ApiResponse<>();
         if(sla!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Updated Successfully",sla));
+            return ResponseEntity.ok(response.getAPIResponse(true,"Client SLA Updated Successfully",sla));
         }
         else {
             throw new ClientExceptionHandler("Clinet Sla Update Failed");
@@ -45,20 +47,17 @@ public class ClientSLAServiceImple implements ClientSLAService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClientSLA(UUID id) {
-        ClientSLA sla=clientSLARepo.findById(id).get();
+    public ResponseEntity<ApiResponse<ClientSLA>> deleteClientSLA(UUID id) {
+        ClientSLA sla=clientSLARepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client SLA not found"));
         clientSLARepo.deleteById(id);
-        if(sla!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Deleted Successfully",sla));
-        }
-        else {
-            throw new ClientExceptionHandler("Clinet Sla Deletion Failed");
-        }
+        ApiResponse<ClientSLA> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true,"Client SLA Deleted Successfully",sla));
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getClientSLA(UUID clientId) {
+    public ResponseEntity<ApiResponse<List<ClientSLA>>> getClientSLA(UUID clientId) {
         List<ClientSLA> sla=clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client sla"));
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Fentched Successfully",sla));
+        ApiResponse<List<ClientSLA>> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true,"Client SLA Fentched Successfully",sla));
     }
 }
