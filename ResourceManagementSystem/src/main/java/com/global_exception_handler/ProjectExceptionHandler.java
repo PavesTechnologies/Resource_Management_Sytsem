@@ -2,11 +2,11 @@ package com.global_exception_handler;
 
 import org.springframework.http.HttpStatus;
 
-public class ProjectValidationException extends RuntimeException{
+public class ProjectExceptionHandler extends RuntimeException{
     private final HttpStatus status;
     private final String errorCode;
 
-    public ProjectValidationException(
+    public ProjectExceptionHandler(
             HttpStatus status,
             String errorCode,
             String message

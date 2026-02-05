@@ -1,7 +1,7 @@
 package com.service_imple.project_service_impl;
 
 
-import com.global_exception_handler.ProjectValidationException;
+import com.global_exception_handler.ProjectExceptionHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,7 +17,7 @@ public class StaffingService {
 
         // Optional: authorization check
         if (!isResourceManager(rmsUserId)) {
-            throw new ProjectValidationException(
+            throw new ProjectExceptionHandler(
                     HttpStatus.FORBIDDEN,
                     "ACCESS_DENIED",
                     "Only Resource Managers can initiate staffing"
