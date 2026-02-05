@@ -2,7 +2,7 @@ package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
-import com.global_exception_handler.ClientException;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientSLARepo;
 import com.service_interface.client_service_interface.ClientSLAService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +29,7 @@ public class ClientSLAServiceImple implements ClientSLAService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Created Successfully",sla));
         }
         else {
-            throw new ClientException("Clinet Sla creation Failed");
+            throw new ClientExceptionHandler("Clinet Sla creation Failed");
         }
     }
 
@@ -40,7 +40,7 @@ public class ClientSLAServiceImple implements ClientSLAService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Updated Successfully",sla));
         }
         else {
-            throw new ClientException("Clinet Sla Update Failed");
+            throw new ClientExceptionHandler("Clinet Sla Update Failed");
         }
     }
 
@@ -52,13 +52,13 @@ public class ClientSLAServiceImple implements ClientSLAService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Deleted Successfully",sla));
         }
         else {
-            throw new ClientException("Clinet Sla Deletion Failed");
+            throw new ClientExceptionHandler("Clinet Sla Deletion Failed");
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> getClientSLA(UUID clientId) {
-        List<ClientSLA> sla=clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientException("Failed to fentch client sla"));
+        List<ClientSLA> sla=clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client sla"));
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client SLA Fentched Successfully",sla));
     }
 }

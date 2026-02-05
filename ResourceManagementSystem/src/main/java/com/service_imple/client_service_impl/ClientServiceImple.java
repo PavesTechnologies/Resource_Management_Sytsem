@@ -6,7 +6,7 @@ import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.RecordStatus;
-import com.global_exception_handler.ClientException;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientMapper;
@@ -308,7 +308,7 @@ public class ClientServiceImple implements ClientService {
 
     @Override
     public ResponseEntity<ApiResponse<Client>> getClientById(UUID id) {
-        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client not found"));
+        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client not found"));
         return ResponseEntity.ok(new ApiResponse<>(true, "Client fetched successfully", client));
     }
 
@@ -328,7 +328,7 @@ public class ClientServiceImple implements ClientService {
                 return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name must be between 3 and 100 characters", null));
             }
             
-            Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientException("Client Not Found!"));
+            Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
             client.setCreatedAt(clientDetails.getCreatedAt());
             client.setUpdatedAt(LocalDateTime.now());
             Client updatedDetails = clientRepo.save(client);
@@ -344,7 +344,7 @@ public class ClientServiceImple implements ClientService {
         try {
             // Verify client exists
             Client client = clientRepo.findById(clientId)
-                .orElseThrow(() -> new ClientException("Client not found"));
+                .orElseThrow(() -> new ClientExceptionHandler("Client not found"));
             
             // Get total projects for the client
             Long totalProjects = projectRepository.countTotalProjectsByClientId(clientId);
@@ -363,7 +363,7 @@ public class ClientServiceImple implements ClientService {
             
             return ResponseEntity.ok(new ApiResponse<>(true, "Client project statistics fetched successfully", statistics));
             
-        } catch (ClientException e) {
+        } catch (ClientExceptionHandler e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error fetching client project statistics: " + e.getMessage(), null));
@@ -372,7 +372,7 @@ public class ClientServiceImple implements ClientService {
 
     @Override
     public ResponseEntity<ApiResponse> deleteClient(UUID id) {
-        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientException("Client Not Found!"));
+        Client client = clientRepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
         client.setStatus(RecordStatus.INACTIVE);
         client.setUpdatedAt(LocalDateTime.now());
         clientRepo.save(client);

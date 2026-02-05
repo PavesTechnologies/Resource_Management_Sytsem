@@ -4,8 +4,10 @@ package com.repo.project_repo;
 import com.entity.project_entities.Project;
 import com.entity_enums.project_enums.ProjectStatus;
 import jakarta.persistence.LockModeType;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,9 +27,18 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     @Query("SELECT COALESCE(SUM(p.projectBudget), 0) FROM Project p WHERE p.clientId = :clientId")
     BigDecimal sumProjectBudgetByClientId(@Param("clientId") UUID clientId);
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from Project p where p.pmsProjectId = :id")
-    Optional<Project> findForUpdate(@Param("id") Long id);
+    @Modifying
+    @Transactional
+    @Query(value = """
+        INSERT INTO project (pms_project_id, last_synced_at)
+        VALUES (:id, :now)
+        ON DUPLICATE KEY UPDATE
+            last_synced_at = :now
+        """, nativeQuery = true)
+    void upsertSkeleton(
+            @Param("id") Long id,
+            @Param("now") LocalDateTime now
+    );
 
     @Query("""
         SELECT p FROM Project p
@@ -50,4 +61,5 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
             @Param("currentProjectId") Long currentProjectId
     );
 
+    Optional<List<Project>> findAllByresourceManagerId(Long managerId);
 }

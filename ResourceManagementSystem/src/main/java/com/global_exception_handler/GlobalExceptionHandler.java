@@ -7,13 +7,15 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalExceptionHandler{
 
-    @ExceptionHandler(ClientException.class)
-    public ResponseEntity<ApiResponse> handleClientException(ClientException e){
+    @ExceptionHandler(ClientExceptionHandler.class)
+    public ResponseEntity<ApiResponse> handleClientException(ClientExceptionHandler e){
         ApiResponse apiResponse = new ApiResponse();
         apiResponse.setSuccess(false);
         apiResponse.setMessage(e.getMessage());
@@ -59,5 +61,17 @@ public class GlobalExceptionHandler{
         apiResponse.setData(null);
         
         return ResponseEntity.badRequest().body(apiResponse);
+    }
+
+    @ExceptionHandler(ProjectExceptionHandler.class)
+    public ResponseEntity<?> handleProjectException(ProjectExceptionHandler ex) {
+
+        return ResponseEntity
+                .status(ex.getStatus())
+                .body(Map.of(
+                        "errorCode", ex.getErrorCode(),
+                        "message", ex.getMessage(),
+                        "timestamp", LocalDateTime.now()
+                ));
     }
 }

@@ -9,9 +9,11 @@ import com.entity.project_entities.Project;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.ProjectDataStatus;
+import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -94,6 +96,12 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
                 .toList();
 
         return new ApiResponse<>(true, "Project visibility list fetched", projects);
+    }
+
+    @Override
+    public ApiResponse<List<Project>> getProjectsByManagerId(Long managerId) {
+
+        return new ApiResponse<>(true, "Projects fetched", projectRepository.findAllByresourceManagerId(managerId).orElseThrow(()-> new ProjectExceptionHandler(HttpStatus.NOT_FOUND,"false","No projects found for this Manager")));
     }
 
     // 🔹 Central eligibility + visibility logic

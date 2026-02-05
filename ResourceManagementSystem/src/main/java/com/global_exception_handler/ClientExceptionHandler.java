@@ -5,6 +5,6 @@ import lombok.NoArgsConstructor;
 
 @AllArgsConstructor
 @NoArgsConstructor
-public class ClientException extends RuntimeException{
+public class ClientExceptionHandler extends RuntimeException{
     private String ExceptionMessage;
 }
