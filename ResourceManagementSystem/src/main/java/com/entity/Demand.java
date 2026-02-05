@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,14 +20,14 @@ import java.util.UUID;
 public class Demand {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @UuidGenerator
     @Column(name = "demand_id")
     private UUID demandId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
-    @JsonIgnore
+    @JoinColumn(name = "project_id")
     private Project project;
+
 
 //    @ManyToOne(fetch = FetchType.LAZY)
 //    @JoinColumn(name = "role_id", nullable = false)
@@ -41,7 +42,7 @@ public class Demand {
     @Column(name = "demand_end_date")
     private LocalDate demandEndDate;
 
-    @Column(name = "allocation_percentage", nullable = false)
+    @Column(name = "allocation_percentage")
     private Integer allocationPercentage;
 
     @Column(name = "location_requirement", length = 100)
