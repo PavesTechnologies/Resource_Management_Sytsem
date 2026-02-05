@@ -1,5 +1,7 @@
 package com.service_interface.client_service_interface;
 
+import com.dto.ApiResponse;
+import com.dto.client_dto.ClientProjectStatisticsDTO;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import org.springframework.http.ResponseEntity;

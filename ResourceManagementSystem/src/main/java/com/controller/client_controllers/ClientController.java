@@ -1,5 +1,6 @@
 package com.controller.client_controllers;
 
+import com.dto.ApiResponse;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.service_interface.client_service_interface.ClientService;
