@@ -1,10 +1,13 @@
 package com.controller.project_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.UserDTO;
 import com.dto.project_dto.DateValidationResponse;
 import com.dto.project_dto.DemandDateValidationRequest;
 import com.dto.project_dto.ProjectListDTO;
 import com.dto.project_dto.ProjectOverlapDTO;
+import com.entity.project_entities.Project;
+import com.security.CurrentUser;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +77,16 @@ public class ProjectGovernanceController {
                 new ApiResponse<>(false,
                         "Project data is read-only in RMS. Please update in PMS.",
                         null)
+        );
+    }
+
+    @GetMapping("get-projects")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<List<Project>>> getProjectsByManagerId(@CurrentUser UserDTO userDTO) {
+        Long managerId=userDTO.getId();
+
+        return ResponseEntity.ok(
+                projectGovernanceService.getProjectsByManagerId(managerId)
         );
     }
 }

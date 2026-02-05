@@ -7,7 +7,7 @@ import com.dto.client_dto.AssetResponseDTO;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
-import com.global_exception_handler.ClientException;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
@@ -154,7 +154,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
         ClientAssetAssignment assignment =
                 assignmentRepository.findById(assignmentId)
                         .orElseThrow(() ->
-                                new ClientException("Assignment not found"));
+                                new ClientExceptionHandler("Assignment not found"));
 
         if (assignment.getAssignmentStatus() == EnablementAssignmentStatus.ASSIGNED) {
             return ResponseEntity.badRequest().body("Assign Asset can't be delete. Please return it first!");
@@ -193,7 +193,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
     @Override
     public ApiResponse<?> getAssignmentsByAssetId(UUID assetId) {
-        ClientAsset asset =  assetRepository.findById(assetId).orElseThrow(() -> new ClientException("Asset Not Found!"));
+        ClientAsset asset =  assetRepository.findById(assetId).orElseThrow(() -> new ClientExceptionHandler("Asset Not Found!"));
         AssetResponseDTO assetResponse = new AssetResponseDTO(
                 asset.getAssetId(),
                 asset.getAssetName(),
@@ -202,7 +202,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                 asset.getQuantity(),
                 asset.getStatus()
         );
-        List<ClientAssetAssignment> assignments = assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(() -> new ClientException("Asset Not Found!"));
+        List<ClientAssetAssignment> assignments = assignmentRepository.findByAsset_AssetId(assetId).orElseThrow(() -> new ClientExceptionHandler("Asset Not Found!"));
         List<AssetAssignmentDTO> assignmentsDTO = assignments.stream().map(a -> new AssetAssignmentDTO(
                 a.getAssignmentId(),
                 a.getResourceName(),
@@ -222,7 +222,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     // RETURN ASSET (LOCKED API)
     @Override
     public ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(UUID assetId) {
-        ClientAsset asset = assetRepository.findById(assetId).orElseThrow(() -> new ClientException("No Asset Found with the ID."));
+        ClientAsset asset = assetRepository.findById(assetId).orElseThrow(() -> new ClientExceptionHandler("No Asset Found with the ID."));
         long totalAssets = asset.getQuantity();
         long activeAssignments = assignmentRepository.countByAsset_AssetIdAndAssignmentStatus(assetId, EnablementAssignmentStatus.ASSIGNED);
         long availableAssets = Math.max(0, (totalAssets - activeAssignments));

@@ -4,7 +4,7 @@ import com.config.ProjectDemandRules;
 import com.entity.project_entities.Project;
 import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.ProjectStatus;
-import com.global_exception_handler.ProjectValidationException;
+import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,7 +21,7 @@ public class ProjectDemandValidationService {
     public Project validateProjectForStaffing(Long pmsProjectId) {
 
         Project project = projectRepository.findById(pmsProjectId)
-                .orElseThrow(() -> new ProjectValidationException(
+                .orElseThrow(() -> new ProjectExceptionHandler(
                         HttpStatus.NOT_FOUND,
                         "PROJECT_NOT_FOUND",
                         "Project does not exist in RMS"
@@ -41,7 +41,7 @@ public class ProjectDemandValidationService {
         ProjectStatus status = project.getProjectStatus();
 
         if (!ProjectDemandRules.ALLOWED_PROJECT_STATUSES.contains(status)) {
-            throw new ProjectValidationException(
+            throw new ProjectExceptionHandler(
                     HttpStatus.CONFLICT,
                     "INVALID_PROJECT_STATUS",
                     "Staffing blocked. Project status is " + status
@@ -57,7 +57,7 @@ public class ProjectDemandValidationService {
         ProjectStage stage = project.getLifecycleStage();
 
         if (!ProjectDemandRules.ALLOWED_LIFECYCLE_STAGES.contains(stage)) {
-            throw new ProjectValidationException(
+            throw new ProjectExceptionHandler(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "INVALID_PROJECT_LIFECYCLE",
                     "Staffing not allowed in lifecycle stage " + stage

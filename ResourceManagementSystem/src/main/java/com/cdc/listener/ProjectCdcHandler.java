@@ -38,14 +38,11 @@ public class ProjectCdcHandler {
         Struct before = value.getStruct("before");
         Struct after  = value.getStruct("after");
 
-        /* =========================
-           DELETE → SOFT DELETE
-           ========================= */
+        // DELETE (soft delete)
         if ("d".equals(op)) {
             if (before == null) return;
 
-            Long pmsProjectId =
-                    ((Number) before.get("id")).longValue();
+            Long pmsProjectId = ((Number) before.get("id")).longValue();
 
             projectRepository.findById(pmsProjectId)
                     .ifPresent(project -> {
@@ -53,29 +50,28 @@ public class ProjectCdcHandler {
                         project.setLastSyncedAt(LocalDateTime.now());
                         projectRepository.save(project);
                     });
-
             return;
         }
 
-        /* =========================
-           INSERT / UPDATE
-           ========================= */
+        // INSERT or UPDATE
         if (after == null) return;
 
-        Long pmsProjectId =
-                ((Number) after.get("id")).longValue();
+        Long pmsProjectId = ((Number) after.get("id")).longValue();
 
-        Project rmsProject = projectRepository
-                .findById(pmsProjectId)
-                .orElseGet(() -> {
-                    Project p = new Project();
-                    p.setPmsProjectId(pmsProjectId);
-                    return p;
-                });
+        // ✅ STEP 1: ATOMIC UPSERT (MULTI-INSTANCE SAFE)
+        projectRepository.upsertSkeleton(
+                pmsProjectId,
+                LocalDateTime.now()
+        );
 
+        // ✅ STEP 2: SAFE LOAD (row now guaranteed to exist)
+        Project rmsProject = projectRepository.findById(pmsProjectId).get();
+
+        // STEP 3: Detect changed columns
         Set<String> changedColumns =
                 DebeziumChangeDetector.detectChangedColumns(before, after);
 
+        // STEP 4: Apply mapped changes
         for (String pmsColumn : changedColumns) {
 
             ColumnMapping mapping =
@@ -102,7 +98,11 @@ public class ProjectCdcHandler {
             );
         }
 
+        // STEP 5: audit
         rmsProject.setLastSyncedAt(LocalDateTime.now());
+
+        // STEP 6: persist updates
         projectRepository.save(rmsProject);
     }
+
 }

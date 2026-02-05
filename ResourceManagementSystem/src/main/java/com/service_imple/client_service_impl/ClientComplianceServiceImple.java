@@ -2,7 +2,7 @@ package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientCompliance;
-import com.global_exception_handler.ClientException;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientComplianceRepo;
 import com.service_interface.client_service_interface.ClientComplianceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +27,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Created Successfully",Compliance));
         }
         else {
-            throw new ClientException("Clinet Compliance creation Failed");
+            throw new ClientExceptionHandler("Clinet Compliance creation Failed");
         }
     }
 
@@ -38,7 +38,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Updated Successfully",Compliance));
         }
         else {
-            throw new ClientException("Clinet Compliance Update Failed");
+            throw new ClientExceptionHandler("Clinet Compliance Update Failed");
         }
     }
 
@@ -49,13 +49,13 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Deleted Successfully",Compliance));
         }
         else {
-            throw new ClientException("Clinet Compliance Deletion Failed");
+            throw new ClientExceptionHandler("Clinet Compliance Deletion Failed");
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> getClientCompliance(UUID clientId) {
-        List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientException("Failed to fentch client Compliance"));
+        List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Compliance"));
 
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Fentched Successfully",Compliance));
 

@@ -3,7 +3,7 @@ package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientEscalationContact;
-import com.global_exception_handler.ClientException;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientContactRepo;
 import com.service_interface.client_service_interface.ClientContactService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +27,7 @@ public class ClientContactServiceImple implements ClientContactService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Created Successfully",Contact));
         }
         else {
-            throw new ClientException("Client Contact creation Failed");
+            throw new ClientExceptionHandler("Client Contact creation Failed");
         }
     }
 
@@ -38,7 +38,7 @@ public class ClientContactServiceImple implements ClientContactService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Updated Successfully",Contact));
         }
         else {
-            throw new ClientException("Clinet Contact Update Failed");
+            throw new ClientExceptionHandler("Clinet Contact Update Failed");
         }
     }
 
@@ -49,13 +49,13 @@ public class ClientContactServiceImple implements ClientContactService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Deleted Successfully",Contact));
         }
         else {
-            throw new ClientException("Clinet Contact Deletion Failed");
+            throw new ClientExceptionHandler("Clinet Contact Deletion Failed");
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse> getClientContact(UUID clientId) {
-        List<ClientEscalationContact> Contact=clientContactRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientException("Failed to fentch client Contact"));
+        List<ClientEscalationContact> Contact=clientContactRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Contact"));
 
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Fentched Successfully",Contact));
 
