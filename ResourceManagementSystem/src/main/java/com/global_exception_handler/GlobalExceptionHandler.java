@@ -1,6 +1,6 @@
 package com.global_exception_handler;
 
-import com.dto.client_dto.ApiResponse;
+import com.dto.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

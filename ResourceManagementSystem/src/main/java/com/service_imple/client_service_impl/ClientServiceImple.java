@@ -1,11 +1,13 @@
 package com.service_imple.client_service_impl;
 
+import com.dto.ApiResponse;
+import com.dto.client_dto.ClientProjectStatisticsDTO;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
-import com.entity_enums.ProjectStatus;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.global_exception_handler.ClientException;
-import com.repo.ProjectRepository;
+import com.repo.project_repo.ProjectRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientMapper;
 import com.service_interface.client_service_interface.ClientService;

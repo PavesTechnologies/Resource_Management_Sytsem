@@ -1,10 +1,9 @@
 package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
-import com.dto.AssetAssignmentDTO;
-import com.dto.AssetAssignmentKPIDTo;
-import com.dto.AssetResponseDTO;
-import com.entity.client_entities.Client;
+import com.dto.client_dto.AssetAssignmentDTO;
+import com.dto.client_dto.AssetAssignmentKPIDTo;
+import com.dto.client_dto.AssetResponseDTO;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
@@ -14,7 +13,6 @@ import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 

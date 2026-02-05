@@ -1,7 +1,5 @@
-package com.dto;
+package com.dto.client_dto;
 
-import com.entity_enums.client_enums.AssetCategory;
-import com.entity_enums.client_enums.AssetStatus;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import lombok.*;
 

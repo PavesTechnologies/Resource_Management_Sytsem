@@ -1,4 +1,4 @@
-package com.dto.client_dto;
+package com.dto;
 
 import lombok.*;
 import org.springframework.stereotype.Component;

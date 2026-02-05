@@ -1,6 +1,6 @@
 package com.service_interface.project_service_interface;
 
-import com.dto.client_dto.ApiResponse;
+import com.dto.ApiResponse;
 import com.dto.project_dto.DateValidationResponse;
 import com.dto.project_dto.DemandDateValidationRequest;
 import com.dto.project_dto.ProjectListDTO;

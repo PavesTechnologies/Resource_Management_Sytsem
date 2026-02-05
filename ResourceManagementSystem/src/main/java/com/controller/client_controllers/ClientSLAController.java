@@ -1,7 +1,7 @@
 package com.controller.client_controllers;
 
 
-import com.dto.client_dto.ApiResponse;
+import com.dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
 import com.service_interface.client_service_interface.ClientSLAService;
 import org.springframework.beans.factory.annotation.Autowired;
