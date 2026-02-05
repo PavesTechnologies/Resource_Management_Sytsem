@@ -13,6 +13,8 @@ import com.repo.project_repo.ProjectRepository;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.config.ProjectDemandRules;
+
 
 import java.util.List;
 
@@ -106,17 +108,15 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
             eligible = false;
             reason = "Incomplete PMS data";
         }
-        else if (!(project.getProjectStatus() == ProjectStatus.ACTIVE
-                || project.getProjectStatus() == ProjectStatus.APPROVED)) {
+        else if (!ProjectDemandRules.ALLOWED_PROJECT_STATUSES.contains(project.getProjectStatus())) {
             eligible = false;
             reason = "Project not in active/approved state";
         }
-        else if (!(project.getLifecycleStage() == ProjectStage.MOBILIZATION
-                || project.getLifecycleStage() == ProjectStage.EXECUTION
-                || project.getLifecycleStage() == ProjectStage.STABILIZATION)) {
+        else if (!ProjectDemandRules.ALLOWED_LIFECYCLE_STAGES.contains(project.getLifecycleStage())) {
             eligible = false;
             reason = "Project not in staffing lifecycle stage";
         }
+
 
         return new ProjectListDTO(
                 project.getPmsProjectId(),
