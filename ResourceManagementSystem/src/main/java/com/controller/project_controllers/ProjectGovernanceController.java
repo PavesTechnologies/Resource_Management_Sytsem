@@ -2,16 +2,17 @@ package com.controller.project_controllers;
 
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
-import com.dto.project_dto.DateValidationResponse;
-import com.dto.project_dto.DemandDateValidationRequest;
-import com.dto.project_dto.ProjectGovernanceStatusDTO;
-import com.dto.project_dto.ProjectListDTO;
-import com.dto.project_dto.ProjectOverlapDTO;
+import com.dto.project_dto.*;
 import com.entity.project_entities.Project;
+import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity_enums.centralised_enums.RiskLevel;
+import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums.StaffingReadinessStatus;
 import com.security.CurrentUser;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -52,10 +53,8 @@ public class ProjectGovernanceController {
     // 🔹 STORY 10 — Task 1: Get only eligible projects for demand creation
     @GetMapping("/eligible-for-demand")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse<?>> getEligibleProjects(@RequestParam(required = false) Long projectId) {
-        if (projectId != null) {
-            return ResponseEntity.ok(projectGovernanceService.checkProjectEligibility(projectId));
-        }
+    public ResponseEntity<ApiResponse<List<ProjectListDTO>>> getEligibleProjects() {
+
         return ResponseEntity.ok(
                 projectGovernanceService.getEligibleProjects()
         );
@@ -85,20 +84,28 @@ public class ProjectGovernanceController {
 
     @GetMapping("get-projects")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse<List<Project>>> getProjectsByManagerId(@CurrentUser UserDTO userDTO) {
-        Long managerId=userDTO.getId();
+    public ResponseEntity<ApiResponse<Page<ProjectsListDTO>>> getProjectsByManagerId(
+            @CurrentUser UserDTO userDTO,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) StaffingReadinessStatus readinessStatus,
+            @RequestParam(required = false) ProjectStatus projectStatus,
+            @RequestParam(required = false) PriorityLevel priorityLevel,
+            @RequestParam(required = false) RiskLevel riskLevel
+    ) {
+        Long managerId = userDTO.getId();
 
-        return ResponseEntity.ok(
-                projectGovernanceService.getProjectsByManagerId(managerId)
+        return projectGovernanceService.getProjectsByManagerId(
+                managerId,
+                page,
+                size,
+                search,
+                readinessStatus,
+                projectStatus,
+                priorityLevel,
+                riskLevel
         );
     }
 
-    // 🔹 STORY 11 — Task 1: Validate Project Governance Completeness
-    @GetMapping("/{projectId}/governance-status")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse<ProjectGovernanceStatusDTO>> getProjectGovernanceStatus(@PathVariable Long projectId) {
-        return ResponseEntity.ok(
-                projectGovernanceService.validateProjectGovernance(projectId)
-        );
-    }
 }

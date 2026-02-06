@@ -3,6 +3,12 @@ package com.service_interface.project_service_interface;
 import com.dto.ApiResponse;
 import com.dto.project_dto.*;
 import com.entity.project_entities.Project;
+import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity_enums.centralised_enums.RiskLevel;
+import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums.StaffingReadinessStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
@@ -17,15 +23,19 @@ public interface ProjectGovernanceService {
 
     // 🔹 STORY 10 — Task 1
     ApiResponse<List<ProjectListDTO>> getEligibleProjects();
-    
-    // 🔹 Check single project eligibility
-    ApiResponse<ProjectEligibilityDTO> checkProjectEligibility(Long projectId);
 
     // 🔹 STORY 10 — Task 3
     ApiResponse<List<ProjectListDTO>> getAllProjectsWithVisibility();
 
-    ApiResponse<List<Project>> getProjectsByManagerId(Long managerId);
+    public ResponseEntity<ApiResponse<Page<ProjectsListDTO>>> getProjectsByManagerId(
+            Long managerId,
+            int page,
+            int size,
+            String search,
+            StaffingReadinessStatus readinessStatus,
+            ProjectStatus projectStatus,
+            PriorityLevel priorityLevel,
+            RiskLevel riskLevel
+    );
 
-    // 🔹 STORY 11 — Task 1: Validate Project Governance Completeness
-    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long projectId);
 }

@@ -5,10 +5,9 @@ import com.entity.project_entities.Project;
 import com.entity_enums.project_enums.ProjectStatus;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
@@ -17,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface ProjectRepository extends JpaRepository<Project, Long> {
+public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId")
     Long countTotalProjectsByClientId(@Param("clientId") UUID clientId);
@@ -61,5 +60,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
             @Param("currentProjectId") Long currentProjectId
     );
 
-    Optional<List<Project>> findAllByresourceManagerId(Long managerId);
+    Page<Project> findByResourceManagerId(
+            Long resourceManagerId,
+            Pageable pageable
+    );
 }
