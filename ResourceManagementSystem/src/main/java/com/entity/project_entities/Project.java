@@ -122,4 +122,7 @@ public class Project {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Transient
+    private boolean hasOverlap;
 }
