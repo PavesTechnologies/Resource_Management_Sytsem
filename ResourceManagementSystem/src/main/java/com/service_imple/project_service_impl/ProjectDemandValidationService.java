@@ -22,21 +22,21 @@ public class ProjectDemandValidationService {
     /* ============================
        ENTRY POINT (USE EVERYWHERE)
        ============================ */
-    public Project validateProjectForStaffing(Long pmsProjectId) {
-
-        Project project = projectRepository.findById(pmsProjectId)
-                .orElseThrow(() -> new ProjectExceptionHandler(
-                        HttpStatus.NOT_FOUND,
-                        "PROJECT_NOT_FOUND",
-                        "Project does not exist in RMS"
-                ));
-
-        validateProjectStatus(project);     // STORY 7
-        validateLifecycleStage(project);    // STORY 8
-        validateGovernanceReadiness(pmsProjectId); // STORY 11
-
-        return project;
-    }
+//    public Project validateProjectForStaffing(Long pmsProjectId) {
+//
+//        Project project = projectRepository.findById(pmsProjectId)
+//                .orElseThrow(() -> new ProjectExceptionHandler(
+//                        HttpStatus.NOT_FOUND,
+//                        "PROJECT_NOT_FOUND",
+//                        "Project does not exist in RMS"
+//                ));
+//
+//        validateProjectStatus(project);     // STORY 7
+//        validateLifecycleStage(project);    // STORY 8
+//        validateGovernanceReadiness(pmsProjectId); // STORY 11
+//
+//        return project;
+//    }
 
     /* ===============================
        STORY 7 — STATUS VALIDATION
@@ -73,16 +73,16 @@ public class ProjectDemandValidationService {
     /* ===============================
        STORY 11 — GOVERNANCE VALIDATION
        =============================== */
-    private void validateGovernanceReadiness(Long projectId) {
-        ApiResponse<ProjectGovernanceStatusDTO> response = projectGovernanceService.validateProjectGovernance(projectId);
-        ProjectGovernanceStatusDTO status = response.getData();
-
-        if (status == null || !status.isReadyForDemand()) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "INCOMPLETE_GOVERNANCE",
-                    status != null ? status.getMessage() : "Project governance validation failed"
-            );
-        }
-    }
+//    private void validateGovernanceReadiness(Long projectId) {
+//        ApiResponse<ProjectGovernanceStatusDTO> response = projectGovernanceService.validateProjectGovernance(projectId);
+//        ProjectGovernanceStatusDTO status = response.getData();
+//
+//        if (status == null ) {
+//            throw new ProjectExceptionHandler(
+//                    HttpStatus.UNPROCESSABLE_ENTITY,
+//                    "INCOMPLETE_GOVERNANCE",
+//                    status != null ? status.getMessage() : "Project governance validation failed"
+//            );
+//        }
+//    }
 }
