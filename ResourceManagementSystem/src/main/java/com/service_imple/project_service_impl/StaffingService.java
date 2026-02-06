@@ -13,25 +13,25 @@ import java.util.UUID;
 public class StaffingService {
     private final ProjectDemandValidationService projectValidator;
 
-    public void initiateStaffing(Long pmsProjectId, UUID rmsUserId) {
+//    public void initiateStaffing(Long pmsProjectId, UUID rmsUserId) {
+//
+//        // Optional: authorization check
+//        if (!isResourceManager(rmsUserId)) {
+//            throw new ProjectExceptionHandler(
+//                    HttpStatus.FORBIDDEN,
+//                    "ACCESS_DENIED",
+//                    "Only Resource Managers can initiate staffing"
+//            );
+//        }
+//
+//        // 🔐 STORY 7 + 8 enforced here
+//        projectValidator.validateProjectForStaffing(pmsProjectId);
+//
+//        // Continue staffing logic
+//    }
 
-        // Optional: authorization check
-        if (!isResourceManager(rmsUserId)) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.FORBIDDEN,
-                    "ACCESS_DENIED",
-                    "Only Resource Managers can initiate staffing"
-            );
-        }
-
-        // 🔐 STORY 7 + 8 enforced here
-        projectValidator.validateProjectForStaffing(pmsProjectId);
-
-        // Continue staffing logic
-    }
-
-    private boolean isResourceManager(UUID userId) {
-        // your RMS role logic
-        return true;
-    }
+//    private boolean isResourceManager(UUID userId) {
+//        // your RMS role logic
+//        return true;
+//    }
 }

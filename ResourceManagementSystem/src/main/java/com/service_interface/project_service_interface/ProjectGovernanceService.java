@@ -40,4 +40,6 @@ public interface ProjectGovernanceService {
 
     ResponseEntity<?> getProjectById(Long id);
 
+//    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
+
 }
