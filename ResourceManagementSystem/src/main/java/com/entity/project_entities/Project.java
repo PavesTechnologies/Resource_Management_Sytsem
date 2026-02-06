@@ -1,5 +1,6 @@
 package com.entity.project_entities;
 
+import com.entity.client_entities.Client;
 import com.entity_enums.project_enums.ProjectDataStatus;
 import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.ProjectStatus;
@@ -26,6 +27,10 @@ public class Project {
 
     @Column(nullable = false)
     private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id", insertable = false, updatable = false)
+    private Client client;
 
     // Client reference (cross-system safe)
     @Column(name = "client_id")
