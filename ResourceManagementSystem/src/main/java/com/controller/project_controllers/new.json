@@ -1,0 +1,8 @@
+{
+  "projectId": 1,
+  "contactId": "0583389f-3144-4a5f-8aa9-63fb9bc2cc03",
+  "escalationLevel": "LEVEL_1",
+  "triggers": [
+    "SLA_BREACH"
+  ]
+}
