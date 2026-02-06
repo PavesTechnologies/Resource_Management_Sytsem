@@ -144,7 +144,11 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         }
 
         Page<ProjectsListDTO> dtoPage = projects.map(project -> {
-
+            boolean overlap = false;
+            if (project.getStartDate() != null && project.getEndDate() != null) {
+                List<Project> ovelapProjects = projectRepository.findOverlappingProjects(project.getClientId(), project.getStartDate(), project.getEndDate(), project.getPmsProjectId());
+                overlap = !ovelapProjects.isEmpty();
+            }
             ProjectsListDTO dto = new ProjectsListDTO();
 
             dto.setProjectId(project.getPmsProjectId());
@@ -157,6 +161,8 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
             dto.setClientPriorityLevel(project.getClient().getPriorityLevel());
             dto.setReadinessStatus(project.getStaffingReadinessStatus());
             dto.setReason(project.getStaffingReadinessReason());
+            dto.setHasOverlap(overlap);
+
 
             return dto;
         });
