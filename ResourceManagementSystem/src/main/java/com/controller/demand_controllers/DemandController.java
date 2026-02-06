@@ -21,4 +21,10 @@ public class DemandController {
     public ResponseEntity<ApiResponse> createDemand(@RequestBody Demand demand) {
         return demandService.createDemand(demand);
     }
+
+    @PutMapping("/update")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse> updateDemand(@RequestBody Demand demand) {
+        return ResponseEntity.ok(new ApiResponse<Demand>().getAPIResponse(true, "Demand updated successfully", demand));
+    }
 }
