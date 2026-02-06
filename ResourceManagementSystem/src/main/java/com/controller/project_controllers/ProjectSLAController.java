@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -20,25 +21,25 @@ public class ProjectSLAController {
 
     @PostMapping("/save")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> saveProjectSLA(@RequestBody ProjectSLA projectSLA) {
+    public ResponseEntity<ApiResponse<ProjectSLA>> saveProjectSLA(@RequestBody ProjectSLA projectSLA) {
         return projectSLAService.createOrUpdateProjectSLA(projectSLA);
     }
 
     @DeleteMapping("/{projectSlaId}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> deleteProjectSLA(@PathVariable UUID projectSlaId) {
+    public ResponseEntity<ApiResponse<Void>> deleteProjectSLA(@PathVariable UUID projectSlaId) {
         return projectSLAService.deleteProjectSLA(projectSlaId);
     }
 
     @GetMapping("/project/{projectId}")
     @PreAuthorize("hasAnyRole('PROJECT_MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
-    public ResponseEntity<ApiResponse> getProjectSLAs(@PathVariable UUID projectId) {
+    public ResponseEntity<ApiResponse<List<ProjectSLA>>> getProjectSLAs(@PathVariable Long projectId) {
         return projectSLAService.getProjectSLAByProjectId(projectId);
     }
 
     @GetMapping("/project/{projectId}/type/{slaType}")
     @PreAuthorize("hasAnyRole('PROJECT_MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
-    public ResponseEntity<ApiResponse> getProjectSLAByType(
+    public ResponseEntity<ApiResponse<ProjectSLA>> getProjectSLAByType(
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
         return projectSLAService.getProjectSLAByProjectAndType(projectId, slaType);
@@ -46,7 +47,7 @@ public class ProjectSLAController {
 
     @PostMapping("/inherit/{projectId}/type/{slaType}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> inheritClientSLA(
+    public ResponseEntity<ApiResponse<ProjectSLA>> inheritClientSLA(
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
         return projectSLAService.inheritClientSLA(projectId, slaType);

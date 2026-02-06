@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ProjectSLARepo extends JpaRepository<ProjectSLA, UUID> {
-    Optional<List<ProjectSLA>> findAllByProject_ProjectId(UUID projectId);
+    Optional<List<ProjectSLA>> findAllByProject_PmsProjectId(Long pmsProjectId);
 
     Optional<ProjectSLA> findByProject_PmsProjectIdAndSlaType(Long pmsProjectId, SLAType slaType);
 }
