@@ -10,14 +10,14 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ClientService {
-    ResponseEntity<ApiResponse> createClient(Client client);
+    ResponseEntity<ApiResponse<Client>> createClient(Client client);
     ApiResponse<PageResponse<ClientDTO>> searchClients(
             ClientFilterDTO filter,
             int page,
             int size
     );
 
-    ResponseEntity<ApiResponse> countClients();
+    ResponseEntity<ApiResponse<Void>> countClients();
     ResponseEntity<ApiResponse<List<Client>>> clientDetails();
     ResponseEntity<ApiResponse<Client>> getClientById(UUID id);
 
@@ -25,6 +25,6 @@ public interface ClientService {
     ResponseEntity<ApiResponse<ClientProjectStatisticsDTO>> getClientProjectStatistics(UUID clientId);
 
     ResponseEntity<ApiResponse<Client>> updateClient(Client client);
-    ResponseEntity<ApiResponse> deleteClient(UUID id);
+    ResponseEntity<ApiResponse<Void>> deleteClient(UUID id);
 
 }
