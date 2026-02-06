@@ -1,6 +1,7 @@
 package com.service_imple.project_service_impl;
 
 import com.dto.ApiResponse;
+import com.dto.project_dto.ProjectSLAResponseDTO;
 import com.entity.client_entities.ClientSLA;
 import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectSLA;
@@ -30,7 +31,7 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
     private ProjectRepository projectRepository;
 
     @Override
-    public ResponseEntity<ApiResponse<ProjectSLA>> createOrUpdateProjectSLA(ProjectSLA projectSLA) {
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> createOrUpdateProjectSLA(ProjectSLA projectSLA) {
         // Validate SLA values
         if (projectSLA.getSlaDurationDays() <= 0 || projectSLA.getWarningThresholdDays() <= 0) {
             throw ProjectExceptionHandler.badRequest("SLA duration and warning threshold must be greater than 0");
@@ -57,8 +58,20 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
             projectSLA.setIsInherited(false);
             projectSLA = projectSLARepo.save(projectSLA);
         }
-        
-        return ResponseEntity.ok(new ApiResponse<ProjectSLA>().getAPIResponse(true, "Project SLA saved successfully", projectSLA));
+
+        // Convert to response DTO
+        ProjectSLAResponseDTO responseDTO = ProjectSLAResponseDTO.builder()
+                .projectSlaId(projectSLA.getProjectSlaId())
+                .projectId(projectSLA.getProject().getPmsProjectId())
+                .slaType(projectSLA.getSlaType())
+                .slaDurationDays(projectSLA.getSlaDurationDays())
+                .warningThresholdDays(projectSLA.getWarningThresholdDays())
+                .isInherited(projectSLA.getIsInherited())
+                .activeFlag(projectSLA.getActiveFlag())
+                .clientSlaId(projectSLA.getClientSLA() != null ? projectSLA.getClientSLA().getSlaId() : null)
+                .build();
+
+        return ResponseEntity.ok(new ApiResponse<ProjectSLAResponseDTO>().getAPIResponse(true, "Project SLA saved successfully", responseDTO));
     }
 
     @Override
@@ -75,22 +88,65 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<List<ProjectSLA>>> getProjectSLAByProjectId(Long projectId) {
+    public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAByProjectId(Long projectId) {
+
         List<ProjectSLA> slas = projectSLARepo.findAllByProject_PmsProjectId(projectId)
-            .orElseThrow(() -> ProjectExceptionHandler.notFound("No SLAs found for project with id: " + projectId));
-        return ResponseEntity.ok(new ApiResponse<List<ProjectSLA>>().getAPIResponse(true, "Project SLAs retrieved successfully", slas));
+                .orElseThrow(() ->
+                        ProjectExceptionHandler.notFound("No SLAs found for project with id: " + projectId));
+
+        List<ProjectSLAResponseDTO> dtoList = slas.stream().map(sla ->
+                ProjectSLAResponseDTO.builder()
+                        .projectSlaId(sla.getProjectSlaId())
+                        .projectId(sla.getProject().getPmsProjectId())
+                        .slaType(sla.getSlaType())
+                        .slaDurationDays(sla.getSlaDurationDays())
+                        .warningThresholdDays(sla.getWarningThresholdDays())
+                        .isInherited(sla.getIsInherited())
+                        .activeFlag(sla.getActiveFlag())
+                        .clientSlaId(
+                                sla.getClientSLA() != null ? sla.getClientSLA().getSlaId() : null
+                        )
+                        .build()
+        ).toList();
+        ApiResponse apiResponse=new ApiResponse<>();
+
+        return ResponseEntity.ok(
+                apiResponse.getAPIResponse(true, "Project SLAs retrieved successfully", dtoList)
+        );
     }
 
-    @Override
-    public ResponseEntity<ApiResponse<ProjectSLA>> getProjectSLAByProjectAndType(Long projectId, SLAType slaType) {
-        ProjectSLA sla = projectSLARepo.findByProject_PmsProjectIdAndSlaType(projectId, slaType)
-            .orElseThrow(() -> ProjectExceptionHandler.notFound(
-                String.format("No %s SLA found for project with id: %s", slaType, projectId)));
-        return ResponseEntity.ok(new ApiResponse<ProjectSLA>().getAPIResponse(true, "Project SLA retrieved successfully", sla));
-    }
 
     @Override
-    public ResponseEntity<ApiResponse<ProjectSLA>> inheritClientSLA(Long projectId, SLAType slaType) {
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> getProjectSLAByProjectAndType(Long projectId, SLAType slaType) {
+
+        ProjectSLA sla = projectSLARepo
+                .findByProject_PmsProjectIdAndSlaType(projectId, slaType)
+                .orElseThrow(() ->
+                        ProjectExceptionHandler.notFound(
+                                "No " + slaType + " SLA found for project " + projectId));
+
+        ProjectSLAResponseDTO dto = ProjectSLAResponseDTO.builder()
+                .projectSlaId(sla.getProjectSlaId())
+                .projectId(sla.getProject().getPmsProjectId())
+                .slaType(sla.getSlaType())
+                .slaDurationDays(sla.getSlaDurationDays())
+                .warningThresholdDays(sla.getWarningThresholdDays())
+                .isInherited(sla.getIsInherited())
+                .activeFlag(sla.getActiveFlag())
+                .clientSlaId(
+                        sla.getClientSLA() != null ? sla.getClientSLA().getSlaId() : null
+                )
+                .build();
+        ApiResponse apiResponse=new ApiResponse<>();
+
+        return ResponseEntity.ok(
+                apiResponse.getAPIResponse(true, "Project SLA retrieved successfully", dto)
+        );
+    }
+
+
+    @Override
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> inheritClientSLA(Long projectId, SLAType slaType) {
         // Get the project to access client info
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("Project not found"));
@@ -129,10 +185,22 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
             projectSLA = projectSLARepo.save(projectSLA);
         }
         
-        return ResponseEntity.ok(new ApiResponse<ProjectSLA>().getAPIResponse(
+        // Convert to response DTO
+        ProjectSLAResponseDTO responseDTO = ProjectSLAResponseDTO.builder()
+                .projectSlaId(projectSLA.getProjectSlaId())
+                .projectId(projectSLA.getProject().getPmsProjectId())
+                .slaType(projectSLA.getSlaType())
+                .slaDurationDays(projectSLA.getSlaDurationDays())
+                .warningThresholdDays(projectSLA.getWarningThresholdDays())
+                .isInherited(projectSLA.getIsInherited())
+                .activeFlag(projectSLA.getActiveFlag())
+                .clientSlaId(projectSLA.getClientSLA() != null ? projectSLA.getClientSLA().getSlaId() : null)
+                .build();
+        
+        return ResponseEntity.ok(new ApiResponse<ProjectSLAResponseDTO>().getAPIResponse(
             true, 
             "Successfully inherited client SLA for " + slaType.name(), 
-            projectSLA
+            responseDTO
         ));
     }
 }

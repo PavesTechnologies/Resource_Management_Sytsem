@@ -1,6 +1,7 @@
 package com.controller.project_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.project_dto.ProjectSLAResponseDTO;
 import com.entity.project_entities.ProjectSLA;
 import com.entity_enums.client_enums.SLAType;
 import com.service_interface.project_service_interface.ProjectSLAService;
@@ -21,7 +22,7 @@ public class ProjectSLAController {
 
     @PostMapping("/save")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ProjectSLA>> saveProjectSLA(@RequestBody ProjectSLA projectSLA) {
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> saveProjectSLA(@RequestBody ProjectSLA projectSLA) {
         return projectSLAService.createOrUpdateProjectSLA(projectSLA);
     }
 
@@ -33,13 +34,13 @@ public class ProjectSLAController {
 
     @GetMapping("/project/{projectId}")
     @PreAuthorize("hasAnyRole('PROJECT_MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
-    public ResponseEntity<ApiResponse<List<ProjectSLA>>> getProjectSLAs(@PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAs(@PathVariable Long projectId) {
         return projectSLAService.getProjectSLAByProjectId(projectId);
     }
 
     @GetMapping("/project/{projectId}/type/{slaType}")
     @PreAuthorize("hasAnyRole('PROJECT_MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
-    public ResponseEntity<ApiResponse<ProjectSLA>> getProjectSLAByType(
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> getProjectSLAByType(
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
         return projectSLAService.getProjectSLAByProjectAndType(projectId, slaType);
@@ -47,7 +48,7 @@ public class ProjectSLAController {
 
     @PostMapping("/inherit/{projectId}/type/{slaType}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ProjectSLA>> inheritClientSLA(
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> inheritClientSLA(
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
         return projectSLAService.inheritClientSLA(projectId, slaType);
