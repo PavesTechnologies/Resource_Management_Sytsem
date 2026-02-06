@@ -30,8 +30,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Modifying
     @Transactional
     @Query(value = """
-        INSERT INTO project (pms_project_id, last_synced_at)
-        VALUES (:id, :now)
+        INSERT INTO project (pms_project_id, last_synced_at, name)
+        VALUES (:id, :now, 'New Project (Syncing...)')
         ON DUPLICATE KEY UPDATE
             last_synced_at = :now
         """, nativeQuery = true)

@@ -1,16 +1,14 @@
 package com.service_imple.project_service_impl;
 
 import com.dto.ApiResponse;
-import com.dto.project_dto.DateValidationResponse;
-import com.dto.project_dto.DemandDateValidationRequest;
-import com.dto.project_dto.ProjectListDTO;
-import com.dto.project_dto.ProjectOverlapDTO;
+import com.dto.project_dto.*;
 import com.entity.project_entities.Project;
-import com.entity_enums.project_enums.ProjectStatus;
-import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.ProjectDataStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
+import com.repo.project_repo.ProjectComplianceRepo;
+import com.repo.project_repo.ProjectEscalationRepo;
 import com.repo.project_repo.ProjectRepository;
+import com.repo.project_repo.ProjectSLARepo;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +23,9 @@ import java.util.List;
 public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
 
     private final ProjectRepository projectRepository;
+    private final ProjectSLARepo projectSLARepo;
+    private final ProjectEscalationRepo projectEscalationRepo;
+    private final ProjectComplianceRepo projectComplianceRepo;
 
     // 🔹 STORY 9 — Task 2: Detect overlapping projects
     @Override
@@ -88,6 +89,21 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
 
         return new ApiResponse<>(true, "Eligible projects fetched", eligibleProjects);
     }
+    
+    @Override
+    public ApiResponse<ProjectEligibilityDTO> checkProjectEligibility(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "false", "Project not found"));
+
+        ProjectListDTO eligibilityDetails = mapWithEligibility(project);
+        
+        ProjectEligibilityDTO result = new ProjectEligibilityDTO(
+                eligibilityDetails.eligibleForDemand(),
+                eligibilityDetails.visibilityReason()
+        );
+
+        return new ApiResponse<>(true, "Project eligibility status fetched", result);
+    }
 
     // 🔹 STORY 10 — Task 3: Visibility across RMS
     @Override
@@ -102,8 +118,48 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
 
     @Override
     public ApiResponse<List<Project>> getProjectsByManagerId(Long managerId) {
+        List<Project> projects = projectRepository.findAllByresourceManagerId(managerId)
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "false", "No projects found for this Manager"));
 
-        return new ApiResponse<>(true, "Projects fetched", projectRepository.findAllByresourceManagerId(managerId).orElseThrow(()-> new ProjectExceptionHandler(HttpStatus.NOT_FOUND,"false","No projects found for this Manager")));
+        for (Project project : projects) {
+            if (project.getStartDate() != null && project.getEndDate() != null) {
+                List<Project> overlaps = projectRepository.findOverlappingProjects(
+                        project.getClientId(),
+                        project.getStartDate(),
+                        project.getEndDate(),
+                        project.getPmsProjectId()
+                );
+                project.setHasOverlap(!overlaps.isEmpty());
+            }
+        }
+
+        return new ApiResponse<>(true, "Projects fetched", projects);
+    }
+
+    // 🔹 STORY 11 — Task 1: Validate Project Governance Completeness
+    @Override
+    public ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long projectId) {
+        if (!projectRepository.existsById(projectId)) {
+            throw new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "false", "Project not found");
+        }
+
+        boolean slaComplete = projectSLARepo.existsByProject_PmsProjectId(projectId);
+        boolean escalationComplete = projectEscalationRepo.existsByProject_PmsProjectId(projectId);
+        boolean complianceComplete = projectComplianceRepo.existsByProject_PmsProjectId(projectId);
+
+        boolean isReady = slaComplete && escalationComplete && complianceComplete;
+        String message = isReady ? "Project is ready for demand creation" : "Project governance configuration is incomplete";
+
+        ProjectGovernanceStatusDTO statusDTO = ProjectGovernanceStatusDTO.builder()
+                .projectId(projectId)
+                .slaComplete(slaComplete)
+                .escalationComplete(escalationComplete)
+                .complianceComplete(complianceComplete)
+                .isReadyForDemand(isReady)
+                .message(message)
+                .build();
+
+        return new ApiResponse<>(true, "Project governance status fetched", statusDTO);
     }
 
     // 🔹 Central eligibility + visibility logic

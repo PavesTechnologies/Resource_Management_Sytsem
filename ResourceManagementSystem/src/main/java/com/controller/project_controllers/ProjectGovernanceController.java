@@ -4,6 +4,7 @@ import com.dto.ApiResponse;
 import com.dto.UserDTO;
 import com.dto.project_dto.DateValidationResponse;
 import com.dto.project_dto.DemandDateValidationRequest;
+import com.dto.project_dto.ProjectGovernanceStatusDTO;
 import com.dto.project_dto.ProjectListDTO;
 import com.dto.project_dto.ProjectOverlapDTO;
 import com.entity.project_entities.Project;
@@ -51,8 +52,10 @@ public class ProjectGovernanceController {
     // 🔹 STORY 10 — Task 1: Get only eligible projects for demand creation
     @GetMapping("/eligible-for-demand")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse<List<ProjectListDTO>>> getEligibleProjects() {
-
+    public ResponseEntity<ApiResponse<?>> getEligibleProjects(@RequestParam(required = false) Long projectId) {
+        if (projectId != null) {
+            return ResponseEntity.ok(projectGovernanceService.checkProjectEligibility(projectId));
+        }
         return ResponseEntity.ok(
                 projectGovernanceService.getEligibleProjects()
         );
@@ -87,6 +90,15 @@ public class ProjectGovernanceController {
 
         return ResponseEntity.ok(
                 projectGovernanceService.getProjectsByManagerId(managerId)
+        );
+    }
+
+    // 🔹 STORY 11 — Task 1: Validate Project Governance Completeness
+    @GetMapping("/{projectId}/governance-status")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<ProjectGovernanceStatusDTO>> getProjectGovernanceStatus(@PathVariable Long projectId) {
+        return ResponseEntity.ok(
+                projectGovernanceService.validateProjectGovernance(projectId)
         );
     }
 }
