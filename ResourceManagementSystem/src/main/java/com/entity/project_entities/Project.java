@@ -115,11 +115,6 @@ public class Project {
     @Column(name = "staffing_readiness_updated_at")
     private LocalDateTime staffingReadinessUpdatedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", insertable=false, updatable=false)
-    @JsonIgnore
-    private Client client;
-
     /* =====================
        AUDIT
        ===================== */

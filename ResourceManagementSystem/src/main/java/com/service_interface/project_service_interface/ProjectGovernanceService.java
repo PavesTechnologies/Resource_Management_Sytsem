@@ -38,4 +38,6 @@ public interface ProjectGovernanceService {
             RiskLevel riskLevel
     );
 
+    ResponseEntity<?> getProjectById(Long id);
+
 }

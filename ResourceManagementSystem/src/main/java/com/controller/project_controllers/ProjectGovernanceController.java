@@ -108,4 +108,10 @@ public class ProjectGovernanceController {
         );
     }
 
+    @GetMapping("/get-project-by-id/{id}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> getProjectById(@PathVariable Long id) {
+        return projectGovernanceService.getProjectById(id);
+    }
+
 }

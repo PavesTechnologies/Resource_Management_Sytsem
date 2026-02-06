@@ -195,4 +195,10 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
                 reason
         );
     }
+
+    @Override
+    public ResponseEntity<?> getProjectById(Long id) {
+        Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
+    }
 }
