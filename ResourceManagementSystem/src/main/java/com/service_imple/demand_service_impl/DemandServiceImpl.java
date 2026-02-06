@@ -2,7 +2,7 @@ package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.Demand;
-import com.repository.DemandRepository;
+import com.repo.DemandRepository;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
