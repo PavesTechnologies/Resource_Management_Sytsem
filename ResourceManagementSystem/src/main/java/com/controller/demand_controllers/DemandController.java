@@ -25,6 +25,13 @@ public class DemandController {
     @PutMapping("/update")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse> updateDemand(@RequestBody Demand demand) {
-        return ResponseEntity.ok(new ApiResponse<Demand>().getAPIResponse(true, "Demand updated successfully", demand));
+        return demandService.updateDemand(demand);
+    }
+
+
+    @GetMapping("/project/{projectId}")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse> getDemandByProjectId(@PathVariable Long projectId) {
+        return demandService.getDemandByProjectId(projectId);
     }
 }
