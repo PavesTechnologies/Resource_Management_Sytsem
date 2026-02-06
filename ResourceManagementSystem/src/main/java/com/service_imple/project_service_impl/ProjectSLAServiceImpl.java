@@ -28,12 +28,9 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
     
     @Autowired
     private ProjectRepository projectRepository;
-    
-    @Autowired
-    private ApiResponse apiResponse;
 
     @Override
-    public ResponseEntity<ApiResponse> createOrUpdateProjectSLA(ProjectSLA projectSLA) {
+    public ResponseEntity<ApiResponse<ProjectSLA>> createOrUpdateProjectSLA(ProjectSLA projectSLA) {
         // Validate SLA values
         if (projectSLA.getSlaDurationDays() <= 0 || projectSLA.getWarningThresholdDays() <= 0) {
             throw ProjectExceptionHandler.badRequest("SLA duration and warning threshold must be greater than 0");
@@ -61,11 +58,11 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
             projectSLA = projectSLARepo.save(projectSLA);
         }
         
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Project SLA saved successfully", projectSLA));
+        return ResponseEntity.ok(new ApiResponse<ProjectSLA>().getAPIResponse(true, "Project SLA saved successfully", projectSLA));
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteProjectSLA(UUID projectSlaId) {
+    public ResponseEntity<ApiResponse<Void>> deleteProjectSLA(UUID projectSlaId) {
         ProjectSLA sla = projectSLARepo.findById(projectSlaId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("Project SLA not found with id: " + projectSlaId));
         
@@ -74,26 +71,26 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
         }
         
         projectSLARepo.delete(sla);
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Project SLA deleted successfully", null));
+        return ResponseEntity.ok(new ApiResponse<Void>().getAPIResponse(true, "Project SLA deleted successfully", null));
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getProjectSLAByProjectId(UUID projectId) {
-        List<ProjectSLA> slas = projectSLARepo.findAllByProject_ProjectId(projectId)
+    public ResponseEntity<ApiResponse<List<ProjectSLA>>> getProjectSLAByProjectId(Long projectId) {
+        List<ProjectSLA> slas = projectSLARepo.findAllByProject_PmsProjectId(projectId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("No SLAs found for project with id: " + projectId));
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Project SLAs retrieved successfully", slas));
+        return ResponseEntity.ok(new ApiResponse<List<ProjectSLA>>().getAPIResponse(true, "Project SLAs retrieved successfully", slas));
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getProjectSLAByProjectAndType(Long projectId, SLAType slaType) {
+    public ResponseEntity<ApiResponse<ProjectSLA>> getProjectSLAByProjectAndType(Long projectId, SLAType slaType) {
         ProjectSLA sla = projectSLARepo.findByProject_PmsProjectIdAndSlaType(projectId, slaType)
             .orElseThrow(() -> ProjectExceptionHandler.notFound(
                 String.format("No %s SLA found for project with id: %s", slaType, projectId)));
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Project SLA retrieved successfully", sla));
+        return ResponseEntity.ok(new ApiResponse<ProjectSLA>().getAPIResponse(true, "Project SLA retrieved successfully", sla));
     }
 
     @Override
-    public ResponseEntity<ApiResponse> inheritClientSLA(Long projectId, SLAType slaType) {
+    public ResponseEntity<ApiResponse<ProjectSLA>> inheritClientSLA(Long projectId, SLAType slaType) {
         // Get the project to access client info
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("Project not found"));
@@ -132,7 +129,7 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
             projectSLA = projectSLARepo.save(projectSLA);
         }
         
-        return ResponseEntity.ok(apiResponse.getAPIResponse(
+        return ResponseEntity.ok(new ApiResponse<ProjectSLA>().getAPIResponse(
             true, 
             "Successfully inherited client SLA for " + slaType.name(), 
             projectSLA
