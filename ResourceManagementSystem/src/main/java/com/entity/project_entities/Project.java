@@ -32,6 +32,7 @@ public class Project {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", insertable = false, updatable = false)
+    @JsonIgnore
     private Client client;
 
     // Client reference (cross-system safe)
@@ -114,6 +115,7 @@ public class Project {
 
     @Column(name = "staffing_readiness_updated_at")
     private LocalDateTime staffingReadinessUpdatedAt;
+
     /* =====================
        AUDIT
        ===================== */
@@ -121,4 +123,7 @@ public class Project {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Transient
+    private boolean hasOverlap;
 }

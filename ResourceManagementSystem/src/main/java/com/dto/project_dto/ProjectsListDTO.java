@@ -24,4 +24,5 @@ public class ProjectsListDTO {
     private StaffingReadinessStatus readinessStatus;
     private String reason;
     private BigDecimal projectBudget;
+    private boolean hasOverlap;
 }

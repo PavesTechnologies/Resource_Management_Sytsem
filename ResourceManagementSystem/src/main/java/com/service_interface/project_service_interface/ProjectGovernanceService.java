@@ -38,4 +38,8 @@ public interface ProjectGovernanceService {
             RiskLevel riskLevel
     );
 
+    ResponseEntity<?> getProjectById(Long id);
+
+//    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
+
 }

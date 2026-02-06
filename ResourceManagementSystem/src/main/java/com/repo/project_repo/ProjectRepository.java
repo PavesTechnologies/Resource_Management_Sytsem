@@ -26,6 +26,18 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 
     @Query("SELECT COALESCE(SUM(p.projectBudget), 0) FROM Project p WHERE p.clientId = :clientId")
     BigDecimal sumProjectBudgetByClientId(@Param("clientId") UUID clientId);
+    @Modifying
+    @Transactional
+    @Query(value = """
+        INSERT INTO project (pms_project_id, last_synced_at)
+        VALUES (:id, :now)
+        ON DUPLICATE KEY UPDATE
+            last_synced_at = :now
+        """, nativeQuery = true)
+    void upsertSkeleton(
+            @Param("id") Long id,
+            @Param("now") LocalDateTime now
+    );
 
     @Query("""
         SELECT p FROM Project p
