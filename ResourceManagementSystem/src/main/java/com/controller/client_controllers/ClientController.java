@@ -22,7 +22,7 @@ public class ClientController {
 
     @PostMapping("create")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse> createClient(@RequestBody Client client)
+    public ResponseEntity<ApiResponse<Client>> createClient(@RequestBody Client client)
     {
         return clientService.createClient(client);
     }
@@ -39,7 +39,7 @@ public class ClientController {
 
     @GetMapping("/count")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse> countClients() {
+    public ResponseEntity<ApiResponse<Void>> countClients() {
         return clientService.countClients();
     }
 
@@ -74,7 +74,7 @@ public class ClientController {
     }
 
     @DeleteMapping("/delete-client/{clientId}")
-    public ResponseEntity<ApiResponse> deleteClient(@PathVariable UUID clientId) {
+    public ResponseEntity<ApiResponse<Void>> deleteClient(@PathVariable UUID clientId) {
         return clientService.deleteClient(clientId);
     }
 }

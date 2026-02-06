@@ -30,6 +30,10 @@ public class Project {
     @Column(nullable = false)
     private String name;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id", insertable = false, updatable = false)
+    private Client client;
+
     // Client reference (cross-system safe)
     @Column(name = "client_id")
     private UUID clientId;

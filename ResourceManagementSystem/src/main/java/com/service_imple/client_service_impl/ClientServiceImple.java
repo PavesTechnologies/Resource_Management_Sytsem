@@ -104,7 +104,7 @@ public class ClientServiceImple implements ClientService {
 
 
     @Override
-    public ResponseEntity<ApiResponse> createClient(Client client) {
+    public ResponseEntity<ApiResponse<Client>> createClient(Client client) {
         try {
             // Simple regex validation for client name
             if (client.getClientName() == null || client.getClientName().trim().isEmpty()) {
@@ -227,7 +227,7 @@ public class ClientServiceImple implements ClientService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> countClients() {
+    public ResponseEntity<ApiResponse<Void>> countClients() {
         clientRepo.findAll().size();
         return null;
     }
@@ -371,12 +371,11 @@ public class ClientServiceImple implements ClientService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClient(UUID id) {
+    public ResponseEntity<ApiResponse<Void>> deleteClient(UUID id) {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
         client.setStatus(RecordStatus.INACTIVE);
         client.setUpdatedAt(LocalDateTime.now());
         clientRepo.save(client);
-        return ResponseEntity.ok(new ApiResponse(true, "Client Deleted Successfully!", null));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Client Deleted Successfully!", null));
     }
 }
-
