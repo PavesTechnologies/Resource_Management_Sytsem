@@ -32,6 +32,7 @@ public class Project {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", insertable = false, updatable = false)
+    @JsonIgnore
     private Client client;
 
     // Client reference (cross-system safe)
