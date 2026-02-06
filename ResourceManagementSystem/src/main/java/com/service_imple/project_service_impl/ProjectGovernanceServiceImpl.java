@@ -1,23 +1,30 @@
 package com.service_imple.project_service_impl;
 
 import com.dto.ApiResponse;
-import com.dto.project_dto.DateValidationResponse;
-import com.dto.project_dto.DemandDateValidationRequest;
-import com.dto.project_dto.ProjectListDTO;
-import com.dto.project_dto.ProjectOverlapDTO;
+import com.dto.project_dto.*;
 import com.entity.project_entities.Project;
+import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;
-import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.ProjectDataStatus;
+import com.entity_enums.project_enums.StaffingReadinessStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
+import com.specification.ProjectSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import com.config.ProjectDemandRules;
 
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -101,9 +108,68 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     }
 
     @Override
-    public ApiResponse<List<Project>> getProjectsByManagerId(Long managerId) {
+    public ResponseEntity<ApiResponse<Page<ProjectsListDTO>>> getProjectsByManagerId(
+            Long managerId,
+            int page,
+            int size,
+            String search,
+            StaffingReadinessStatus readinessStatus,
+            ProjectStatus projectStatus,
+            PriorityLevel priorityLevel,
+            RiskLevel riskLevel
+    ) {
 
-        return new ApiResponse<>(true, "Projects fetched", projectRepository.findAllByresourceManagerId(managerId).orElseThrow(()-> new ProjectExceptionHandler(HttpStatus.NOT_FOUND,"false","No projects found for this Manager")));
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        Specification<Project> spec =
+                Specification.where(ProjectSpecification.byManager(managerId))
+                        .and(ProjectSpecification.search(search))
+                        .and(ProjectSpecification.readinessStatus(readinessStatus))
+                        .and(ProjectSpecification.projectStatus(projectStatus))
+                        .and(ProjectSpecification.priority(priorityLevel))
+                        .and(ProjectSpecification.risk(riskLevel));
+
+        Page<Project> projects = projectRepository.findAll(spec, pageable);
+
+        if (projects.isEmpty()) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.NOT_FOUND,
+                    "400",
+                    "No Projects Found for given criteria"
+            );
+        }
+
+        Page<ProjectsListDTO> dtoPage = projects.map(project -> {
+            boolean overlap = false;
+            if (project.getStartDate() != null && project.getEndDate() != null) {
+                List<Project> ovelapProjects = projectRepository.findOverlappingProjects(project.getClientId(), project.getStartDate(), project.getEndDate(), project.getPmsProjectId());
+                overlap = !ovelapProjects.isEmpty();
+            }
+            ProjectsListDTO dto = new ProjectsListDTO();
+
+            dto.setProjectId(project.getPmsProjectId());
+            dto.setProjectName(project.getName());
+            dto.setProjectStatus(project.getProjectStatus());
+            dto.setRiskLevel(project.getRiskLevel());
+            dto.setProjectPriorityLevel(project.getPriorityLevel());
+            dto.setProjectBudget(project.getProjectBudget());
+            dto.setClientName(project.getClient().getClientName());
+            dto.setClientPriorityLevel(project.getClient().getPriorityLevel());
+            dto.setReadinessStatus(project.getStaffingReadinessStatus());
+            dto.setReason(project.getStaffingReadinessReason());
+            dto.setHasOverlap(overlap);
+
+
+            return dto;
+        });
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Projects fetched successfully", dtoPage)
+        );
     }
 
     // 🔹 Central eligibility + visibility logic
@@ -134,5 +200,11 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
                 eligible,
                 reason
         );
+    }
+
+    @Override
+    public ResponseEntity<?> getProjectById(Long id) {
+        Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
     }
 }

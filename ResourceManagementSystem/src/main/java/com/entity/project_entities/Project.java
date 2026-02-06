@@ -7,6 +7,8 @@ import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
+import com.entity_enums.project_enums.StaffingReadinessStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -30,6 +32,7 @@ public class Project {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", insertable = false, updatable = false)
+    @JsonIgnore
     private Client client;
 
     // Client reference (cross-system safe)
@@ -103,6 +106,16 @@ public class Project {
     @Column(name = "last_synced_at")
     private LocalDateTime LastSyncedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "staffing_readiness_status", length = 20)
+    private StaffingReadinessStatus staffingReadinessStatus;
+
+    @Column(name = "staffing_readiness_reason", length = 255)
+    private String staffingReadinessReason;
+
+    @Column(name = "staffing_readiness_updated_at")
+    private LocalDateTime staffingReadinessUpdatedAt;
+
     /* =====================
        AUDIT
        ===================== */
@@ -110,4 +123,7 @@ public class Project {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Transient
+    private boolean hasOverlap;
 }
