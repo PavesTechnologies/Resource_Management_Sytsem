@@ -70,6 +70,9 @@ public class ProjectDemandValidationService {
         }
     }
 
+    public void validateProjectForStaffing(Long projectId) {
+    }
+
     /* ===============================
        STORY 11 — GOVERNANCE VALIDATION
        =============================== */

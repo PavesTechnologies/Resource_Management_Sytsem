@@ -29,8 +29,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     @Modifying
     @Transactional
     @Query(value = """
-        INSERT INTO project (pms_project_id, last_synced_at, name)
-        VALUES (:id, :now, 'New Project (Syncing...)')
+        INSERT INTO project (pms_project_id, last_synced_at)
+        VALUES (:id, :now)
         ON DUPLICATE KEY UPDATE
             last_synced_at = :now
         """, nativeQuery = true)
@@ -64,4 +64,23 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
             Long resourceManagerId,
             Pageable pageable
     );
+
+    @Modifying
+    @Transactional
+    @Query(value = """
+        INSERT INTO project (pms_project_id, name, last_synced_at, project_status)
+        VALUES (:id, :name, :now, 'ACTIVE')
+        ON DUPLICATE KEY UPDATE
+            last_synced_at = :now
+        """, nativeQuery = true)
+    void upsertSkeleton(
+            @Param("id") Long id,
+            @Param("name") String name,
+            @Param("now") LocalDateTime now
+    );
+
+    // 2. Fix: Ensures Instance A locks the row so Instance B waits until the update is finished
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Project p WHERE p.pmsProjectId = :id")
+    Optional<Project> findByIdWithLock(@Param("id") Long id);
 }
