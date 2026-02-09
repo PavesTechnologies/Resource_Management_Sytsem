@@ -1,6 +1,7 @@
 package com.entity.project_entities;
 
 import com.entity.client_entities.ClientCompliance;
+import com.entity_enums.client_enums.ComplianceType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -18,16 +19,22 @@ public class ProjectCompliance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    private UUID projectComplianceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_compliance_id", nullable = false)
+    @JoinColumn(name = "client_compliance_id")
     private ClientCompliance clientCompliance;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(50)")
+    private ComplianceType complianceType;
+
+    private String requirementName;
+    private Boolean mandatoryFlag;
+    private Boolean isInherited;
     private Boolean activeFlag;
 }

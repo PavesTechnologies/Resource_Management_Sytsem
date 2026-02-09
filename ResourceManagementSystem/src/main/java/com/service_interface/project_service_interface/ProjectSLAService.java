@@ -11,8 +11,10 @@ import java.util.UUID;
 
 public interface ProjectSLAService {
     ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> createOrUpdateProjectSLA(ProjectSLA projectSLA);
+    ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> updateProjectSLA(UUID projectSlaId, ProjectSLA projectSLA);
     ResponseEntity<ApiResponse<Void>> deleteProjectSLA(UUID projectSlaId);
     ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAByProjectId(Long projectId);
     ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> getProjectSLAByProjectAndType(Long projectId, SLAType slaType);
     ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> inheritClientSLA(Long projectId, SLAType slaType);
+    ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> saveAll(List<ProjectSLA> projectSLAs);
 }
