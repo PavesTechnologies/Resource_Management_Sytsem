@@ -1,7 +1,9 @@
 package com.controller.demand_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.UserDTO;
 import com.entity.Demand;
+import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +20,8 @@ public class DemandController {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse> createDemand(@RequestBody Demand demand) {
+    public ResponseEntity<ApiResponse> createDemand(@RequestBody Demand demand, @CurrentUser UserDTO userDTO) {
+        demand.setCreatedBy(userDTO.getId());
         return demandService.createDemand(demand);
     }
 
