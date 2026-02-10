@@ -1,7 +1,7 @@
 package com.entity.project_entities;
 
 import com.entity.client_entities.ClientCompliance;
-import com.entity_enums.client_enums.ComplianceType;
+import com.entity_enums.client_enums.RequirementType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,7 +31,7 @@ public class ProjectCompliance {
 
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(50)")
-    private ComplianceType complianceType;
+    private RequirementType requirementType;
 
     private String requirementName;
     private Boolean mandatoryFlag;
