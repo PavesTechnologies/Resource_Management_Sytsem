@@ -15,6 +15,7 @@ import com.service_interface.client_service_interface.ClientAssetAssignmentServi
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,10 +30,16 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     private final ClientRepo clientRepo;
     // ASSIGN ASSET
     @Override
+    @Transactional
     public ResponseEntity<?> assignAsset(UUID assetId, ClientAssetAssignment assignment) {
         try {
             ClientAsset asset = assetRepository.findById(assetId)
                     .orElseThrow(() -> new RuntimeException("Client asset not found!"));
+            
+            // Initialize the lazy-loaded relationship to avoid transaction issues
+            if (asset.getClient() != null) {
+                asset.getClient().getClientId(); // Force initialization
+            }
 
             long assignedCount =
                     assignmentRepository.countByAsset_AssetIdAndActiveTrue(assetId);
@@ -84,6 +91,8 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
             ));
 
         } catch (Exception e) {
+            // Log the full exception for debugging
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(new ApiResponse<>(
                     false,
                     "Asset assignment failed: " + e.getMessage(),
@@ -95,6 +104,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
     // UPDATE ASSIGNMENT
     @Override
+    @Transactional
     public ApiResponse<Void> updateAssignment(
             UUID assignmentId,
             ClientAssetAssignment updated) {
@@ -150,6 +160,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
 
     // DELETE (SOFT)
     @Override
+    @Transactional
     public ResponseEntity<?> deleteAssignment(UUID assignmentId) {
         ClientAssetAssignment assignment =
                 assignmentRepository.findById(assignmentId)
@@ -231,6 +242,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     }
 
     @Override
+    @Transactional
     public ApiResponse<Void> returnAsset(
             UUID assignmentId,
             LocalDate actualReturnDate,

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ProjectGovernanceService {
 
@@ -39,6 +40,7 @@ public interface ProjectGovernanceService {
     );
 
     ResponseEntity<?> getProjectById(Long id);
+    ResponseEntity<?> getProjectByClient(UUID id);
 
 //    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
 

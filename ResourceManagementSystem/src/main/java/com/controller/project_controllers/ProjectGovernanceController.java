@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -112,6 +113,12 @@ public class ProjectGovernanceController {
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> getProjectById(@PathVariable Long id) {
         return projectGovernanceService.getProjectById(id);
+    }
+
+    @GetMapping("/get-project-by-client-id/{clientId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
+    public ResponseEntity<?> getProjectByClientId(@PathVariable UUID clientId) {
+        return projectGovernanceService.getProjectByClient(clientId);
     }
 
 }

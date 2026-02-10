@@ -5,7 +5,6 @@ import com.entity.Demand;
 import com.entity_enums.skill_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
-import com.repository.DemandRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;

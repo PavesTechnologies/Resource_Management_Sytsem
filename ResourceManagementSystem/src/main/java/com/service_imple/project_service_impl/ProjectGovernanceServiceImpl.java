@@ -26,6 +26,7 @@ import com.config.ProjectDemandRules;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -205,6 +206,12 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     @Override
     public ResponseEntity<?> getProjectById(Long id) {
         Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
+    }
+
+    @Override
+    public ResponseEntity<?> getProjectByClient(UUID id) {
+        List<Project> project =  projectRepository.findByClientId(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
     }
 }

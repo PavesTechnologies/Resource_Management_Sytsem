@@ -83,4 +83,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Project p WHERE p.pmsProjectId = :id")
     Optional<Project> findByIdWithLock(@Param("id") Long id);
+
+    List<Project> findByClientId(UUID clientId);
 }
