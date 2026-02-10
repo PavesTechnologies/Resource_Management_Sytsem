@@ -75,6 +75,53 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> updateProjectSLA(UUID projectSlaId, ProjectSLA projectSLA) {
+        // Find existing SLA
+        ProjectSLA existingSLA = projectSLARepo.findById(projectSlaId)
+            .orElseThrow(() -> ProjectExceptionHandler.notFound("Project SLA not found with id: " + projectSlaId));
+        
+        // Check if SLA is inherited - inherited SLAs cannot be updated
+        if (existingSLA.getIsInherited()) {
+            throw ProjectExceptionHandler.conflict("Cannot update inherited SLA. Only custom SLAs can be updated. To modify this SLA, create a custom override instead.");
+        }
+        
+        // Validate SLA values
+        if (projectSLA.getSlaDurationDays() <= 0 || projectSLA.getWarningThresholdDays() <= 0) {
+            throw ProjectExceptionHandler.badRequest("SLA duration and warning threshold must be greater than 0");
+        }
+        if (projectSLA.getWarningThresholdDays() >= projectSLA.getSlaDurationDays()) {
+            throw ProjectExceptionHandler.badRequest("Warning threshold must be less than SLA duration");
+        }
+        
+        // Update only allowed fields
+        existingSLA.setSlaDurationDays(projectSLA.getSlaDurationDays());
+        existingSLA.setWarningThresholdDays(projectSLA.getWarningThresholdDays());
+        existingSLA.setActiveFlag(projectSLA.getActiveFlag());
+        existingSLA.setIsInherited(false); // Ensure it remains custom
+        
+        // Save the updated SLA
+        ProjectSLA updatedSLA = projectSLARepo.save(existingSLA);
+        
+        // Convert to response DTO
+        ProjectSLAResponseDTO responseDTO = ProjectSLAResponseDTO.builder()
+                .projectSlaId(updatedSLA.getProjectSlaId())
+                .projectId(updatedSLA.getProject().getPmsProjectId())
+                .slaType(updatedSLA.getSlaType())
+                .slaDurationDays(updatedSLA.getSlaDurationDays())
+                .warningThresholdDays(updatedSLA.getWarningThresholdDays())
+                .isInherited(updatedSLA.getIsInherited())
+                .activeFlag(updatedSLA.getActiveFlag())
+                .clientSlaId(updatedSLA.getClientSLA() != null ? updatedSLA.getClientSLA().getSlaId() : null)
+                .build();
+        
+        return ResponseEntity.ok(new ApiResponse<ProjectSLAResponseDTO>().getAPIResponse(
+            true, 
+            "Custom project SLA updated successfully", 
+            responseDTO
+        ));
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<Void>> deleteProjectSLA(UUID projectSlaId) {
         ProjectSLA sla = projectSLARepo.findById(projectSlaId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("Project SLA not found with id: " + projectSlaId));
@@ -201,6 +248,61 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
             true, 
             "Successfully inherited client SLA for " + slaType.name(), 
             responseDTO
+        ));
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> saveAll(List<ProjectSLA> projectSLAs) {
+        if (projectSLAs == null || projectSLAs.isEmpty()) {
+            throw ProjectExceptionHandler.badRequest("Project SLAs list cannot be null or empty");
+        }
+
+        List<ProjectSLAResponseDTO> responseDTOs = projectSLAs.stream().map(projectSLA -> {
+            // Validate SLA values
+            if (projectSLA.getSlaDurationDays() <= 0 || projectSLA.getWarningThresholdDays() <= 0) {
+                throw ProjectExceptionHandler.badRequest("SLA duration and warning threshold must be greater than 0");
+            }
+            if (projectSLA.getWarningThresholdDays() >= projectSLA.getSlaDurationDays()) {
+                throw ProjectExceptionHandler.badRequest("Warning threshold must be less than SLA duration");
+            }
+
+            // Check if this is an update or new entry
+            ProjectSLA existingSLA = projectSLARepo.findByProject_PmsProjectIdAndSlaType(
+                projectSLA.getProject().getPmsProjectId(),
+                projectSLA.getSlaType()
+            ).orElse(null);
+
+            ProjectSLA savedSLA;
+            if (existingSLA != null) {
+                // Update existing SLA
+                existingSLA.setSlaDurationDays(projectSLA.getSlaDurationDays());
+                existingSLA.setWarningThresholdDays(projectSLA.getWarningThresholdDays());
+                existingSLA.setActiveFlag(projectSLA.getActiveFlag());
+                existingSLA.setIsInherited(false);
+                savedSLA = projectSLARepo.save(existingSLA);
+            } else {
+                // Create new SLA
+                projectSLA.setIsInherited(false);
+                savedSLA = projectSLARepo.save(projectSLA);
+            }
+
+            // Convert to response DTO
+            return ProjectSLAResponseDTO.builder()
+                .projectSlaId(savedSLA.getProjectSlaId())
+                .projectId(savedSLA.getProject().getPmsProjectId())
+                .slaType(savedSLA.getSlaType())
+                .slaDurationDays(savedSLA.getSlaDurationDays())
+                .warningThresholdDays(savedSLA.getWarningThresholdDays())
+                .isInherited(savedSLA.getIsInherited())
+                .activeFlag(savedSLA.getActiveFlag())
+                .clientSlaId(savedSLA.getClientSLA() != null ? savedSLA.getClientSLA().getSlaId() : null)
+                .build();
+        }).toList();
+
+        return ResponseEntity.ok(new ApiResponse<List<ProjectSLAResponseDTO>>().getAPIResponse(
+            true, 
+            "Project SLAs saved successfully", 
+            responseDTOs
         ));
     }
 }
