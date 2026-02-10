@@ -114,4 +114,15 @@ public class ProjectGovernanceController {
         return projectGovernanceService.getProjectById(id);
     }
 
+    @GetMapping("/check-demand-creation/{pmsProjectId}")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> checkDemandCreation(@PathVariable Long pmsProjectId) {
+        return projectGovernanceService.checkDemandCreation(pmsProjectId);
+    }
+
+    @PutMapping("/readiness-status-update")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> changeReadinessStatus(@RequestBody UpdateReadinessStatusDTO readiness) {
+        return projectGovernanceService.readinessStatusUpdate(readiness);
+    }
 }

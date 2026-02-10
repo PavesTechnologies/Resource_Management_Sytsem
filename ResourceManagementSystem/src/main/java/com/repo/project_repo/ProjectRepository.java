@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Repository
 public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId")
@@ -83,4 +85,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM Project p WHERE p.pmsProjectId = :id")
     Optional<Project> findByIdWithLock(@Param("id") Long id);
+
+    Optional<Project> findByPmsProjectId(Long id);
 }
