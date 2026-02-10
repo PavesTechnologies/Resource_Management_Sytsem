@@ -26,6 +26,14 @@ public class ProjectSLAController {
         return projectSLAService.createOrUpdateProjectSLA(projectSLA);
     }
 
+    @PutMapping("/{projectSlaId}")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> updateProjectSLA(
+            @PathVariable UUID projectSlaId, 
+            @RequestBody ProjectSLA projectSLA) {
+        return projectSLAService.updateProjectSLA(projectSlaId, projectSLA);
+    }
+
     @DeleteMapping("/{projectSlaId}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteProjectSLA(@PathVariable UUID projectSlaId) {
@@ -52,5 +60,12 @@ public class ProjectSLAController {
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
         return projectSLAService.inheritClientSLA(projectId, slaType);
+    }
+
+    @PostMapping("/save-all")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> saveAllProjectSLAs(
+            @RequestBody List<ProjectSLA> projectSLAs) {
+        return projectSLAService.saveAll(projectSLAs);
     }
 }
