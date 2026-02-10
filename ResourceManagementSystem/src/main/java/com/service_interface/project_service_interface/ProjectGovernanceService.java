@@ -39,6 +39,8 @@ public interface ProjectGovernanceService {
     );
 
     ResponseEntity<?> getProjectById(Long id);
+    ResponseEntity<?> checkDemandCreation(Long projectId);
+    ResponseEntity<?> readinessStatusUpdate(UpdateReadinessStatusDTO readiness);
 
 //    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
 

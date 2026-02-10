@@ -4,6 +4,7 @@ import com.dto.ApiResponse;
 import com.dto.project_dto.*;
 import com.entity.project_entities.Project;
 import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.project_enums.ProjectDataStatus;
@@ -206,5 +207,42 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     public ResponseEntity<?> getProjectById(Long id) {
         Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
         return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
+    }
+
+    @Override
+    public ResponseEntity<?> checkDemandCreation(Long projectId) {
+        Project project = projectRepository.findById(projectId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not found!"));
+        CheckDemandCreationDTO response = new CheckDemandCreationDTO();
+        response.setCreate(false);
+        if (project.getClient().getStatus() != RecordStatus.ACTIVE) {
+            response.setReason("Client is not Active.");
+            return ResponseEntity.ok(response);
+        }
+        if (project.getProjectStatus() != ProjectStatus.ACTIVE
+                && project.getProjectStatus() != ProjectStatus.APPROVED) {
+            response.setReason("Project status is not Active or Approved.");
+            return ResponseEntity.ok(response);
+        }
+        if (project.getStaffingReadinessStatus() != StaffingReadinessStatus.READY) {
+            response.setReason("Staffing is not allowed for this project.");
+            return ResponseEntity.ok(response);
+        }
+        if (project.getStartDate() == null) {
+            response.setReason("Project start date is not defined.");
+            return ResponseEntity.ok(response);
+        }
+        response.setCreate(true);
+        response.setReason("All pre-requisites are met.");
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<?> readinessStatusUpdate(UpdateReadinessStatusDTO readiness) {
+        Project project = projectRepository.findById(readiness.getPmsProjectId()).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project Not Found!"));
+        project.setStaffingReadinessStatus(readiness.getStatus());
+        project.setStaffingReadinessReason(readiness.getReason());
+        project.setStaffingReadinessUpdatedAt(LocalDateTime.now());
+        projectRepository.save(project);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Readiness Status updated successfully!", null));
     }
 }
