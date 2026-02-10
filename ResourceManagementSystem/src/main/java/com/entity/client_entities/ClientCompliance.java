@@ -1,6 +1,6 @@
 package com.entity.client_entities;
 
-import com.entity_enums.client_enums.ComplianceType;
+import com.entity_enums.client_enums.RequirementType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,7 +24,7 @@ public class ClientCompliance {
     private Client client;
 
     @Enumerated(EnumType.STRING)
-    private ComplianceType requirementType;
+    private RequirementType requirementType;
 
     private String requirementName;
     private Boolean mandatoryFlag;

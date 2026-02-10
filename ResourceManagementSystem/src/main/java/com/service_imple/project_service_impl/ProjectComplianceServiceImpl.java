@@ -5,7 +5,7 @@ import com.dto.project_dto.ProjectComplianceResponseDTO;
 import com.entity.client_entities.ClientCompliance;
 import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectCompliance;
-import com.entity_enums.client_enums.ComplianceType;
+import com.entity_enums.client_enums.RequirementType;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.client_repo.ClientComplianceRepo;
 import com.repo.project_repo.ProjectComplianceRepo;
@@ -38,9 +38,9 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         }
         
         // Check if this is an update or new entry
-        ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndComplianceType(
+        ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndRequirementType(
             projectCompliance.getProject().getPmsProjectId(),
-            projectCompliance.getComplianceType()
+            projectCompliance.getRequirementType()
         ).orElse(null);
         
         if (existingCompliance != null) {
@@ -60,7 +60,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         ProjectComplianceResponseDTO responseDTO = ProjectComplianceResponseDTO.builder()
                 .projectComplianceId(projectCompliance.getProjectComplianceId())
                 .projectId(projectCompliance.getProject().getPmsProjectId())
-                .complianceType(projectCompliance.getComplianceType())
+                .requirementType(projectCompliance.getRequirementType())
                 .requirementName(projectCompliance.getRequirementName())
                 .mandatoryFlag(projectCompliance.getMandatoryFlag())
                 .isInherited(projectCompliance.getIsInherited())
@@ -95,7 +95,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 ProjectComplianceResponseDTO.builder()
                         .projectComplianceId(compliance.getProjectComplianceId())
                         .projectId(compliance.getProject().getPmsProjectId())
-                        .complianceType(compliance.getComplianceType())
+                        .requirementType(compliance.getRequirementType())
                         .requirementName(compliance.getRequirementName())
                         .mandatoryFlag(compliance.getMandatoryFlag())
                         .isInherited(compliance.getIsInherited())
@@ -114,18 +114,18 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
 
 
     @Override
-    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> getProjectComplianceByProjectAndType(Long projectId, ComplianceType complianceType) {
+    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> getProjectComplianceByProjectAndType(Long projectId, RequirementType requirementType) {
 
         ProjectCompliance compliance = projectComplianceRepo
-                .findByProject_PmsProjectIdAndComplianceType(projectId, complianceType)
+                .findByProject_PmsProjectIdAndRequirementType(projectId, requirementType)
                 .orElseThrow(() ->
                         ProjectExceptionHandler.notFound(
-                                "No " + complianceType + " compliance found for project " + projectId));
+                                "No " + requirementType + " compliance found for project " + projectId));
 
         ProjectComplianceResponseDTO dto = ProjectComplianceResponseDTO.builder()
                 .projectComplianceId(compliance.getProjectComplianceId())
                 .projectId(compliance.getProject().getPmsProjectId())
-                .complianceType(compliance.getComplianceType())
+                .requirementType(compliance.getRequirementType())
                 .requirementName(compliance.getRequirementName())
                 .mandatoryFlag(compliance.getMandatoryFlag())
                 .isInherited(compliance.getIsInherited())
@@ -143,7 +143,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
 
 
     @Override
-    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> inheritClientCompliance(Long projectId, ComplianceType complianceType) {
+    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> inheritClientCompliance(Long projectId, RequirementType requirementType) {
         // Get the project to access client info
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("Project not found"));
@@ -151,13 +151,13 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         // Get the client compliance to inherit from
         ClientCompliance clientCompliance = clientComplianceRepo.findByClient_ClientIdAndRequirementType(
             project.getClient().getClientId(), 
-            complianceType
+            requirementType
         ).orElseThrow(() -> ProjectExceptionHandler.notFound(
             String.format("No %s compliance found for client: %s", 
-                complianceType, project.getClient().getClientName())));
+                requirementType, project.getClient().getClientName())));
         
         // Check if project compliance already exists
-        ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndComplianceType(projectId, complianceType).orElse(null);
+        ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndRequirementType(projectId, requirementType).orElse(null);
         
         ProjectCompliance projectCompliance;
         if (existingCompliance != null) {
@@ -173,7 +173,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
             projectCompliance = ProjectCompliance.builder()
                 .project(project)
                 .clientCompliance(clientCompliance)
-                .complianceType(complianceType)
+                .requirementType(requirementType)
                 .requirementName(clientCompliance.getRequirementName())
                 .mandatoryFlag(clientCompliance.getMandatoryFlag())
                 .isInherited(true)
@@ -186,7 +186,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         ProjectComplianceResponseDTO responseDTO = ProjectComplianceResponseDTO.builder()
                 .projectComplianceId(projectCompliance.getProjectComplianceId())
                 .projectId(projectCompliance.getProject().getPmsProjectId())
-                .complianceType(projectCompliance.getComplianceType())
+                .requirementType(projectCompliance.getRequirementType())
                 .requirementName(projectCompliance.getRequirementName())
                 .mandatoryFlag(projectCompliance.getMandatoryFlag())
                 .isInherited(projectCompliance.getIsInherited())
@@ -196,7 +196,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         
         return ResponseEntity.ok(new ApiResponse<ProjectComplianceResponseDTO>().getAPIResponse(
             true, 
-            "Successfully inherited client compliance for " + complianceType.name(), 
+            "Successfully inherited client compliance for " + requirementType.name(),
             responseDTO
         ));
     }
@@ -214,9 +214,9 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
             }
 
             // Check if this is an update or new entry
-            ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndComplianceType(
+            ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndRequirementType(
                 projectCompliance.getProject().getPmsProjectId(),
-                projectCompliance.getComplianceType()
+                projectCompliance.getRequirementType()
             ).orElse(null);
 
             ProjectCompliance savedCompliance;
@@ -237,7 +237,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
             return ProjectComplianceResponseDTO.builder()
                 .projectComplianceId(savedCompliance.getProjectComplianceId())
                 .projectId(savedCompliance.getProject().getPmsProjectId())
-                .complianceType(savedCompliance.getComplianceType())
+                .requirementType(savedCompliance.getRequirementType())
                 .requirementName(savedCompliance.getRequirementName())
                 .mandatoryFlag(savedCompliance.getMandatoryFlag())
                 .isInherited(savedCompliance.getIsInherited())
