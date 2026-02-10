@@ -16,10 +16,15 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class ProjectEscalationDTO {
+    private UUID id;
     private Long projectId;
+    private UUID clientId; // Added for creating new contact
+    private UUID contactId;
     private String contactName;
     private String contactEmail;
+    private String contactPhone; // Added
+    private Boolean activeFlag; // Added
     private ContactRole contactRole;
     private EscalationLevel escalationLevel;
-//    private Set<EscalationTriggerType> triggers;
+    private Set<EscalationTriggerType> triggers;
 }
