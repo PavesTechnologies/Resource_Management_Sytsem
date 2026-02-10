@@ -87,4 +87,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     Optional<Project> findByIdWithLock(@Param("id") Long id);
 
     Optional<Project> findByPmsProjectId(Long id);
+
+    List<Project> findByClientId(UUID clientId);
 }
