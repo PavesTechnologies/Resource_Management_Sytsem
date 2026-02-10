@@ -72,6 +72,50 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> updateProjectCompliance(UUID projectComplianceId, ProjectCompliance projectCompliance) {
+        // Find existing compliance
+        ProjectCompliance existingCompliance = projectComplianceRepo.findById(projectComplianceId)
+            .orElseThrow(() -> ProjectExceptionHandler.notFound("Project compliance not found with id: " + projectComplianceId));
+        
+        // Check if compliance is inherited - inherited compliances cannot be updated
+        if (existingCompliance.getIsInherited()) {
+            throw ProjectExceptionHandler.conflict("Cannot update inherited compliance. Only custom compliances can be updated. To modify this compliance, create a custom override instead.");
+        }
+        
+        // Validate compliance values
+        if (projectCompliance.getRequirementName() == null || projectCompliance.getRequirementName().trim().isEmpty()) {
+            throw ProjectExceptionHandler.badRequest("Requirement name cannot be empty");
+        }
+        
+        // Update only allowed fields
+        existingCompliance.setRequirementName(projectCompliance.getRequirementName());
+        existingCompliance.setMandatoryFlag(projectCompliance.getMandatoryFlag());
+        existingCompliance.setActiveFlag(projectCompliance.getActiveFlag());
+        existingCompliance.setIsInherited(false); // Ensure it remains custom
+        
+        // Save the updated compliance
+        ProjectCompliance updatedCompliance = projectComplianceRepo.save(existingCompliance);
+        
+        // Convert to response DTO
+        ProjectComplianceResponseDTO responseDTO = ProjectComplianceResponseDTO.builder()
+                .projectComplianceId(updatedCompliance.getProjectComplianceId())
+                .projectId(updatedCompliance.getProject().getPmsProjectId())
+                .requirementType(updatedCompliance.getRequirementType())
+                .requirementName(updatedCompliance.getRequirementName())
+                .mandatoryFlag(updatedCompliance.getMandatoryFlag())
+                .isInherited(updatedCompliance.getIsInherited())
+                .activeFlag(updatedCompliance.getActiveFlag())
+                .clientComplianceId(updatedCompliance.getClientCompliance() != null ? updatedCompliance.getClientCompliance().getComplianceId() : null)
+                .build();
+        
+        return ResponseEntity.ok(new ApiResponse<ProjectComplianceResponseDTO>().getAPIResponse(
+            true, 
+            "Custom project compliance updated successfully", 
+            responseDTO
+        ));
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<Void>> deleteProjectCompliance(UUID projectComplianceId) {
         ProjectCompliance compliance = projectComplianceRepo.findById(projectComplianceId)
             .orElseThrow(() -> ProjectExceptionHandler.notFound("Project compliance not found with id: " + projectComplianceId));

@@ -26,6 +26,14 @@ public class ProjectComplianceController {
         return projectComplianceService.createOrUpdateProjectCompliance(projectCompliance);
     }
 
+    @PutMapping("/{projectComplianceId}")
+    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> updateProjectCompliance(
+            @PathVariable UUID projectComplianceId, 
+            @RequestBody ProjectCompliance projectCompliance) {
+        return projectComplianceService.updateProjectCompliance(projectComplianceId, projectCompliance);
+    }
+
     @DeleteMapping("/{projectComplianceId}")
     @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteProjectCompliance(@PathVariable UUID projectComplianceId) {
