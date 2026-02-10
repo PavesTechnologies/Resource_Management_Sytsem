@@ -22,7 +22,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                    UPPER(COALESCE(SUBSTRING(SUBSTRING_INDEX(r.full_name, ' ', -1), 1, 1), ''))) as avatar,
             r.designation as role,
             r.working_location as location,
-            TIMESTAMPDIFF(YEAR, r.date_of_joining, CURDATE()) as experience,
+            COALESCE(r.experiance, 0) as experience,
             r.employment_type as employmentType,
             COALESCE(latest_ledger.confirmed_alloc_hours * 100.0 / NULLIF(latest_ledger.standard_hours, 0), 0) as currentAllocation,
             next_available.available_from as availableFrom,
@@ -91,6 +91,21 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         ORDER BY ra.allocation_start_date ASC
         """, nativeQuery = true)
     List<Object[]> getAllocationTimeline(@Param("resourceId") Long resourceId);
+
+    @Query(value = """
+        SELECT 
+            p.name as project_name
+        FROM resource_allocation ra
+        JOIN project p ON ra.project_id = p.pms_project_id
+        WHERE ra.resource_id = :resourceId
+        AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        AND (
+            (ra.allocation_status = 'ACTIVE' AND CURDATE() BETWEEN ra.allocation_start_date AND ra.allocation_end_date)
+            OR (ra.allocation_status = 'PLANNED' AND ra.allocation_start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY))
+        )
+        ORDER BY ra.allocation_percentage DESC
+        """, nativeQuery = true)
+    List<Object[]> getCurrentProjects(@Param("resourceId") Long resourceId);
 
     @Query(value = """
         SELECT 

@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,14 +40,14 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         String location = (String) row[4];
         Integer experience = row[5] != null ? ((Number) row[5]).intValue() : 0;
         String employmentType = (String) row[6];
-        Integer currentAllocation = row[7] != null ? ((Number) row[7]).intValue() : 0;
-        java.time.LocalDate availableFrom = (java.time.LocalDate) row[8];
-        String currentProject = (String) row[9];
         String nextAssignment = (String) row[10];
 
         List<String> skills = getResourceSkills(resourceId);
         List<Integer> utilizationHistory = getUtilizationHistory(resourceId);
         List<ResourceTimelineDTO.AllocationTimelineItem> allocationTimeline = getAllocationTimeline(resourceId);
+        List<String> currentProjects = getCurrentProjects(resourceId);
+        LocalDate availableFrom = calculateAvailableFrom(resourceId);
+        Integer currentAllocation = calculateCurrentAllocation(resourceId);
 
         return ResourceTimelineDTO.builder()
                 .id(resourceId.toString())
@@ -58,7 +59,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 .experience(experience)
                 .currentAllocation(currentAllocation)
                 .availableFrom(availableFrom)
-                .currentProject(currentProject)
+                .currentProject(currentProjects)
                 .nextAssignment(nextAssignment)
                 .employmentType(employmentType)
                 .utilizationHistory(utilizationHistory)
@@ -82,16 +83,58 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         return history != null ? history : new ArrayList<>();
     }
 
+    private Integer calculateCurrentAllocation(Long resourceId) {
+        List<Object[]> allocationData = resourceTimelineRepository.getAllocationTimeline(resourceId);
+        if (allocationData.isEmpty()) {
+            return 0;
+        }
+        
+        // Sum allocations for current date and future dates
+        LocalDate today = LocalDate.now();
+        return allocationData.stream()
+                .filter(row -> {
+                    LocalDate startDate = ((java.sql.Date) row[1]).toLocalDate();
+                    LocalDate endDate = ((java.sql.Date) row[2]).toLocalDate();
+                    return !endDate.isBefore(today); // Include current and future allocations
+                })
+                .mapToInt(row -> ((Number) row[3]).intValue())
+                .sum();
+    }
+
+    private List<String> getCurrentProjects(Long resourceId) {
+        List<ResourceTimelineDTO.AllocationTimelineItem> allocationTimeline = getAllocationTimeline(resourceId);
+        return allocationTimeline.stream()
+                .filter(item -> !item.getTentative()) // Only non-tentative (ACTIVE) projects
+                .map(ResourceTimelineDTO.AllocationTimelineItem::getProject)
+                .collect(Collectors.toList());
+    }
+
+    private LocalDate calculateAvailableFrom(Long resourceId) {
+        List<Object[]> allocationData = resourceTimelineRepository.getAllocationTimeline(resourceId);
+        if (allocationData.isEmpty()) {
+            return null;
+        }
+        
+        // Find the latest end date
+        LocalDate latestEndDate = allocationData.stream()
+                .map(row -> ((java.sql.Date) row[2]).toLocalDate())
+                .max(LocalDate::compareTo)
+                .orElse(null);
+        
+        // Available from is the day after the last project ends
+        return latestEndDate != null ? latestEndDate.plusDays(1) : null;
+    }
+
     private List<ResourceTimelineDTO.AllocationTimelineItem> getAllocationTimeline(Long resourceId) {
         List<Object[]> timelineData = resourceTimelineRepository.getAllocationTimeline(resourceId);
         
         return timelineData.stream()
                 .map(row -> ResourceTimelineDTO.AllocationTimelineItem.builder()
                         .project((String) row[0])
-                        .startDate((java.time.LocalDate) row[1])
-                        .endDate((java.time.LocalDate) row[2])
+                        .startDate(((java.sql.Date) row[1]).toLocalDate())
+                        .endDate(((java.sql.Date) row[2]).toLocalDate())
                         .allocation(((Number) row[3]).intValue())
-                        .tentative((Boolean) row[4])
+                        .tentative(((Number) row[4]).intValue() == 1)
                         .build())
                 .collect(Collectors.toList());
     }

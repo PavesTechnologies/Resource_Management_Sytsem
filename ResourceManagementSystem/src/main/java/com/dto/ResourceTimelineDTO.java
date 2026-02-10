@@ -23,7 +23,7 @@ public class ResourceTimelineDTO {
     private Integer experience;
     private Integer currentAllocation;
     private LocalDate availableFrom;
-    private String currentProject;
+    private List<String> currentProject;
     private String nextAssignment;
     private String employmentType;
     private List<Integer> utilizationHistory;

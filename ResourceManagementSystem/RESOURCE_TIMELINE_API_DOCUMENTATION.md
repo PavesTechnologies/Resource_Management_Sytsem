@@ -8,7 +8,7 @@ The Resource Timeline API is designed to be **fully dynamic** and work correctly
 
 ### Endpoint
 ```
-GET /api/v1/resource-timeline
+GET /api/availability/timeline
 ```
 
 ### Response Format
