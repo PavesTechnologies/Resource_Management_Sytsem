@@ -38,4 +38,7 @@ public class ClientEscalationContact {
 
     @Column(nullable = false)
     private Boolean activeFlag;
+
+    @Column(nullable = false)
+    private String escalationLevel;
 }
