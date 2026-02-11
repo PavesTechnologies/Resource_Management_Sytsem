@@ -71,7 +71,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                         .email(clientContact.getEmail())
                         .phone(clientContact.getPhone())
                         .activeFlag(Boolean.TRUE)
-                        .source(EscalationSource.CLIENT_INHERITED)
+                        .source(EscalationSource.INHERITED)
                         .build())
                 .toList();
 
@@ -95,7 +95,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                 .email(dto.getEmail())
                 .phone(dto.getPhone())
                 .activeFlag(dto.getActiveFlag() != null ? dto.getActiveFlag() : Boolean.TRUE)
-                .source(EscalationSource.PROJECT_MANUAL)
+                .source(EscalationSource.MANUAL)
                 .build();
 
         projectEscalationRepo.save(escalation);

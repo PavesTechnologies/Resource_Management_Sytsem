@@ -25,7 +25,7 @@ public class ProjectEscalationResponseDTO {
     private Long projectId;
     @NotNull(message = "Type is required")
     private String type;
-    private EscalationLevel escalationLevel;
+    private String escalationLevel;
     private String contactName;
     private ContactRole contactRole;
     private String email;
