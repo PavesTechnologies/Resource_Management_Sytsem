@@ -101,7 +101,19 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
         projectEscalationRepo.save(escalation);
     }
 
+    @Override
+    public ResponseEntity<?> updateProjectContact(UUID projectEscalationId, ProjectEscalation escalation) {
+        ProjectEscalation projectEscalation = projectEscalationRepo.findById(projectEscalationId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "400", "Project Escalation Not Found!"));
+        projectEscalationRepo.save(escalation);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation updated successfully!", null));
+    }
 
+    @Override
+    public ResponseEntity<?> deleteProjectContact(UUID projectEscalationId) {
+        projectEscalationRepo.findById(projectEscalationId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "400", "Project Escalation Not Found!"));
+        projectEscalationRepo.deleteById(projectEscalationId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation deleted successfully!", null));
+    }
 
     @Override
     public ResponseEntity<?> getEscalationContacts(Long projectId) {
