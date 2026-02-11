@@ -30,6 +30,16 @@ public class ProjectEscalationController {
         return projectEscalationService.addEscalationContact(escalation);
     }
 
+    @PutMapping("/update-escalation/{projectEscalationId}")
+    public ResponseEntity<?> updateProjectContact(@PathVariable UUID projectEscalationId, @RequestBody ProjectEscalation escalation) {
+        return projectEscalationService.updateProjectContact(projectEscalationId, escalation);
+    }
+
+    @DeleteMapping("/delete-escalation/{projectEscalationId}")
+    public ResponseEntity<?> deleteProjectContact(@PathVariable UUID projectEscalationId) {
+        return projectEscalationService.deleteProjectContact(projectEscalationId);
+    }
+
 //    @GetMapping("/{projectId}/escalations")
 //    @Operation(summary = "Get all escalation contacts for a project", description = "Retrieves a list of all mapped escalation contacts for a specific project.")
 //    public ResponseEntity<ApiResponse<List<ProjectEscalationDTO>>> getEscalationContacts(@PathVariable Long projectId) {
