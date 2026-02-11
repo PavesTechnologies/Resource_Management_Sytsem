@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.web.client.HttpClientErrorException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -70,8 +71,16 @@ public class TokenService {
                         return accessToken;
                     }
                 }
+            } catch (HttpClientErrorException e) {
+                logAuthenticationError(e);
+                if (e.getStatusCode().value() == 401) {
+                    System.err.println("Authentication failed: Invalid credentials");
+                } else if (e.getStatusCode().value() == 403) {
+                    System.err.println("Authentication failed: Access forbidden");
+                } else {
+                    System.err.println("HTTP error during authentication: " + e.getStatusCode());
+                }
             } catch (Exception e) {
-                // Log error but don't throw - allow system to continue without token
                 System.err.println("Failed to get access token: " + e.getMessage());
             }
 
@@ -84,5 +93,10 @@ public class TokenService {
             cachedToken = null;
             tokenExpiry = null;
         }
+    }
+
+    private void logAuthenticationError(HttpClientErrorException e) {
+        System.err.println("Authentication error - Status: " + e.getStatusCode());
+        System.err.println("Response body: " + e.getResponseBodyAsString());
     }
 }

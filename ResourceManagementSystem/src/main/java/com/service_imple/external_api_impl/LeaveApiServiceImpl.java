@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
@@ -53,6 +54,17 @@ public class LeaveApiServiceImpl implements LeaveApiService {
             log.info("Successfully fetched leave data for year: {}", year);
             return responseBody;
             
+        } catch (HttpClientErrorException e) {
+            log.error("HTTP error fetching approved leave for year: {} - Status: {}, Message: {}", year, e.getStatusCode(), e.getMessage());
+            
+            if (e.getStatusCode().value() == 401) {
+                tokenService.invalidateToken();
+                throw new LeaveApiService.ExternalApiException("Authentication failed with leave API. Token has been invalidated.", e);
+            } else if (e.getStatusCode().value() == 403) {
+                throw new LeaveApiService.ExternalApiException("Access denied to leave API.", e);
+            } else {
+                throw new LeaveApiService.ExternalApiException("HTTP error fetching approved leave: " + e.getMessage(), e);
+            }
         } catch (Exception e) {
             log.error("Failed to fetch approved leave for year: {}", year, e);
             throw new LeaveApiService.ExternalApiException("Failed to fetch approved leave from external API", e);
@@ -88,6 +100,17 @@ public class LeaveApiServiceImpl implements LeaveApiService {
                             responseBody.getData().getApprovedLeaveDates().size() : 0);
             return responseBody;
             
+        } catch (HttpClientErrorException e) {
+            log.error("HTTP error fetching approved leave for employee: {} year: {} - Status: {}, Message: {}", employeeId, year, e.getStatusCode(), e.getMessage());
+            
+            if (e.getStatusCode().value() == 401) {
+                tokenService.invalidateToken();
+                throw new LeaveApiService.ExternalApiException("Authentication failed with leave API. Token has been invalidated.", e);
+            } else if (e.getStatusCode().value() == 403) {
+                throw new LeaveApiService.ExternalApiException("Access denied to leave API.", e);
+            } else {
+                throw new LeaveApiService.ExternalApiException("HTTP error fetching approved leave: " + e.getMessage(), e);
+            }
         } catch (Exception e) {
             log.error("Failed to fetch approved leave for employee: {} year: {}", employeeId, year, e);
             throw new LeaveApiService.ExternalApiException("Failed to fetch approved leave from external API", e);
@@ -96,16 +119,12 @@ public class LeaveApiServiceImpl implements LeaveApiService {
 
     @Override
     public boolean isApiHealthy() {
+        // No health check endpoint available - assume healthy if token service is working
         try {
-            String url = leaveApiBaseUrl + "/api/health";
-            
-            // Token is added by AvailabilityEngineConfig interceptor
-            HttpEntity<Void> entity = new HttpEntity<>(new HttpHeaders());
-
-            restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            return true;
+            String token = tokenService.getAccessToken();
+            return token != null && !token.isEmpty();
         } catch (Exception e) {
-            log.warn("Leave API health check failed", e);
+            log.warn("Leave API health check failed - token service error", e);
             return false;
         }
     }

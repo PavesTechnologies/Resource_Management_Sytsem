@@ -3,9 +3,13 @@ package com.global_exception_handler;
 import com.dto.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -73,5 +77,40 @@ public class GlobalExceptionHandler{
                         "message", ex.getMessage(),
                         "timestamp", LocalDateTime.now()
                 ));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException ex) {
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage("Authentication failed: " + ex.getMessage());
+        apiResponse.setData(null);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(apiResponse);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage("Access denied: " + ex.getMessage());
+        apiResponse.setData(null);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(apiResponse);
+    }
+
+    @ExceptionHandler(HttpClientErrorException.class)
+    public ResponseEntity<ApiResponse> handleHttpClientErrorException(HttpClientErrorException ex) {
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        
+        if (ex.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+            apiResponse.setMessage("External API authentication failed. Please check credentials.");
+        } else if (ex.getStatusCode() == HttpStatus.FORBIDDEN) {
+            apiResponse.setMessage("Access denied to external API.");
+        } else {
+            apiResponse.setMessage("External API error: " + ex.getMessage());
+        }
+        
+        apiResponse.setData(null);
+        return ResponseEntity.status(ex.getStatusCode()).body(apiResponse);
     }
 }

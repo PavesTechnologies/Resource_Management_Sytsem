@@ -8,8 +8,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import com.global_exception_handler.ProjectExceptionHandler;
 
 import java.time.LocalDate;
 
@@ -78,9 +80,15 @@ public class DashboardKpiController {
 
             return ResponseEntity.ok(kpis);
 
+        } catch (AccessDeniedException e) {
+            log.error("Access denied for KPI request - User may not have required role", e);
+            throw ProjectExceptionHandler.badRequest("Access denied: You do not have permission to access dashboard KPIs");
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid parameters for KPI request: {}", e.getMessage());
+            throw ProjectExceptionHandler.badRequest("Invalid parameters: " + e.getMessage());
         } catch (Exception e) {
             log.error("Error processing KPI request", e);
-            return ResponseEntity.internalServerError().build();
+            throw ProjectExceptionHandler.badRequest("Failed to process KPI request: " + e.getMessage());
         }
     }
 }

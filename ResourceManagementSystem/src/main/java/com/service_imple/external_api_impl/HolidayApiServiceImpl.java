@@ -10,6 +10,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
@@ -57,6 +58,17 @@ public class HolidayApiServiceImpl implements HolidayApiService {
             log.info("Successfully fetched {} holidays for year: {}", holidayList.size(), year);
             return holidayList;
             
+        } catch (HttpClientErrorException e) {
+            log.error("HTTP error fetching holidays for year: {} - Status: {}, Message: {}", year, e.getStatusCode(), e.getMessage());
+            
+            if (e.getStatusCode().value() == 401) {
+                tokenService.invalidateToken();
+                throw new HolidayApiService.ExternalApiException("Authentication failed with holiday API. Token has been invalidated.", e);
+            } else if (e.getStatusCode().value() == 403) {
+                throw new HolidayApiService.ExternalApiException("Access denied to holiday API.", e);
+            } else {
+                throw new HolidayApiService.ExternalApiException("HTTP error fetching holidays: " + e.getMessage(), e);
+            }
         } catch (Exception e) {
             log.error("Failed to fetch holidays for year: {}", year, e);
             throw new HolidayApiService.ExternalApiException("Failed to fetch holidays from external API", e);
@@ -65,16 +77,12 @@ public class HolidayApiServiceImpl implements HolidayApiService {
 
     @Override
     public boolean isApiHealthy() {
+        // No health check endpoint available - assume healthy if token service is working
         try {
-            String url = holidayApiBaseUrl + "/api/health";
-            
-            // Token is added by AvailabilityEngineConfig interceptor
-            HttpEntity<Void> entity = new HttpEntity<>(new HttpHeaders());
-
-            restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-            return true;
+            String token = tokenService.getAccessToken();
+            return token != null && !token.isEmpty();
         } catch (Exception e) {
-            log.warn("Holiday API health check failed", e);
+            log.warn("Holiday API health check failed - token service error", e);
             return false;
         }
     }

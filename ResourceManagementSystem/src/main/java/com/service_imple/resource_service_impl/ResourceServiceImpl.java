@@ -7,7 +7,7 @@ import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.availability_interface.AvailabilityCalculationService;
-import com.service_interface.resource_service_interface.ResourceEventService;
+import com.service.ResourceEventService;
 import com.service_interface.resource_service_interface.ResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -30,6 +30,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Autowired
     private ResourceAvailabilityLedgerRepository ledgerRepository;
+
+    @Autowired
+    private ResourceEventService resourceEventService;
 
     @Override
     public ResponseEntity<ApiResponse> createResource(Resource resource) {
@@ -92,12 +95,8 @@ public class ResourceServiceImpl implements ResourceService {
             // Save the resource
             Resource savedResource = resourceRepository.save(resource);
             
-            // Trigger availability ledger calculation for current and next 11 months
-            YearMonth currentMonth = YearMonth.now();
-            for (int i = 0; i < 12; i++) {
-                YearMonth targetMonth = currentMonth.plusMonths(i);
-                availabilityCalculationService.calculateMonthlyAvailability(savedResource, targetMonth);
-            }
+            // Trigger async availability ledger calculation
+            resourceEventService.triggerLedgerCalculationAfterCreate(savedResource.getResourceId());
 
 
             ApiResponse response = new ApiResponse(
@@ -209,12 +208,8 @@ public class ResourceServiceImpl implements ResourceService {
 
             resourceRepository.save(resource);
 
-            // Trigger availability ledger recalculation for current and next 11 months
-            YearMonth currentMonth = YearMonth.now();
-            for (int i = 0; i < 12; i++) {
-                YearMonth targetMonth = currentMonth.plusMonths(i);
-                availabilityCalculationService.recalculateForResource(resource.getResourceId(), targetMonth);
-            }
+            // Trigger async availability ledger recalculation for current month only
+            resourceEventService.triggerLedgerCalculationAfterUpdate(resource.getResourceId());
             
             return ResponseEntity.ok(
                     new ApiResponse(true, "Resource updated successfully", existing.getResourceId())
@@ -261,6 +256,9 @@ public class ResourceServiceImpl implements ResourceService {
 
             // Delete the resource
             resourceRepository.delete(existing);
+
+            // Trigger async cleanup
+            resourceEventService.triggerLedgerCleanupAfterDelete(resourceId);
 
             return ResponseEntity.ok(
                     new ApiResponse(true, "Resource deleted successfully", resourceId)

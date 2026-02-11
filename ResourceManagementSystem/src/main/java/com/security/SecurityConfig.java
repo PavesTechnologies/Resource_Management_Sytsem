@@ -23,6 +23,8 @@ public class SecurityConfig {
 
     @Autowired
     private CustomAccessDeniedHandler customAccessDeniedHandler;
+    @Autowired
+    private CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
