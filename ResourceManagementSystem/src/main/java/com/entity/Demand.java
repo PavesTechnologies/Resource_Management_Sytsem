@@ -1,6 +1,7 @@
 package com.entity;
 
 import com.entity.project_entities.Project;
+import com.entity.skill_entities.DeliveryRole;
 import com.entity_enums.DemandType;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.skill_enums.DemandStatus;
@@ -27,7 +28,6 @@ public class Demand {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;
-
 
 //    @ManyToOne(fetch = FetchType.LAZY)
 //    @JoinColumn(name = "role_id", nullable = false)

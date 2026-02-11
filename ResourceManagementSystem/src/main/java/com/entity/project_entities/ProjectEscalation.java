@@ -1,7 +1,9 @@
 package com.entity.project_entities;
 
 import com.entity.client_entities.ClientEscalationContact;
+import com.entity_enums.client_enums.ContactRole;
 import com.entity_enums.project_enums.EscalationLevel;
+import com.entity_enums.project_enums.EscalationSource;
 import com.entity_enums.project_enums.EscalationTriggerType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -21,7 +23,7 @@ public class ProjectEscalation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    private UUID projectEscalationId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
@@ -35,9 +37,28 @@ public class ProjectEscalation {
     @Column(nullable = false)
     private EscalationLevel escalationLevel;
 
-    @ElementCollection(targetClass = EscalationTriggerType.class, fetch = FetchType.EAGER)
-    @CollectionTable(name = "project_escalation_triggers", joinColumns = @JoinColumn(name = "project_escalation_id"))
+    @Column(nullable = false)
+    private String contactName;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "trigger_type")
-    private Set<EscalationTriggerType> triggers;
+    @Column(nullable = false)
+    private ContactRole contactRole;
+
+    @Column(nullable = false)
+    private String email;
+
+    private String phone;
+
+    @Column(nullable = false)
+    private Boolean activeFlag;
+
+//    @ElementCollection(targetClass = EscalationTriggerType.class, fetch = FetchType.EAGER)
+//    @CollectionTable(name = "project_escalation_triggers", joinColumns = @JoinColumn(name = "project_escalation_id"))
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "trigger_type")
+//    private Set<EscalationTriggerType> triggers;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private EscalationSource source;
 }
