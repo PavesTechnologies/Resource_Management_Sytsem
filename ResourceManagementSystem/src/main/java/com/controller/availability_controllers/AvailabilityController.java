@@ -80,24 +80,6 @@ public class AvailabilityController {
 
     @GetMapping("/timeline")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
-    @Operation(
-        summary = "Get all resource timelines",
-        description = "Retrieves a comprehensive timeline view for all active resources including current allocations, utilization history, and future assignments. The API is fully dynamic and works correctly with zero or many records using only aggregation-based calculations."
-    )
-    @ApiResponses(value = {
-        @ApiResponse(
-            responseCode = "200",
-            description = "Successfully retrieved resource timelines",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = ResourceTimelineDTO.class)
-            )
-        ),
-        @ApiResponse(
-            responseCode = "500",
-            description = "Internal server error"
-        )
-    })
     public ResponseEntity<List<ResourceTimelineDTO>> getAllResourceTimelines() {
         log.info("Fetching all resource timelines");
         List<ResourceTimelineDTO> timelines = resourceTimelineService.getAllResourceTimelines();
