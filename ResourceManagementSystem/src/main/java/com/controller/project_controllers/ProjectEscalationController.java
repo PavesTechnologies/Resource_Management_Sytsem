@@ -24,18 +24,17 @@ public class ProjectEscalationController {
 
     private final ProjectEscalationService projectEscalationService;
 
-    @PostMapping("/escalations")
+    @PostMapping("/escalations/save")
     @Operation(summary = "Map a client escalation contact to a project", description = "Assigns a client contact to a project with a specific escalation level and triggers.")
     public ResponseEntity<?> addEscalationContact(@Valid @RequestBody ProjectEscalationResponseDTO escalation) {
         return projectEscalationService.addEscalationContact(escalation);
     }
 
-//    @GetMapping("/{projectId}/escalations")
-//    @Operation(summary = "Get all escalation contacts for a project", description = "Retrieves a list of all mapped escalation contacts for a specific project.")
-//    public ResponseEntity<ApiResponse<List<ProjectEscalationDTO>>> getEscalationContacts(@PathVariable Long projectId) {
-//        List<ProjectEscalationDTO> contacts = projectEscalationService.getEscalationContacts(projectId);
-//        return new ResponseEntity<>(new ApiResponse<>(true, "Escalation contacts retrieved successfully", contacts), HttpStatus.OK);
-//    }
+    @GetMapping("/{projectId}/escalations")
+    @Operation(summary = "Get all escalation contacts for a project", description = "Retrieves a list of all mapped escalation contacts for a specific project.")
+    public ResponseEntity<?> getEscalationContacts(@PathVariable Long projectId) {
+        return projectEscalationService.getEscalationContacts(projectId);
+    }
 //
 //    @DeleteMapping("/escalations/{escalationId}")
 //    @Operation(summary = "Remove an escalation contact mapping", description = "Removes a specific escalation contact mapping from a project.")

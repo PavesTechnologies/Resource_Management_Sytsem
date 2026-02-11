@@ -71,7 +71,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                         .email(clientContact.getEmail())
                         .phone(clientContact.getPhone())
                         .activeFlag(Boolean.TRUE)
-                        .source(EscalationSource.INHERITED)
+                        .source(EscalationSource.CLIENT_INHERITED)
                         .build())
                 .toList();
 
@@ -95,7 +95,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                 .email(dto.getEmail())
                 .phone(dto.getPhone())
                 .activeFlag(dto.getActiveFlag() != null ? dto.getActiveFlag() : Boolean.TRUE)
-                .source(EscalationSource.MANUAL)
+                .source(EscalationSource.PROJECT_MANUAL)
                 .build();
 
         projectEscalationRepo.save(escalation);
@@ -103,12 +103,11 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
 
 
 
-//    @Override
-//    public List<ProjectEscalationDTO> getEscalationContacts(Long projectId) {
-//        return projectEscalationRepo.findByProject_PmsProjectId(projectId).stream()
-//                .map(this::mapToDTO)
-//                .collect(Collectors.toList());
-//    }
+    @Override
+    public ResponseEntity<?> getEscalationContacts(Long projectId) {
+        List<ProjectEscalation> projectEscalations = projectEscalationRepo.findByProject_PmsProjectId(projectId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Escalation contacts retrieved successfully", projectEscalations));
+    }
 //
 //    @Override
 //    @Transactional

@@ -9,6 +9,6 @@ import java.util.List;
 
 public interface ProjectEscalationService {
     ResponseEntity<?> addEscalationContact(ProjectEscalationResponseDTO escalation);
-//    List<ProjectEscalationDTO> getEscalationContacts(Long projectId);
+    ResponseEntity<?> getEscalationContacts(Long projectId);
 //    void removeEscalationContact(java.util.UUID escalationId);
 }

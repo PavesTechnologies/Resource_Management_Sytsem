@@ -1,6 +1,6 @@
 package com.entity_enums.project_enums;
 
 public enum EscalationSource {
-    INHERITED,
-    MANUAL
+    CLIENT_INHERITED,
+    PROJECT_MANUAL
 }

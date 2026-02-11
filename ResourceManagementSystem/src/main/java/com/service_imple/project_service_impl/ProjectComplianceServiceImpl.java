@@ -32,43 +32,49 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
 
     @Override
     public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> createOrUpdateProjectCompliance(ProjectCompliance projectCompliance) {
-        // Validate compliance values
-        if (projectCompliance.getRequirementName() == null || projectCompliance.getRequirementName().trim().isEmpty()) {
+
+        if (projectCompliance.getRequirementName() == null ||
+                projectCompliance.getRequirementName().trim().isEmpty()) {
             throw ProjectExceptionHandler.badRequest("Requirement name cannot be empty");
         }
-        
-        // Check if this is an update or new entry
-        ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndRequirementType(
-            projectCompliance.getProject().getPmsProjectId(),
-            projectCompliance.getRequirementType()
-        ).orElse(null);
-        
-        if (existingCompliance != null) {
-            // Update existing compliance
-            existingCompliance.setRequirementName(projectCompliance.getRequirementName());
-            existingCompliance.setMandatoryFlag(projectCompliance.getMandatoryFlag());
-            existingCompliance.setActiveFlag(projectCompliance.getActiveFlag());
-            existingCompliance.setIsInherited(false); // Explicitly set to false as this is a custom override
-            projectCompliance = projectComplianceRepo.save(existingCompliance);
+
+        ProjectCompliance savedCompliance;
+
+        // ✅ If ID exists → update
+        if (projectCompliance.getProjectComplianceId() != null) {
+
+            ProjectCompliance existing = projectComplianceRepo.findById(projectCompliance.getProjectComplianceId())
+                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Project compliance not found"));
+
+            existing.setRequirementName(projectCompliance.getRequirementName());
+            existing.setMandatoryFlag(projectCompliance.getMandatoryFlag());
+            existing.setActiveFlag(projectCompliance.getActiveFlag());
+
+            savedCompliance = projectComplianceRepo.save(existing);
+
         } else {
-            // Create new compliance
+            // ✅ ALWAYS create new record
             projectCompliance.setIsInherited(false);
-            projectCompliance = projectComplianceRepo.save(projectCompliance);
+            projectCompliance.setClientCompliance(null); // important
+            savedCompliance = projectComplianceRepo.save(projectCompliance);
         }
 
-        // Convert to response DTO
         ProjectComplianceResponseDTO responseDTO = ProjectComplianceResponseDTO.builder()
-                .projectComplianceId(projectCompliance.getProjectComplianceId())
-                .projectId(projectCompliance.getProject().getPmsProjectId())
-                .requirementType(projectCompliance.getRequirementType())
-                .requirementName(projectCompliance.getRequirementName())
-                .mandatoryFlag(projectCompliance.getMandatoryFlag())
-                .isInherited(projectCompliance.getIsInherited())
-                .activeFlag(projectCompliance.getActiveFlag())
-                .clientComplianceId(projectCompliance.getClientCompliance() != null ? projectCompliance.getClientCompliance().getComplianceId() : null)
+                .projectComplianceId(savedCompliance.getProjectComplianceId())
+                .projectId(savedCompliance.getProject().getPmsProjectId())
+                .requirementType(savedCompliance.getRequirementType())
+                .requirementName(savedCompliance.getRequirementName())
+                .mandatoryFlag(savedCompliance.getMandatoryFlag())
+                .isInherited(savedCompliance.getIsInherited())
+                .activeFlag(savedCompliance.getActiveFlag())
+                .clientComplianceId(savedCompliance.getClientCompliance() != null ?
+                        savedCompliance.getClientCompliance().getComplianceId() : null)
                 .build();
 
-        return ResponseEntity.ok(new ApiResponse<ProjectComplianceResponseDTO>().getAPIResponse(true, "Project compliance saved successfully", responseDTO));
+        return ResponseEntity.ok(
+                new ApiResponse<ProjectComplianceResponseDTO>()
+                        .getAPIResponse(true, "Project compliance saved successfully", responseDTO)
+        );
     }
 
     @Override
@@ -117,16 +123,24 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
 
     @Override
     public ResponseEntity<ApiResponse<Void>> deleteProjectCompliance(UUID projectComplianceId) {
+
         ProjectCompliance compliance = projectComplianceRepo.findById(projectComplianceId)
-            .orElseThrow(() -> ProjectExceptionHandler.notFound("Project compliance not found with id: " + projectComplianceId));
-        
-        if (compliance.getIsInherited()) {
-            throw ProjectExceptionHandler.conflict("Cannot delete an inherited compliance. Please override it instead.");
-        }
-        
+                .orElseThrow(() ->
+                        ProjectExceptionHandler.notFound("Project compliance not found with id: " + projectComplianceId)
+                );
+
+        // 🔥 REMOVE inherited restriction
         projectComplianceRepo.delete(compliance);
-        return ResponseEntity.ok(new ApiResponse<Void>().getAPIResponse(true, "Project compliance deleted successfully", null));
+
+        return ResponseEntity.ok(
+                new ApiResponse<Void>().getAPIResponse(
+                        true,
+                        "Project compliance removed successfully",
+                        null
+                )
+        );
     }
+
 
     @Override
     public ResponseEntity<ApiResponse<List<ProjectComplianceResponseDTO>>> getProjectComplianceByProjectId(Long projectId) {
@@ -187,34 +201,35 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
 
 
     @Override
-    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> inheritClientCompliance(Long projectId, RequirementType requirementType) {
-        // Get the project to access client info
+    public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> inheritClientCompliance(
+            Long projectId, RequirementType requirementType) {
+
         Project project = projectRepository.findById(projectId)
-            .orElseThrow(() -> ProjectExceptionHandler.notFound("Project not found"));
-        
-        // Get the client compliance to inherit from
-        ClientCompliance clientCompliance = clientComplianceRepo.findByClient_ClientIdAndRequirementType(
-            project.getClient().getClientId(), 
-            requirementType
-        ).orElseThrow(() -> ProjectExceptionHandler.notFound(
-            String.format("No %s compliance found for client: %s", 
-                requirementType, project.getClient().getClientName())));
-        
-        // Check if project compliance already exists
-        ProjectCompliance existingCompliance = projectComplianceRepo.findByProject_PmsProjectIdAndRequirementType(projectId, requirementType).orElse(null);
-        
-        ProjectCompliance projectCompliance;
-        if (existingCompliance != null) {
-            // Update existing compliance to inherit from client
-            existingCompliance.setClientCompliance(clientCompliance);
-            existingCompliance.setRequirementName(clientCompliance.getRequirementName());
-            existingCompliance.setMandatoryFlag(clientCompliance.getMandatoryFlag());
-            existingCompliance.setIsInherited(true);
-            existingCompliance.setActiveFlag(clientCompliance.getActiveFlag());
-            projectCompliance = projectComplianceRepo.save(existingCompliance);
-        } else {
-            // Create new inherited compliance
-            projectCompliance = ProjectCompliance.builder()
+                .orElseThrow(() -> ProjectExceptionHandler.notFound("Project not found"));
+
+        ClientCompliance clientCompliance =
+                clientComplianceRepo.findByClient_ClientIdAndRequirementType(
+                        project.getClient().getClientId(),
+                        requirementType
+                ).orElseThrow(() ->
+                        ProjectExceptionHandler.notFound(
+                                "No " + requirementType + " compliance found for client"
+                        ));
+
+        // 🔥 ONLY check if already inherited
+        boolean alreadyInherited = projectComplianceRepo
+                .existsByProject_PmsProjectIdAndRequirementTypeAndIsInheritedTrue(
+                        projectId, requirementType
+                );
+
+        if (alreadyInherited) {
+            throw ProjectExceptionHandler.conflict(
+                    "Compliance already inherited for this project."
+            );
+        }
+
+        // 🔥 ALWAYS create new inherited record
+        ProjectCompliance projectCompliance = ProjectCompliance.builder()
                 .project(project)
                 .clientCompliance(clientCompliance)
                 .requirementType(requirementType)
@@ -223,10 +238,9 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 .isInherited(true)
                 .activeFlag(clientCompliance.getActiveFlag())
                 .build();
-            projectCompliance = projectComplianceRepo.save(projectCompliance);
-        }
-        
-        // Convert to response DTO
+
+        projectCompliance = projectComplianceRepo.save(projectCompliance);
+
         ProjectComplianceResponseDTO responseDTO = ProjectComplianceResponseDTO.builder()
                 .projectComplianceId(projectCompliance.getProjectComplianceId())
                 .projectId(projectCompliance.getProject().getPmsProjectId())
@@ -235,15 +249,17 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 .mandatoryFlag(projectCompliance.getMandatoryFlag())
                 .isInherited(projectCompliance.getIsInherited())
                 .activeFlag(projectCompliance.getActiveFlag())
-                .clientComplianceId(projectCompliance.getClientCompliance() != null ? projectCompliance.getClientCompliance().getComplianceId() : null)
+                .clientComplianceId(clientCompliance.getComplianceId())
                 .build();
-        
-        return ResponseEntity.ok(new ApiResponse<ProjectComplianceResponseDTO>().getAPIResponse(
-            true, 
-            "Successfully inherited client compliance for " + requirementType.name(),
-            responseDTO
-        ));
+
+        return ResponseEntity.ok(
+                new ApiResponse<ProjectComplianceResponseDTO>()
+                        .getAPIResponse(true,
+                                "Successfully inherited client compliance",
+                                responseDTO)
+        );
     }
+
 
     @Override
     public ResponseEntity<ApiResponse<List<ProjectComplianceResponseDTO>>> saveAll(List<ProjectCompliance> projectCompliances) {
