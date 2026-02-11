@@ -5,6 +5,7 @@ import com.entity.resource_entities.Resource;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.resource_repo.ResourceRepository;
+import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.availability_interface.AvailabilityCalculationService;
 import com.service_interface.resource_service_interface.ResourceEventService;
 import com.service_interface.resource_service_interface.ResourceService;
@@ -26,6 +27,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Autowired
     private AvailabilityCalculationService availabilityCalculationService;
+
+    @Autowired
+    private ResourceAvailabilityLedgerRepository ledgerRepository;
 
     @Override
     public ResponseEntity<ApiResponse> createResource(Resource resource) {
@@ -87,7 +91,13 @@ public class ResourceServiceImpl implements ResourceService {
 
             // Save the resource
             Resource savedResource = resourceRepository.save(resource);
-            availabilityCalculationService.calculateMonthlyAvailability(savedResource,YearMonth.now());
+            
+            // Trigger availability ledger calculation for current and next 11 months
+            YearMonth currentMonth = YearMonth.now();
+            for (int i = 0; i < 12; i++) {
+                YearMonth targetMonth = currentMonth.plusMonths(i);
+                availabilityCalculationService.calculateMonthlyAvailability(savedResource, targetMonth);
+            }
 
 
             ApiResponse response = new ApiResponse(
@@ -199,7 +209,13 @@ public class ResourceServiceImpl implements ResourceService {
 
             resourceRepository.save(resource);
 
-            availabilityCalculationService.recalculateForResource(resource.getResourceId(),YearMonth.now());
+            // Trigger availability ledger recalculation for current and next 11 months
+            YearMonth currentMonth = YearMonth.now();
+            for (int i = 0; i < 12; i++) {
+                YearMonth targetMonth = currentMonth.plusMonths(i);
+                availabilityCalculationService.recalculateForResource(resource.getResourceId(), targetMonth);
+            }
+            
             return ResponseEntity.ok(
                     new ApiResponse(true, "Resource updated successfully", existing.getResourceId())
             );
@@ -216,6 +232,52 @@ public class ResourceServiceImpl implements ResourceService {
             ApiResponse response = new ApiResponse(
                     false,
                     "Failed to update resource: " + e.getMessage(),
+                    null
+            );
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse> deleteResource(Long resourceId) {
+        try {
+            if (resourceId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "RESOURCE_ID_REQUIRED",
+                        "Resource ID is required for deletion"
+                );
+            }
+
+            Resource existing = resourceRepository.findById(resourceId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "RESOURCE_NOT_FOUND",
+                            "Resource not found"
+                    ));
+
+            // Delete all ledger entries for this resource
+            ledgerRepository.deleteByResourceId(resourceId);
+
+            // Delete the resource
+            resourceRepository.delete(existing);
+
+            return ResponseEntity.ok(
+                    new ApiResponse(true, "Resource deleted successfully", resourceId)
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            ApiResponse response = new ApiResponse(
+                    false,
+                    e.getMessage(),
+                    null
+            );
+            return new ResponseEntity<>(response, e.getStatus());
+
+        } catch (Exception e) {
+            ApiResponse response = new ApiResponse(
+                    false,
+                    "Failed to delete resource: " + e.getMessage(),
                     null
             );
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);

@@ -44,7 +44,32 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
         MonthCalculationContext context = buildCalculationContext(resource, yearMonth);
         ResourceAvailabilityLedger ledger = calculateLedger(context, resource);
         
-        return ledgerRepository.save(ledger);
+        // Check if record exists and update it, otherwise create new one
+        Optional<ResourceAvailabilityLedger> existingLedger = ledgerRepository.findByResourceIdAndPeriodStart(
+                resource.getResourceId(), context.getPeriodStart());
+        
+        if (existingLedger.isPresent()) {
+            // Update existing record
+            ResourceAvailabilityLedger existing = existingLedger.get();
+            existing.setPeriodEnd(ledger.getPeriodEnd());
+            existing.setStandardHours(ledger.getStandardHours());
+            existing.setHolidayHours(ledger.getHolidayHours());
+            existing.setLeaveHours(ledger.getLeaveHours());
+            existing.setConfirmedAllocHours(ledger.getConfirmedAllocHours());
+            existing.setDraftAllocHours(ledger.getDraftAllocHours());
+            existing.setTotalAllocation(ledger.getTotalAllocation());
+            existing.setAvailablePercentage(ledger.getAvailablePercentage());
+            existing.setFirmAvailableHours(ledger.getFirmAvailableHours());
+            existing.setProjectedAvailableHours(ledger.getProjectedAvailableHours());
+            existing.setAvailabilityTrustFlag(ledger.getAvailabilityTrustFlag());
+            existing.setLastCalculatedAt(java.time.LocalDateTime.now());
+            log.info("Updated existing availability record for resource {} month {}", resource.getResourceId(), yearMonth);
+            return ledgerRepository.save(existing);
+        } else {
+            // Create new record
+            log.info("Created new availability record for resource {} month {}", resource.getResourceId(), yearMonth);
+            return ledgerRepository.save(ledger);
+        }
     }
 
     @Override
@@ -83,7 +108,9 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
 
     @Override
     public boolean isCalculationTrustworthy(MonthCalculationContext context) {
-        return context.isApisHealthy() && context.isActiveResource();
+        // Consider calculation trustworthy if resource is active, even if APIs are down
+        // This ensures ledger entries are created even when external services are unavailable
+        return context.isActiveResource();
     }
 
     @Override
@@ -91,20 +118,44 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
         LocalDate periodStart = yearMonth.atDay(1);
         LocalDate periodEnd = yearMonth.atEndOfMonth();
         
-        boolean apisHealthy = holidayApiService.isApiHealthy() && leaveApiService.isApiHealthy();
+        boolean holidayApiHealthy = false;
+        boolean leaveApiHealthy = false;
+        boolean apisHealthy = false;
         boolean isActiveResource = resource.getEmploymentStatus() != EmploymentStatus.EXITED && resource.getActiveFlag();
         
         Set<LocalDate> holidays = Collections.emptySet();
         Set<LocalDate> leaveDates = Collections.emptySet();
         
-        if (apisHealthy) {
-            try {
+        // Try Holiday API
+        try {
+            holidayApiHealthy = holidayApiService.isApiHealthy();
+            if (holidayApiHealthy) {
                 holidays = getHolidaysForMonth(yearMonth.getYear());
-                leaveDates = getLeaveDatesForEmployee(resource.getResourceId(), yearMonth.getYear(), yearMonth);
-            } catch (Exception e) {
-                log.warn("Failed to fetch external data for resource {} month {}", resource.getResourceId(), yearMonth, e);
-                apisHealthy = false;
+                log.info("Successfully fetched {} holidays for year {}", holidays.size(), yearMonth.getYear());
             }
+        } catch (Exception e) {
+            log.warn("Holiday API not available for resource {} month {} - proceeding without holiday data", 
+                    resource.getResourceId(), yearMonth, e);
+        }
+        
+        // Try Leave API
+        try {
+            leaveApiHealthy = leaveApiService.isApiHealthy();
+            if (leaveApiHealthy) {
+                leaveDates = getLeaveDatesForEmployee(resource.getResourceId(), yearMonth.getYear(), yearMonth);
+                log.info("Successfully fetched {} leave dates for resource {} month {}", 
+                        leaveDates.size(), resource.getResourceId(), yearMonth);
+            }
+        } catch (Exception e) {
+            log.warn("Leave API not available for resource {} month {} - proceeding without leave data", 
+                    resource.getResourceId(), yearMonth, e);
+        }
+        
+        apisHealthy = holidayApiHealthy && leaveApiHealthy;
+        
+        if (!apisHealthy) {
+            log.info("One or more external APIs unavailable - proceeding with basic availability calculation for resource {} month {}", 
+                    resource.getResourceId(), yearMonth);
         }
         
         return MonthCalculationContext.builder()
@@ -140,6 +191,11 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
         
         int firmAvailableHours = standardHours - holidayHours - leaveHours - confirmedAllocHours;
         int projectedAvailableHours = firmAvailableHours - draftAllocHours;
+        int totalAllocation = confirmedAllocHours + draftAllocHours;
+        
+        // Calculate availability percentage (0-100)
+        int availablePercentage = standardHours > 0 ? 
+                Math.round((float) firmAvailableHours / standardHours * 100) : 0;
         
         boolean trustFlag = isCalculationTrustworthy(context);
         
@@ -152,6 +208,8 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
                 .leaveHours(leaveHours)
                 .confirmedAllocHours(confirmedAllocHours)
                 .draftAllocHours(draftAllocHours)
+                .totalAllocation(totalAllocation)
+                .availablePercentage(availablePercentage)
                 .firmAvailableHours(firmAvailableHours)
                 .projectedAvailableHours(projectedAvailableHours)
                 .availabilityTrustFlag(trustFlag)
@@ -256,9 +314,51 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
                 .leaveHours(0)
                 .confirmedAllocHours(0)
                 .draftAllocHours(0)
+                .totalAllocation(0)
+                .availablePercentage(0)
                 .firmAvailableHours(0)
                 .projectedAvailableHours(0)
                 .availabilityTrustFlag(false)
+                .lastCalculatedAt(java.time.LocalDateTime.now())
+                .build();
+    }
+
+    private ResourceAvailabilityLedger createBasicLedgerEntry(Resource resource, YearMonth yearMonth) {
+        log.info("Creating basic ledger entry for resource {} month {} without external data", 
+                resource.getResourceId(), yearMonth);
+        
+        LocalDate periodStart = yearMonth.atDay(1);
+        LocalDate periodEnd = yearMonth.atEndOfMonth();
+        
+        // Calculate basic working days (excluding weekends)
+        Set<LocalDate> workingDays = getWorkingDaysInRange(periodStart, periodEnd);
+        int standardHours = workingDays.size() * HOURS_PER_WORKING_DAY;
+        
+        // No holidays, leaves, or allocations for basic calculation
+        int holidayHours = 0;
+        int leaveHours = 0;
+        int confirmedAllocHours = 0;
+        int draftAllocHours = 0;
+        int totalAllocation = confirmedAllocHours + draftAllocHours;
+        int firmAvailableHours = standardHours - holidayHours - leaveHours - confirmedAllocHours;
+        int projectedAvailableHours = firmAvailableHours - draftAllocHours;
+        int availablePercentage = standardHours > 0 ? 
+                Math.round((float) firmAvailableHours / standardHours * 100) : 0;
+        
+        return ResourceAvailabilityLedger.builder()
+                .resource(resource)
+                .periodStart(periodStart)
+                .periodEnd(periodEnd)
+                .standardHours(standardHours)
+                .holidayHours(holidayHours)
+                .leaveHours(leaveHours)
+                .confirmedAllocHours(confirmedAllocHours)
+                .draftAllocHours(draftAllocHours)
+                .totalAllocation(totalAllocation)
+                .availablePercentage(availablePercentage)
+                .firmAvailableHours(firmAvailableHours)
+                .projectedAvailableHours(projectedAvailableHours)
+                .availabilityTrustFlag(false) // Mark as untrustworthy since no external data
                 .lastCalculatedAt(java.time.LocalDateTime.now())
                 .build();
     }
