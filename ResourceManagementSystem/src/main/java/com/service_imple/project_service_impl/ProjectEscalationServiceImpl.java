@@ -115,12 +115,11 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
         return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation deleted successfully!", null));
     }
 
-//    @Override
-//    public List<ProjectEscalationDTO> getEscalationContacts(Long projectId) {
-//        return projectEscalationRepo.findByProject_PmsProjectId(projectId).stream()
-//                .map(this::mapToDTO)
-//                .collect(Collectors.toList());
-//    }
+    @Override
+    public ResponseEntity<?> getEscalationContacts(Long projectId) {
+        List<ProjectEscalation> projectEscalations = projectEscalationRepo.findByProject_PmsProjectId(projectId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Escalation contacts retrieved successfully", projectEscalations));
+    }
 //
 //    @Override
 //    @Transactional

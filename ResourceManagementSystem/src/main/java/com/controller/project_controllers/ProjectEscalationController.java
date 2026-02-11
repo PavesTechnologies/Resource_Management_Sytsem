@@ -24,12 +24,17 @@ public class ProjectEscalationController {
 
     private final ProjectEscalationService projectEscalationService;
 
-    @PostMapping("/escalations")
+    @PostMapping("/escalations/save")
     @Operation(summary = "Map a client escalation contact to a project", description = "Assigns a client contact to a project with a specific escalation level and triggers.")
     public ResponseEntity<?> addEscalationContact(@Valid @RequestBody ProjectEscalationResponseDTO escalation) {
         return projectEscalationService.addEscalationContact(escalation);
     }
 
+    @GetMapping("/{projectId}/escalations")
+    @Operation(summary = "Get all escalation contacts for a project", description = "Retrieves a list of all mapped escalation contacts for a specific project.")
+    public ResponseEntity<?> getEscalationContacts(@PathVariable Long projectId) {
+        return projectEscalationService.getEscalationContacts(projectId);
+    }
     @PutMapping("/update-escalation/{projectEscalationId}")
     public ResponseEntity<?> updateProjectContact(@PathVariable UUID projectEscalationId, @RequestBody ProjectEscalation escalation) {
         return projectEscalationService.updateProjectContact(projectEscalationId, escalation);

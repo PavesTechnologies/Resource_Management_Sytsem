@@ -14,4 +14,6 @@ public interface ProjectComplianceRepo extends JpaRepository<ProjectCompliance, 
     Optional<ProjectCompliance> findByProject_PmsProjectIdAndRequirementType(Long pmsProjectId, RequirementType requirementType);
     
     boolean existsByProject_PmsProjectId(Long pmsProjectId);
+
+        boolean existsByProject_PmsProjectIdAndRequirementTypeAndIsInheritedTrue(Long projectId, RequirementType requirementType);
 }

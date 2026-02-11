@@ -10,6 +10,7 @@ import java.util.UUID;
 
 public interface ProjectEscalationService {
     ResponseEntity<?> addEscalationContact(ProjectEscalationResponseDTO escalation);
+    ResponseEntity<?> getEscalationContacts(Long projectId);
     ResponseEntity<?> updateProjectContact(UUID projectEscalationId, ProjectEscalation escalation);
     ResponseEntity<?> deleteProjectContact(UUID projectEscalationId);
 //    List<ProjectEscalationDTO> getEscalationContacts(Long projectId);
