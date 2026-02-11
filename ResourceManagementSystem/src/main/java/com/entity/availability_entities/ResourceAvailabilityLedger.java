@@ -2,8 +2,10 @@ package com.entity.availability_entities;
 
 import com.entity.resource_entities.Resource;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
@@ -19,6 +21,8 @@ import java.time.LocalDateTime;
        })
 @Data
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class ResourceAvailabilityLedger {
 
     @Id
@@ -49,6 +53,12 @@ public class ResourceAvailabilityLedger {
 
     @Column(name = "draft_alloc_hours", nullable = false)
     private Integer draftAllocHours;
+
+    @Column(name = "total_allocation", nullable = false)
+    private Integer totalAllocation;
+
+    @Column(name = "available_percentage", nullable = false)
+    private Integer availablePercentage;
 
     @Column(name = "firm_available_hours", nullable = false)
     private Integer firmAvailableHours;

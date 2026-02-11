@@ -30,7 +30,7 @@ public class ProjectEscalation {
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "contact_id", nullable = false)
+    @JoinColumn(name = "contact_id")
     private ClientEscalationContact contact;
 
     @Enumerated(EnumType.STRING)

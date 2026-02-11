@@ -2,6 +2,7 @@ package com.repo.availability_repo;
 
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -39,13 +40,19 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
            "AND ral.periodStart = :periodStart")
     long countTrustworthyCalculationsForPeriod(@Param("periodStart") LocalDate periodStart);
 
+    @Modifying
     @Query("DELETE FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart = :periodStart")
     void deleteByResourceIdAndPeriodStart(@Param("resourceId") Long resourceId, 
                                           @Param("periodStart") LocalDate periodStart);
 
+    @Modifying
     @Query("DELETE FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart >= :startDate")
     void deleteByResourceIdAndPeriodStartGreaterThanOrEqual(@Param("resourceId") Long resourceId, 
                                                           @Param("startDate") LocalDate startDate);
+
+    @Modifying
+    @Query("DELETE FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId")
+    void deleteByResourceId(@Param("resourceId") Long resourceId);
 }

@@ -39,4 +39,10 @@ public class ResourceController {
     public ResponseEntity<ApiResponse> updateResource(@RequestBody Resource resource) {
         return resourceService.updateResource(resource);
     }
+
+    @DeleteMapping("/delete/{resourceId}")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER')")
+    public ResponseEntity<ApiResponse> deleteResource(@PathVariable Long resourceId) {
+        return resourceService.deleteResource(resourceId);
+    }
 }
