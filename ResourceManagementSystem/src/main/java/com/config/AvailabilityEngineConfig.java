@@ -1,6 +1,6 @@
 package com.config;
 
-import com.service.TokenService;
+import com.service_imple.external_api_impl.TokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;

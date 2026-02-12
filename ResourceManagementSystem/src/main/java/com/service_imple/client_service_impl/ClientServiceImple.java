@@ -108,32 +108,30 @@ public class ClientServiceImple implements ClientService {
         try {
             // Simple regex validation for client name
             if (client.getClientName() == null || client.getClientName().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name is required", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Client name is required"));
             }
             
             if (!client.getClientName().matches("^[A-Za-z]+(?:[ .][A-Za-z]+)*$")) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name can contain only letters, spaces, and dots", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Client name can contain only letters, spaces, and dots"));
             }
             
             if (client.getClientName().length() < 3 || client.getClientName().length() > 100) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name must be between 3 and 100 characters", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Client name must be between 3 and 100 characters"));
             }
             
             client.setCreatedAt(LocalDateTime.now());
             client.setUpdatedAt(LocalDateTime.now());
             Client c = clientRepo.save(client);
 
-            ApiResponse<Client> apiResponse = new ApiResponse<>();
-            apiResponse.setSuccess(c!=null);
-            apiResponse.setMessage(c != null
-                    ? "Client Created Successfully"
-                    : "Client Creation Failed");
-            apiResponse.setData(c);
+            ApiResponse<Client> apiResponse = ApiResponse.success(
+                    c != null ? "Client Created Successfully" : "Client Creation Failed",
+                    c
+            );
 
             return ResponseEntity.ok(apiResponse);
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error creating client: " + e.getMessage(), null));
+            return ResponseEntity.badRequest().body(ApiResponse.error("Error creating client: " + e.getMessage()));
         }
     }
 
@@ -194,11 +192,7 @@ public class ClientServiceImple implements ClientService {
 
             // No records found
             if (result.isEmpty()) {
-                ApiResponse<PageResponse<ClientDTO>> response = new ApiResponse<>();
-                response.setSuccess(false);
-                response.setMessage("No clients found for the given filters");
-                response.setData(null);
-                return response;
+                return ApiResponse.error("No clients found for the given filters");
             }
 
             // Records found
@@ -212,17 +206,9 @@ public class ClientServiceImple implements ClientService {
                     result.getTotalElements(),
                     result.getTotalPages()
             );
-            ApiResponse<PageResponse<ClientDTO>> response = new ApiResponse<>();
-            response.setSuccess(true);
-            response.setMessage("Records Fentched Successfully");
-            response.setData(pageResponse);
-            return response;
+            return ApiResponse.success("Records Fetched Successfully", pageResponse);
         } catch (Exception e) {
-            ApiResponse<PageResponse<ClientDTO>> response = new ApiResponse<>();
-            response.setSuccess(false);
-            response.setMessage("Error fetching clients");
-            response.setData(null);
-            return response;
+            return ApiResponse.error("Error fetching clients");
         }
     }
 
@@ -299,17 +285,17 @@ public class ClientServiceImple implements ClientService {
             adminKPIDTO.setGrowthPositive(isGrowthPositive);
             adminKPIDTO.setYearlyClientCounts(yearlyClientCounts);
             
-            return ResponseEntity.ok(new ApiResponse<>(true, "Admin KPI data fetched successfully", adminKPIDTO));
+            return ResponseEntity.ok(ApiResponse.<AdminKPIDTO>success("Admin KPI data fetched successfully", adminKPIDTO));
             
         } catch (Exception e) {
-            return ResponseEntity.ok(new ApiResponse<>(false, "Error fetching admin KPI data: " + e.getMessage(), null));
+            return ResponseEntity.ok(ApiResponse.error("Error fetching admin KPI data: " + e.getMessage()));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<Client>> getClientById(UUID id) {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client not found"));
-        return ResponseEntity.ok(new ApiResponse<>(true, "Client fetched successfully", client));
+        return ResponseEntity.ok(ApiResponse.<Client>success("Client fetched successfully", client));
     }
 
     @Override
@@ -317,25 +303,25 @@ public class ClientServiceImple implements ClientService {
         try {
             // Simple regex validation for client name
             if (client.getClientName() == null || client.getClientName().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name is required", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Client name is required"));
             }
             
             if (!client.getClientName().matches("^[A-Za-z]+(?:[ .][A-Za-z]+)*$")) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name can contain only letters, spaces, and dots", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Client name can contain only letters, spaces, and dots"));
             }
             
             if (client.getClientName().length() < 3 || client.getClientName().length() > 100) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Client name must be between 3 and 100 characters", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Client name must be between 3 and 100 characters"));
             }
             
             Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
             client.setCreatedAt(clientDetails.getCreatedAt());
             client.setUpdatedAt(LocalDateTime.now());
             Client updatedDetails = clientRepo.save(client);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Client Details Updated.", updatedDetails));
+            return ResponseEntity.ok(ApiResponse.<Client>success("Client Details Updated.", updatedDetails));
             
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error updating client: " + e.getMessage(), null));
+            return ResponseEntity.badRequest().body(ApiResponse.error("Error updating client: " + e.getMessage()));
         }
     }
 
@@ -361,12 +347,12 @@ public class ClientServiceImple implements ClientService {
             statistics.setActiveProjects(activeProjects);
             statistics.setTotalSpend(totalSpend);
             
-            return ResponseEntity.ok(new ApiResponse<>(true, "Client project statistics fetched successfully", statistics));
+            return ResponseEntity.ok(ApiResponse.<ClientProjectStatisticsDTO>success("Client project statistics fetched successfully", statistics));
             
         } catch (ClientExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Error fetching client project statistics: " + e.getMessage(), null));
+            return ResponseEntity.badRequest().body(ApiResponse.error("Error fetching client project statistics: " + e.getMessage()));
         }
     }
 
@@ -376,6 +362,6 @@ public class ClientServiceImple implements ClientService {
         client.setStatus(RecordStatus.INACTIVE);
         client.setUpdatedAt(LocalDateTime.now());
         clientRepo.save(client);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Client Deleted Successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Client Deleted Successfully!", null));
     }
 }

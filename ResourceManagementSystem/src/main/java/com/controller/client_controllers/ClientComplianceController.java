@@ -19,25 +19,25 @@ public class ClientComplianceController {
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> createClientCompliance(@RequestBody ClientCompliance clientCompliance) {
+    public ResponseEntity<ApiResponse<?>> createClientCompliance(@RequestBody ClientCompliance clientCompliance) {
         return clientComplianceService.createClientCompliance(clientCompliance);
     }
 
     @PutMapping("/update")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> updateClientCompliance(@RequestBody ClientCompliance clientCompliance) {
+    public ResponseEntity<ApiResponse<?>> updateClientCompliance(@RequestBody ClientCompliance clientCompliance) {
         return clientComplianceService.updateClientCompliance(clientCompliance);
     }
 
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse> deleteClientCompliance(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<?>> deleteClientCompliance(@PathVariable UUID id) {
         return clientComplianceService.deleteClientCompliance(id);
     }
 
     @GetMapping("/clientCompliance/{clientId}")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse> getClientCompliance(@PathVariable UUID clientId) {
+    public ResponseEntity<ApiResponse<?>> getClientCompliance(@PathVariable UUID clientId) {
         return clientComplianceService.getClientCompliance(clientId);
     }
 }

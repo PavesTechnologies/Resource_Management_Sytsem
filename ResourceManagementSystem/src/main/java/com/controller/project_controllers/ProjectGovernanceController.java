@@ -111,24 +111,24 @@ public class ProjectGovernanceController {
 
     @GetMapping("/get-project-by-id/{id}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<?> getProjectById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<?>> getProjectById(@PathVariable Long id) {
         return projectGovernanceService.getProjectById(id);
     }
 
     @GetMapping("/check-demand-creation/{pmsProjectId}")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<?> checkDemandCreation(@PathVariable Long pmsProjectId) {
+    public ResponseEntity<ApiResponse<?>> checkDemandCreation(@PathVariable Long pmsProjectId) {
         return projectGovernanceService.checkDemandCreation(pmsProjectId);
     }
 
     @PutMapping("/readiness-status-update")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> changeReadinessStatus(@RequestBody UpdateReadinessStatusDTO readiness) {
+    public ResponseEntity<ApiResponse<?>> changeReadinessStatus(@RequestBody UpdateReadinessStatusDTO readiness) {
         return projectGovernanceService.readinessStatusUpdate(readiness);
     }
     @GetMapping("/get-project-by-client-id/{clientId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
-    public ResponseEntity<?> getProjectByClientId(@PathVariable UUID clientId) {
+    public ResponseEntity<ApiResponse<?>> getProjectByClientId(@PathVariable UUID clientId) {
         return projectGovernanceService.getProjectByClient(clientId);
     }
 
