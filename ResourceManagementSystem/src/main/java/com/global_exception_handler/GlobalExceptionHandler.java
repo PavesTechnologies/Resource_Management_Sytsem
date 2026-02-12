@@ -26,19 +26,19 @@ public class GlobalExceptionHandler{
         apiResponse.setData(null);
         return ResponseEntity.badRequest().body(apiResponse);
     }
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiResponse<?>> handleDataIntegrityViolation(
-            DataIntegrityViolationException e) {
-
-        ApiResponse<?> apiResponse = new ApiResponse<>();
-        apiResponse.setSuccess(false);
-
-        // Customize message for UNIQUE constraint
-        apiResponse.setMessage("Serial number already exists");
-
-        apiResponse.setData(null);
-        return ResponseEntity.badRequest().body(apiResponse);
-    }
+//    @ExceptionHandler(DataIntegrityViolationException.class)
+//    public ResponseEntity<ApiResponse<?>> handleDataIntegrityViolation(
+//            DataIntegrityViolationException e) {
+//
+//        ApiResponse<?> apiResponse = new ApiResponse<>();
+//        apiResponse.setSuccess(false);
+//
+//        // Customize message for UNIQUE constraint
+//        apiResponse.setMessage("Serial number already exists");
+//
+//        apiResponse.setData(null);
+//        return ResponseEntity.badRequest().body(apiResponse);
+//    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse> handleValidationExceptions(
