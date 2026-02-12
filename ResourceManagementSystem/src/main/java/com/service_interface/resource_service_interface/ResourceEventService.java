@@ -9,4 +9,10 @@ public interface ResourceEventService {
     void publishResourceUpdated(Resource resource);
     
     void publishResourceDeleted(Long resourceId);
+    
+    void triggerLedgerCalculationAfterUpdate(Long resourceId);
+
+    void triggerLedgerCalculationAfterCreate(Long resourceId);
+
+    void triggerLedgerCleanupAfterDelete(Long resourceId);
 }

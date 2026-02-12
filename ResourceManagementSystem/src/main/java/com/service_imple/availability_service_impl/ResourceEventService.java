@@ -1,12 +1,13 @@
 package com.service_imple.availability_service_impl;
 
+import com.entity.resource_entities.Resource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.YearMonth;
 
 @Service
-public class ResourceEventService {
+public class ResourceEventService implements com.service_interface.resource_service_interface.ResourceEventService {
     
     private final com.service_interface.availability_service_interface.AvailabilityCalculationService availabilityCalculationService;
     
@@ -59,5 +60,20 @@ public class ResourceEventService {
         } catch (Exception e) {
             System.err.println("Error in async cleanup after delete: " + e.getMessage());
         }
+    }
+    
+    @Override
+    public void publishResourceCreated(Resource resource) {
+        triggerLedgerCalculationAfterCreate(resource.getResourceId());
+    }
+    
+    @Override
+    public void publishResourceUpdated(Resource resource) {
+        triggerLedgerCalculationAfterUpdate(resource.getResourceId());
+    }
+    
+    @Override
+    public void publishResourceDeleted(Long resourceId) {
+        triggerLedgerCleanupAfterDelete(resourceId);
     }
 }
