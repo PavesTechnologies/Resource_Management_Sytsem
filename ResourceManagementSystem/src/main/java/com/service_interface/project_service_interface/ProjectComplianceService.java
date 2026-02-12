@@ -11,6 +11,7 @@ import java.util.UUID;
 
 public interface ProjectComplianceService {
     ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> createOrUpdateProjectCompliance(ProjectCompliance projectCompliance);
+    ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> updateProjectCompliance(UUID projectComplianceId, ProjectCompliance projectCompliance);
     ResponseEntity<ApiResponse<Void>> deleteProjectCompliance(UUID projectComplianceId);
     ResponseEntity<ApiResponse<List<ProjectComplianceResponseDTO>>> getProjectComplianceByProjectId(Long projectId);
     ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> getProjectComplianceByProjectAndType(Long projectId, RequirementType requirementType);

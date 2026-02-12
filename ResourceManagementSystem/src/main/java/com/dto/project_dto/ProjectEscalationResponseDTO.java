@@ -4,6 +4,7 @@ import com.entity_enums.client_enums.ContactRole;
 import com.entity_enums.project_enums.EscalationLevel;
 import com.entity_enums.project_enums.EscalationSource;
 import com.entity_enums.project_enums.EscalationTriggerType;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -18,12 +19,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ProjectEscalationResponseDTO {
     @NotNull(message = "Project ID is required")
     private Long projectId;
     @NotNull(message = "Type is required")
     private String type;
-    private EscalationLevel escalationLevel;
+    private String escalationLevel;
     private String contactName;
     private ContactRole contactRole;
     private String email;

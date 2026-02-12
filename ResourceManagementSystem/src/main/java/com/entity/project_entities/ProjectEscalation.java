@@ -5,6 +5,7 @@ import com.entity_enums.client_enums.ContactRole;
 import com.entity_enums.project_enums.EscalationLevel;
 import com.entity_enums.project_enums.EscalationSource;
 import com.entity_enums.project_enums.EscalationTriggerType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -27,15 +28,16 @@ public class ProjectEscalation {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
+    @JsonIgnore
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contact_id")
+    @JsonIgnore
     private ClientEscalationContact contact;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private EscalationLevel escalationLevel;
+    private String escalationLevel;
 
     @Column(nullable = false)
     private String contactName;
