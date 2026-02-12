@@ -39,10 +39,10 @@ public interface ProjectGovernanceService {
             RiskLevel riskLevel
     );
 
-    ResponseEntity<?> getProjectById(Long id);
-    ResponseEntity<?> checkDemandCreation(Long projectId);
-    ResponseEntity<?> readinessStatusUpdate(UpdateReadinessStatusDTO readiness);
-    ResponseEntity<?> getProjectByClient(UUID id);
+    ResponseEntity<ApiResponse<?>> getProjectById(Long id);
+    ResponseEntity<ApiResponse<?>> checkDemandCreation(Long projectId);
+    ResponseEntity<ApiResponse<?>> readinessStatusUpdate(UpdateReadinessStatusDTO readiness);
+    ResponseEntity<ApiResponse<?>> getProjectByClient(UUID id);
 
 //    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
 

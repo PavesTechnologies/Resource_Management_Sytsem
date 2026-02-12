@@ -31,7 +31,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> addEscalationContact(
+    public ResponseEntity<ApiResponse<?>> addEscalationContact(
             ProjectEscalationResponseDTO projectEscalation) {
 
         Project project = projectRepository.findById(projectEscalation.getProjectId()).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project Not Found!"));
@@ -46,7 +46,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
             throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "Invalid escalation type");
         }
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation created successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Project Escalation created successfully!", null));
     }
 
     private void inheritFromClient(ProjectEscalationResponseDTO dto, Project project) {
@@ -102,23 +102,23 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
     }
 
     @Override
-    public ResponseEntity<?> updateProjectContact(UUID projectEscalationId, ProjectEscalation escalation) {
+    public ResponseEntity<ApiResponse<?>> updateProjectContact(UUID projectEscalationId, ProjectEscalation escalation) {
         ProjectEscalation projectEscalation = projectEscalationRepo.findById(projectEscalationId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "400", "Project Escalation Not Found!"));
         projectEscalationRepo.save(escalation);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation updated successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Project Escalation updated successfully!", null));
     }
 
     @Override
-    public ResponseEntity<?> deleteProjectContact(UUID projectEscalationId) {
+    public ResponseEntity<ApiResponse<?>> deleteProjectContact(UUID projectEscalationId) {
         projectEscalationRepo.findById(projectEscalationId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "400", "Project Escalation Not Found!"));
         projectEscalationRepo.deleteById(projectEscalationId);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation deleted successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Project Escalation deleted successfully!", null));
     }
 
     @Override
-    public ResponseEntity<?> getEscalationContacts(Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getEscalationContacts(Long projectId) {
         List<ProjectEscalation> projectEscalations = projectEscalationRepo.findByProject_PmsProjectId(projectId);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Escalation contacts retrieved successfully", projectEscalations));
+        return ResponseEntity.ok(ApiResponse.success("Escalation contacts retrieved successfully", projectEscalations));
     }
 //
 //    @Override

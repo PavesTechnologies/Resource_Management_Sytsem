@@ -179,7 +179,7 @@ package com.service_imple.kpi_service_imple;
 
 import com.dto.DashboardKpiDTO;
 import com.repo.kpi_repo.DashboardKpiRepository;
-import com.service_interface.kpi_service.DashboardKpiService;
+import com.service_interface.availability_service_interface.DashboardKpiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -258,7 +258,7 @@ public class DashboardKpiServiceImpl implements DashboardKpiService {
 package com.controller.kpi_controllers;
 
 import com.dto.DashboardKpiDTO;
-import com.service_interface.kpi_service.DashboardKpiService;
+import com.service_interface.availability_service_interface.DashboardKpiService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

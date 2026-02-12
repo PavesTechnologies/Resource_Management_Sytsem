@@ -1,9 +1,7 @@
 package com.service_imple.external_api_impl;
 
-import com.dto.external.HolidayDto;
-import com.service.TokenService;
+import com.dto.external_dto.HolidayDto;
 import com.service_interface.external_api_interface.HolidayApiService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -17,7 +15,6 @@ import java.util.Arrays;
 import java.util.List;
 
 @Service
-@Slf4j
 public class HolidayApiServiceImpl implements HolidayApiService {
 
     private final RestTemplate restTemplate;
@@ -35,7 +32,6 @@ public class HolidayApiServiceImpl implements HolidayApiService {
     public List<HolidayDto> getHolidaysForYear(Integer year) throws HolidayApiService.ExternalApiException {
         try {
             String url = holidayApiBaseUrl + "/api/holidays/year/" + year;
-            log.info("Fetching holidays from: {}", url);
             
             // Token is added by AvailabilityEngineConfig interceptor
             HttpEntity<Void> entity = new HttpEntity<>(new HttpHeaders());
@@ -50,17 +46,13 @@ public class HolidayApiServiceImpl implements HolidayApiService {
             HolidayDto[] holidays = response.getBody();
             
             if (holidays == null) {
-                log.warn("Holiday API returned null response for year: {}", year);
                 return List.of();
             }
             
             List<HolidayDto> holidayList = Arrays.asList(holidays);
-            log.info("Successfully fetched {} holidays for year: {}", holidayList.size(), year);
             return holidayList;
             
         } catch (HttpClientErrorException e) {
-            log.error("HTTP error fetching holidays for year: {} - Status: {}, Message: {}", year, e.getStatusCode(), e.getMessage());
-            
             if (e.getStatusCode().value() == 401) {
                 tokenService.invalidateToken();
                 throw new HolidayApiService.ExternalApiException("Authentication failed with holiday API. Token has been invalidated.", e);
@@ -70,7 +62,6 @@ public class HolidayApiServiceImpl implements HolidayApiService {
                 throw new HolidayApiService.ExternalApiException("HTTP error fetching holidays: " + e.getMessage(), e);
             }
         } catch (Exception e) {
-            log.error("Failed to fetch holidays for year: {}", year, e);
             throw new HolidayApiService.ExternalApiException("Failed to fetch holidays from external API", e);
         }
     }
@@ -82,7 +73,6 @@ public class HolidayApiServiceImpl implements HolidayApiService {
             String token = tokenService.getAccessToken();
             return token != null && !token.isEmpty();
         } catch (Exception e) {
-            log.warn("Holiday API health check failed - token service error", e);
             return false;
         }
     }

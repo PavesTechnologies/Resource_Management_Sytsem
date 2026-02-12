@@ -5,8 +5,6 @@ import com.dto.project_dto.ProjectEscalationDTO;
 import com.dto.project_dto.ProjectEscalationResponseDTO;
 import com.entity.project_entities.ProjectEscalation;
 import com.service_interface.project_service_interface.ProjectEscalationService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,29 +17,26 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
-@Tag(name = "Project Escalation Management", description = "APIs for managing project escalation contacts and rules")
 public class ProjectEscalationController {
 
     private final ProjectEscalationService projectEscalationService;
 
     @PostMapping("/escalations/save")
-    @Operation(summary = "Map a client escalation contact to a project", description = "Assigns a client contact to a project with a specific escalation level and triggers.")
-    public ResponseEntity<?> addEscalationContact(@Valid @RequestBody ProjectEscalationResponseDTO escalation) {
+    public ResponseEntity<ApiResponse<?>> addEscalationContact(@Valid @RequestBody ProjectEscalationResponseDTO escalation) {
         return projectEscalationService.addEscalationContact(escalation);
     }
 
     @GetMapping("/{projectId}/escalations")
-    @Operation(summary = "Get all escalation contacts for a project", description = "Retrieves a list of all mapped escalation contacts for a specific project.")
-    public ResponseEntity<?> getEscalationContacts(@PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getEscalationContacts(@PathVariable Long projectId) {
         return projectEscalationService.getEscalationContacts(projectId);
     }
     @PutMapping("/update-escalation/{projectEscalationId}")
-    public ResponseEntity<?> updateProjectContact(@PathVariable UUID projectEscalationId, @RequestBody ProjectEscalation escalation) {
+    public ResponseEntity<ApiResponse<?>> updateProjectContact(@PathVariable UUID projectEscalationId, @RequestBody ProjectEscalation escalation) {
         return projectEscalationService.updateProjectContact(projectEscalationId, escalation);
     }
 
     @DeleteMapping("/delete-escalation/{projectEscalationId}")
-    public ResponseEntity<?> deleteProjectContact(@PathVariable UUID projectEscalationId) {
+    public ResponseEntity<ApiResponse<?>> deleteProjectContact(@PathVariable UUID projectEscalationId) {
         return projectEscalationService.deleteProjectContact(projectEscalationId);
     }
 

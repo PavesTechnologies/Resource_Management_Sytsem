@@ -1,8 +1,6 @@
 package com.cdc.failure;
 
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -11,8 +9,6 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class FailureRecorder {
 
-    private static final Logger log =
-            LoggerFactory.getLogger(FailureRecorder.class);
 
     private final CdcFailureRepository repository;
 
@@ -46,7 +42,6 @@ public class FailureRecorder {
 
         } catch (Exception e) {
             // LAST LINE OF DEFENSE
-            //log.error("❌ Failed to record CDC failure (ignored)", e);
         }
     }
 }

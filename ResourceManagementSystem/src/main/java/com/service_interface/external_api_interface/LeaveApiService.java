@@ -1,9 +1,7 @@
 package com.service_interface.external_api_interface;
 
-import com.dto.external.LeaveApiResponse;
+import com.dto.external_dto.LeaveApiResponse;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public interface LeaveApiService {
