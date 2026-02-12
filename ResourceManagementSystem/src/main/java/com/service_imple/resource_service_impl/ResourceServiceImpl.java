@@ -1,8 +1,10 @@
 package com.service_imple.resource_service_impl;
 
 import com.dto.ApiResponse;
+import com.dto.resource.ResourceFiltersDTO;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.resource_enums.EmploymentStatus;
+import com.entity_enums.resource_enums.WorkforceCategory;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
@@ -18,6 +20,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.time.YearMonth;
+import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ResourceServiceImpl implements ResourceService {
@@ -280,5 +284,15 @@ public class ResourceServiceImpl implements ResourceService {
             );
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public ResponseEntity<?> getAllResources() {
+        List<String> uniqueLocations = resourceRepository.findDistinctLocations();
+        List<String> uniqueDesignations = resourceRepository.findDistinctDesignations();
+        List<WorkforceCategory> workforceCategories = List.of(WorkforceCategory.values());
+        Long maxExperience = resourceRepository.findMaxExperience();
+        ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, workforceCategories, uniqueDesignations, maxExperience);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Resource Filters retrieved successfully", dto));
     }
 }
