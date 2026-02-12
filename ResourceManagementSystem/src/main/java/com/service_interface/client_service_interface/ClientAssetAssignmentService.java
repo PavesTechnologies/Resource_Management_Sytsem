@@ -26,4 +26,6 @@ public interface ClientAssetAssignmentService {
     );
 
     ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(UUID assetId);
+
+    ApiResponse<?> getAssignmentsByProjectId(Long projectId);
 }

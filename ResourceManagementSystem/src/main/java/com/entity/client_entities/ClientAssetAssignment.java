@@ -80,7 +80,7 @@ public class ClientAssetAssignment {
     private String assignedBy;
     @NotBlank(message = "Location type is required")
     @Size(max = 100, message = "Location type must not exceed 100 characters")
-    @Pattern(regexp = "^[A-Za-z\\s]+$", message = "Location type must contain only alphabets and spaces")
+    @Pattern(regexp = "^[A-Za-z\\s_]+$", message = "Location type must contain only alphabets, spaces, and underscores")
     private String locationType;
     @Size(max = 255, message = "Location details must not exceed 255 characters")
     private String locationDetails;

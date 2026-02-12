@@ -84,4 +84,9 @@ public class ClientAssetAssignmentController {
     public ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(@PathVariable UUID assetId) {
         return service.getKPI(assetId);
     }
+
+    @GetMapping("/project/{projectId}")
+    public ResponseEntity<?> getAssignmentsByProjectId(@PathVariable Long projectId) {
+        return ResponseEntity.ok(service.getAssignmentsByProjectId(projectId));
+    }
 }
