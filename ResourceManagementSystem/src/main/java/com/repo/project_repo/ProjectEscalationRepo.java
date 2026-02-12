@@ -14,4 +14,9 @@ public interface ProjectEscalationRepo extends JpaRepository<ProjectEscalation, 
     boolean existsByProject_PmsProjectId(Long projectId);
 
     Optional<ProjectEscalation> findByProject_PmsProjectIdAndEscalationLevel(Long pmsProjectId, EscalationLevel escalationLevel);
+    boolean existsByProject_PmsProjectIdAndContact_ContactId(
+            Long projectId,
+            UUID contactId
+    );
+
 }
