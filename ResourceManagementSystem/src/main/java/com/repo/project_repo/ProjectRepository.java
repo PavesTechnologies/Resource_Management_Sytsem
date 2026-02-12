@@ -70,15 +70,16 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     @Modifying
     @Transactional
     @Query(value = """
-        INSERT INTO project (pms_project_id, name, last_synced_at, project_status)
-        VALUES (:id, :name, :now, 'ACTIVE')
+        INSERT INTO project (pms_project_id, name, last_synced_at, project_status, client_id)
+        VALUES (:id, :name, :now, 'ACTIVE', :clientId)
         ON DUPLICATE KEY UPDATE
             last_synced_at = :now
         """, nativeQuery = true)
     void upsertSkeleton(
             @Param("id") Long id,
             @Param("name") String name,
-            @Param("now") LocalDateTime now
+            @Param("now") LocalDateTime now,
+            @Param("clientId") UUID clientId
     );
 
     // 2. Fix: Ensures Instance A locks the row so Instance B waits until the update is finished

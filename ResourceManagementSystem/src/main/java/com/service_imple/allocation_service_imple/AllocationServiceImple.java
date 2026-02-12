@@ -275,9 +275,9 @@ public class AllocationServiceImple implements AllocationService {
                 .mapToInt(ResourceAllocation::getAllocationPercentage)
                 .sum();
             
-            // Find existing ledger entry or create new one
+            // Find existing ledger entry using date range (handles monthly ledgers)
             Optional<ResourceAvailabilityLedger> existingLedger = 
-                ledgerRepository.findByResourceIdAndPeriodStart(resourceId, date);
+                ledgerRepository.findByResourceIdAndDate(resourceId, date);
             
             ResourceAvailabilityLedger ledger;
             if (existingLedger.isPresent()) {
