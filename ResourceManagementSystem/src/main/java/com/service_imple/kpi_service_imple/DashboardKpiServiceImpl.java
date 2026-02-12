@@ -1,7 +1,7 @@
 package com.service_imple.kpi_service_imple;
 
 import com.dto.DashboardKpiDTO;
-import com.projection.DashboardKpiProjection;
+import com.service_interface.availability_interface.DashboardKpiProjection;
 import com.repo.kpi_repo.DashboardKpiRepository;
 import com.service_interface.kpi_service.DashboardKpiService;
 import lombok.RequiredArgsConstructor;
@@ -69,7 +69,16 @@ public class DashboardKpiServiceImpl implements DashboardKpiService {
         dto.setBenchCapacity(projection.getBenchCapacity());
         dto.setUtilization(projection.getUtilization());
 
-        log.debug("KPI calculation result: {}", dto);
+        log.info("KPI calculation result - Total: {}, Fully Available: {}, Partially Available: {}, Fully Allocated: {}, Over Allocated: {}, Upcoming Available: {}, Bench Capacity: {}%, Utilization: {}%",
+                projection.getTotalResources(),
+                projection.getFullyAvailable(),
+                projection.getPartiallyAvailable(),
+                projection.getFullyAllocated(),
+                projection.getOverAllocated(),
+                projection.getUpcomingAvailability(),
+                projection.getBenchCapacity(),
+                projection.getUtilization());
+        
         return dto;
     }
 }

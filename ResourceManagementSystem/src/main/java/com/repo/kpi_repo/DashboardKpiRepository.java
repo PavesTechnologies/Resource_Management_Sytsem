@@ -1,6 +1,6 @@
 package com.repo.kpi_repo;
 
-import com.projection.DashboardKpiProjection;
+import com.service_interface.availability_interface.DashboardKpiProjection;
 import com.entity.resource_entities.Resource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -26,25 +26,28 @@ public interface DashboardKpiRepository extends JpaRepository<Resource, Long> {
         resource_allocations AS (
             SELECT 
                 fr.resource_id,
-                COALESCE(MAX(ral.total_allocation), 0) as total_allocation
+                COALESCE(SUM(ra.allocation_percentage), 0) as total_allocation
             FROM filtered_resources fr
-            LEFT JOIN resource_availability_ledger ral 
-                ON fr.resource_id = ral.resource_id
-               AND ral.period_start BETWEEN :fromDate AND :toDate
+            LEFT JOIN resource_allocation ra 
+                ON fr.resource_id = ra.resource_id
+               AND ra.allocation_status IN ('PLANNED', 'ACTIVE')
+               AND ra.allocation_start_date <= :toDate
+               AND ra.allocation_end_date >= :fromDate
             GROUP BY fr.resource_id
         ),
         resource_upcoming_availability AS (
             SELECT 
                 ra.resource_id,
                 ra.total_allocation,
-                MAX(CASE WHEN ral_future.resource_id IS NOT NULL THEN 1 ELSE 0 END) as upcoming_available
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM resource_allocation ra_future
+                    WHERE ra_future.resource_id = ra.resource_id
+                      AND ra_future.allocation_status IN ('PLANNED', 'ACTIVE')
+                      AND ra_future.allocation_start_date > :toDate
+                      AND ra_future.allocation_start_date <= DATE_ADD(:toDate, INTERVAL 30 DAY)
+                      AND ra_future.allocation_percentage < 100
+                ) THEN 1 ELSE 0 END as upcoming_available
             FROM resource_allocations ra
-            LEFT JOIN resource_availability_ledger ral_future
-                ON ra.resource_id = ral_future.resource_id
-               AND ral_future.period_start BETWEEN :fromDate
-                   AND DATE_ADD(:fromDate, INTERVAL 30 DAY)
-               AND ral_future.total_allocation < 100
-            GROUP BY ra.resource_id, ra.total_allocation
         )
         SELECT 
             COUNT(*) as totalResources,
@@ -59,7 +62,7 @@ public interface DashboardKpiRepository extends JpaRepository<Resource, Long> {
             END as benchCapacity,
             CASE 
                 WHEN COUNT(*) = 0 THEN 0
-                ELSE ROUND(AVG(LEAST(total_allocation, 100)))
+                ELSE ROUND(AVG(total_allocation))
             END as utilization
         FROM resource_upcoming_availability
         """)

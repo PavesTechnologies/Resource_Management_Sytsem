@@ -22,7 +22,7 @@ public class AllocationRequestDTO {
     private Long projectId;
     
     @NotNull(message = "Allocation start date is required")
-    @Future(message = "Allocation start date must be in the future")
+    @FutureOrPresent(message = "Allocation start date must be today or in the future")
     private LocalDate allocationStartDate;
     
     @NotNull(message = "Allocation end date is required")
