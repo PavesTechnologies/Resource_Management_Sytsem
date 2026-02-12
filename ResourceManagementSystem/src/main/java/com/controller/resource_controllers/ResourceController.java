@@ -1,6 +1,7 @@
 package com.controller.resource_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.resource.ResourceFiltersDTO;
 import com.entity.resource_entities.Resource;
 import com.service_interface.resource_service_interface.ResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,5 +45,11 @@ public class ResourceController {
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER')")
     public ResponseEntity<ApiResponse<?>> deleteResource(@PathVariable Long resourceId) {
         return resourceService.deleteResource(resourceId);
+    }
+
+    @GetMapping("/get-all-resource-filters")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN', 'PROJECT-MANAGER','HR-MANAGER')")
+    public ResponseEntity<?> getAllResourcesFilters() {
+        return resourceService.getAllResources();
     }
 }
