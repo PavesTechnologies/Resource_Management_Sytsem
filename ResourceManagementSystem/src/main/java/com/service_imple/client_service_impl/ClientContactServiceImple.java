@@ -21,7 +21,7 @@ public class ClientContactServiceImple implements ClientContactService {
     @Autowired
     ApiResponse apiResponse;
     @Override
-    public ResponseEntity<ApiResponse> createClientContact(ClientEscalationContact clientContact) {
+    public ResponseEntity<ApiResponse<?>> createClientContact(ClientEscalationContact clientContact) {
         ClientEscalationContact Contact=clientContactRepo.save(clientContact);
         if(Contact!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Created Successfully",Contact));
@@ -32,7 +32,7 @@ public class ClientContactServiceImple implements ClientContactService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> updateClientContact(ClientEscalationContact clientContact) {
+    public ResponseEntity<ApiResponse<?>> updateClientContact(ClientEscalationContact clientContact) {
         ClientEscalationContact Contact=clientContactRepo.save(clientContact);
         if(Contact!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Updated Successfully",Contact));
@@ -43,7 +43,7 @@ public class ClientContactServiceImple implements ClientContactService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClientContact(UUID id) {
+    public ResponseEntity<ApiResponse<?>> deleteClientContact(UUID id) {
         ClientEscalationContact Contact=clientContactRepo.findById(id).get();
         if(Contact!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Deleted Successfully",Contact));
@@ -54,7 +54,7 @@ public class ClientContactServiceImple implements ClientContactService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getClientContact(UUID clientId) {
+    public ResponseEntity<ApiResponse<?>> getClientContact(UUID clientId) {
         List<ClientEscalationContact> Contact=clientContactRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Contact"));
 
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Fentched Successfully",Contact));

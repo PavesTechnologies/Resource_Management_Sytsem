@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -31,16 +32,13 @@ public class ResourceEnablementAssignmentServiceImpl implements ResourceEnableme
 
             repository.save(assignment);
 
-            return new ApiResponse<>(
-                    true,
+            return ApiResponse.<String>success(
                     "Enablement requested successfully.",
                     null
             );
         } catch (Exception e) {
-            return new ApiResponse<>(
-                    false,
-                    "Enablement request failed: " + e.getMessage(),
-                    null
+            return ApiResponse.<String>error(
+                    "Enablement request failed: " + e.getMessage()
             );
         }
     }
@@ -61,24 +59,20 @@ public class ResourceEnablementAssignmentServiceImpl implements ResourceEnableme
 
             repository.save(assignment);
 
-            return new ApiResponse<>(
-                    true,
+            return ApiResponse.<String>success(
                     "Enablement status updated successfully.",
                     null
             );
         } catch (Exception e) {
-            return new ApiResponse<>(
-                    false,
-                    "Status update failed: " + e.getMessage(),
-                    null
+            return ApiResponse.<String>error(
+                    "Status update failed: " + e.getMessage()
             );
         }
     }
 
     @Override
     public ApiResponse<?> getAssignmentsByResource(Long resourceId) {
-        return new ApiResponse<>(
-                true,
+        return ApiResponse.<List<ResourceEnablementAssignment>>success(
                 "Enablement assignments fetched successfully.",
                 repository.findByResourceId(resourceId)
         );

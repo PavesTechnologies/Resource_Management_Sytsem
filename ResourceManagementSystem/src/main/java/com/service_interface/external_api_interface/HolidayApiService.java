@@ -1,6 +1,6 @@
 package com.service_interface.external_api_interface;
 
-import com.dto.external.HolidayDto;
+import com.dto.external_dto.HolidayDto;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

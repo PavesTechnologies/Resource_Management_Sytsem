@@ -7,9 +7,9 @@ import org.springframework.http.ResponseEntity;
 import java.util.UUID;
 
 public interface ClientContactService {
-    ResponseEntity<ApiResponse> createClientContact(ClientEscalationContact clientContact);
-    ResponseEntity<ApiResponse> updateClientContact(ClientEscalationContact clientContact);
-    ResponseEntity<ApiResponse> deleteClientContact(UUID id);
+    ResponseEntity<ApiResponse<?>> createClientContact(ClientEscalationContact clientContact);
+    ResponseEntity<ApiResponse<?>> updateClientContact(ClientEscalationContact clientContact);
+    ResponseEntity<ApiResponse<?>> deleteClientContact(UUID id);
 
-    ResponseEntity<ApiResponse> getClientContact(UUID clientId);
+    ResponseEntity<ApiResponse<?>> getClientContact(UUID clientId);
 }

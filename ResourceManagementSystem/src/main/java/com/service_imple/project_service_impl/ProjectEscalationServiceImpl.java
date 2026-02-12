@@ -1,6 +1,7 @@
 package com.service_imple.project_service_impl;
 
 import com.dto.ApiResponse;
+import com.dto.project_dto.ProjectEscalationActualResponseDTO;
 import com.dto.project_dto.ProjectEscalationResponseDTO;
 import com.entity.client_entities.ClientEscalationContact;
 import com.entity.project_entities.Project;
@@ -31,7 +32,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> addEscalationContact(
+    public ResponseEntity<ApiResponse<?>> addEscalationContact(
             ProjectEscalationResponseDTO projectEscalation) {
 
         Project project = projectRepository.findById(projectEscalation.getProjectId()).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project Not Found!"));
@@ -46,7 +47,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
             throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "Invalid escalation type");
         }
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation created successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Project Escalation created successfully!", null));
     }
 
     private void inheritFromClient(ProjectEscalationResponseDTO dto, Project project) {
@@ -63,9 +64,16 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
         }
 
         List<ProjectEscalation> projectEscalations = clientContacts.stream()
+                .filter(clientContact ->
+                        !projectEscalationRepo.existsByProject_PmsProjectIdAndContact_ContactId(
+                                project.getPmsProjectId(),
+                                clientContact.getContactId()
+                        )
+                )
                 .map(clientContact -> ProjectEscalation.builder()
                         .project(project)
-                        .escalationLevel(dto.getEscalationLevel())
+                        .contact(clientContact)
+                        .escalationLevel(clientContact.getEscalationLevel())
                         .contactName(clientContact.getContactName())
                         .contactRole(clientContact.getContactRole())
                         .email(clientContact.getEmail())
@@ -74,6 +82,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                         .source(EscalationSource.INHERITED)
                         .build())
                 .toList();
+
 
         projectEscalationRepo.saveAll(projectEscalations);
     }
@@ -102,24 +111,75 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
     }
 
     @Override
-    public ResponseEntity<?> updateProjectContact(UUID projectEscalationId, ProjectEscalation escalation) {
-        ProjectEscalation projectEscalation = projectEscalationRepo.findById(projectEscalationId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "400", "Project Escalation Not Found!"));
-        projectEscalationRepo.save(escalation);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation updated successfully!", null));
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> updateProjectContact(UUID projectEscalationId,
+                                                  ProjectEscalation updatedData) {
+
+        ProjectEscalation existingEscalation = projectEscalationRepo
+                .findById(projectEscalationId)
+                .orElseThrow(() -> new ProjectExceptionHandler(
+                        HttpStatus.NOT_FOUND,
+                        "404",
+                        "Project Escalation Not Found!"
+                ));
+
+        // Update ONLY editable fields
+        existingEscalation.setEscalationLevel(updatedData.getEscalationLevel());
+        existingEscalation.setContactName(updatedData.getContactName());
+        existingEscalation.setContactRole(updatedData.getContactRole());
+        existingEscalation.setEmail(updatedData.getEmail());
+        existingEscalation.setPhone(updatedData.getPhone());
+        existingEscalation.setActiveFlag(updatedData.getActiveFlag());
+
+        // DO NOT touch:
+        // existingEscalation.setProject(...)
+        // existingEscalation.setSource(...)
+        // existingEscalation.setContact(...)
+
+        projectEscalationRepo.save(existingEscalation);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Project Escalation updated successfully!", null)
+        );
     }
 
+
     @Override
-    public ResponseEntity<?> deleteProjectContact(UUID projectEscalationId) {
+    public ResponseEntity<ApiResponse<?>> deleteProjectContact(UUID projectEscalationId) {
         projectEscalationRepo.findById(projectEscalationId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "400", "Project Escalation Not Found!"));
         projectEscalationRepo.deleteById(projectEscalationId);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project Escalation deleted successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Project Escalation deleted successfully!", null));
     }
 
     @Override
-    public ResponseEntity<?> getEscalationContacts(Long projectId) {
-        List<ProjectEscalation> projectEscalations = projectEscalationRepo.findByProject_PmsProjectId(projectId);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Escalation contacts retrieved successfully", projectEscalations));
+    public ResponseEntity<ApiResponse<?>> getEscalationContacts(Long projectId) {
+
+        List<ProjectEscalation> projectEscalations =
+                projectEscalationRepo.findByProject_PmsProjectId(projectId);
+
+        List<ProjectEscalationActualResponseDTO> response = projectEscalations.stream()
+                .map(e -> ProjectEscalationActualResponseDTO.builder()
+                        .projectEscalationId(e.getProjectEscalationId())
+                        .escalationLevel(e.getEscalationLevel())
+                        .contactName(e.getContactName())
+                        .contactRole(e.getContactRole())
+                        .email(e.getEmail())
+                        .phone(e.getPhone())
+                        .activeFlag(e.getActiveFlag())
+                        .source(e.getSource())
+                        .contactId(
+                                e.getContact() != null
+                                        ? e.getContact().getContactId()
+                                        : null
+                        )
+                        .build())
+                .toList();
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Escalation contacts retrieved successfully", response)
+        );
     }
+
 //
 //    @Override
 //    @Transactional

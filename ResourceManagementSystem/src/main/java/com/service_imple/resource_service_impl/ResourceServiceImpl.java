@@ -8,15 +8,14 @@ import com.entity_enums.resource_enums.WorkforceCategory;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
-import com.service_interface.availability_interface.AvailabilityCalculationService;
-import com.service.ResourceEventService;
+import com.service_interface.availability_service_interface.AvailabilityCalculationService;
+import com.service_interface.resource_service_interface.ResourceEventService;
 import com.service_interface.resource_service_interface.ResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.time.YearMonth;
@@ -39,7 +38,7 @@ public class ResourceServiceImpl implements ResourceService {
     private ResourceEventService resourceEventService;
 
     @Override
-    public ResponseEntity<ApiResponse> createResource(Resource resource) {
+    public ResponseEntity<ApiResponse<?>> createResource(Resource resource) {
         try {
             // Validate required fields
 
@@ -132,7 +131,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getResourceById(Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getResourceById(Long resourceId) {
         try {
             if (resourceId == null) {
                 throw new ProjectExceptionHandler(
@@ -176,12 +175,12 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getResourceByEmployeeCode(String employeeCode) {
+    public ResponseEntity<ApiResponse<?>> getResourceByEmployeeCode(String employeeCode) {
         return null;
     }
 
     @Override
-    public ResponseEntity<ApiResponse> updateResource(Resource resource) {
+    public ResponseEntity<ApiResponse<?>> updateResource(Resource resource) {
         try {
             if (resource.getResourceId() == null) {
                 throw new ProjectExceptionHandler(
@@ -238,7 +237,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteResource(Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> deleteResource(Long resourceId) {
         try {
             if (resourceId == null) {
                 throw new ProjectExceptionHandler(

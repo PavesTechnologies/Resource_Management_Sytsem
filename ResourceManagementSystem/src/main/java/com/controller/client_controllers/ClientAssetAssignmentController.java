@@ -21,7 +21,7 @@ public class ClientAssetAssignmentController {
     private ClientAssetAssignmentService service;
 
     @PostMapping("/{assetId}")
-    public ResponseEntity<?> assignAsset(
+    public ResponseEntity<ApiResponse<?>> assignAsset(
             @PathVariable UUID assetId,
             @RequestBody ClientAssetAssignment assignment) {
 
@@ -29,37 +29,33 @@ public class ClientAssetAssignmentController {
     }
 
     @PutMapping("/{assignmentId}")
-    public ResponseEntity<?> updateAssignment(
+    public ResponseEntity<ApiResponse<?>> updateAssignment(
             @PathVariable UUID assignmentId,
             @RequestBody ClientAssetAssignment assignment) {
 
-        return ResponseEntity.ok(
-                service.updateAssignment(assignmentId, assignment)
-        );
+        return service.updateAssignment(assignmentId, assignment);
     }
 
     @DeleteMapping("/{assignmentId}")
-    public ResponseEntity<?> deleteAssignment(
+    public ResponseEntity<ApiResponse<?>> deleteAssignment(
             @PathVariable UUID assignmentId) {
 
         return service.deleteAssignment(assignmentId);
     }
 
     @GetMapping("/by-asset/{assetId}")
-    public ResponseEntity<?> getAssignmentsByAssetId(@PathVariable UUID assetId) {
-        return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
+    public ResponseEntity<ApiResponse<?>> getAssignmentsByAssetId(@PathVariable UUID assetId) {
+        return service.getAssignmentsByAssetId(assetId);
     }
 
     @GetMapping
-    public ResponseEntity<?> getAssignments() {
+    public ResponseEntity<ApiResponse<?>> getAssignments() {
 
-        return ResponseEntity.ok(
-                service.getAllAssignments()
-        );
+        return service.getAllAssignments();
     }
 
     @PutMapping("/return/{assignmentId}")
-    public ResponseEntity<?> returnAsset(
+    public ResponseEntity<ApiResponse<?>> returnAsset(
             @PathVariable UUID assignmentId,
             @RequestParam("actualReturnDate")
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -67,16 +63,14 @@ public class ClientAssetAssignmentController {
             @RequestParam(value = "remarks", required = false)
             String remarks) {
 
-        return ResponseEntity.ok(
-                service.returnAsset(assignmentId, actualReturnDate, remarks)
-        );
+        return service.returnAsset(assignmentId, actualReturnDate, remarks);
     }
 
     @GetMapping("/asset/{assetId}")
     public ResponseEntity<ApiResponse<?>> getByAsset(
             @PathVariable UUID assetId) {
 
-        return ResponseEntity.ok(service.getAssignmentsByAssetId(assetId));
+        return service.getAssignmentsByAssetId(assetId);
     }
 
     @GetMapping("/kpi/{assetId}")
