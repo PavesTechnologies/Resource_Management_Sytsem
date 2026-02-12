@@ -18,31 +18,31 @@ public class ResourceController {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER')")
-    public ResponseEntity<ApiResponse> createResource(@RequestBody Resource resource) {
+    public ResponseEntity<ApiResponse<?>> createResource(@RequestBody Resource resource) {
         return resourceService.createResource(resource);
     }
 
     @GetMapping("/{resourceId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER','PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse> getResourceById(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getResourceById(@PathVariable Long resourceId) {
         return resourceService.getResourceById(resourceId);
     }
 
     @GetMapping("/employee-code/{employeeCode}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER','PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse> getResourceByEmployeeCode(@PathVariable String employeeCode) {
+    public ResponseEntity<ApiResponse<?>> getResourceByEmployeeCode(@PathVariable String employeeCode) {
         return resourceService.getResourceByEmployeeCode(employeeCode);
     }
 
     @PutMapping("/update")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER')")
-    public ResponseEntity<ApiResponse> updateResource(@RequestBody Resource resource) {
+    public ResponseEntity<ApiResponse<?>> updateResource(@RequestBody Resource resource) {
         return resourceService.updateResource(resource);
     }
 
     @DeleteMapping("/delete/{resourceId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN','HR-MANAGER')")
-    public ResponseEntity<ApiResponse> deleteResource(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> deleteResource(@PathVariable Long resourceId) {
         return resourceService.deleteResource(resourceId);
     }
 }

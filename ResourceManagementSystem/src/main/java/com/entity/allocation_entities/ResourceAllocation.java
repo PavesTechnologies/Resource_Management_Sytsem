@@ -1,6 +1,6 @@
 package com.entity.allocation_entities;
 
-import com.entity.Demand;
+import com.entity.demand_entities.Demand;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import jakarta.persistence.*;

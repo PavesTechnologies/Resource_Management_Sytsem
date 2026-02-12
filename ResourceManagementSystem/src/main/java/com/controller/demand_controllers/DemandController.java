@@ -2,7 +2,7 @@ package com.controller.demand_controllers;
 
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
-import com.entity.Demand;
+import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,21 +20,21 @@ public class DemandController {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse> createDemand(@RequestBody Demand demand, @CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> createDemand(@RequestBody Demand demand, @CurrentUser UserDTO userDTO) {
         demand.setCreatedBy(userDTO.getId());
         return demandService.createDemand(demand);
     }
 
     @PutMapping("/update")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse> updateDemand(@RequestBody Demand demand) {
+    public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody Demand demand) {
         return demandService.updateDemand(demand);
     }
 
 
     @GetMapping("/project/{projectId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse> getDemandByProjectId(@PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getDemandByProjectId(@PathVariable Long projectId) {
         return demandService.getDemandByProjectId(projectId);
     }
 }

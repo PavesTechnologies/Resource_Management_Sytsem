@@ -7,9 +7,9 @@ import org.springframework.http.ResponseEntity;
 import java.util.UUID;
 
 public interface ClientComplianceService {
-    ResponseEntity<ApiResponse> createClientCompliance(ClientCompliance clientCompliance);
-    ResponseEntity<ApiResponse> updateClientCompliance(ClientCompliance clientCompliance);
-    ResponseEntity<ApiResponse> deleteClientCompliance(UUID id);
+    ResponseEntity<ApiResponse<?>> createClientCompliance(ClientCompliance clientCompliance);
+    ResponseEntity<ApiResponse<?>> updateClientCompliance(ClientCompliance clientCompliance);
+    ResponseEntity<ApiResponse<?>> deleteClientCompliance(UUID id);
 
-    ResponseEntity<ApiResponse> getClientCompliance(UUID clientId);
+    ResponseEntity<ApiResponse<?>> getClientCompliance(UUID clientId);
 }

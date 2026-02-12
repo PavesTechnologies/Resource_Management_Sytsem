@@ -1,6 +1,10 @@
 package com.repo.timeline_repo;
 
-import com.dto.ResourceTimelineDTO;
+import com.service_imple.availability_service_impl.projection.ResourceTimelineProjection;
+import com.service_imple.availability_service_impl.projection.TimelineKpiProjection;
+import com.service_imple.availability_service_impl.projection.AllocationTimelineProjection;
+import com.service_imple.availability_service_impl.projection.CurrentProjectProjection;
+import com.service_imple.availability_service_impl.projection.CurrentAllocationProjection;
 import com.entity.resource_entities.Resource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,123 +13,289 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface ResourceTimelineRepository extends JpaRepository<Resource, Long> {
 
+    // Window Mode Query (when dates are provided)
     @Query(value = """
-        SELECT 
+        SELECT
             r.resource_id as id,
-            r.full_name as name,
-            CONCAT(UPPER(SUBSTRING(r.full_name, 1, 1)), 
-                   UPPER(COALESCE(SUBSTRING(SUBSTRING_INDEX(r.full_name, ' ', -1), 1, 1), ''))) as avatar,
-            r.designation as role,
-            r.working_location as location,
-            COALESCE(r.experiance, 0) as experience,
+            r.full_name as fullName,
+            r.designation as designation,
+            r.working_location as workingLocation,
+            r.experiance as experiance,
             r.employment_type as employmentType,
-            COALESCE(latest_ledger.confirmed_alloc_hours * 100.0 / NULLIF(latest_ledger.standard_hours, 0), 0) as currentAllocation,
-            next_available.available_from as availableFrom,
-            current_proj.project_name as currentProject,
-            next_assign.project_name as nextAssignment
+            COALESCE(
+                SUM(
+                    (
+                        DATEDIFF(
+                            LEAST(ra.allocation_end_date, :endDate),
+                            GREATEST(ra.allocation_start_date, :startDate)
+                        ) + 1
+                    ) * ra.allocation_percentage
+                ) / (DATEDIFF(:endDate, :startDate) + 1),
+                0
+            ) AS avgAllocation
         FROM resource r
-        LEFT JOIN (
-            SELECT 
-                resource_id,
-                confirmed_alloc_hours,
-                standard_hours
-            FROM resource_availability_ledger 
-            WHERE period_start <= CURDATE() 
-            AND period_end >= CURDATE()
-            ORDER BY period_start DESC 
-            LIMIT 1
-        ) latest_ledger ON r.resource_id = latest_ledger.resource_id
-        LEFT JOIN (
-            SELECT 
-                ra.resource_id,
-                p.name as project_name
-            FROM resource_allocation ra
-            JOIN project p ON ra.project_id = p.pms_project_id
-            WHERE ra.allocation_status = 'ACTIVE'
-            AND CURDATE() BETWEEN ra.allocation_start_date AND ra.allocation_end_date
-            ORDER BY ra.allocation_percentage DESC
-            LIMIT 1
-        ) current_proj ON r.resource_id = current_proj.resource_id
-        LEFT JOIN (
-            SELECT 
-                ra.resource_id,
-                p.name as project_name,
-                ra.allocation_start_date
-            FROM resource_allocation ra
-            JOIN project p ON ra.project_id = p.pms_project_id
-            WHERE ra.allocation_status IN ('ACTIVE', 'PLANNED')
-            AND ra.allocation_start_date > CURDATE()
-            ORDER BY ra.allocation_start_date ASC
-            LIMIT 1
-        ) next_assign ON r.resource_id = next_assign.resource_id
-        LEFT JOIN (
-            SELECT 
-                resource_id,
-                MIN(period_start) as available_from
-            FROM resource_availability_ledger
-            WHERE period_start > CURDATE()
-            AND firm_available_hours > 0
-            GROUP BY resource_id
-        ) next_available ON r.resource_id = next_available.resource_id
-        WHERE r.active_flag = true
+        LEFT JOIN resource_allocation ra
+            ON ra.resource_id = r.resource_id
+            AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_start_date <= :endDate
+            AND ra.allocation_end_date >= :startDate
+        WHERE r.active_flag = 1
+        AND (:designation IS NULL OR r.designation = :designation)
+        AND (:location IS NULL OR r.working_location = :location)
+        AND (:employmentType IS NULL OR r.employment_type = :employmentType)
+        AND (:minExp IS NULL OR r.experiance >= :minExp)
+        AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        GROUP BY r.resource_id
         ORDER BY r.full_name
+        LIMIT :size OFFSET :offset
         """, nativeQuery = true)
-    List<Object[]> getResourceTimelineSummary();
+    List<ResourceTimelineProjection> getResourceTimelineWindow(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate,
+        @Param("designation") String designation,
+        @Param("location") String location,
+        @Param("employmentType") String employmentType,
+        @Param("minExp") Integer minExp,
+        @Param("maxExp") Integer maxExp,
+        @Param("size") Integer size,
+        @Param("offset") Integer offset
+    );
 
+    // Full History Mode Query (when dates are null)
     @Query(value = """
-        SELECT 
+        SELECT
+            r.resource_id as id,
+            r.full_name as fullName,
+            r.designation as designation,
+            r.working_location as workingLocation,
+            r.experiance as experiance,
+            r.employment_type as employmentType,
+            COALESCE(
+                CASE 
+                    WHEN SUM(DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1) = 0 THEN 0
+                    ELSE SUM(
+                        (DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1)
+                        * ra.allocation_percentage
+                    ) / SUM(DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1)
+                END,
+                0
+            ) AS avgAllocation
+        FROM resource r
+        LEFT JOIN resource_allocation ra
+            ON ra.resource_id = r.resource_id
+            AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        WHERE r.active_flag = 1
+        AND (:designation IS NULL OR r.designation = :designation)
+        AND (:location IS NULL OR r.working_location = :location)
+        AND (:employmentType IS NULL OR r.employment_type = :employmentType)
+        AND (:minExp IS NULL OR r.experiance >= :minExp)
+        AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        GROUP BY r.resource_id
+        ORDER BY r.full_name
+        LIMIT :size OFFSET :offset
+        """, nativeQuery = true)
+    List<ResourceTimelineProjection> getResourceTimelineFullHistory(
+        @Param("designation") String designation,
+        @Param("location") String location,
+        @Param("employmentType") String employmentType,
+        @Param("minExp") Integer minExp,
+        @Param("maxExp") Integer maxExp,
+        @Param("size") Integer size,
+        @Param("offset") Integer offset
+    );
+
+    // Window Mode Count Query
+    @Query(value = """
+        SELECT COUNT(DISTINCT r.resource_id) as totalCount
+        FROM resource r
+        LEFT JOIN resource_allocation ra
+            ON ra.resource_id = r.resource_id
+            AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_start_date <= :endDate
+            AND ra.allocation_end_date >= :startDate
+        WHERE r.active_flag = 1
+        AND (:designation IS NULL OR r.designation = :designation)
+        AND (:location IS NULL OR r.working_location = :location)
+        AND (:employmentType IS NULL OR r.employment_type = :employmentType)
+        AND (:minExp IS NULL OR r.experiance >= :minExp)
+        AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        """, nativeQuery = true)
+    Long getResourceTimelineWindowCount(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate,
+        @Param("designation") String designation,
+        @Param("location") String location,
+        @Param("employmentType") String employmentType,
+        @Param("minExp") Integer minExp,
+        @Param("maxExp") Integer maxExp
+    );
+
+    // Full History Mode Count Query
+    @Query(value = """
+        SELECT COUNT(DISTINCT r.resource_id) as totalCount
+        FROM resource r
+        LEFT JOIN resource_allocation ra
+            ON ra.resource_id = r.resource_id
+            AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        WHERE r.active_flag = 1
+        AND (:designation IS NULL OR r.designation = :designation)
+        AND (:location IS NULL OR r.working_location = :location)
+        AND (:employmentType IS NULL OR r.employment_type = :employmentType)
+        AND (:minExp IS NULL OR r.experiance >= :minExp)
+        AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        """, nativeQuery = true)
+    Long getResourceTimelineFullHistoryCount(
+        @Param("designation") String designation,
+        @Param("location") String location,
+        @Param("employmentType") String employmentType,
+        @Param("minExp") Integer minExp,
+        @Param("maxExp") Integer maxExp
+    );
+
+    // Get current projects for resources (active allocations as of TODAY)
+    @Query(value = """
+        SELECT
+            ra.resource_id as resourceId,
+            p.name as projectName
+        FROM resource_allocation ra
+        JOIN project p ON p.pms_project_id = ra.project_id
+        WHERE ra.resource_id IN :resourceIds
+        AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        AND CURRENT_DATE BETWEEN ra.allocation_start_date AND ra.allocation_end_date
+        ORDER BY ra.resource_id, p.name
+        """, nativeQuery = true)
+    List<CurrentProjectProjection> getCurrentProjects(@Param("resourceIds") List<Long> resourceIds);
+
+    // Get current allocation for resources (sum of allocations active TODAY)
+    @Query(value = """
+        SELECT
+            ra.resource_id as resourceId,
+            SUM(CASE WHEN CURRENT_DATE BETWEEN ra.allocation_start_date AND ra.allocation_end_date
+                THEN ra.allocation_percentage ELSE 0 END) as currentAllocation
+        FROM resource_allocation ra
+        WHERE ra.resource_id IN :resourceIds
+        AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        GROUP BY ra.resource_id
+        """, nativeQuery = true)
+    List<CurrentAllocationProjection> getCurrentAllocations(@Param("resourceIds") List<Long> resourceIds);
+
+    // Allocation Timeline Query
+    @Query(value = """
+        SELECT
+            ra.resource_id as resourceId,
             p.name as project,
             ra.allocation_start_date as startDate,
             ra.allocation_end_date as endDate,
             ra.allocation_percentage as allocation,
-            CASE WHEN ra.allocation_status = 'PLANNED' THEN true ELSE false END as tentative
+            ra.allocation_status as allocationStatus
         FROM resource_allocation ra
-        JOIN project p ON ra.project_id = p.pms_project_id
-        WHERE ra.resource_id = :resourceId
+        JOIN project p ON p.pms_project_id = ra.project_id
+        WHERE ra.resource_id IN :resourceIds
         AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
-        ORDER BY ra.allocation_start_date ASC
+        ORDER BY ra.resource_id, ra.allocation_start_date
         """, nativeQuery = true)
-    List<Object[]> getAllocationTimeline(@Param("resourceId") Long resourceId);
+    List<AllocationTimelineProjection> getAllocationTimeline(@Param("resourceIds") List<Long> resourceIds);
 
+    // Window Mode KPI Query
     @Query(value = """
-        SELECT 
-            p.name as project_name
-        FROM resource_allocation ra
-        JOIN project p ON ra.project_id = p.pms_project_id
-        WHERE ra.resource_id = :resourceId
-        AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
-        AND (
-            (ra.allocation_status = 'ACTIVE' AND CURDATE() BETWEEN ra.allocation_start_date AND ra.allocation_end_date)
-            OR (ra.allocation_status = 'PLANNED' AND ra.allocation_start_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY))
-        )
-        ORDER BY ra.allocation_percentage DESC
+        SELECT
+            COUNT(DISTINCT r.resource_id) as totalResources,
+            SUM(CASE 
+                WHEN resource_avg_allocation <= 20 THEN 1 ELSE 0 END) as fullyAvailable,
+            SUM(CASE 
+                WHEN resource_avg_allocation > 20 AND resource_avg_allocation <= 70 THEN 1 ELSE 0 END) as partiallyAvailable,
+            SUM(CASE 
+                WHEN resource_avg_allocation > 70 AND resource_avg_allocation <= 100 THEN 1 ELSE 0 END) as fullyAllocated,
+            SUM(CASE 
+                WHEN resource_avg_allocation > 100 THEN 1 ELSE 0 END) as overAllocated,
+            AVG(LEAST(resource_avg_allocation, 100)) as utilization
+        FROM (
+            SELECT
+                r.resource_id,
+                COALESCE(
+                    SUM(
+                        (
+                            DATEDIFF(
+                                LEAST(ra.allocation_end_date, :endDate),
+                                GREATEST(ra.allocation_start_date, :startDate)
+                            ) + 1
+                        ) * ra.allocation_percentage
+                    ) / (DATEDIFF(:endDate, :startDate) + 1),
+                    0
+                ) AS resource_avg_allocation
+            FROM resource r
+            LEFT JOIN resource_allocation ra
+                ON ra.resource_id = r.resource_id
+                AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+                AND ra.allocation_start_date <= :endDate
+                AND ra.allocation_end_date >= :startDate
+            WHERE r.active_flag = 1
+            AND (:designation IS NULL OR r.designation = :designation)
+            AND (:location IS NULL OR r.working_location = :location)
+            AND (:employmentType IS NULL OR r.employment_type = :employmentType)
+            AND (:minExp IS NULL OR r.experiance >= :minExp)
+            AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+            GROUP BY r.resource_id
+        ) resource_allocations
         """, nativeQuery = true)
-    List<Object[]> getCurrentProjects(@Param("resourceId") Long resourceId);
+    List<TimelineKpiProjection> getTimelineKPIWindow(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate,
+        @Param("designation") String designation,
+        @Param("location") String location,
+        @Param("employmentType") String employmentType,
+        @Param("minExp") Integer minExp,
+        @Param("maxExp") Integer maxExp
+    );
 
+    // Full History Mode KPI Query
     @Query(value = """
-        SELECT 
-            ROUND(COALESCE(confirmed_alloc_hours * 100.0 / NULLIF(standard_hours, 0), 0)) as utilization
-        FROM resource_availability_ledger
-        WHERE resource_id = :resourceId
-        AND period_start >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-        AND period_start <= CURDATE()
-        ORDER BY period_start ASC
+        SELECT
+            COUNT(DISTINCT r.resource_id) as totalResources,
+            SUM(CASE 
+                WHEN resource_avg_allocation <= 20 THEN 1 ELSE 0 END) as fullyAvailable,
+            SUM(CASE 
+                WHEN resource_avg_allocation > 20 AND resource_avg_allocation <= 70 THEN 1 ELSE 0 END) as partiallyAvailable,
+            SUM(CASE 
+                WHEN resource_avg_allocation > 70 AND resource_avg_allocation <= 100 THEN 1 ELSE 0 END) as fullyAllocated,
+            SUM(CASE 
+                WHEN resource_avg_allocation > 100 THEN 1 ELSE 0 END) as overAllocated,
+            AVG(LEAST(resource_avg_allocation, 100)) as utilization
+        FROM (
+            SELECT
+                r.resource_id,
+                COALESCE(
+                    CASE 
+                        WHEN SUM(DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1) = 0 THEN 0
+                        ELSE SUM(
+                            (DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1)
+                            * ra.allocation_percentage
+                        ) / SUM(DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1)
+                    END,
+                    0
+                ) AS resource_avg_allocation
+            FROM resource r
+            LEFT JOIN resource_allocation ra
+                ON ra.resource_id = r.resource_id
+                AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            WHERE r.active_flag = 1
+            AND (:designation IS NULL OR r.designation = :designation)
+            AND (:location IS NULL OR r.working_location = :location)
+            AND (:employmentType IS NULL OR r.employment_type = :employmentType)
+            AND (:minExp IS NULL OR r.experiance >= :minExp)
+            AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+            GROUP BY r.resource_id
+        ) resource_allocations
         """, nativeQuery = true)
-    List<Integer> getUtilizationHistory(@Param("resourceId") Long resourceId);
-
-    @Query(value = """
-        SELECT 
-            GROUP_CONCAT(DISTINCT s.skill_name SEPARATOR ', ') as skills
-        FROM resource_skill rs
-        JOIN skill s ON rs.skill_id = s.skill_id
-        WHERE rs.resource_id = :resourceId
-        AND rs.active_flag = true
-        AND s.active_flag = true
-        """, nativeQuery = true)
-    Optional<String> getResourceSkills(@Param("resourceId") Long resourceId);
+    List<TimelineKpiProjection> getTimelineKPIFullHistory(
+        @Param("designation") String designation,
+        @Param("location") String location,
+        @Param("employmentType") String employmentType,
+        @Param("minExp") Integer minExp,
+        @Param("maxExp") Integer maxExp
+    );
 }

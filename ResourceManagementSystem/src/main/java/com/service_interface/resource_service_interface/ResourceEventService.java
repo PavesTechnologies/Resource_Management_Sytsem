@@ -1,7 +1,6 @@
 package com.service_interface.resource_service_interface;
 
 import com.entity.resource_entities.Resource;
-import com.listener.resource_listener.ResourceCreationListener;
 
 public interface ResourceEventService {
     

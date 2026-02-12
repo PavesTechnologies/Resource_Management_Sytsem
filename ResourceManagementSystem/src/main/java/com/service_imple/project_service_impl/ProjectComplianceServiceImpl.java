@@ -72,8 +72,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 .build();
 
         return ResponseEntity.ok(
-                new ApiResponse<ProjectComplianceResponseDTO>()
-                        .getAPIResponse(true, "Project compliance saved successfully", responseDTO)
+                ApiResponse.success("Project compliance saved successfully", responseDTO)
         );
     }
 
@@ -114,8 +113,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 .clientComplianceId(updatedCompliance.getClientCompliance() != null ? updatedCompliance.getClientCompliance().getComplianceId() : null)
                 .build();
         
-        return ResponseEntity.ok(new ApiResponse<ProjectComplianceResponseDTO>().getAPIResponse(
-            true, 
+        return ResponseEntity.ok(ApiResponse.success(
             "Custom project compliance updated successfully", 
             responseDTO
         ));
@@ -133,11 +131,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         projectComplianceRepo.delete(compliance);
 
         return ResponseEntity.ok(
-                new ApiResponse<Void>().getAPIResponse(
-                        true,
-                        "Project compliance removed successfully",
-                        null
-                )
+                ApiResponse.success("Project compliance removed successfully", null)
         );
     }
 
@@ -166,7 +160,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         ApiResponse apiResponse=new ApiResponse<>();
 
         return ResponseEntity.ok(
-                apiResponse.getAPIResponse(true, "Project compliances retrieved successfully", dtoList)
+                ApiResponse.success("Project compliances retrieved successfully", dtoList)
         );
     }
 
@@ -195,7 +189,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
         ApiResponse apiResponse=new ApiResponse<>();
 
         return ResponseEntity.ok(
-                apiResponse.getAPIResponse(true, "Project compliance retrieved successfully", dto)
+                ApiResponse.success("Project compliance retrieved successfully", dto)
         );
     }
 
@@ -253,10 +247,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 .build();
 
         return ResponseEntity.ok(
-                new ApiResponse<ProjectComplianceResponseDTO>()
-                        .getAPIResponse(true,
-                                "Successfully inherited client compliance",
-                                responseDTO)
+                ApiResponse.success("Successfully inherited client compliance", responseDTO)
         );
     }
 
@@ -306,8 +297,7 @@ public class ProjectComplianceServiceImpl implements ProjectComplianceService {
                 .build();
         }).toList();
 
-        return ResponseEntity.ok(new ApiResponse<List<ProjectComplianceResponseDTO>>().getAPIResponse(
-            true, 
+        return ResponseEntity.ok(ApiResponse.success(
             "Project compliances saved successfully", 
             responseDTOs
         ));

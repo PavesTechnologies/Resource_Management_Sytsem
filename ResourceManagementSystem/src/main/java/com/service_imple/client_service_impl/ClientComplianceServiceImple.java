@@ -20,7 +20,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     @Autowired
     ApiResponse apiResponse;
     @Override
-    public ResponseEntity<ApiResponse> createClientCompliance(ClientCompliance clientCompliance) {
+    public ResponseEntity<ApiResponse<?>> createClientCompliance(ClientCompliance clientCompliance) {
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         ApiResponse<ClientCompliance> apiResponse= new ApiResponse<>();
         if(Compliance!=null) {
@@ -32,7 +32,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> updateClientCompliance(ClientCompliance clientCompliance) {
+    public ResponseEntity<ApiResponse<?>> updateClientCompliance(ClientCompliance clientCompliance) {
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         if(Compliance!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Updated Successfully",Compliance));
@@ -43,7 +43,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> deleteClientCompliance(UUID id) {
+    public ResponseEntity<ApiResponse<?>> deleteClientCompliance(UUID id) {
         ClientCompliance Compliance=clientComplianceRepo.findById(id).get();
         if(Compliance!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Deleted Successfully",Compliance));
@@ -54,7 +54,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getClientCompliance(UUID clientId) {
+    public ResponseEntity<ApiResponse<?>> getClientCompliance(UUID clientId) {
         List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Compliance"));
 
         return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Fentched Successfully",Compliance));
