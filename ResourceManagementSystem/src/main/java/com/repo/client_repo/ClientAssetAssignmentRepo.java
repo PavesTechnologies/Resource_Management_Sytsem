@@ -55,5 +55,5 @@ public interface ClientAssetAssignmentRepo extends JpaRepository<ClientAssetAssi
 """)
     long countAssignedUnitsByClient(UUID clientId);
 
-
+    List<ClientAssetAssignment> findByProjectName(String projectName);
 }

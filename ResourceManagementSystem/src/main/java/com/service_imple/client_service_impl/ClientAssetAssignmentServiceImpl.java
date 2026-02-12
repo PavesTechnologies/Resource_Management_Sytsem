@@ -6,11 +6,13 @@ import com.dto.client_dto.AssetAssignmentKPIDTo;
 import com.dto.client_dto.AssetResponseDTO;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetAssignment;
+import com.entity.project_entities.Project;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
 import com.repo.client_repo.ClientRepo;
+import com.repo.project_repo.ProjectRepository;
 import com.service_interface.client_service_interface.ClientAssetAssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,8 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
     private final ClientAssetRepository assetRepository;
     private final ClientAssetAssignmentRepo assignmentRepository;
     private final ClientRepo clientRepo;
+    private final ProjectRepository projectRepository;
+
     // ASSIGN ASSET
     @Override
     @Transactional
@@ -302,6 +306,28 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
                     "Asset return failed: " + e.getMessage(),
                     null
             ));
+        }
+    }
+
+    @Override
+    public ApiResponse<?> getAssignmentsByProjectId(Long projectId) {
+        try {
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            List<ClientAssetAssignment> assignments = assignmentRepository.findByProjectName(project.getName());
+
+            return new ApiResponse<>(
+                    true,
+                    "Project asset assignments retrieved successfully",
+                    assignments
+            );
+        } catch (Exception e) {
+            return new ApiResponse<>(
+                    false,
+                    "Failed to fetch project assignments: " + e.getMessage(),
+                    null
+            );
         }
     }
 }
