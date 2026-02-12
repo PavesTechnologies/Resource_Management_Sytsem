@@ -1,6 +1,6 @@
 package com.repo.kpi_repo;
 
-import com.projection.DashboardKpiProjection;
+import com.service_interface.availability_interface.DashboardKpiProjection;
 import com.entity.resource_entities.Resource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

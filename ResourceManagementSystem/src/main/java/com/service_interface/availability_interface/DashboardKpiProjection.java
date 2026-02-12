@@ -1,4 +1,4 @@
-package com.projection;
+package com.service_interface.availability_interface;
 
 public interface DashboardKpiProjection {
     Long getTotalResources();

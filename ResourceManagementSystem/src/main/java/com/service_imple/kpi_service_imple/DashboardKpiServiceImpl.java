@@ -1,7 +1,7 @@
 package com.service_imple.kpi_service_imple;
 
 import com.dto.DashboardKpiDTO;
-import com.projection.DashboardKpiProjection;
+import com.service_interface.availability_interface.DashboardKpiProjection;
 import com.repo.kpi_repo.DashboardKpiRepository;
 import com.service_interface.kpi_service.DashboardKpiService;
 import lombok.RequiredArgsConstructor;
