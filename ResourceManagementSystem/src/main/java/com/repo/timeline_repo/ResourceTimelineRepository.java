@@ -218,7 +218,6 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                 WHEN resource_avg_allocation > 70 AND resource_avg_allocation <= 100 THEN 1 ELSE 0 END) as fullyAllocated,
             SUM(CASE 
                 WHEN resource_avg_allocation > 100 THEN 1 ELSE 0 END) as overAllocated,
-            AVG(LEAST(resource_avg_allocation, 100)) as utilization,
             COUNT(CASE 
                 WHEN r.notice_start_date IS NOT NULL AND r.notice_end_date IS NOT NULL
                 AND CURRENT_DATE BETWEEN r.notice_start_date AND r.notice_end_date 
@@ -279,7 +278,6 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                 WHEN resource_avg_allocation > 70 AND resource_avg_allocation <= 100 THEN 1 ELSE 0 END) as fullyAllocated,
             SUM(CASE 
                 WHEN resource_avg_allocation > 100 THEN 1 ELSE 0 END) as overAllocated,
-            AVG(LEAST(resource_avg_allocation, 100)) as utilization,
             COUNT(CASE 
                 WHEN r.notice_start_date IS NOT NULL AND r.notice_end_date IS NOT NULL
                 AND CURRENT_DATE BETWEEN r.notice_start_date AND r.notice_end_date 
