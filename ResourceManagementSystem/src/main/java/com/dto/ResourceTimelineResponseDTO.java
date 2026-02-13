@@ -1,6 +1,7 @@
 package com.dto;
 
 import com.dto.allocation_dto.AllocationTimelineItem;
+import com.dto.allocation_dto.NoticeInfoDTO;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
@@ -25,6 +26,7 @@ public class ResourceTimelineResponseDTO {
     private Integer currentAllocation;
     private LocalDate availableFrom;
     private List<String> currentProject;
+    private NoticeInfoDTO noticeInfo;
     private String nextAssignment;
     private String employmentType;
     private List<Integer> utilizationHistory;
@@ -41,5 +43,7 @@ public class ResourceTimelineResponseDTO {
         private Long fullyAllocated;
         private Long overAllocated;
         private Double utilization;
+        private Long noticePeriodResources;
+        private Long availableNoticePeriodResources;
     }
 }
