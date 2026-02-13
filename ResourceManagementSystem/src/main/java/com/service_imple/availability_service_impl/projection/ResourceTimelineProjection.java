@@ -10,4 +10,7 @@ public interface ResourceTimelineProjection {
     Integer getExperiance();
     String getEmploymentType();
     Double getAvgAllocation();
+    LocalDate getNoticeStartDate();
+    LocalDate getNoticeEndDate();
+    Boolean getAllocationAllowed();
 }

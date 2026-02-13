@@ -7,4 +7,6 @@ public interface TimelineKpiProjection {
     Long getFullyAllocated();
     Long getOverAllocated();
     Double getUtilization();
+    Long getNoticePeriodResources();
+    Long getAvailableNoticePeriodResources();
 }

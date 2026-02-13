@@ -4,6 +4,7 @@ import com.dto.ResourceTimelineDTO;
 import com.dto.ResourceTimelineResponseDTO;
 import com.dto.ResourceTimelineApiResponse;
 import com.dto.allocation_dto.AllocationTimelineItem;
+import com.dto.allocation_dto.NoticeInfoDTO;
 import com.service_imple.availability_service_impl.projection.ResourceTimelineProjection;
 import com.service_imple.availability_service_impl.projection.TimelineKpiProjection;
 import com.service_imple.availability_service_impl.projection.AllocationTimelineProjection;
@@ -21,6 +22,7 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.entity_enums.resource_enums.EmploymentStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -122,15 +124,19 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             currentAllocationMap = Map.of();
         }
         
-        // Map to full response DTOs with status filtering
+        // Map to full response DTOs with status filtering and notice period logic
         List<ResourceTimelineResponseDTO> responseDTOs = filteredData.stream()
                 .map(projection -> mapToFullResponseDTO(projection, allocationTimelineMap, currentProjectMap, currentAllocationMap))
                 .filter(dto -> {
                     if (status == null) return true;
+                    
+                    // Apply notice period throttling to availability calculation
+                    Integer effectiveAllocation = applyNoticePeriodThrottling(dto);
+                    
                     return switch (status) {
-                        case "available" -> dto.getCurrentAllocation() <= 20;
-                        case "partial" -> dto.getCurrentAllocation() > 20 && dto.getCurrentAllocation() <= 70;
-                        case "allocated" -> dto.getCurrentAllocation() > 70;
+                        case "available" -> effectiveAllocation <= 20;
+                        case "partial" -> effectiveAllocation > 20 && effectiveAllocation <= 70;
+                        case "allocated" -> effectiveAllocation > 70;
                         default -> true;
                     };
                 })
@@ -171,6 +177,8 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                     .fullyAllocated(0L)
                     .overAllocated(0L)
                     .utilization(0.0)
+                    .noticePeriodResources(0L)
+                    .availableNoticePeriodResources(0L)
                     .build();
         }
         
@@ -182,6 +190,8 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 .fullyAllocated(kpi.getFullyAllocated())
                 .overAllocated(kpi.getOverAllocated())
                 .utilization(kpi.getUtilization() != null ? kpi.getUtilization() : 0.0)
+                .noticePeriodResources(kpi.getNoticePeriodResources() != null ? kpi.getNoticePeriodResources() : 0L)
+                .availableNoticePeriodResources(kpi.getAvailableNoticePeriodResources() != null ? kpi.getAvailableNoticePeriodResources() : 0L)
                 .build();
     }
 
@@ -231,6 +241,13 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             }
         }
         
+        // Create notice info DTO
+        NoticeInfoDTO noticeInfo = createNoticeInfoDTO(
+            projection.getNoticeStartDate(), 
+            projection.getNoticeEndDate(), 
+            projection.getAllocationAllowed()
+        );
+        
         return ResourceTimelineResponseDTO.builder()
                 .resourceId(projection.getId())
                 .name(projection.getFullName())
@@ -246,6 +263,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 .employmentType(projection.getEmploymentType())
                 .utilizationHistory(utilizationHistory)
                 .allocationTimeline(allocationTimeline)
+                .noticeInfo(noticeInfo)
                 .build();
     }
 
@@ -271,5 +289,89 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             return parts[0].substring(0, Math.min(2, parts[0].length())).toUpperCase();
         }
         return "UN";
+    }
+
+    /**
+     * Creates NoticeInfoDTO from resource notice period data
+     */
+    private NoticeInfoDTO createNoticeInfoDTO(LocalDate noticeStartDate, LocalDate noticeEndDate, Boolean allocationAllowed) {
+        LocalDate today = LocalDate.now();
+        boolean isNoticePeriod = noticeStartDate != null && noticeEndDate != null 
+            && !today.isBefore(noticeStartDate) && !today.isAfter(noticeEndDate);
+        
+        return NoticeInfoDTO.builder()
+            .isNoticePeriod(isNoticePeriod)
+            .noticeStartDate(noticeStartDate)
+            .noticeEndDate(noticeEndDate)
+            .build();
+    }
+
+    /**
+     * Applies notice period throttling rules to resource availability
+     * Resources in notice period have reduced effective availability
+     */
+    private Integer applyNoticePeriodThrottling(ResourceTimelineResponseDTO dto) {
+        if (dto.getNoticeInfo() == null || !dto.getNoticeInfo().getIsNoticePeriod()) {
+            return dto.getCurrentAllocation();
+        }
+        
+        // Notice period throttling rules:
+        // - If allocation is explicitly not allowed, show as 100% allocated
+        // - Otherwise apply 50% throttling to current allocation
+        // - Minimum throttled allocation is 50% to avoid showing false availability
+        
+        Integer currentAllocation = dto.getCurrentAllocation();
+        
+        // If resource is in notice period and allocations are not allowed
+        if (dto.getNoticeInfo().getNoticeEndDate() != null) {
+            LocalDate today = LocalDate.now();
+            LocalDate noticeEndDate = dto.getNoticeInfo().getNoticeEndDate();
+            
+            // If we're within 30 days of notice end, restrict allocations heavily
+            if (today.plusDays(30).isAfter(noticeEndDate) || today.isAfter(noticeEndDate)) {
+                return Math.max(currentAllocation, 90); // Show as heavily allocated
+            }
+        }
+        
+        // Apply standard notice period throttling (50% reduction in effective availability)
+        Integer throttledAllocation = Math.max(currentAllocation + 50, 100);
+        return Math.min(throttledAllocation, 100);
+    }
+
+    /**
+     * Validates if a resource can be allocated to a new project based on notice period rules
+     */
+    public boolean canAllocateToProject(ResourceTimelineResponseDTO dto, Integer allocationPercentage, LocalDate startDate, LocalDate endDate) {
+        if (dto.getNoticeInfo() == null || !dto.getNoticeInfo().getIsNoticePeriod()) {
+            return true; // No restrictions for non-notice period resources
+        }
+        
+        LocalDate today = LocalDate.now();
+        LocalDate noticeEndDate = dto.getNoticeInfo().getNoticeEndDate();
+        
+        // Rule 1: No new allocations after notice end date
+        if (noticeEndDate != null && startDate.isAfter(noticeEndDate)) {
+            return false;
+        }
+        
+        // Rule 2: No long-term allocations (> 30 days) for notice period resources
+        if (startDate != null && endDate != null) {
+            long allocationDuration = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate);
+            if (allocationDuration > 30) {
+                return false;
+            }
+        }
+        
+        // Rule 3: No critical allocations (> 80% allocation) for notice period resources
+        if (allocationPercentage != null && allocationPercentage > 80) {
+            return false;
+        }
+        
+        // Rule 4: Heavy restrictions within 30 days of notice end
+        if (noticeEndDate != null && today.plusDays(30).isAfter(noticeEndDate)) {
+            return allocationPercentage != null && allocationPercentage <= 20; // Only allow very small allocations
+        }
+        
+        return true;
     }
 }
