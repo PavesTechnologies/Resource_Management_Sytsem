@@ -221,11 +221,19 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         // Create notice info DTO
+        // Debug logging - remove in production
+        System.out.println("DEBUG: Projection ID: " + projection.getId());
+        System.out.println("DEBUG: Notice Start from projection: " + projection.getNoticeStartDate());
+        System.out.println("DEBUG: Notice End from projection: " + projection.getNoticeEndDate());
+        System.out.println("DEBUG: Allocation Allowed from projection: " + projection.getAllocationAllowed());
+        
         NoticeInfoDTO noticeInfo = createNoticeInfoDTO(
             projection.getNoticeStartDate(), 
             projection.getNoticeEndDate(), 
             projection.getAllocationAllowed()
         );
+        
+        System.out.println("DEBUG: Created NoticeInfo: " + noticeInfo);
         
         return ResourceTimelineResponseDTO.builder()
                 .resourceId(projection.getId())
@@ -276,6 +284,12 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         LocalDate today = LocalDate.now();
         boolean isNoticePeriod = noticeStartDate != null && noticeEndDate != null 
             && !today.isBefore(noticeStartDate) && !today.isAfter(noticeEndDate);
+        
+//         Debug logging - remove in production
+        System.out.println("DEBUG: Today: " + today);
+        System.out.println("DEBUG: Notice Start: " + noticeStartDate);
+        System.out.println("DEBUG: Notice End: " + noticeEndDate);
+        System.out.println("DEBUG: Is Notice Period: " + isNoticePeriod);
         
         return NoticeInfoDTO.builder()
             .isNoticePeriod(isNoticePeriod)

@@ -11,4 +11,7 @@ public interface AvailabilityTriggerService {
     void triggerBulkRecalculation(YearMonth startMonth, YearMonth endMonth);
     
     void handleHolidayDataChange(Integer year);
+    
+    void handleProjectTimelineChange(Long projectId, java.time.LocalDateTime oldStartDate, java.time.LocalDateTime oldEndDate, 
+                                   java.time.LocalDateTime newStartDate, java.time.LocalDateTime newEndDate);
 }

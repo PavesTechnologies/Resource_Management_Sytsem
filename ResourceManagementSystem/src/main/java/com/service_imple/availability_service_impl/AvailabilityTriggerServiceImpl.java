@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 
 @Service
@@ -55,6 +56,11 @@ public class AvailabilityTriggerServiceImpl implements AvailabilityTriggerServic
         YearMonth endMonth = YearMonth.of(year, 12);
         
         triggerBulkRecalculation(startMonth, endMonth);
+    }
+
+    @Override
+    public void handleProjectTimelineChange(Long projectId, LocalDateTime oldStartDate, LocalDateTime oldEndDate, LocalDateTime newStartDate, LocalDateTime newEndDate) {
+
     }
 
 }
