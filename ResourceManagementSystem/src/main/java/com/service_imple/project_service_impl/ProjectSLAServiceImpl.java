@@ -123,16 +123,23 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
 
     @Override
     public ResponseEntity<ApiResponse<Void>> deleteProjectSLA(UUID projectSlaId) {
+
         ProjectSLA sla = projectSLARepo.findById(projectSlaId)
-            .orElseThrow(() -> ProjectExceptionHandler.notFound("Project SLA not found with id: " + projectSlaId));
-        
-        if (sla.getIsInherited()) {
-            throw ProjectExceptionHandler.conflict("Cannot delete an inherited SLA. Please override it instead.");
-        }
-        
+                .orElseThrow(() ->
+                        ProjectExceptionHandler.notFound("Project SLA not found with id: " + projectSlaId));
+
+        // Allow deletion of both inherited and custom SLAs
         projectSLARepo.delete(sla);
-        return ResponseEntity.ok(new ApiResponse<Void>().getAPIResponse(true, "Project SLA deleted successfully", null));
+
+        return ResponseEntity.ok(
+                new ApiResponse<Void>().getAPIResponse(
+                        true,
+                        "Project SLA deleted successfully",
+                        null
+                )
+        );
     }
+
 
     @Override
     public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAByProjectId(Long projectId) {
