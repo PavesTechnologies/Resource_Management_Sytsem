@@ -12,6 +12,7 @@ import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.Map;
 import java.time.LocalDateTime;
+import org.springframework.web.client.HttpClientErrorException;
 
 @Service
 public class TokenService {
@@ -95,5 +96,40 @@ public class TokenService {
 
     private void logAuthenticationError(HttpClientErrorException e) {
         // Authentication error logged
+    }
+
+    public Map<String, Object> getMonthlyUtilization(Long userId, Integer year, Integer month) {
+        try {
+            String accessToken = getAccessToken();
+            if (accessToken == null) {
+                return null;
+            }
+
+            String utilizationUrl = "http://13.202.204.204:5000/api/utilization/monthly/" + userId + "?year=" + year + "&month=" + month;
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            ResponseEntity<Map> response = restTemplate.exchange(
+                utilizationUrl,
+                HttpMethod.GET,
+                entity,
+                Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            }
+            
+        } catch (HttpClientErrorException e) {
+            // Log error but don't throw - we want to continue with null utilization
+        } catch (Exception e) {
+            // Log error but don't throw - we want to continue with null utilization
+        }
+        
+        return null;
     }
 }
