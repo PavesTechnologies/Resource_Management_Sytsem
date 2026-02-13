@@ -12,11 +12,13 @@ import com.service_imple.availability_service_impl.projection.CurrentProjectProj
 import com.service_imple.availability_service_impl.projection.CurrentAllocationProjection;
 import com.repo.timeline_repo.ResourceTimelineRepository;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
+import com.service_imple.external_api_impl.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -27,6 +29,7 @@ import com.entity_enums.resource_enums.EmploymentStatus;
 public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     private final ResourceTimelineRepository resourceTimelineRepository;
+    private final TokenService tokenService;
 
     @Override
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
@@ -207,6 +210,25 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         // Use current allocation from today-based calculation, fallback to 0 if not found
         Integer currentAllocation = currentAllocationMap.getOrDefault(projection.getId(), 0);
         
+        // Call utilization API and set utilization to null if any data is returned
+        List<Integer> utilizationHistory = List.of(0);
+        try {
+            YearMonth currentMonth = YearMonth.now();
+            Map<String, Object> utilizationData = tokenService.getMonthlyUtilization(
+                projection.getId(), currentMonth.getYear(), currentMonth.getMonthValue());
+            
+            if (utilizationData != null && !utilizationData.isEmpty()) {
+                // If utilization API returns any data, set utilization to null
+                utilizationHistory = null;
+            } else {
+                // Use current allocation if no utilization data returned
+                utilizationHistory = currentAllocation > 0 ? List.of(currentAllocation) : List.of(0);
+            }
+        } catch (Exception e) {
+            // On any error, use current allocation
+            utilizationHistory = currentAllocation > 0 ? List.of(currentAllocation) : List.of(0);
+        }
+        
         // Calculate availableFrom date (day after current allocations end)
         LocalDate availableFrom = null;
         if (currentAllocation > 0 && !allocationTimeline.isEmpty()) {
@@ -239,7 +261,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 .currentProject(currentProjects)
                 .nextAssignment(null) // Placeholder - would need separate query
                 .employmentType(projection.getEmploymentType())
-                .utilizationHistory(currentAllocation > 0 ? List.of(currentAllocation) : List.of(0))
+                .utilizationHistory(utilizationHistory)
                 .allocationTimeline(allocationTimeline)
                 .noticeInfo(noticeInfo)
                 .build();
