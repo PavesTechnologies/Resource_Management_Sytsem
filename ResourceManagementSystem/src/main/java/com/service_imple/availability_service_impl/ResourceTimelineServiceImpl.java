@@ -176,7 +176,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                     .partiallyAvailable(0L)
                     .fullyAllocated(0L)
                     .overAllocated(0L)
-                    .utilization(0.0)
                     .noticePeriodResources(0L)
                     .availableNoticePeriodResources(0L)
                     .build();
@@ -189,7 +188,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 .partiallyAvailable(kpi.getPartiallyAvailable())
                 .fullyAllocated(kpi.getFullyAllocated())
                 .overAllocated(kpi.getOverAllocated())
-                .utilization(kpi.getUtilization() != null ? kpi.getUtilization() : 0.0)
                 .noticePeriodResources(kpi.getNoticePeriodResources() != null ? kpi.getNoticePeriodResources() : 0L)
                 .availableNoticePeriodResources(kpi.getAvailableNoticePeriodResources() != null ? kpi.getAvailableNoticePeriodResources() : 0L)
                 .build();
@@ -209,25 +207,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         
         // Use current allocation from today-based calculation, fallback to 0 if not found
         Integer currentAllocation = currentAllocationMap.getOrDefault(projection.getId(), 0);
-        
-        // Call utilization API and set utilization to null if any data is returned
-        List<Integer> utilizationHistory = List.of(0);
-        try {
-            YearMonth currentMonth = YearMonth.now();
-            Map<String, Object> utilizationData = tokenService.getMonthlyUtilization(
-                projection.getId(), currentMonth.getYear(), currentMonth.getMonthValue());
-            
-            if (utilizationData != null && !utilizationData.isEmpty()) {
-                // If utilization API returns any data, set utilization to null
-                utilizationHistory = null;
-            } else {
-                // Use current allocation if no utilization data returned
-                utilizationHistory = currentAllocation > 0 ? List.of(currentAllocation) : List.of(0);
-            }
-        } catch (Exception e) {
-            // On any error, use current allocation
-            utilizationHistory = currentAllocation > 0 ? List.of(currentAllocation) : List.of(0);
-        }
         
         // Calculate availableFrom date (day after current allocations end)
         LocalDate availableFrom = null;
@@ -269,7 +248,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 .currentProject(currentProjects)
                 .nextAssignment(null) // Placeholder - would need separate query
                 .employmentType(projection.getEmploymentType())
-                .utilizationHistory(utilizationHistory)
                 .allocationTimeline(allocationTimeline)
                 .noticeInfo(noticeInfo)
                 .build();

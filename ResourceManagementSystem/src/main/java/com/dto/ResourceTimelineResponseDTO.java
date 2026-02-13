@@ -29,7 +29,6 @@ public class ResourceTimelineResponseDTO {
     private NoticeInfoDTO noticeInfo;
     private String nextAssignment;
     private String employmentType;
-    private List<Integer> utilizationHistory;
     private List<AllocationTimelineItem> allocationTimeline;
     
     @Data
@@ -42,7 +41,6 @@ public class ResourceTimelineResponseDTO {
         private Long partiallyAvailable;
         private Long fullyAllocated;
         private Long overAllocated;
-        private Double utilization;
         private Long noticePeriodResources;
         private Long availableNoticePeriodResources;
     }
