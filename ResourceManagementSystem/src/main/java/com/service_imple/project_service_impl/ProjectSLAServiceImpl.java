@@ -71,7 +71,7 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
                 .clientSlaId(projectSLA.getClientSLA() != null ? projectSLA.getClientSLA().getSlaId() : null)
                 .build();
 
-        return ResponseEntity.ok(new ApiResponse<ProjectSLAResponseDTO>().getAPIResponse(true, "Project SLA saved successfully", responseDTO));
+        return ResponseEntity.ok(ApiResponse.success("Project SLA saved successfully", responseDTO));
     }
 
     @Override
@@ -114,8 +114,7 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
                 .clientSlaId(updatedSLA.getClientSLA() != null ? updatedSLA.getClientSLA().getSlaId() : null)
                 .build();
         
-        return ResponseEntity.ok(new ApiResponse<ProjectSLAResponseDTO>().getAPIResponse(
-            true, 
+        return ResponseEntity.ok(ApiResponse.success(
             "Custom project SLA updated successfully", 
             responseDTO
         ));
@@ -138,8 +137,8 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
                         null
                 )
         );
-    }
 
+    }
 
     @Override
     public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAByProjectId(Long projectId) {
@@ -165,7 +164,7 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
         ApiResponse apiResponse=new ApiResponse<>();
 
         return ResponseEntity.ok(
-                apiResponse.getAPIResponse(true, "Project SLAs retrieved successfully", dtoList)
+                ApiResponse.success("Project SLAs retrieved successfully", dtoList)
         );
     }
 

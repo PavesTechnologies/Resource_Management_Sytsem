@@ -12,7 +12,6 @@ import com.entity_enums.project_enums.StaffingReadinessStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
-import com.specification.ProjectSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -205,46 +204,46 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     }
 
     @Override
-    public ResponseEntity<?> getProjectById(Long id) {
+    public ResponseEntity<ApiResponse<?>> getProjectById(Long id) {
         Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
         return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
     }
 
     @Override
-    public ResponseEntity<?> getProjectByClient(UUID id) {
+    public ResponseEntity<ApiResponse<?>> getProjectByClient(UUID id) {
         List<Project> project =  projectRepository.findByClientId(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
     }
 
     @Override
-    public ResponseEntity<?> checkDemandCreation(Long projectId) {
+    public ResponseEntity<ApiResponse<?>> checkDemandCreation(Long projectId) {
         Project project = projectRepository.findById(projectId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not found!"));
         CheckDemandCreationDTO response = new CheckDemandCreationDTO();
         response.setCreate(false);
         if (project.getClient().getStatus() != RecordStatus.ACTIVE) {
             response.setReason("Client is not Active.");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         if (project.getProjectStatus() != ProjectStatus.ACTIVE
                 && project.getProjectStatus() != ProjectStatus.APPROVED) {
             response.setReason("Project status is not Active or Approved.");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         if (project.getStaffingReadinessStatus() != StaffingReadinessStatus.READY) {
             response.setReason("Staffing is not allowed for this project.");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         if (project.getStartDate() == null) {
             response.setReason("Project start date is not defined.");
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         response.setCreate(true);
         response.setReason("All pre-requisites are met.");
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
     }
 
     @Override
-    public ResponseEntity<?> readinessStatusUpdate(UpdateReadinessStatusDTO readiness) {
+    public ResponseEntity<ApiResponse<?>> readinessStatusUpdate(UpdateReadinessStatusDTO readiness) {
         Project project = projectRepository.findById(readiness.getPmsProjectId()).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project Not Found!"));
         project.setStaffingReadinessStatus(readiness.getStatus());
         project.setStaffingReadinessReason(readiness.getReason());

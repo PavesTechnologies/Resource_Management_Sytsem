@@ -1,7 +1,7 @@
 package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
-import com.entity.Demand;
+import com.entity.demand_entities.Demand;
 import com.entity_enums.skill_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
@@ -26,7 +26,7 @@ public class DemandServiceImpl implements DemandService {
     private ProjectDemandValidationService projectDemandValidationService;
 
     @Override
-    public ResponseEntity<ApiResponse> createDemand(Demand demand) {
+    public ResponseEntity<ApiResponse<?>> createDemand(Demand demand) {
         try {
 
             // 🔐 ADD THIS AS FIRST LINE (VERY IMPORTANT)
@@ -47,8 +47,7 @@ public class DemandServiceImpl implements DemandService {
             // Save the demand
             Demand savedDemand = demandRepository.save(demand);
 
-            ApiResponse response = new ApiResponse(
-                    true,
+            ApiResponse response = ApiResponse.success(
                     "Demand created successfully",
                     savedDemand.getDemandId()
             );
@@ -57,19 +56,15 @@ public class DemandServiceImpl implements DemandService {
 
         } catch (ProjectExceptionHandler e) {
             // ✅ Business validation failure (expected)
-            ApiResponse response = new ApiResponse(
-                    false,
-                    e.getMessage(),
-                    null
+            ApiResponse response = ApiResponse.error(
+                    e.getMessage()
             );
             return new ResponseEntity<>(response, e.getStatus());
 
         } catch (Exception e) {
             // ❌ Unexpected failure
-            ApiResponse response = new ApiResponse(
-                    false,
-                    "Failed to create demand: " + e.getMessage(),
-                    null
+            ApiResponse response = ApiResponse.error(
+                    "Failed to create demand: " + e.getMessage()
             );
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
@@ -77,7 +72,7 @@ public class DemandServiceImpl implements DemandService {
 
     @Transactional
     @Override
-    public ResponseEntity<ApiResponse> updateDemand(Demand request) {
+    public ResponseEntity<ApiResponse<?>> updateDemand(Demand request) {
 
         if (request.getDemandId() == null) {
             throw new ProjectExceptionHandler(
@@ -138,13 +133,13 @@ public class DemandServiceImpl implements DemandService {
         demandRepository.save(existing);
 
         return ResponseEntity.ok(
-                new ApiResponse(true, "Demand updated successfully", existing.getDemandId())
+                ApiResponse.success("Demand updated successfully", existing.getDemandId())
         );
     }
 
 
     @Override
-    public ResponseEntity<ApiResponse> getDemandByProjectId(Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId) {
         try {
             // Validate project ID
             if (projectId == null) {
@@ -161,8 +156,7 @@ public class DemandServiceImpl implements DemandService {
             // Fetch demands by project ID
             List<Demand> demands = demandRepository.findByProject_PmsProjectId(projectId);
 
-            ApiResponse response = new ApiResponse(
-                    true,
+            ApiResponse response = ApiResponse.success(
                     "Demands retrieved successfully",
                     demands
             );
@@ -171,19 +165,15 @@ public class DemandServiceImpl implements DemandService {
 
         } catch (ProjectExceptionHandler e) {
             // Business validation failure
-            ApiResponse response = new ApiResponse(
-                    false,
-                    e.getMessage(),
-                    null
+            ApiResponse response = ApiResponse.error(
+                    e.getMessage()
             );
             return new ResponseEntity<>(response, e.getStatus());
 
         } catch (Exception e) {
             // Unexpected failure
-            ApiResponse response = new ApiResponse(
-                    false,
-                    "Failed to retrieve demands: " + e.getMessage(),
-                    null
+            ApiResponse response = ApiResponse.error(
+                    "Failed to retrieve demands: " + e.getMessage()
             );
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }

@@ -1,6 +1,6 @@
 package com.service_imple.allocation_service_imple;
 
-import com.dto.AllocationRequestDTO;
+import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.ApiResponse;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
@@ -12,7 +12,6 @@ import com.repo.project_repo.ProjectRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +23,6 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AllocationServiceImple implements AllocationService {
 
     private final AllocationRepository allocationRepository;
@@ -34,7 +32,7 @@ public class AllocationServiceImple implements AllocationService {
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
 
     @Override
-    public ResponseEntity<ApiResponse> assignAllocation(AllocationRequestDTO allocationRequest) {
+    public ResponseEntity<ApiResponse<?>> assignAllocation(AllocationRequestDTO allocationRequest) {
         try {
             // Validate resource exists
             if (!resourceRepository.existsById(allocationRequest.getResourceId())) {
@@ -78,23 +76,20 @@ public class AllocationServiceImple implements AllocationService {
             // Update availability ledger for the allocation period
             updateAvailabilityLedgerForAllocation(savedAllocation);
             
-            log.info("Successfully created allocation {} for resource {}", 
-                    savedAllocation.getAllocationId(), allocationRequest.getResourceId());
-
+            
             return ResponseEntity.ok(
                 new ApiResponse<>(true, "Allocation created successfully", savedAllocation)
             );
 
         } catch (Exception e) {
-            log.error("Error creating allocation: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(
+                        return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error creating allocation: " + e.getMessage(), null)
             );
         }
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getAllocationById(UUID allocationId) {
+    public ResponseEntity<ApiResponse<?>> getAllocationById(UUID allocationId) {
         try {
             Optional<ResourceAllocation> allocation = allocationRepository.findById(allocationId);
             
@@ -106,15 +101,14 @@ public class AllocationServiceImple implements AllocationService {
                 return ResponseEntity.notFound().build();
             }
         } catch (Exception e) {
-            log.error("Error retrieving allocation {}: {}", allocationId, e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(
+                        return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error retrieving allocation: " + e.getMessage(), null)
             );
         }
     }
 
     @Override
-    public ResponseEntity<ApiResponse> updateAllocation(UUID allocationId, AllocationRequestDTO allocationRequest) {
+    public ResponseEntity<ApiResponse<?>> updateAllocation(UUID allocationId, AllocationRequestDTO allocationRequest) {
         try {
             Optional<ResourceAllocation> existingAllocation = allocationRepository.findById(allocationId);
             
@@ -135,14 +129,12 @@ public class AllocationServiceImple implements AllocationService {
             // Update availability ledger for the modified allocation period
             updateAvailabilityLedgerForAllocation(updatedAllocation);
             
-            log.info("Successfully updated allocation {}", allocationId);
-
+            
             return ResponseEntity.ok(
                 new ApiResponse<>(true, "Allocation updated successfully", updatedAllocation)
             );
 
         } catch (Exception e) {
-            log.error("Error updating allocation {}: {}", allocationId, e.getMessage(), e);
             return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error updating allocation: " + e.getMessage(), null)
             );
@@ -150,7 +142,7 @@ public class AllocationServiceImple implements AllocationService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> cancelAllocation(UUID allocationId, String cancelledBy) {
+    public ResponseEntity<ApiResponse<?>> cancelAllocation(UUID allocationId, String cancelledBy) {
         try {
             Optional<ResourceAllocation> existingAllocation = allocationRepository.findById(allocationId);
             
@@ -166,14 +158,12 @@ public class AllocationServiceImple implements AllocationService {
             // Update availability ledger to reflect cancellation
             updateAvailabilityLedgerForAllocation(cancelledAllocation);
             
-            log.info("Successfully cancelled allocation {} by user {}", allocationId, cancelledBy);
-
+            
             return ResponseEntity.ok(
                 new ApiResponse<>(true, "Allocation cancelled successfully", cancelledAllocation)
             );
 
         } catch (Exception e) {
-            log.error("Error cancelling allocation {}: {}", allocationId, e.getMessage(), e);
             return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error cancelling allocation: " + e.getMessage(), null)
             );
@@ -181,7 +171,7 @@ public class AllocationServiceImple implements AllocationService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getAllocationsByResource(Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getAllocationsByResource(Long resourceId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByResource_ResourceId(resourceId);
             
@@ -190,7 +180,6 @@ public class AllocationServiceImple implements AllocationService {
             );
 
         } catch (Exception e) {
-            log.error("Error retrieving allocations for resource {}: {}", resourceId, e.getMessage(), e);
             return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error retrieving allocations: " + e.getMessage(), null)
             );
@@ -198,7 +187,7 @@ public class AllocationServiceImple implements AllocationService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getAllocationsByDemand(UUID demandId) {
+    public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demandId);
             
@@ -207,7 +196,6 @@ public class AllocationServiceImple implements AllocationService {
             );
 
         } catch (Exception e) {
-            log.error("Error retrieving allocations for demand {}: {}", demandId, e.getMessage(), e);
             return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error retrieving allocations: " + e.getMessage(), null)
             );
@@ -215,7 +203,7 @@ public class AllocationServiceImple implements AllocationService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse> getAllocationsByProject(Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByProject_PmsProjectId(projectId);
             
@@ -224,7 +212,6 @@ public class AllocationServiceImple implements AllocationService {
             );
 
         } catch (Exception e) {
-            log.error("Error retrieving allocations for project {}: {}", projectId, e.getMessage(), e);
             return ResponseEntity.internalServerError().body(
                 new ApiResponse<>(false, "Error retrieving allocations: " + e.getMessage(), null)
             );
@@ -242,8 +229,7 @@ public class AllocationServiceImple implements AllocationService {
             LocalDate startDate = allocation.getAllocationStartDate();
             LocalDate endDate = allocation.getAllocationEndDate();
             
-            log.debug("Updating availability ledger for resource {} from {} to {}", resourceId, startDate, endDate);
-            
+                        
             // For each day in the allocation period, update the ledger
             LocalDate currentDate = startDate;
             while (!currentDate.isAfter(endDate)) {
@@ -251,13 +237,9 @@ public class AllocationServiceImple implements AllocationService {
                 currentDate = currentDate.plusDays(1);
             }
             
-            log.info("Successfully updated availability ledger for allocation {} affecting {} days", 
-                    allocation.getAllocationId(), java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1);
-                    
+                                
         } catch (Exception e) {
-            log.error("Error updating availability ledger for allocation {}: {}", 
-                    allocation.getAllocationId(), e.getMessage(), e);
-            // Don't throw here to avoid failing the main allocation operation
+                        // Don't throw here to avoid failing the main allocation operation
         }
     }
 
@@ -301,7 +283,6 @@ public class AllocationServiceImple implements AllocationService {
             ledgerRepository.save(ledger);
             
         } catch (Exception e) {
-            log.error("Error updating ledger for resource {} on date {}: {}", resourceId, date, e.getMessage());
-        }
+                    }
     }
 }

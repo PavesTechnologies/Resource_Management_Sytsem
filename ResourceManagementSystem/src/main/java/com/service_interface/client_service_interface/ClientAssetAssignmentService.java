@@ -9,21 +9,23 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public interface ClientAssetAssignmentService {
-    ResponseEntity<?> assignAsset(UUID assetId, ClientAssetAssignment assignment);
+    ResponseEntity<ApiResponse<?>> assignAsset(UUID assetId, ClientAssetAssignment assignment);
 
-    ApiResponse<Void> updateAssignment(UUID assignmentId, ClientAssetAssignment assignment);
+    ResponseEntity<ApiResponse<?>> updateAssignment(UUID assignmentId, ClientAssetAssignment assignment);
 
-    ResponseEntity<?> deleteAssignment(UUID assignmentId);
+    ResponseEntity<ApiResponse<?>> deleteAssignment(UUID assignmentId);
 
-    ApiResponse<?> getAllAssignments();
+    ResponseEntity<ApiResponse<?>> getAllAssignments();
     
-    ApiResponse<?> getAssignmentsByAssetId(UUID assetId);
+    ResponseEntity<ApiResponse<?>> getAssignmentsByAssetId(UUID assetId);
 
-    ApiResponse<Void> returnAsset(
+    ResponseEntity<ApiResponse<?>> returnAsset(
             UUID assignmentId,
             LocalDate actualReturnDate,
             String remarks
     );
 
     ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(UUID assetId);
+
+    ApiResponse<?> getAssignmentsByProjectId(Long projectId);
 }
