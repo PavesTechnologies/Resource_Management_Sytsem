@@ -9,6 +9,7 @@ import com.entity.project_entities.Project;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.repo.client_repo.ClientRepo;
 import com.repo.project_repo.ProjectRepository;
+import com.service_imple.availability_service_impl.ProjectTimelineChangeService;
 import com.service_imple.project_service_impl.ProjectReadinessUpdaterService;
 import io.debezium.engine.RecordChangeEvent;
 import org.apache.kafka.connect.data.Struct;
@@ -27,11 +28,13 @@ public class ProjectCdcHandler {
     private final ProjectRepository projectRepository;
     private final ProjectReadinessUpdaterService readinessUpdater;
     private final ClientRepo clientRepo;
+    private final ProjectTimelineChangeService projectTimelineChangeService;
 
-    public ProjectCdcHandler(ProjectRepository projectRepository, ProjectReadinessUpdaterService readinessUpdater, ClientRepo clientRepo) {
+    public ProjectCdcHandler(ProjectRepository projectRepository, ProjectReadinessUpdaterService readinessUpdater, ClientRepo clientRepo, ProjectTimelineChangeService projectTimelineChangeService) {
         this.projectRepository = projectRepository;
         this.readinessUpdater = readinessUpdater;
         this.clientRepo = clientRepo;
+        this.projectTimelineChangeService = projectTimelineChangeService;
     }
 
     // ... existing imports and class setup
@@ -129,6 +132,22 @@ public class ProjectCdcHandler {
             // Log the error but don't fail the entire CDC processing
             System.err.println("Failed to update readiness for project " + pmsProjectId + ": " + e.getMessage());
         }
+
+        // STEP 7: Handle project timeline changes for availability recalculation
+        try {
+            if (changedColumns.contains("start_date") || changedColumns.contains("end_date")) {
+                LocalDateTime oldStartDate = extractLocalDateTime(before, "start_date");
+                LocalDateTime oldEndDate = extractLocalDateTime(before, "end_date");
+                LocalDateTime newStartDate = extractLocalDateTime(after, "start_date");
+                LocalDateTime newEndDate = extractLocalDateTime(after, "end_date");
+                
+                projectTimelineChangeService.handleProjectTimelineChange(
+                    pmsProjectId, oldStartDate, oldEndDate, newStartDate, newEndDate);
+            }
+        } catch (Exception e) {
+            // Log error but don't fail entire CDC processing
+            System.err.println("Failed to handle project timeline change for project " + pmsProjectId + ": " + e.getMessage());
+        }
     }
     private void handleDelete(Struct before) {
         if (before == null) return;
@@ -141,6 +160,28 @@ public class ProjectCdcHandler {
                     project.setLastSyncedAt(LocalDateTime.now());
                     projectRepository.save(project);
                 });
+    }
+
+    private LocalDateTime extractLocalDateTime(Struct struct, String fieldName) {
+        if (struct == null) return null;
+        
+        Object value = struct.get(fieldName);
+        if (value == null) return null;
+        
+        if (value instanceof LocalDateTime) {
+            return (LocalDateTime) value;
+        }
+        
+        // Handle string conversion if needed
+        if (value instanceof String) {
+            try {
+                return LocalDateTime.parse(value.toString());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        
+        return null;
     }
 
 }
