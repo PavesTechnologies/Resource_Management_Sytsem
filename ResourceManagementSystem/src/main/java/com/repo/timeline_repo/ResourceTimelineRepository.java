@@ -36,7 +36,10 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                     ) * ra.allocation_percentage
                 ) / (DATEDIFF(:endDate, :startDate) + 1),
                 0
-            ) AS avgAllocation
+            ) AS avgAllocation,
+            r.notice_start_date as noticeStartDate,
+            r.notice_end_date as noticeEndDate,
+            r.allocation_allowed as allocationAllowed
         FROM resource r
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
@@ -83,7 +86,10 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                     ) / SUM(DATEDIFF(ra.allocation_end_date, ra.allocation_start_date) + 1)
                 END,
                 0
-            ) AS avgAllocation
+            ) AS avgAllocation,
+            r.notice_start_date as noticeStartDate,
+            r.notice_end_date as noticeEndDate,
+            r.allocation_allowed as allocationAllowed
         FROM resource r
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
@@ -212,7 +218,16 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                 WHEN resource_avg_allocation > 70 AND resource_avg_allocation <= 100 THEN 1 ELSE 0 END) as fullyAllocated,
             SUM(CASE 
                 WHEN resource_avg_allocation > 100 THEN 1 ELSE 0 END) as overAllocated,
-            AVG(LEAST(resource_avg_allocation, 100)) as utilization
+            AVG(LEAST(resource_avg_allocation, 100)) as utilization,
+            COUNT(CASE 
+                WHEN r.notice_start_date IS NOT NULL AND r.notice_end_date IS NOT NULL
+                AND CURRENT_DATE BETWEEN r.notice_start_date AND r.notice_end_date 
+                THEN 1 ELSE NULL END) as noticePeriodResources,
+            COUNT(CASE 
+                WHEN r.notice_start_date IS NOT NULL AND r.notice_end_date IS NOT NULL
+                AND CURRENT_DATE BETWEEN r.notice_start_date AND r.notice_end_date
+                AND resource_avg_allocation <= 50 
+                THEN 1 ELSE NULL END) as availableNoticePeriodResources
         FROM (
             SELECT
                 r.resource_id,
@@ -264,7 +279,16 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                 WHEN resource_avg_allocation > 70 AND resource_avg_allocation <= 100 THEN 1 ELSE 0 END) as fullyAllocated,
             SUM(CASE 
                 WHEN resource_avg_allocation > 100 THEN 1 ELSE 0 END) as overAllocated,
-            AVG(LEAST(resource_avg_allocation, 100)) as utilization
+            AVG(LEAST(resource_avg_allocation, 100)) as utilization,
+            COUNT(CASE 
+                WHEN r.notice_start_date IS NOT NULL AND r.notice_end_date IS NOT NULL
+                AND CURRENT_DATE BETWEEN r.notice_start_date AND r.notice_end_date 
+                THEN 1 ELSE NULL END) as noticePeriodResources,
+            COUNT(CASE 
+                WHEN r.notice_start_date IS NOT NULL AND r.notice_end_date IS NOT NULL
+                AND CURRENT_DATE BETWEEN r.notice_start_date AND r.notice_end_date
+                AND resource_avg_allocation <= 50 
+                THEN 1 ELSE NULL END) as availableNoticePeriodResources
         FROM (
             SELECT
                 r.resource_id,
