@@ -1,31 +1,52 @@
 package com.entity.skill_entities;
 
-import jakarta.persistence.*;
-import lombok.*;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(
         name = "skill_category",
-        uniqueConstraints = @UniqueConstraint(columnNames = "category_name")
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_category_name", columnNames = "name")
+        }
 )
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class SkillCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "category_id")
-    private UUID categoryId;
+    private UUID id;
 
-    @Column(name = "category_name", nullable = false)
-    private String categoryName;
+    @Column(nullable = false, length = 100)
+    private String name;
 
-    @Column(name = "active_flag")
-    @Builder.Default
-    private Boolean activeFlag = true;
+    @Column(length = 255)
+    private String description;
+
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = false)
+    @JsonIgnore
+    private List<Skill> skills = new ArrayList<>();
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

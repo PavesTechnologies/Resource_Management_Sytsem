@@ -1,6 +1,6 @@
 package com.entity.skill_entities;
 
-//import com.entity_enums.skill_enums.AppliesToType;
+
 import jakarta.persistence.*;
 import lombok.*;
 
