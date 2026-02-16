@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
@@ -163,24 +164,73 @@ public class ProjectCdcHandler {
     }
 
     private LocalDateTime extractLocalDateTime(Struct struct, String fieldName) {
-        if (struct == null) return null;
+        if (struct == null) {
+            return null;
+        }
         
         Object value = struct.get(fieldName);
+        
         if (value == null) return null;
         
         if (value instanceof LocalDateTime) {
             return (LocalDateTime) value;
         }
         
-        // Handle string conversion if needed
-        if (value instanceof String) {
+        // Handle java.sql.Timestamp
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value).toLocalDateTime();
+        }
+        
+        // Handle java.time.Instant
+        if (value instanceof java.time.Instant) {
+            return LocalDateTime.ofInstant((java.time.Instant) value, java.time.ZoneId.systemDefault());
+        }
+        
+        // Handle java.util.Date
+        if (value instanceof java.util.Date) {
+            return new java.sql.Timestamp(((java.util.Date) value).getTime()).toLocalDateTime();
+        }
+        
+        // Handle Long (timestamp)
+        if (value instanceof Long) {
             try {
-                return LocalDateTime.parse(value.toString());
+                long timestamp = (Long) value;
+                
+                // Check timestamp scale and convert accordingly
+                if (timestamp > 1_000_000_000_000_000L) { // microseconds (16+ digits)
+                    return LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(timestamp / 1_000_000, (timestamp % 1_000_000) * 1000), java.time.ZoneId.systemDefault());
+                } else if (timestamp > 1_000_000_000_000L) { // milliseconds (13 digits)
+                    return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(timestamp), java.time.ZoneId.systemDefault());
+                } else { // seconds (10 digits)
+                    return LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(timestamp), java.time.ZoneId.systemDefault());
+                }
             } catch (Exception e) {
+                System.err.println("Failed to convert Long timestamp for field " + fieldName + ": " + e.getMessage());
                 return null;
             }
         }
         
+        // Handle string conversion if needed
+        if (value instanceof String) {
+            try {
+                String strValue = value.toString().trim();
+                if (strValue.isEmpty()) return null;
+                
+                // Try common date formats
+                if (strValue.contains("T")) {
+                    return LocalDateTime.parse(strValue);
+                } else {
+                    // Try parsing as date
+                    LocalDate date = LocalDate.parse(strValue);
+                    return date.atStartOfDay();
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to parse string date for field " + fieldName + ": " + e.getMessage());
+                return null;
+            }
+        }
+        
+        System.err.println("Unsupported date type for field " + fieldName + ": " + value.getClass().getName());
         return null;
     }
 

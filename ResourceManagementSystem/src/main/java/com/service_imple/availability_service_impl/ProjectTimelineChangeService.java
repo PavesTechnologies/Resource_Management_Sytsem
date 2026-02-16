@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -48,6 +49,13 @@ public class ProjectTimelineChangeService {
             // Calculate affected months
             YearMonth startMonth = YearMonth.from(earliestDate);
             YearMonth endMonth = YearMonth.from(latestDate);
+            
+            // Validate that dates are reasonable (not in year 58062!)
+            YearMonth currentYearMonth = YearMonth.now();
+            if (startMonth.isAfter(currentYearMonth.plusYears(10)) || endMonth.isAfter(currentYearMonth.plusYears(10))) {
+                System.err.println("Invalid date range detected - startMonth: " + startMonth + ", endMonth: " + endMonth + ". Skipping recalculation.");
+                return;
+            }
             
             // Get unique resource IDs
             Set<Long> resourceIds = allocations.stream()

@@ -37,7 +37,7 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
     @Override
     @Transactional
     public ResourceAvailabilityLedger calculateMonthlyAvailability(Resource resource, YearMonth yearMonth) {
-                
+        
         MonthCalculationContext context = buildCalculationContext(resource, yearMonth);
         ResourceAvailabilityLedger ledger = calculateLedger(context, resource);
         
@@ -60,10 +60,10 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
             existing.setProjectedAvailableHours(ledger.getProjectedAvailableHours());
             existing.setAvailabilityTrustFlag(ledger.getAvailabilityTrustFlag());
             existing.setLastCalculatedAt(java.time.LocalDateTime.now());
-                        return ledgerRepository.save(existing);
+            return ledgerRepository.save(existing);
         } else {
             // Create new record
-                        return ledgerRepository.save(ledger);
+            return ledgerRepository.save(ledger);
         }
     }
 
