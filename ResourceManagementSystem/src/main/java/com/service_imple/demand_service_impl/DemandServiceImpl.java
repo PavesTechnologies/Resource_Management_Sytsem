@@ -2,7 +2,7 @@ package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.demand_entities.Demand;
-import com.entity_enums.skill_enums.DemandStatus;
+//import com.entity_enums.skill_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
@@ -35,11 +35,11 @@ public class DemandServiceImpl implements DemandService {
             );
 
             // Set default status if not provided
-            if (demand.getDemandStatus() == null) {
-                demand.setDemandStatus(
-                        com.entity_enums.skill_enums.DemandStatus.DRAFT
-                );
-            }
+//            if (demand.getDemandStatus() == null) {
+//                demand.setDemandStatus(
+//                        com.entity_enums.skill_enums.DemandStatus.DRAFT
+//                );
+//            }
 
             // Set created timestamp
             demand.setCreatedAt(LocalDateTime.now());
@@ -89,13 +89,13 @@ public class DemandServiceImpl implements DemandService {
                         "Demand not found"
                 ));
 
-        if (existing.getDemandStatus() != DemandStatus.DRAFT) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.CONFLICT,
-                    "INVALID_DEMAND_STATUS",
-                    "Only DRAFT demands can be updated"
-            );
-        }
+//        if (existing.getDemandStatus() != DemandStatus.DRAFT) {
+//            throw new ProjectExceptionHandler(
+//                    HttpStatus.CONFLICT,
+//                    "INVALID_DEMAND_STATUS",
+//                    "Only DRAFT demands can be updated"
+//            );
+//        }
 
         projectDemandValidationService.validateProjectForStaffing(
                 existing.getProject().getPmsProjectId()
