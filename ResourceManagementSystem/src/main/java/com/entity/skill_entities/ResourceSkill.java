@@ -9,7 +9,7 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "resource_skill",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "skill_id"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "skill_id", "sub_skill_id"})
 )
 @Getter
 @Setter
@@ -23,10 +23,16 @@ public class ResourceSkill {
     private UUID id;
 
     @Column(name = "resource_id", nullable = false)
-    private Long resourceId;
+    private UUID resourceId;
 
     @Column(name = "skill_id", nullable = false)
     private UUID skillId;
+
+    @Column(name = "sub_skill_id")
+    private UUID subSkillId;
+
+    @Column(name = "proficiency_id", nullable = false)
+    private UUID proficiencyId;
 
     @Column(name = "last_used_date")
     private LocalDate lastUsedDate;

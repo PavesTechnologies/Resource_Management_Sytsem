@@ -1,10 +1,13 @@
 package com.global_exception_handler;
 
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-
-@AllArgsConstructor
-@NoArgsConstructor
 public class SkillTaxonomyExceptionHandler extends RuntimeException {
-    private String ExceptionMessage;
+    
+    public SkillTaxonomyExceptionHandler(String message) {
+        super(message);
+    }
+    
+    @Override
+    public String getMessage() {
+        return super.getMessage();
+    }
 }
