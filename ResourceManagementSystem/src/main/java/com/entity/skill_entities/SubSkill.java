@@ -1,42 +1,51 @@
 package com.entity.skill_entities;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(
         name = "sub_skill",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"skill_id", "sub_skill_name"})
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_subskill_name_skill",
+                        columnNames = {"name", "skill_id"}
+                )
+        }
 )
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class SubSkill {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "sub_skill_id")
-    private UUID subSkillId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "skill_id", nullable = false)
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(length = 255)
+    private String description;
+
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "skill_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_subskill_skill"))
     private Skill skill;
 
-    @Column(name = "sub_skill_name", nullable = false)
-    private String subSkillName;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "sub_skill_description")
-    private String subSkillDescription;
+    @Column(nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @Column(name = "is_certification")
-    @Builder.Default
-    private Boolean isCertification = false;
-
-    @Column(name = "active_flag")
-    @Builder.Default
-    private Boolean activeFlag = true;
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
