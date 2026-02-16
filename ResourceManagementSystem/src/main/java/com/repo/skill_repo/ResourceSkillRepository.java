@@ -10,12 +10,12 @@ import java.util.UUID;
 
 public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UUID> {
 
-    boolean existsByResourceIdAndSkillIdAndSubSkillIdAndActiveFlagTrue(
-            UUID resourceId, UUID skillId, UUID subSkillId);
-
     boolean existsByResourceIdAndSkillIdAndActiveFlagTrue(
-            UUID resourceId, UUID skillId);
+            Long resourceId, UUID skillId);
+
+    boolean existsByResourceIdAndSkillId(
+            Long resourceId, UUID skillId);
 
     @Query("SELECT rs FROM ResourceSkill rs WHERE rs.resourceId = :resourceId AND rs.activeFlag = true")
-    List<ResourceSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") UUID resourceId);
+    List<ResourceSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") Long resourceId);
 }

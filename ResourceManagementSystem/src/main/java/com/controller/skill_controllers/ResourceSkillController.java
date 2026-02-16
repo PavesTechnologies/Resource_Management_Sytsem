@@ -2,7 +2,7 @@ package com.controller.skill_controllers;
 
 import com.dto.ApiResponse;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
-import com.dto.skill_dto.ResourceSkillProfileDTO;
+import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +26,8 @@ public class ResourceSkillController {
     }
 
     @GetMapping("/resource/{resourceId}/profile")
-    public ResponseEntity<ApiResponse<List<ResourceSkillProfileDTO>>> getResourceSkillProfile(@PathVariable UUID resourceId) {
-        List<ResourceSkillProfileDTO> profile = resourceSkillService.getResourceSkillProfile(resourceId);
+    public ResponseEntity<ApiResponse<List<ResourceSkillProfileResponseDTO>>> getResourceSkillProfile(@PathVariable Long resourceId) {
+        List<ResourceSkillProfileResponseDTO> profile = resourceSkillService.getResourceSkillProfile(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource skill profile retrieved successfully", profile));
     }
 }

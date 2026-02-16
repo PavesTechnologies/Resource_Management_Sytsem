@@ -19,7 +19,7 @@ import java.util.UUID;
 public class ResourceSkillBulkRequestDTO {
     
     @NotNull(message = "Resource ID is required")
-    private UUID resourceId;
+    private Long resourceId;
     
     @Valid
     @NotNull(message = "Skills list is required")
