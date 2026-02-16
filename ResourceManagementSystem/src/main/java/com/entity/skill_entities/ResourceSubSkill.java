@@ -8,15 +8,15 @@ import java.util.UUID;
 
 @Entity
 @Table(
-        name = "resource_skill",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "skill_id"})
+        name = "resource_subskill",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "sub_skill_id"})
 )
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ResourceSkill {
+public class ResourceSubSkill {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -25,8 +25,8 @@ public class ResourceSkill {
     @Column(name = "resource_id", nullable = false)
     private Long resourceId;
 
-    @Column(name = "skill_id", nullable = false)
-    private UUID skillId;
+    @Column(name = "sub_skill_id", nullable = false)
+    private UUID subSkillId;
 
     @Column(name = "proficiency_id", nullable = false)
     private UUID proficiencyId;
