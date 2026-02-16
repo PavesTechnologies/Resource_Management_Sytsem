@@ -15,4 +15,5 @@ public class ResourceFiltersDTO {
     private List<WorkforceCategory> workforceCategory;
     private List<String> designation;
     private Long maxExperience;
+    private List<String> projectNames;
 }

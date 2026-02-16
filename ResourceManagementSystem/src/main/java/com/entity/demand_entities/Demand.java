@@ -3,7 +3,7 @@ package com.entity.demand_entities;
 import com.entity.project_entities.Project;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.centralised_enums.PriorityLevel;
-import com.entity_enums.skill_enums.DemandStatus;
+//import com.entity_enums.skill_enums.DemandStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -53,9 +53,9 @@ public class Demand {
     @Column(name = "demand_type_name", nullable = false, length = 20)
     private DemandType demandType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "demand_status", length = 30)
-    private DemandStatus demandStatus;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "demand_status", length = 30)
+//    private DemandStatus demandStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_priority", nullable = false, length = 20)
