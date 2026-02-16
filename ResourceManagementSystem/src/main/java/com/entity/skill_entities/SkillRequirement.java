@@ -1,6 +1,6 @@
 package com.entity.skill_entities;
 
-import com.entity_enums.skill_enums.AppliesToType;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,9 +20,9 @@ public class SkillRequirement {
     @Column(name = "requirement_id")
     private UUID requirementId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "applies_to_type", nullable = false)
-    private AppliesToType appliesToType;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "applies_to_type", nullable = false)
+//    private AppliesToType appliesToType;
 
     @Column(name = "applies_to_id", nullable = false)
     private Long appliesToId;

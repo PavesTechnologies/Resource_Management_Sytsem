@@ -1,42 +1,59 @@
 package com.entity.skill_entities;
 
-import jakarta.persistence.*;
-import lombok.*;
 
-import java.util.UUID;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
         name = "skill",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"category_id", "skill_name"})
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_skill_name_category",
+                        columnNames = {"name", "category_id"}
+                )
+        }
 )
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Skill {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    @Column(name = "skill_id")
-    private UUID skillId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(length = 255)
+    private String description;
+
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "category_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_skill_category"))
     private SkillCategory category;
 
-    @Column(name = "skill_name", nullable = false)
-    private String skillName;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(name = "skill_description")
-    private String skillDescription;
+    @Column(nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @Column(name = "is_certification")
-    @Builder.Default
-    private Boolean isCertification = false;
+    @OneToMany(mappedBy = "skill", cascade = CascadeType.ALL, orphanRemoval = false)
+    @JsonIgnore
+    private List<SubSkill> subSkills = new ArrayList<>();
 
-    @Column(name = "active_flag")
-    @Builder.Default
-    private Boolean activeFlag = true;
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
