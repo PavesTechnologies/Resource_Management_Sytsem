@@ -113,4 +113,13 @@ public class GlobalExceptionHandler{
         apiResponse.setData(null);
         return ResponseEntity.status(ex.getStatusCode()).body(apiResponse);
     }
+
+    @ExceptionHandler(SkillTaxonomyExceptionHandler.class)
+    public ResponseEntity<ApiResponse> handleSkillTaxonomyException(SkillTaxonomyExceptionHandler e) {
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage(e.getMessage());
+        apiResponse.setData(null);
+        return ResponseEntity.badRequest().body(apiResponse);
+    }
 }
