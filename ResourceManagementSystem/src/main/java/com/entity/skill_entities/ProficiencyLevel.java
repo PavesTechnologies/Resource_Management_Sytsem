@@ -28,9 +28,6 @@ public class ProficiencyLevel {
     @Column(name = "proficiency_name", nullable = false)
     private String proficiencyName;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "proficiency_level")
-    private com.entity_enums.skill_enums.ProficiencyLevel proficiencyLevel;
 
     @Column(name = "description")
     private String description;
