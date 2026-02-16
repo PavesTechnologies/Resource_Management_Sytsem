@@ -2,6 +2,7 @@ package com.entity.skill_entities;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +24,7 @@ import java.util.UUID;
 )
 @Getter
 @Setter
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Skill {
 
     @Id
@@ -41,6 +43,7 @@ public class Skill {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_skill_category"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skills"})
     private SkillCategory category;
 
     @Column(nullable = false, updatable = false)
