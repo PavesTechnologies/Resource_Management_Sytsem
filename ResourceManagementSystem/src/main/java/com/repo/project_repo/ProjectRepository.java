@@ -90,4 +90,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     Optional<Project> findByPmsProjectId(Long id);
 
     List<Project> findByClientId(UUID clientId);
+
+    @Query("SELECT p.name FROM Project p WHERE p.projectStatus <> :status")
+    List<String> findProjectNamesExceptStatus(
+            @Param("status") ProjectStatus status
+    );
 }

@@ -2,10 +2,13 @@ package com.service_imple.resource_service_impl;
 
 import com.dto.ApiResponse;
 import com.dto.resource.ResourceFiltersDTO;
+import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.resource_enums.WorkforceCategory;
 import com.global_exception_handler.ProjectExceptionHandler;
+import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.availability_service_interface.AvailabilityCalculationService;
@@ -36,6 +39,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Autowired
     private ResourceEventService resourceEventService;
+
+    @Autowired
+    private ProjectRepository projectRepo;
 
     @Override
     public ResponseEntity<ApiResponse<?>> createResource(Resource resource) {
@@ -291,7 +297,8 @@ public class ResourceServiceImpl implements ResourceService {
         List<String> uniqueDesignations = resourceRepository.findDistinctDesignations();
         List<WorkforceCategory> workforceCategories = List.of(WorkforceCategory.values());
         Long maxExperience = resourceRepository.findMaxExperience();
-        ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, workforceCategories, uniqueDesignations, maxExperience);
+        List<String> projectNames = projectRepo.findProjectNamesExceptStatus(ProjectStatus.COMPLETED);
+        ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, workforceCategories, uniqueDesignations, maxExperience, projectNames);
         return ResponseEntity.ok(new ApiResponse<>(true, "Resource Filters retrieved successfully", dto));
     }
 }
