@@ -104,6 +104,8 @@ public class AvailabilityController {
             @RequestParam(required = false) String employmentType,
             
             @RequestParam(required = false) String status,
+
+            @RequestParam(required = false) String search,
             
             @RequestParam(defaultValue = "0") Integer page,
             
@@ -118,7 +120,7 @@ public class AvailabilityController {
         
         ResourceTimelineApiResponse result = resourceTimelineService.getResourceTimelineWindow(
                 startDate, endDate, designation, location, minExp, maxExp, 
-                employmentType, status != null ? status.toLowerCase() : null, page, size);
+                employmentType, status != null ? status.toLowerCase() : null, search, page, size);
         
         if (!result.getSuccess()) {
             return ResponseEntity.badRequest().body(result);

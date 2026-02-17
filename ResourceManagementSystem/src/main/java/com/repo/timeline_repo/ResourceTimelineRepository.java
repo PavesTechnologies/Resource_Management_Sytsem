@@ -52,6 +52,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND (:employmentType IS NULL OR r.employment_type = :employmentType)
         AND (:minExp IS NULL OR r.experiance >= :minExp)
         AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        AND (:search IS NULL OR LOWER(r.full_name) LIKE LOWER(CONCAT('%', :search, '%')))
         GROUP BY r.resource_id
         ORDER BY r.full_name
         LIMIT :size OFFSET :offset
@@ -64,6 +65,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("employmentType") String employmentType,
         @Param("minExp") Integer minExp,
         @Param("maxExp") Integer maxExp,
+        @Param("search") String search,
         @Param("size") Integer size,
         @Param("offset") Integer offset
     );
@@ -100,6 +102,11 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND (:employmentType IS NULL OR r.employment_type = :employmentType)
         AND (:minExp IS NULL OR r.experiance >= :minExp)
         AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        AND (
+                    :search IS NULL OR
+                    LOWER(r.full_name) LIKE LOWER(CONCAT('%', :search, '%')) OR
+                    LOWER(r.designation) LIKE LOWER(CONCAT('%', :search, '%'))
+                )
         GROUP BY r.resource_id
         ORDER BY r.full_name
         LIMIT :size OFFSET :offset
@@ -110,6 +117,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("employmentType") String employmentType,
         @Param("minExp") Integer minExp,
         @Param("maxExp") Integer maxExp,
+        @Param("search") String search,
         @Param("size") Integer size,
         @Param("offset") Integer offset
     );
