@@ -46,4 +46,10 @@ public interface DeliveryRoleExpectationRepository extends JpaRepository<Deliver
 
     @Query("SELECT COUNT(dre) FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE'")
     long countByRoleNameAndStatus(@Param("roleName") String roleName);
+
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = true ORDER BY dre.skill.name, dre.subSkill.name")
+    List<DeliveryRoleExpectation> findMandatoryExpectationsByRoleName(@Param("roleName") String roleName);
+
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = false ORDER BY dre.skill.name, dre.subSkill.name")
+    List<DeliveryRoleExpectation> findOptionalExpectationsByRoleName(@Param("roleName") String roleName);
 }

@@ -22,9 +22,10 @@ public class DeliveryRoleExpectationRequest {
 
         private UUID subSkillId;
 
-        @NotNull(message = "Proficiency level is required")
-        private UUID proficiencyLevel;
+        @NotNull(message = "Proficiency ID is required")
+        private UUID proficiencyId;
 
-
+        @NotNull(message = "Each skill must be marked as Mandatory or Optional")
+        private Boolean mandatoryFlag;
     }
 }
