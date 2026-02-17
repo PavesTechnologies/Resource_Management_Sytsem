@@ -1,6 +1,5 @@
 package com.dto.skill_dto;
 
-import com.entity_enums.skill_enums.ProficiencyLevel;
 import lombok.Data;
 
 import jakarta.validation.constraints.NotNull;
@@ -24,6 +23,8 @@ public class DeliveryRoleExpectationRequest {
         private UUID subSkillId;
 
         @NotNull(message = "Proficiency level is required")
-        private ProficiencyLevel proficiencyLevel;
+        private UUID proficiencyLevel;
+
+
     }
 }
