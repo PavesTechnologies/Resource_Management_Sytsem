@@ -20,6 +20,7 @@ public interface ResourceTimelineService {
         Integer maxExp,
         String employmentType,
         String status,
+        String search,
         Integer page,
         Integer size
     );

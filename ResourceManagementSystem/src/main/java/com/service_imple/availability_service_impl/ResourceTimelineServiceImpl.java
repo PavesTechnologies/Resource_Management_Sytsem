@@ -47,6 +47,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             Integer maxExp,
             String employmentType,
             String status,
+            String search,
             Integer page,
             Integer size) {
         
@@ -57,6 +58,10 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
             return ResourceTimelineApiResponse.error("startDate must not be after endDate");
+        }
+
+        if (search != null && search.isBlank()) {
+            search = null;
         }
         
         // Validate pagination
@@ -74,14 +79,14 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         if (startDate != null && endDate != null) {
             // Window Mode - use date-specific queries
             filteredData = resourceTimelineRepository.getResourceTimelineWindow(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, size, page * size);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, size, page * size);
             
             totalCount = resourceTimelineRepository.getResourceTimelineWindowCount(
                     startDate, endDate, designation, location, employmentType, minExp, maxExp);
         } else {
             // Full History Mode - use date-agnostic queries
             filteredData = resourceTimelineRepository.getResourceTimelineFullHistory(
-                    designation, location, employmentType, minExp, maxExp, size, page * size);
+                    designation, location, employmentType, minExp, maxExp, search, size, page * size);
             
             totalCount = resourceTimelineRepository.getResourceTimelineFullHistoryCount(
                     designation, location, employmentType, minExp, maxExp);
