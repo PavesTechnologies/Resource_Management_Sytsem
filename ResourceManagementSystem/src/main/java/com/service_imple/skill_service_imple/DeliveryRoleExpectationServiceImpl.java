@@ -4,12 +4,13 @@ import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
 import com.dto.skill_dto.RoleListResponse;
 import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity.skill_entities.ProficiencyLevel;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
-import com.entity_enums.skill_enums.ProficiencyLevel;
 import com.exception.skill_exceptions.DuplicateRoleExpectationException;
 import com.exception.skill_exceptions.SkillValidationException;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
+import com.repo.skill_repo.ProficiencyLevelRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
 import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectationService {
 
     private final DeliveryRoleExpectationRepository expectationRepository;
+    private final ProficiencyLevelRepository proficiencyLevelRepository;
     private final SkillRepository skillRepository;
     private final SubSkillRepository subSkillRepository;
 
@@ -52,12 +54,13 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
             Skill skill = getAndValidateSkill(detail.getSkillId());
             SubSkill subSkill = detail.getSubSkillId() != null ? 
                     getAndValidateSubSkill(detail.getSubSkillId(), skill) : null;
+            ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(detail.getProficiencyLevel());
 
             DeliveryRoleExpectation expectation = DeliveryRoleExpectation.builder()
                     .roleName(roleName)
                     .skill(skill)
                     .subSkill(subSkill)
-                    .proficiencyLevel(detail.getProficiencyLevel())
+                    .proficiencyLevel(proficiencyLevel)
                     .status("ACTIVE")
                     .build();
 
@@ -221,6 +224,22 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         return subSkill;
     }
 
+    private ProficiencyLevel getAndValidateProficiencyLevel(UUID proficiencyLevelId) {
+        Optional<ProficiencyLevel> proficiencyLevelOpt = proficiencyLevelRepository.findById(proficiencyLevelId);
+        
+        if (proficiencyLevelOpt.isEmpty()) {
+            throw new SkillValidationException("ProficiencyLevel not found with ID: " + proficiencyLevelId);
+        }
+
+        ProficiencyLevel proficiencyLevel = proficiencyLevelOpt.get();
+        
+        if (!proficiencyLevel.getActiveFlag()) {
+            throw new SkillValidationException("ProficiencyLevel is not active: " + proficiencyLevel.getProficiencyName());
+        }
+
+        return proficiencyLevel;
+    }
+
     private DeliveryRoleExpectationResponse groupExpectationsBySkill(List<DeliveryRoleExpectation> expectations) {
         DeliveryRoleExpectationResponse response = new DeliveryRoleExpectationResponse();
         
@@ -245,7 +264,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                         DeliveryRoleExpectationResponse.RequirementDetail detail = 
                                 new DeliveryRoleExpectationResponse.RequirementDetail();
                         detail.setSubSkill(e.getSubSkill() != null ? e.getSubSkill().getName() : null);
-                        detail.setProficiency(e.getProficiencyLevel().name());
+                        detail.setProficiency(e.getProficiencyLevel().getProficiencyName());
                         return detail;
                     })
                     .collect(Collectors.toList());

@@ -48,9 +48,11 @@ public class DeliveryRoleExpectation {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skill"})
     private SubSkill subSkill;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "proficiency_level", nullable = false, length = 20)
-    private com.entity_enums.skill_enums.ProficiencyLevel proficiencyLevel;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "proficiency_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_expectation_proficiency"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private ProficiencyLevel proficiencyLevel;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status = "ACTIVE";
