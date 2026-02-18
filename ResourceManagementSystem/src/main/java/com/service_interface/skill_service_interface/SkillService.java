@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public interface SkillService {
 
-    Skill create(UUID categoryId, String name, String description);
+    Skill create(UUID categoryId, String name, String description, String skillType);
 
     List<Skill> findActiveSkills();
 

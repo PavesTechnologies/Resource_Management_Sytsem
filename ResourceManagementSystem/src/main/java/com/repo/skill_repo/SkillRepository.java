@@ -31,5 +31,9 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     @Query("SELECT s FROM Skill s WHERE s.category.id = :categoryId AND s.status = 'ACTIVE' ORDER BY s.name")
     List<Skill> findActiveSkillsByCategoryId(@Param("categoryId") UUID categoryId);
+
+    List<Skill> findBySkillTypeIgnoreCaseAndStatusIgnoreCase(String certification, String active);
+
+    List<Skill> findBySkillTypeIgnoreCaseAndStatusIgnoreCaseAndCategory_Id(String certification, String active, UUID categoryId);
 }
 

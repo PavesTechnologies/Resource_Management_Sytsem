@@ -1,5 +1,6 @@
 package com.entity.skill_entities;
 
+import com.entity_enums.skill_enums.CertificateType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,8 +20,14 @@ public class Certificate {
     @Column(name = "certificate_id")
     private UUID certificateId;
 
-    @Column(name = "skill_id", nullable = false)
+    @Column(name = "skill_id", nullable = true)
     private UUID skillId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "certificate_type", nullable = false)
+    private CertificateType certificateType;
+// SKILL_BASED | ACHIEVEMENT
+
 
     @Column(name = "provider_name")
     private String providerName;
