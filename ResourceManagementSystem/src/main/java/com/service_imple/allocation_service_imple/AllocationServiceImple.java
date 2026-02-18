@@ -4,14 +4,22 @@ import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.ApiResponse;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
+import com.entity.skill_entities.ResourceSkill;
+import com.entity.skill_entities.ResourceCertificate;
+import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.Certificate;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.DemandRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
+import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.skill_repo.ResourceCertificateRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +28,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +41,8 @@ public class AllocationServiceImple implements AllocationService {
     private final DemandRepository demandRepository;
     private final ProjectRepository projectRepository;
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
+    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceCertificateRepository resourceCertificateRepository;
 
     @Override
     public ResponseEntity<ApiResponse<?>> assignAllocation(AllocationRequestDTO allocationRequest) {
@@ -70,6 +83,11 @@ public class AllocationServiceImple implements AllocationService {
             allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
             allocation.setCreatedBy(allocationRequest.getCreatedBy());
             allocation.setCreatedAt(LocalDateTime.now());
+
+            // 🔹 Validate Skills and Certifications if demand exists
+            if (allocation.getDemand() != null) {
+                validateAllocationRequirements(allocationRequest.getResourceId(), allocation.getDemand());
+            }
 
             ResourceAllocation savedAllocation = allocationRepository.save(allocation);
             
@@ -284,5 +302,71 @@ public class AllocationServiceImple implements AllocationService {
             
         } catch (Exception e) {
                     }
+    }
+
+    /**
+     * Validates that the resource has all required skills and certificates for the demand
+     */
+    private void validateAllocationRequirements(Long resourceId, com.entity.demand_entities.Demand demand) {
+        LocalDate currentDate = LocalDate.now();
+        
+        // 🔹 Validate Skills
+        if (demand.getRequiredSkills() != null && !demand.getRequiredSkills().isEmpty()) {
+            List<ResourceSkill> resourceSkills = resourceSkillRepository
+                    .findByResourceIdAndActiveFlagTrue(resourceId);
+            
+            Set<UUID> resourceSkillIds = resourceSkills.stream()
+                    .filter(rs -> rs.getExpiryDate() == null || rs.getExpiryDate().isAfter(currentDate))
+                    .map(ResourceSkill::getSkillId)
+                    .collect(Collectors.toSet());
+            
+            Set<UUID> requiredSkillIds = demand.getRequiredSkills().stream()
+                    .map(Skill::getId)
+                    .collect(Collectors.toSet());
+            
+            requiredSkillIds.removeAll(resourceSkillIds);
+            
+            if (!requiredSkillIds.isEmpty()) {
+                List<String> missingSkillNames = demand.getRequiredSkills().stream()
+                        .filter(skill -> requiredSkillIds.contains(skill.getId()))
+                        .map(Skill::getName)
+                        .collect(Collectors.toList());
+                
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "MISSING_REQUIRED_SKILLS",
+                        "Missing required skills: " + String.join(", ", missingSkillNames)
+                );
+            }
+        }
+        
+        // 🔹 Validate Certificates
+        if (demand.getRequiredCertificates() != null && !demand.getRequiredCertificates().isEmpty()) {
+            List<ResourceCertificate> resourceCertificates = resourceCertificateRepository
+                    .findActiveCertificatesForResource(resourceId, currentDate);
+            
+            Set<UUID> resourceCertificateIds = resourceCertificates.stream()
+                    .map(ResourceCertificate::getCertificateId)
+                    .collect(Collectors.toSet());
+            
+            Set<UUID> requiredCertificateIds = demand.getRequiredCertificates().stream()
+                    .map(Certificate::getCertificateId)
+                    .collect(Collectors.toSet());
+            
+            requiredCertificateIds.removeAll(resourceCertificateIds);
+            
+            if (!requiredCertificateIds.isEmpty()) {
+                List<String> missingCertificateNames = demand.getRequiredCertificates().stream()
+                        .filter(cert -> requiredCertificateIds.contains(cert.getCertificateId()))
+                        .map(cert -> cert.getProviderName() != null ? cert.getProviderName() : cert.getCertificateId().toString())
+                        .collect(Collectors.toList());
+                
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "MISSING_REQUIRED_CERTIFICATIONS",
+                        "Missing required certifications: " + String.join(", ", missingCertificateNames)
+                );
+            }
+        }
     }
 }

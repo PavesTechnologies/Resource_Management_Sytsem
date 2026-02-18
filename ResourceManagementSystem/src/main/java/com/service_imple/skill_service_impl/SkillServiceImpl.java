@@ -20,7 +20,7 @@ public class SkillServiceImpl implements SkillService {
     private final SkillCategoryRepository categoryRepository;
 
     @Override
-    public Skill create(UUID categoryId, String name, String description, String skillType) {
+    public Skill create(UUID categoryId, String name, String description) {
 
         SkillCategory category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Category not found"));
@@ -34,7 +34,6 @@ public class SkillServiceImpl implements SkillService {
         Skill skill = new Skill();
         skill.setName(normalized);
         skill.setDescription(description);
-        skill.setSkillType(skillType);
         skill.setCategory(category);
 
         return skillRepository.save(skill);

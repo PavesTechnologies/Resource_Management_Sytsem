@@ -1,6 +1,8 @@
 package com.entity.demand_entities;
 
 import com.entity.project_entities.Project;
+import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.Certificate;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.centralised_enums.PriorityLevel;
 //import com.entity_enums.skill_enums.DemandStatus;
@@ -11,6 +13,8 @@ import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 
 @Entity
@@ -67,4 +71,20 @@ public class Demand {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @ManyToMany
+    @JoinTable(
+        name = "demand_skill",
+        joinColumns = @JoinColumn(name = "demand_id"),
+        inverseJoinColumns = @JoinColumn(name = "skill_id")
+    )
+    private Set<Skill> requiredSkills = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+        name = "demand_certificate",
+        joinColumns = @JoinColumn(name = "demand_id"),
+        inverseJoinColumns = @JoinColumn(name = "certificate_id")
+    )
+    private Set<Certificate> requiredCertificates = new HashSet<>();
 }

@@ -2,9 +2,12 @@ package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.demand_entities.Demand;
+import com.entity.client_entities.ClientCompliance;
+import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
+import com.repo.client_repo.ClientComplianceRepo;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
@@ -25,6 +28,9 @@ public class DemandServiceImpl implements DemandService {
     @Autowired
     private ProjectDemandValidationService projectDemandValidationService;
 
+    @Autowired
+    private ClientComplianceRepo clientComplianceRepo;
+
     @Override
     public ResponseEntity<ApiResponse<?>> createDemand(Demand demand) {
         try {
@@ -33,6 +39,21 @@ public class DemandServiceImpl implements DemandService {
             projectDemandValidationService.validateProjectForStaffing(
                     demand.getProject().getPmsProjectId()
             );
+
+            // 🔹 Auto-attach client compliance requirements
+            List<ClientCompliance> compliances = clientComplianceRepo
+                    .findAllByClient_ClientId(demand.getProject().getClient().getClientId())
+                    .orElse(List.of());
+            
+            for (ClientCompliance compliance : compliances) {
+                if (compliance.getActiveFlag() && compliance.getMandatoryFlag()) {
+                    if (compliance.getRequirementType() == RequirementType.SKILL && compliance.getSkill() != null) {
+                        demand.getRequiredSkills().add(compliance.getSkill());
+                    } else if (compliance.getRequirementType() == RequirementType.CERTIFICATION && compliance.getCertificate() != null) {
+                        demand.getRequiredCertificates().add(compliance.getCertificate());
+                    }
+                }
+            }
 
             // Set default status if not provided
 //            if (demand.getDemandStatus() == null) {

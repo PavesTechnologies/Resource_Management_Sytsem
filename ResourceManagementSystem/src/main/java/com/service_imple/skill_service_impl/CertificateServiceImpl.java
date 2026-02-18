@@ -40,12 +40,12 @@ public class CertificateServiceImpl implements CertificateService {
                     .orElseThrow(() ->
                             new CertificationComplianceException("Skill not found"));
 
-            if (!"CERTIFICATION".equalsIgnoreCase(skill.getSkillType())) {
-                throw new CertificationComplianceException(
-                        "Skill is not marked as CERTIFICATION type");
-            }
+//            if (!"CERTIFICATION".equalsIgnoreCase(skill.getSkillType())) {
+//                throw new CertificationComplianceException(
+//                        "Skill is not marked as CERTIFICATION type");
+//            }
 
-        } else if (dto.getCertificateType() == CertificateType.ACHIEVEMENT) {
+//        } else if (dto.getCertificateType() == CertificateType.ACHIEVEMENT) {
 
             if (dto.getSkillId() != null) {
                 throw new CertificationComplianceException(
@@ -56,7 +56,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = Certificate.builder()
                 .certificateId(UUID.randomUUID())
                 .skillId(dto.getSkillId())
-                .certificateType(dto.getCertificateType())
+//                .certificateType(dto.getCertificateType())
                 .providerName(dto.getProviderName())
                 .certifiedAt(dto.getCertifiedAt())
                 .expiryDate(dto.getExpiryDate())
@@ -76,7 +76,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     public Skill getCertificationSkillById(UUID id) {
         return skillRepository.findById(id)
-                .filter(skill -> "CERTIFICATION".equalsIgnoreCase(skill.getSkillType()))
                 .orElseThrow(() -> new CertificationComplianceException("Certification skill not found"));
     }
 
