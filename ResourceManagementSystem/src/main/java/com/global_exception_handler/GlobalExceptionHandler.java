@@ -122,4 +122,17 @@ public class GlobalExceptionHandler{
         apiResponse.setData(null);
         return ResponseEntity.badRequest().body(apiResponse);
     }
+
+    @ExceptionHandler(CertificationComplianceException.class)
+    public ResponseEntity<ApiResponse> handleCertificationException(
+            CertificationComplianceException e) {
+
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage(e.getMessage());
+        apiResponse.setData(null);
+
+        return ResponseEntity.badRequest().body(apiResponse);
+    }
+
 }

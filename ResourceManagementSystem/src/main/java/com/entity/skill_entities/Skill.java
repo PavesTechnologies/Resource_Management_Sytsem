@@ -40,6 +40,9 @@ public class Skill {
     @Column(nullable = false, length = 20)
     private String status = "ACTIVE";
 
+    @Column(name = "skill_type", nullable = false)
+    private String skillType; // NORMAL | CERTIFICATION
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_skill_category"))
