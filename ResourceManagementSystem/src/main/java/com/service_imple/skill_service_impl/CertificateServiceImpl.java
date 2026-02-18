@@ -70,7 +70,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<Skill> getAllCertificationSkills() {
-        return skillRepository.findBySkillTypeIgnoreCaseAndStatusIgnoreCase("CERTIFICATION", "ACTIVE");
+        return null;
+        //return skillRepository.findBySkillTypeIgnoreCaseAndStatusIgnoreCase("CERTIFICATION", "ACTIVE");
     }
 
     @Override
@@ -81,7 +82,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<Skill> getCertificationSkillsByCategory(UUID categoryId) {
-        return skillRepository.findBySkillTypeIgnoreCaseAndStatusIgnoreCaseAndCategory_Id("CERTIFICATION", "ACTIVE", categoryId);
+        //return skillRepository.findBySkillTypeIgnoreCaseAndStatusIgnoreCaseAndCategory_Id("CERTIFICATION", "ACTIVE", categoryId);
+        return null;
     }
 
 }
