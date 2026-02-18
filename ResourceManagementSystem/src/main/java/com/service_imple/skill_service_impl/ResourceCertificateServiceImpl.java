@@ -38,10 +38,10 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                 .orElseThrow(() ->
                         new CertificationComplianceException("Certification skill not found"));
 
-        if (!"CERTIFICATION".equalsIgnoreCase(skill.getSkillType())) {
-            throw new CertificationComplianceException(
-                    "Skill is not a certification");
-        }
+//        if (!"CERTIFICATION".equalsIgnoreCase(skill.getSkillType())) {
+//            throw new CertificationComplianceException(
+//                    "Skill is not a certification");
+//        }
 
         ResourceSkill entity = ResourceSkill.builder()
                 .resourceId(dto.getResourceId())

@@ -23,9 +23,9 @@ public class Certificate {
     @Column(name = "skill_id", nullable = true)
     private UUID skillId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "certificate_type", nullable = false)
-    private CertificateType certificateType;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "certificate_type", nullable = false)
+//    private CertificateType certificateType;
 // SKILL_BASED | ACHIEVEMENT
 
 
