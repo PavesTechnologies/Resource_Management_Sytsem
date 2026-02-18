@@ -2,10 +2,13 @@ package com.service_imple.client_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientCompliance;
+import com.entity_enums.client_enums.RequirementType;
 import com.global_exception_handler.ClientExceptionHandler;
+import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.client_repo.ClientComplianceRepo;
 import com.service_interface.client_service_interface.ClientComplianceService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +24,23 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
     ApiResponse apiResponse;
     @Override
     public ResponseEntity<ApiResponse<?>> createClientCompliance(ClientCompliance clientCompliance) {
+        if (clientCompliance.getRequirementType() == RequirementType.SKILL
+                && clientCompliance.getSkill() == null) {
+            throw new ProjectExceptionHandler( HttpStatus.BAD_REQUEST,
+                    "Skill must be selected for SKILL requirement type",
+                   null
+            );
+        }
+
+        if (clientCompliance.getRequirementType() == RequirementType.CERTIFICATION
+                && clientCompliance.getCertificate() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "Certificate must be selected for CERTIFICATION requirement type",
+                    null
+            );
+        }
+
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         ApiResponse<ClientCompliance> apiResponse= new ApiResponse<>();
         if(Compliance!=null) {

@@ -1,0 +1,39 @@
+package com.entity.skill_entities;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDate;
+import java.util.UUID;
+
+@Entity
+@Table(
+        name = "resource_certificate",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "certificate_id"})
+)
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ResourceCertificate {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
+
+    @Column(name = "resource_id", nullable = false)
+    private Long resourceId;
+
+    @Column(name = "certificate_id", nullable = false)
+    private UUID certificateId;
+
+    @Column(name = "issued_date")
+    private LocalDate issuedDate;
+
+    @Column(name = "expiry_date")
+    private LocalDate expiryDate;
+
+    @Column(name = "active_flag")
+    private Boolean activeFlag;
+}
