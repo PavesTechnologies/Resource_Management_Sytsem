@@ -25,6 +25,7 @@ public class SubSkill {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "sub_skill_id")
     private UUID id;
 
     @Column(nullable = false, length = 100)
