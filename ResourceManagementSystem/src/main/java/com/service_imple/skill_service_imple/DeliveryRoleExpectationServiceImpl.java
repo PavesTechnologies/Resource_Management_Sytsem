@@ -2,6 +2,7 @@ package com.service_imple.skill_service_imple;
 
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
+import com.dto.skill_dto.RoleExpectationWithMandatoryResponse;
 import com.dto.skill_dto.RoleListResponse;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.ProficiencyLevel;
@@ -54,13 +55,14 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
             Skill skill = getAndValidateSkill(detail.getSkillId());
             SubSkill subSkill = detail.getSubSkillId() != null ? 
                     getAndValidateSubSkill(detail.getSubSkillId(), skill) : null;
-            ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(detail.getProficiencyLevel());
+            ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(detail.getProficiencyId());
 
             DeliveryRoleExpectation expectation = DeliveryRoleExpectation.builder()
                     .roleName(roleName)
                     .skill(skill)
                     .subSkill(subSkill)
                     .proficiencyLevel(proficiencyLevel)
+                    .mandatoryFlag(detail.getMandatoryFlag())
                     .status("ACTIVE")
                     .build();
 
@@ -164,8 +166,12 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
             throw new SkillValidationException("Skill ID is required");
         }
 
-        if (detail.getProficiencyLevel() == null) {
-            throw new SkillValidationException("Proficiency level is required");
+        if (detail.getProficiencyId() == null) {
+            throw new SkillValidationException("Proficiency ID is required");
+        }
+
+        if (detail.getMandatoryFlag() == null) {
+            throw new SkillValidationException("Each skill must be marked as Mandatory or Optional");
         }
 
         // Check for existing duplicates
@@ -265,6 +271,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                                 new DeliveryRoleExpectationResponse.RequirementDetail();
                         detail.setSubSkill(e.getSubSkill() != null ? e.getSubSkill().getName() : null);
                         detail.setProficiency(e.getProficiencyLevel().getProficiencyName());
+                        detail.setMandatoryFlag(e.getMandatoryFlag());
                         return detail;
                     })
                     .collect(Collectors.toList());
@@ -278,5 +285,68 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                 .collect(Collectors.toList()));
 
         return response;
+    }
+
+    @Override
+    public RoleExpectationWithMandatoryResponse getRoleExpectationsWithMandatory(String roleName) {
+        log.info("Fetching role expectations with mandatory/optional separation for role: {}", roleName);
+
+        List<DeliveryRoleExpectation> expectations = expectationRepository.findByRoleNameAndStatus(roleName);
+
+        if (expectations.isEmpty()) {
+            log.warn("No expectations found for role: {}", roleName);
+            return new RoleExpectationWithMandatoryResponse();
+        }
+
+        RoleExpectationWithMandatoryResponse response = new RoleExpectationWithMandatoryResponse();
+        response.setRoleName(roleName);
+
+        List<RoleExpectationWithMandatoryResponse.SkillRequirement> mandatorySkills = new ArrayList<>();
+        List<RoleExpectationWithMandatoryResponse.SkillRequirement> optionalSkills = new ArrayList<>();
+
+        for (DeliveryRoleExpectation expectation : expectations) {
+            RoleExpectationWithMandatoryResponse.SkillRequirement skillReq = 
+                    new RoleExpectationWithMandatoryResponse.SkillRequirement();
+            skillReq.setSkill(expectation.getSkill().getName());
+            skillReq.setSubSkill(expectation.getSubSkill() != null ? expectation.getSubSkill().getName() : null);
+            skillReq.setProficiency(expectation.getProficiencyLevel().getProficiencyName());
+
+            if (Boolean.TRUE.equals(expectation.getMandatoryFlag())) {
+                mandatorySkills.add(skillReq);
+            } else {
+                optionalSkills.add(skillReq);
+            }
+        }
+
+        response.setMandatorySkills(mandatorySkills.stream()
+                .sorted(Comparator.comparing(RoleExpectationWithMandatoryResponse.SkillRequirement::getSkill))
+                .collect(Collectors.toList()));
+
+        response.setOptionalSkills(optionalSkills.stream()
+                .sorted(Comparator.comparing(RoleExpectationWithMandatoryResponse.SkillRequirement::getSkill))
+                .collect(Collectors.toList()));
+
+        return response;
+    }
+
+    @Override
+    public boolean isResourceEligibleForRole(String roleName, List<UUID> resourceSkillIds) {
+        log.info("Checking resource eligibility for role: {}", roleName);
+
+        List<DeliveryRoleExpectation> roleExpectations = expectationRepository.findByRoleNameAndStatus(roleName);
+        
+        // Get all mandatory skill requirements for this role
+        List<UUID> mandatorySkillIds = roleExpectations.stream()
+                .filter(expectation -> Boolean.TRUE.equals(expectation.getMandatoryFlag()))
+                .map(expectation -> expectation.getSkill().getId())
+                .collect(Collectors.toList());
+
+        // Check if resource has all mandatory skills
+        boolean hasAllMandatorySkills = resourceSkillIds.containsAll(mandatorySkillIds);
+
+        log.info("Resource eligibility for role {}: {} (Required: {}, Has: {})", 
+                roleName, hasAllMandatorySkills, mandatorySkillIds, resourceSkillIds);
+
+        return hasAllMandatorySkills;
     }
 }

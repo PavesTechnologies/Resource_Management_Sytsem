@@ -22,5 +22,6 @@ public class DeliveryRoleExpectationResponse {
         
         private String subSkill;
         private String proficiency;
+        private Boolean mandatoryFlag;
     }
 }
