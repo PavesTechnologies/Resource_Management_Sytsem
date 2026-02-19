@@ -2,15 +2,19 @@ package com.service_interface.skill_service_interface;
 
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
+import com.dto.skill_dto.RoleExpectationWithMandatoryResponse;
 import com.dto.skill_dto.RoleListResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface DeliveryRoleExpectationService {
 
     DeliveryRoleExpectationResponse createOrUpdateRoleExpectations(DeliveryRoleExpectationRequest request);
 
     DeliveryRoleExpectationResponse getRoleExpectations(String roleName);
+
+    RoleExpectationWithMandatoryResponse getRoleExpectationsWithMandatory(String roleName);
 
     List<DeliveryRoleExpectationResponse> getAllRoleExpectations();
 
@@ -19,4 +23,6 @@ public interface DeliveryRoleExpectationService {
     void deleteRoleExpectations(String roleName);
 
     boolean hasRoleExpectations(String roleName);
+
+    boolean isResourceEligibleForRole(String roleName, List<UUID> resourceSkillIds);
 }

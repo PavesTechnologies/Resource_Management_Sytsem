@@ -54,6 +54,9 @@ public class DeliveryRoleExpectation {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private ProficiencyLevel proficiencyLevel;
 
+    @Column(name = "mandatory_flag", nullable = false)
+    private Boolean mandatoryFlag;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status = "ACTIVE";
 

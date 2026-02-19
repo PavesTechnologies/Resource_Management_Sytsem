@@ -3,6 +3,7 @@ package com.controller.skill_controllers;
 import com.dto.ApiResponse;
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
+import com.dto.skill_dto.RoleExpectationWithMandatoryResponse;
 import com.dto.skill_dto.RoleListResponse;
 import com.exception.skill_exceptions.DuplicateRoleExpectationException;
 import com.exception.skill_exceptions.SkillValidationException;
@@ -14,8 +15,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
 import java.util.List;
+import java.util.UUID;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/admin/role-expectations")
@@ -76,6 +79,41 @@ public class DeliveryRoleExpectationController {
             return ResponseEntity.ok(ApiResponse.success("All role expectations retrieved successfully", responses));
         } catch (Exception e) {
             log.error("Error retrieving all role expectations", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Internal server error"));
+        }
+    }
+
+    @GetMapping("/{roleName}/mandatory")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<RoleExpectationWithMandatoryResponse>> getRoleExpectationsWithMandatory(
+            @PathVariable String roleName) {
+        
+        log.info("Admin request to get role expectations with mandatory/optional separation for role: {}", roleName);
+        
+        try {
+            RoleExpectationWithMandatoryResponse response = service.getRoleExpectationsWithMandatory(roleName);
+            return ResponseEntity.ok(ApiResponse.success("Role expectations with mandatory/optional separation retrieved successfully", response));
+        } catch (Exception e) {
+            log.error("Error retrieving role expectations with mandatory/optional separation for role: {}", roleName, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Internal server error"));
+        }
+    }
+
+    @GetMapping("/{roleName}/eligibility")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Boolean>> checkResourceEligibility(
+            @PathVariable String roleName,
+            @RequestParam List<UUID> resourceSkillIds) {
+        
+        log.info("Admin request to check resource eligibility for role: {}", roleName);
+        
+        try {
+            boolean isEligible = service.isResourceEligibleForRole(roleName, resourceSkillIds);
+            return ResponseEntity.ok(ApiResponse.success("Resource eligibility check completed", isEligible));
+        } catch (Exception e) {
+            log.error("Error checking resource eligibility for role: {}", roleName, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Internal server error"));
         }
