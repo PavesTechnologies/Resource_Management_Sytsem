@@ -244,6 +244,23 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> readinessStatusUpdate(UpdateReadinessStatusDTO readiness) {
+        // Comprehensive null checks
+        if (readiness == null) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "Request body cannot be null");
+        }
+        
+        if (readiness.getPmsProjectId() == null) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "pmsProjectId cannot be null");
+        }
+        
+        if (readiness.getStatus() == null) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "status cannot be null");
+        }
+        
+        if (readiness.getReason() == null || readiness.getReason().trim().isEmpty()) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "reason cannot be null or empty");
+        }
+        
         Project project = projectRepository.findById(readiness.getPmsProjectId()).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project Not Found!"));
         project.setStaffingReadinessStatus(readiness.getStatus());
         project.setStaffingReadinessReason(readiness.getReason());
