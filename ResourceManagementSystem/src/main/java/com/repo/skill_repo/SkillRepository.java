@@ -31,5 +31,11 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     @Query("SELECT s FROM Skill s WHERE s.category.id = :categoryId AND s.status = 'ACTIVE' ORDER BY s.name")
     List<Skill> findActiveSkillsByCategoryId(@Param("categoryId") UUID categoryId);
+
+    // Commented out - skillType field doesn't exist in Skill entity
+    // List<Skill> findBySkillTypeIgnoreCaseAndStatusIgnoreCase(String certification, String active);
+
+    // Commented out - skillType field doesn't exist in Skill entity
+    // List<Skill> findBySkillTypeIgnoreCaseAndStatusIgnoreCaseAndCategory_Id(String certification, String active, UUID categoryId);
 }
 

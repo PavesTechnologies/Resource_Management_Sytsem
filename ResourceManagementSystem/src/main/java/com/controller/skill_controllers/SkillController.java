@@ -25,6 +25,10 @@ public class SkillController {
             throw new RuntimeException("Category ID is required");
         }
 
+//        if (skill.getSkillType() == null) {
+//            throw new RuntimeException("Skill type is required (NORMAL or CERTIFICATION)");
+//        }
+
         Skill created = service.create(
                 skill.getCategory().getId(),
                 skill.getName(),

@@ -1,6 +1,8 @@
 package com.entity.client_entities;
 
 import com.entity_enums.client_enums.RequirementType;
+import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.Certificate;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,7 +28,17 @@ public class ClientCompliance {
     @Enumerated(EnumType.STRING)
     private RequirementType requirementType;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "skill_id")
+    private Skill skill;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_id")
+    private Certificate certificate;
+
+    @Column(nullable = false)
     private String requirementName;
+
     private Boolean mandatoryFlag;
     private Boolean activeFlag;
 }
