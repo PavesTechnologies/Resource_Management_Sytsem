@@ -13,12 +13,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "resource_availability_ledger", 
-       uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "period_start"}),
-       indexes = {
-           @Index(name = "idx_resource_period", columnList = "resource_id, period_start"),
-           @Index(name = "idx_period_range", columnList = "period_start, period_end"),
-           @Index(name = "idx_trust_flag", columnList = "availability_trust_flag")
-       })
+       uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "period_start"}))
 @Data
 @Builder
 @AllArgsConstructor
@@ -30,7 +25,7 @@ public class ResourceAvailabilityLedger {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "resource_id", nullable = false)
+    @JoinColumn(name = "resource_id", nullable = false, referencedColumnName = "resource_id")
     private Resource resource;
 
     @Column(name = "period_start", nullable = false)

@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 public class Resource {
 
     @Id
+    @Column(name = "resource_id")
     private Long resourceId;
 
     @Column(name = "full_name", nullable = false, length = 200)

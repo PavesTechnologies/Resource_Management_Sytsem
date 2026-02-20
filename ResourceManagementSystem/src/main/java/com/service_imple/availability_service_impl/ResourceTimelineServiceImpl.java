@@ -79,17 +79,17 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         if (startDate != null && endDate != null) {
             // Window Mode - use date-specific queries
             filteredData = resourceTimelineRepository.getResourceTimelineWindow(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, size, page * size);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, size, page * size, status);
             
             totalCount = resourceTimelineRepository.getResourceTimelineWindowCount(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, status);
         } else {
             // Full History Mode - use date-agnostic queries
             filteredData = resourceTimelineRepository.getResourceTimelineFullHistory(
-                    designation, location, employmentType, minExp, maxExp, search, size, page * size);
+                    designation, location, employmentType, minExp, maxExp, search, size, page * size, status);
             
             totalCount = resourceTimelineRepository.getResourceTimelineFullHistoryCount(
-                    designation, location, employmentType, minExp, maxExp);
+                    designation, location, employmentType, minExp, maxExp, status);
         }
         
         // Fetch allocation timeline, current projects, and current allocations for all resources
@@ -167,11 +167,11 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         if (startDate != null && endDate != null) {
             // Window Mode KPI
             kpiData = resourceTimelineRepository.getTimelineKPIWindow(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, status);
         } else {
             // Overall KPI
             kpiData = resourceTimelineRepository.getTimelineKPIFullHistory(
-                    designation, location, employmentType, minExp, maxExp);
+                    designation, location, employmentType, minExp, maxExp, status);
         }
         
         if (kpiData.isEmpty()) {

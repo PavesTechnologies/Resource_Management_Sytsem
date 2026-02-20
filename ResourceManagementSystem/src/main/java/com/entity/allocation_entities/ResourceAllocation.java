@@ -25,13 +25,14 @@ public class ResourceAllocation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "allocation_id")
     private UUID allocationId;
 
     /**
      * Resource being allocated
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "resource_id", nullable = false)
+    @JoinColumn(name = "resource_id", nullable = false, referencedColumnName = "resource_id")
     private Resource resource;
 
     /**
@@ -39,7 +40,7 @@ public class ResourceAllocation {
      * Exactly one of demandId or projectId must be present
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demand_id")
+    @JoinColumn(name = "demand_id", referencedColumnName = "demand_id")
     private Demand demand;
 
     /**
@@ -47,7 +48,7 @@ public class ResourceAllocation {
      * Exactly one of demandId or projectId must be present
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id")
+    @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
     private Project project;
 
     /**

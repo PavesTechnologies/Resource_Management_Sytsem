@@ -21,10 +21,11 @@ import java.util.UUID;
 public class ClientAssetAssignment {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "assignment_id")
     private UUID assignmentId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "asset_id", nullable = false)
+    @JoinColumn(name = "asset_id", nullable = false, referencedColumnName = "asset_id")
     @NotNull(message = "Asset must be selected")
     private ClientAsset asset;
 

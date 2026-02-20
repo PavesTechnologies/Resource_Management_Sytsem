@@ -8,11 +8,14 @@ import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.project_enums.StaffingReadinessStatus;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.global_exception_handler.ProjectExceptionHandler;
 import com.security.CurrentUser;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -123,8 +126,27 @@ public class ProjectGovernanceController {
 
     @PutMapping("/readiness-status-update")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> changeReadinessStatus(@RequestBody UpdateReadinessStatusDTO readiness) {
-        return projectGovernanceService.readinessStatusUpdate(readiness);
+    public ResponseEntity<ApiResponse<?>> changeReadinessStatus(@RequestBody String requestBody) {
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            
+            // Try to parse as wrapped object first
+            JsonNode rootNode = mapper.readTree(requestBody);
+            
+            UpdateReadinessStatusDTO readiness;
+            if (rootNode.has("readinessData")) {
+                // Extract the inner object
+                JsonNode readinessDataNode = rootNode.get("readinessData");
+                readiness = mapper.treeToValue(readinessDataNode, UpdateReadinessStatusDTO.class);
+            } else {
+                // Parse directly
+                readiness = mapper.readValue(requestBody, UpdateReadinessStatusDTO.class);
+            }
+            
+            return projectGovernanceService.readinessStatusUpdate(readiness);
+        } catch (Exception e) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "Invalid JSON format: " + e.getMessage());
+        }
     }
     @GetMapping("/get-project-by-client-id/{clientId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")

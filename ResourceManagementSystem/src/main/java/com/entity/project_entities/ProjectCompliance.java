@@ -19,14 +19,15 @@ public class ProjectCompliance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "project_compliance_id")
     private UUID projectComplianceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
+    @JoinColumn(name = "project_id", nullable = false, referencedColumnName = "pms_project_id")
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_compliance_id")
+    @JoinColumn(name = "client_compliance_id", referencedColumnName = "compliance_id")
     private ClientCompliance clientCompliance;
 
     @Enumerated(EnumType.STRING)

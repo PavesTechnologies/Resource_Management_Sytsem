@@ -17,10 +17,11 @@ public class ClientSLA {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "sla_id")
     private UUID slaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id")
+    @JoinColumn(name = "client_id", referencedColumnName = "client_id")
     private Client client;
 
     @Enumerated(EnumType.STRING)

@@ -52,6 +52,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND (:employmentType IS NULL OR r.employment_type = :employmentType)
         AND (:minExp IS NULL OR r.experiance >= :minExp)
         AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        AND (:status IS NULL OR r.employment_status = :status)
         AND (:search IS NULL OR LOWER(r.full_name) LIKE LOWER(CONCAT('%', :search, '%')))
         GROUP BY r.resource_id
         ORDER BY r.full_name
@@ -67,7 +68,8 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("maxExp") Integer maxExp,
         @Param("search") String search,
         @Param("size") Integer size,
-        @Param("offset") Integer offset
+        @Param("offset") Integer offset,
+        @Param("status") String status
     );
 
     // Full History Mode Query (when dates are null)
@@ -102,6 +104,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND (:employmentType IS NULL OR r.employment_type = :employmentType)
         AND (:minExp IS NULL OR r.experiance >= :minExp)
         AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        AND (:status IS NULL OR r.employment_status = :status)
         AND (
                     :search IS NULL OR
                     LOWER(r.full_name) LIKE LOWER(CONCAT('%', :search, '%')) OR
@@ -119,7 +122,8 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("maxExp") Integer maxExp,
         @Param("search") String search,
         @Param("size") Integer size,
-        @Param("offset") Integer offset
+        @Param("offset") Integer offset,
+        @Param("status") String status
     );
 
     // Window Mode Count Query
@@ -137,6 +141,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND (:employmentType IS NULL OR r.employment_type = :employmentType)
         AND (:minExp IS NULL OR r.experiance >= :minExp)
         AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        AND (:status IS NULL OR r.employment_status = :status)
         """, nativeQuery = true)
     Long getResourceTimelineWindowCount(
         @Param("startDate") LocalDate startDate,
@@ -145,7 +150,8 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("location") String location,
         @Param("employmentType") String employmentType,
         @Param("minExp") Integer minExp,
-        @Param("maxExp") Integer maxExp
+        @Param("maxExp") Integer maxExp,
+        @Param("status") String status
     );
 
     // Full History Mode Count Query
@@ -161,13 +167,15 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND (:employmentType IS NULL OR r.employment_type = :employmentType)
         AND (:minExp IS NULL OR r.experiance >= :minExp)
         AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+        AND (:status IS NULL OR r.employment_status = :status)
         """, nativeQuery = true)
     Long getResourceTimelineFullHistoryCount(
         @Param("designation") String designation,
         @Param("location") String location,
         @Param("employmentType") String employmentType,
         @Param("minExp") Integer minExp,
-        @Param("maxExp") Integer maxExp
+        @Param("maxExp") Integer maxExp,
+        @Param("status") String status
     );
 
     // Get current projects for resources (active allocations as of TODAY)
@@ -261,6 +269,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             AND (:employmentType IS NULL OR r.employment_type = :employmentType)
             AND (:minExp IS NULL OR r.experiance >= :minExp)
             AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+            AND (:status IS NULL OR r.employment_status = :status)
             GROUP BY r.resource_id
         ) resource_allocations
         """, nativeQuery = true)
@@ -271,7 +280,8 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("location") String location,
         @Param("employmentType") String employmentType,
         @Param("minExp") Integer minExp,
-        @Param("maxExp") Integer maxExp
+        @Param("maxExp") Integer maxExp,
+        @Param("status") String status
     );
 
     // Full History Mode KPI Query
@@ -318,6 +328,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             AND (:employmentType IS NULL OR r.employment_type = :employmentType)
             AND (:minExp IS NULL OR r.experiance >= :minExp)
             AND (:maxExp IS NULL OR r.experiance <= :maxExp)
+            AND (:status IS NULL OR r.employment_status = :status)
             GROUP BY r.resource_id
         ) resource_allocations
         """, nativeQuery = true)
@@ -326,6 +337,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         @Param("location") String location,
         @Param("employmentType") String employmentType,
         @Param("minExp") Integer minExp,
-        @Param("maxExp") Integer maxExp
+        @Param("maxExp") Integer maxExp,
+        @Param("status") String status
     );
 }

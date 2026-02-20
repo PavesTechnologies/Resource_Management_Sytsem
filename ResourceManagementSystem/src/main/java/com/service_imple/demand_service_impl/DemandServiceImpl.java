@@ -2,12 +2,12 @@ package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
 import com.entity.demand_entities.Demand;
-import com.entity.client_entities.ClientCompliance;
+import com.entity.project_entities.ProjectCompliance;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
-import com.repo.client_repo.ClientComplianceRepo;
+import com.repo.project_repo.ProjectComplianceRepo;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
@@ -29,7 +29,7 @@ public class DemandServiceImpl implements DemandService {
     private ProjectDemandValidationService projectDemandValidationService;
 
     @Autowired
-    private ClientComplianceRepo clientComplianceRepo;
+    private ProjectComplianceRepo projectComplianceRepo;
 
     @Override
     public ResponseEntity<ApiResponse<?>> createDemand(Demand demand) {
@@ -40,27 +40,20 @@ public class DemandServiceImpl implements DemandService {
                     demand.getProject().getPmsProjectId()
             );
 
-            // 🔹 Auto-attach client compliance requirements
-            List<ClientCompliance> compliances = clientComplianceRepo
-                    .findAllByClient_ClientId(demand.getProject().getClient().getClientId())
+            // 🔹 Auto-attach project compliance requirements
+            List<ProjectCompliance> compliances = projectComplianceRepo
+                    .findAllByProject_PmsProjectId(demand.getProject().getPmsProjectId())
                     .orElse(List.of());
             
-            for (ClientCompliance compliance : compliances) {
+            for (ProjectCompliance compliance : compliances) {
                 if (compliance.getActiveFlag() && compliance.getMandatoryFlag()) {
-                    if (compliance.getRequirementType() == RequirementType.SKILL && compliance.getSkill() != null) {
-                        demand.getRequiredSkills().add(compliance.getSkill());
-                    } else if (compliance.getRequirementType() == RequirementType.CERTIFICATION && compliance.getCertificate() != null) {
-                        demand.getRequiredCertificates().add(compliance.getCertificate());
+                    if (compliance.getRequirementType() == RequirementType.SKILL && compliance.getClientCompliance() != null && compliance.getClientCompliance().getSkill() != null) {
+                        demand.getRequiredSkills().add(compliance.getClientCompliance().getSkill());
+                    } else if (compliance.getRequirementType() == RequirementType.CERTIFICATION && compliance.getClientCompliance() != null && compliance.getClientCompliance().getCertificate() != null) {
+                        demand.getRequiredCertificates().add(compliance.getClientCompliance().getCertificate());
                     }
                 }
             }
-
-            // Set default status if not provided
-//            if (demand.getDemandStatus() == null) {
-//                demand.setDemandStatus(
-//                        com.entity_enums.skill_enums.DemandStatus.DRAFT
-//                );
-//            }
 
             // Set created timestamp
             demand.setCreatedAt(LocalDateTime.now());

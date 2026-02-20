@@ -17,14 +17,15 @@ public class ProjectSLA {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "project_sla_id")
     private UUID projectSlaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id")
+    @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_sla_id")
+    @JoinColumn(name = "client_sla_id", referencedColumnName = "sla_id")
     private ClientSLA clientSLA;
 
     @Enumerated(EnumType.STRING)
