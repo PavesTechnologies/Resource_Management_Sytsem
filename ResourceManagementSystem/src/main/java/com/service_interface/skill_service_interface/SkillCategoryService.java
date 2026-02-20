@@ -1,5 +1,6 @@
 package com.service_interface.skill_service_interface;
 
+import com.dto.skill_dto.SkillSearchResultDto;
 import com.dto.skill_taxonomy.SkillTaxonomyTreeDto;
 import com.entity.skill_entities.SkillCategory;
 
@@ -19,5 +20,14 @@ public interface SkillCategoryService {
     List<SkillTaxonomyTreeDto> getSkillTaxonomyTree();
 
     SkillTaxonomyTreeDto getSkillTaxonomyTreeByCategoryId(UUID categoryId);
+
+    /**
+     * OPTIMIZED: Search skills across categories, skills, and subskills.
+     * Uses DTO projections to avoid cartesian products and reduce memory usage.
+     * 
+     * @param searchTerm Partial name to search for (case-insensitive)
+     * @return List of unified search results with hierarchical context
+     */
+    List<SkillSearchResultDto> searchSkills(String searchTerm);
 }
 
