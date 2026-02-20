@@ -1,4 +1,4 @@
-package com.service_imple.skill_service_imple;
+package com.service_imple.skill_service_impl;
 
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
