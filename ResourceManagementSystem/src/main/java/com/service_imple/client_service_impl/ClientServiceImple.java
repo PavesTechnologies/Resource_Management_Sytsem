@@ -279,7 +279,10 @@ public class ClientServiceImple implements ClientService {
             AdminKPIDTO adminKPIDTO = new AdminKPIDTO();
             adminKPIDTO.setTotalClients(totalClients);
             adminKPIDTO.setActiveClients(activeClientsCount);
-            adminKPIDTO.setActiveProjects(0); // No project entity found, set to 0
+            // Calculate active projects count (ACTIVE, APPROVED, PLANNING)
+            List<ProjectStatus> activeStatuses = List.of(ProjectStatus.ACTIVE, ProjectStatus.APPROVED, ProjectStatus.PLANNING);
+            long activeProjectsCount = projectRepository.countByProjectStatuses(activeStatuses);
+            adminKPIDTO.setActiveProjects((int) activeProjectsCount);
             adminKPIDTO.setGrowthPercentage(Math.round(growthPercentage * 100.0) / 100.0); // Round to 2 decimal places
             adminKPIDTO.setPreviousPeriodClientCount(previousYearClientCount);
             adminKPIDTO.setGrowthPositive(isGrowthPositive);

@@ -95,4 +95,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     List<String> findProjectNamesExceptStatus(
             @Param("status") ProjectStatus status
     );
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.projectStatus IN :statuses")
+    long countByProjectStatuses(@Param("statuses") List<ProjectStatus> statuses);
 }

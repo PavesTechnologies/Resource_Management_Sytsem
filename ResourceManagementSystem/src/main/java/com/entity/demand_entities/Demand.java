@@ -31,9 +31,9 @@ public class Demand {
     @JoinColumn(name = "project_id")
     private Project project;
 
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "role_id", nullable = false)
-//    private DeliveryRole role;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id", nullable = false)
+    private DeliveryRole role;
 
     @Column(name = "demand_justification", length = 500)
     private String demandJustification;
