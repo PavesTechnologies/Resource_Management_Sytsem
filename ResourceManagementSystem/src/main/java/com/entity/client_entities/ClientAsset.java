@@ -25,10 +25,11 @@ public class ClientAsset {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "asset_id")
     private UUID assetId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "client_id", nullable = false)
+    @JoinColumn(name = "client_id", nullable = false, referencedColumnName = "client_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Client client;
 

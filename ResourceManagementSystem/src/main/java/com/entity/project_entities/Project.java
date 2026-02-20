@@ -31,7 +31,7 @@ public class Project {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", insertable = false, updatable = false)
+    @JoinColumn(name = "client_id", insertable = false, updatable = false, referencedColumnName = "client_id")
     @JsonIgnore
     private Client client;
 

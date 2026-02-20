@@ -16,10 +16,11 @@ public class ClientAuditLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "audit_id")
     private UUID auditId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id")
+    @JoinColumn(name = "client_id", referencedColumnName = "client_id")
     private Client client;
 
     private String entityName;

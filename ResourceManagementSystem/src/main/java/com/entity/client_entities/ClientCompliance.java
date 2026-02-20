@@ -19,6 +19,7 @@ public class ClientCompliance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "compliance_id")
     private UUID complianceId;
 
     @ManyToOne(fetch = FetchType.LAZY)

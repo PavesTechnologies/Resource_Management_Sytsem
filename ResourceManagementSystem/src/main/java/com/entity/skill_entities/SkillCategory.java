@@ -26,6 +26,7 @@ public class SkillCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id")
     private UUID id;
 
     @Column(nullable = false, length = 100)

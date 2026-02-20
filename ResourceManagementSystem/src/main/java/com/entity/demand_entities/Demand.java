@@ -1,6 +1,7 @@
 package com.entity.demand_entities;
 
 import com.entity.project_entities.Project;
+import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
 import com.entity_enums.demand_enums.DemandType;
@@ -28,12 +29,12 @@ public class Demand {
     private UUID demandId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id")
+    @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
-    private DeliveryRole role;
+    private DeliveryRoleExpectation role;
 
     @Column(name = "demand_justification", length = 500)
     private String demandJustification;

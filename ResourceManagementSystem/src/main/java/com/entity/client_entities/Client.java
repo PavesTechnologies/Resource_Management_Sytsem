@@ -29,6 +29,7 @@ public class Client {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "client_id")
     private UUID clientId;
 
     @JsonProperty("client_name")
