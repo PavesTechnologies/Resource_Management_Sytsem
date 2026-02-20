@@ -69,8 +69,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<Skill> getAllCertificationSkills() {
-        return null;
+    public List<Certificate> getAllCertificationSkills() {
+        return certificateRepository.findAll();
         //return skillRepository.findBySkillTypeIgnoreCaseAndStatusIgnoreCase("CERTIFICATION", "ACTIVE");
     }
 
