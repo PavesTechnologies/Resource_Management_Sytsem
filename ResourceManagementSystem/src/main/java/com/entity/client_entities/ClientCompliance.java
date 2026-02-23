@@ -3,6 +3,7 @@ package com.entity.client_entities;
 import com.entity_enums.client_enums.RequirementType;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,6 +25,7 @@ public class ClientCompliance {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Client client;
 
     @Enumerated(EnumType.STRING)
@@ -32,10 +34,12 @@ public class ClientCompliance {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "skill_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Skill skill;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Certificate certificate;
 
     @Column(nullable = false)

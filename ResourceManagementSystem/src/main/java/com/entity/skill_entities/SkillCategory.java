@@ -16,7 +16,7 @@ import java.util.UUID;
 @Table(
         name = "skill_category",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_category_name", columnNames = "name")
+                @UniqueConstraint(name = "uk_category_name", columnNames = {"name"})
         }
 )
 @Getter
