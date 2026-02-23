@@ -24,15 +24,16 @@ public class ProjectEscalation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "project_escalation_id")
     private UUID projectEscalationId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
+    @JoinColumn(name = "project_id", nullable = false, referencedColumnName = "pms_project_id")
     @JsonIgnore
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "contact_id")
+    @JoinColumn(name = "contact_id", referencedColumnName = "contact_id")
     @JsonIgnore
     private ClientEscalationContact contact;
 

@@ -20,6 +20,7 @@ public class ResourceCertificate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "resource_id", nullable = false)

@@ -20,6 +20,7 @@ import java.util.UUID;
 public class ResourceEnablementAssignment {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "assignment_id")
     private UUID assignmentId;
 
     // Which resource
@@ -27,7 +28,7 @@ public class ResourceEnablementAssignment {
 
     // Which enablement
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "asset_id", nullable = false)
+    @JoinColumn(name = "asset_id", nullable = false, referencedColumnName = "asset_id")
     private ClientAsset clientAsset;
 
     @Enumerated(EnumType.STRING)

@@ -20,6 +20,7 @@ public class ClientCompliance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "compliance_id")
     private UUID complianceId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -28,6 +29,7 @@ public class ClientCompliance {
     private Client client;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "requirement_type", nullable = false, length = 20)
     private RequirementType requirementType;
 
     @ManyToOne(fetch = FetchType.LAZY)

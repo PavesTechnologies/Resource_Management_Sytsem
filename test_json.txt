@@ -1,0 +1,7 @@
+Correct JSON format:
+{"status": "READY", "reason": "oewqmdoeimd", "pmsProjectId": 80}
+
+Incorrect JSON format (what you might be sending):
+{status: "READY", reason: "oewqmdoeimd", pmsProjectId: 80}
+
+Note the double quotes around all keys in the correct format!

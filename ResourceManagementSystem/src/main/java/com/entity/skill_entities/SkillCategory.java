@@ -16,7 +16,7 @@ import java.util.UUID;
 @Table(
         name = "skill_category",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_category_name", columnNames = "name")
+                @UniqueConstraint(name = "uk_category_name", columnNames = {"name"})
         }
 )
 @Getter
@@ -26,6 +26,7 @@ public class SkillCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id")
     private UUID id;
 
     @Column(nullable = false, length = 100)

@@ -31,6 +31,7 @@ public class DeliveryRoleExpectation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "role_name", nullable = false, length = 100)

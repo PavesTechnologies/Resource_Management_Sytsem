@@ -18,10 +18,11 @@ public class ClientEscalationContact {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "contact_id")
     private UUID contactId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id", nullable = false)
+    @JoinColumn(name = "client_id", nullable = false, referencedColumnName = "client_id")
     private Client client;
 
     @Column(nullable = false)
