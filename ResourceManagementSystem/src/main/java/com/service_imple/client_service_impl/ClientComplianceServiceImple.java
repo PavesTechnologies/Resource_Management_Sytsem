@@ -27,8 +27,8 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
         if (clientCompliance.getRequirementType() == RequirementType.SKILL
                 && clientCompliance.getSkill() == null) {
             throw new ProjectExceptionHandler( HttpStatus.BAD_REQUEST,
-                    "Skill must be selected for SKILL requirement type",
-                   null
+                    "BAD_REQUEST",
+                    "Skill must be selected for SKILL requirement type"
             );
         }
 
@@ -47,7 +47,7 @@ public class ClientComplianceServiceImple implements ClientComplianceService {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Created Successfully",Compliance));
         }
         else {
-            throw new ClientExceptionHandler("Clinet Compliance creation Failed");
+            throw new ClientExceptionHandler("Client Compliance creation Failed");
         }
     }
 
