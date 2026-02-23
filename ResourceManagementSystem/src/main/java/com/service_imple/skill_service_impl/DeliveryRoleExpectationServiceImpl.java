@@ -254,6 +254,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         }
 
         response.setRole(expectations.get(0).getRoleName());
+        response.setDev_role_id(expectations.get(0).getId());
 
         Map<String, List<DeliveryRoleExpectation>> groupedBySkill = expectations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSkill().getName()));
@@ -300,6 +301,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
         RoleExpectationWithMandatoryResponse response = new RoleExpectationWithMandatoryResponse();
         response.setRoleName(roleName);
+        response.setDev_role_id(expectations.get(0).getId());
 
         List<RoleExpectationWithMandatoryResponse.SkillRequirement> mandatorySkills = new ArrayList<>();
         List<RoleExpectationWithMandatoryResponse.SkillRequirement> optionalSkills = new ArrayList<>();
