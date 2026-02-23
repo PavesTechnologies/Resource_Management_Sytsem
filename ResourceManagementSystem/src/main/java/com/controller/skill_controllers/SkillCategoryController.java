@@ -1,6 +1,7 @@
 package com.controller.skill_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.skill_dto.SkillSearchResultDto;
 import com.dto.skill_taxonomy.SkillTaxonomyTreeDto;
 import com.entity.skill_entities.SkillCategory;
 import com.service_interface.skill_service_interface.SkillCategoryService;
@@ -61,6 +62,34 @@ public class SkillCategoryController {
     public ResponseEntity<ApiResponse<SkillTaxonomyTreeDto>> getSkillTaxonomyTreeByCategory(@PathVariable UUID categoryId) {
         SkillTaxonomyTreeDto treeDto = service.getSkillTaxonomyTreeByCategoryId(categoryId);
         return ResponseEntity.ok(ApiResponse.success("Skill taxonomy tree retrieved successfully", treeDto));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<SkillSearchResultDto>>> searchSkills(
+            @RequestParam String query) {
+        
+        // ========================================================================
+        // INPUT VALIDATION
+        // ========================================================================
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Search query cannot be empty"));
+        }
+
+        // ========================================================================
+        // SEARCH EXECUTION
+        // ========================================================================
+        List<SkillSearchResultDto> results = service.searchSkills(query.trim());
+        
+        // ========================================================================
+        // RESPONSE HANDLING
+        // ========================================================================
+        if (results.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error("skill not exist"));
+        }
+        
+        return ResponseEntity.ok(ApiResponse.success("Skills found successfully", results));
     }
 }
 
