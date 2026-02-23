@@ -122,11 +122,31 @@ public class ProjectCdcHandler {
             }
         }
 
-        // STEP 5: Audit and Persist
+        // STEP 5: Handle special field updates
+        boolean isNewProject = (rmsProject.getCreatedAt() == null);
+        
+        // Update risk_level_updated when risk_level changes
+        if (changedColumns.contains("risk_level")) {
+            rmsProject.setRiskLevelUpdatedAt(LocalDateTime.now());
+        }
+        
+        // Set createdAt for new projects
+        if (isNewProject) {
+            rmsProject.setCreatedAt(LocalDateTime.now());
+            // Set data status based on mandatory fields
+            rmsProject.setDataStatus(calculateDataStatus(rmsProject));
+        } else {
+            // For existing projects, recalculate data status if relevant fields changed
+            if (hasRelevantFieldChanges(changedColumns)) {
+                rmsProject.setDataStatus(calculateDataStatus(rmsProject));
+            }
+        }
+        
+        // STEP 6: Audit and Persist
         rmsProject.setLastSyncedAt(LocalDateTime.now());
         projectRepository.saveAndFlush(rmsProject); // flush ensures the lock is useful
 
-        // STEP 6: Update readiness
+        // STEP 7: Update readiness
         try {
             readinessUpdater.updateReadiness(rmsProject);
         } catch (Exception e) {
@@ -134,7 +154,7 @@ public class ProjectCdcHandler {
             System.err.println("Failed to update readiness for project " + pmsProjectId + ": " + e.getMessage());
         }
 
-        // STEP 7: Handle project timeline changes for availability recalculation
+        // STEP 8: Handle project timeline changes for availability recalculation
         try {
             if (changedColumns.contains("start_date") || changedColumns.contains("end_date")) {
                 LocalDateTime oldStartDate = extractLocalDateTime(before, "start_date");
@@ -232,6 +252,47 @@ public class ProjectCdcHandler {
         
         System.err.println("Unsupported date type for field " + fieldName + ": " + value.getClass().getName());
         return null;
+    }
+
+    /**
+     * Calculate data status based on mandatory fields
+     */
+    private com.entity_enums.project_enums.ProjectDataStatus calculateDataStatus(Project project) {
+        // Check mandatory fields
+        if (project.getName() == null || project.getName().trim().isEmpty()) {
+            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+        }
+        
+        if (project.getClientId() == null) {
+            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+        }
+        
+        // Optional: Check other important fields that might be considered mandatory
+        if (project.getProjectManagerId() == null) {
+            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+        }
+        
+        if (project.getStartDate() == null) {
+            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+        }
+        
+        if (project.getEndDate() == null) {
+            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+        }
+        
+        // All mandatory fields are present
+        return com.entity_enums.project_enums.ProjectDataStatus.COMPLETE;
+    }
+    
+    /**
+     * Check if any relevant fields changed that would affect data status
+     */
+    private boolean hasRelevantFieldChanges(Set<String> changedColumns) {
+        return changedColumns.contains("name") ||
+               changedColumns.contains("client_id") ||
+               changedColumns.contains("project_manager_id") ||
+               changedColumns.contains("start_date") ||
+               changedColumns.contains("end_date");
     }
 
 }

@@ -126,4 +126,13 @@ public class Project {
 
     @Transient
     private boolean hasOverlap;
+
+    public boolean getHasOverlap() {
+        return hasOverlap;
+    }
+
+    public void setHasOverlap(boolean hasOverlap) {
+        this.hasOverlap = hasOverlap;
+    }
+
 }
