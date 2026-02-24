@@ -28,6 +28,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class DemandServiceImpl implements DemandService {
@@ -234,6 +235,42 @@ public class DemandServiceImpl implements DemandService {
         } catch (Exception e) {
             return new ResponseEntity<>(
                     ApiResponse.error("Failed to retrieve demands: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId) {
+        try {
+            if (demandId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DEMAND_ID_REQUIRED",
+                        "Demand ID is required"
+                );
+            }
+
+            Demand demand = demandRepository.findById(demandId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "DEMAND_NOT_FOUND",
+                            "Demand not found"
+                    ));
+
+            return new ResponseEntity<>(
+                    ApiResponse.success("Demand retrieved successfully", demand),
+                    HttpStatus.OK
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error(e.getMessage()),
+                    e.getStatus()
+            );
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve demand: " + e.getMessage()),
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
         }

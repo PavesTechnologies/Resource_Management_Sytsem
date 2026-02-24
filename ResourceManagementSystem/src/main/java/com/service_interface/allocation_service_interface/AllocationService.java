@@ -1,6 +1,8 @@
 package com.service_interface.allocation_service_interface;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
+import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
+import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 
@@ -21,4 +23,22 @@ public interface AllocationService {
     ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId);
     
     ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId);
+    
+    /**
+     * Performs comprehensive skill gap analysis between demand and resource
+     * Integrated skill gap matching engine for allocation decision support
+     */
+    ResponseEntity<ApiResponse<?>> analyzeSkillGap(SkillGapAnalysisRequestDTO request);
+    
+    /**
+     * Clear all skill-related caches
+     * Call this when any skill reference data is updated
+     */
+    void clearAllSkillCaches();
+    
+    /**
+     * Clear proficiency levels cache
+     * Call this when proficiency levels are updated
+     */
+    void clearProficiencyLevelsCache();
 }

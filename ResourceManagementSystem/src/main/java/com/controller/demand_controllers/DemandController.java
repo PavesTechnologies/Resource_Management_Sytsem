@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/demand")
 @CrossOrigin
@@ -37,5 +39,11 @@ public class DemandController {
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse<?>> getDemandByProjectId(@PathVariable Long projectId) {
         return demandService.getDemandByProjectId(projectId);
+    }
+
+    @GetMapping("/{demandId}")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<?>> getDemandById(@PathVariable UUID demandId) {
+        return demandService.getDemandById(demandId);
     }
 }
