@@ -2,6 +2,7 @@ package com.entity.skill_entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -28,6 +29,11 @@ public class ResourceSkill {
 
     @Column(name = "skill_id", nullable = false)
     private UUID skillId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "skill_id", referencedColumnName = "id", insertable = false, updatable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Skill skill;
 
     @Column(name = "proficiency_id", nullable = false)
     private UUID proficiencyId;

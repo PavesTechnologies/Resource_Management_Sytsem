@@ -23,4 +23,10 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
     List<ResourceSubSkill> findByResourceIdAndSubSkillIdsAndActiveFlagTrue(
             @Param("resourceId") Long resourceId, 
             @Param("subSkillIds") List<UUID> subSkillIds);
+
+    @Query("SELECT rss.resourceId, ss.name FROM ResourceSubSkill rss JOIN rss.subSkill ss WHERE rss.resourceId IN :resourceIds AND rss.activeFlag = true")
+    List<Object[]> findResourceIdAndSubSkillNames(@Param("resourceIds") List<Long> resourceIds);
+
+    @Query("SELECT rss.resourceId, ss.name, pl.proficiencyName, rss.lastUsedDate FROM ResourceSubSkill rss JOIN rss.subSkill ss JOIN com.entity.skill_entities.ProficiencyLevel pl ON rss.proficiencyId = pl.proficiencyId WHERE rss.resourceId IN :resourceIds AND rss.activeFlag = true")
+    List<Object[]> findResourceIdAndSubSkillDetails(@Param("resourceIds") List<Long> resourceIds);
 }

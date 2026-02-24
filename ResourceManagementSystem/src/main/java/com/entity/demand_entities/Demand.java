@@ -31,6 +31,8 @@ public class Demand {
     @Column(name = "demand_id")
     private UUID demandId;
 
+    private String demandName;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
