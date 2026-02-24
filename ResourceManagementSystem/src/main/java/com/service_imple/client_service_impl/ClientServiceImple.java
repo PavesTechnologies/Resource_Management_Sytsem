@@ -362,6 +362,10 @@ public class ClientServiceImple implements ClientService {
     @Override
     public ResponseEntity<ApiResponse<Void>> deleteClient(UUID id) {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
+
+        if(projectRepository.existsByClientIdAndProjectStatus(id, ProjectStatus.ACTIVE)){
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Cannot De-active Client. Client has Active Projects", null));
+        }
         client.setStatus(RecordStatus.INACTIVE);
         client.setUpdatedAt(LocalDateTime.now());
         clientRepo.save(client);
