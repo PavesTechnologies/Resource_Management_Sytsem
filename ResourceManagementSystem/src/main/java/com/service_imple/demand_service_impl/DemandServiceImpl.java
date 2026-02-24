@@ -52,7 +52,7 @@ public class DemandServiceImpl implements DemandService {
     private DeliveryRoleExpectationRepository roleRepository;
 
     @Override
-    public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
+    public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long userId) {
         try {
 
             // 🔐 Validate project eligibility
@@ -86,6 +86,7 @@ public class DemandServiceImpl implements DemandService {
             demand.setDeliveryModel(dto.getDeliveryModel());
             demand.setDemandJustification(dto.getDemandJustification());
             demand.setDemandPriority(dto.getDemandPriority());
+            demand.setCreatedBy(userId);
             demand.setCreatedAt(LocalDateTime.now());
 
             // Handle outgoing resource (Replacement case)
