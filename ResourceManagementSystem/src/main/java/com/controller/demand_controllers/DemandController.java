@@ -24,7 +24,10 @@ public class DemandController {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<?>> createDemand(@RequestBody CreateDemandDTO dto, @CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> createDemand(
+            @RequestBody CreateDemandDTO dto,
+            @CurrentUser UserDTO userDTO) {
+
         return demandService.createDemand(dto, userDTO.getId());
     }
 

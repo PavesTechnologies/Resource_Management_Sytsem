@@ -18,8 +18,8 @@ import java.util.List;
 public class CertificateExpiryScheduler {
     private final ResourceCertificateRepository resourceCertificateRepository;
 
-//    @Scheduled(cron = "0 0 0 * * ?")
-@Scheduled(fixedRate = 10000)
+    @Scheduled(cron = "0 0 0 * * ?")
+//@Scheduled(fixedRate = 10000)
 @Transactional
     public void updateStatuses() {
 //    System.out.println("Updating certificate statuses...");
