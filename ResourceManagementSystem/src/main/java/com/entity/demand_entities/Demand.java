@@ -1,6 +1,7 @@
 package com.entity.demand_entities;
 
 import com.entity.project_entities.Project;
+import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
@@ -72,6 +73,13 @@ public class Demand {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "outgoing_resource_id")
+    private Resource outgoingResource;
+
+    @Column(name = "requires_additional_approval")
+    private Boolean requiresAdditionalApproval = false;
 
     @ManyToMany
     @JoinTable(

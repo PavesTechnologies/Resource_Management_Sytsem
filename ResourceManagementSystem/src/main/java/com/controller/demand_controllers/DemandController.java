@@ -2,6 +2,8 @@ package com.controller.demand_controllers;
 
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
+import com.dto.demand_dto.CreateDemandDTO;
+import com.dto.demand_dto.UpdateDemandDTO;
 import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;
@@ -20,15 +22,14 @@ public class DemandController {
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<?>> createDemand(@RequestBody Demand demand, @CurrentUser UserDTO userDTO) {
-        demand.setCreatedBy(userDTO.getId());
-        return demandService.createDemand(demand);
+    public ResponseEntity<ApiResponse<?>> createDemand(@RequestBody CreateDemandDTO dto, @CurrentUser UserDTO userDTO) {
+        return demandService.createDemand(dto, userDTO.getId());
     }
 
     @PutMapping("/update")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody Demand demand) {
-        return demandService.updateDemand(demand);
+    public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody UpdateDemandDTO dto) {
+        return demandService.updateDemand(dto);
     }
 
 

@@ -25,47 +25,27 @@ public class CertificateServiceImpl implements CertificateService {
     @Transactional
     public String CreateCertificate(CertificateRequestDTO dto) {
 
-        if (dto.getCertificateType() == null) {
-            throw new CertificationComplianceException("Certificate type is required");
+        if (dto.getTimeBound() == null) {
+            throw new CertificationComplianceException("timeBound flag required");
         }
 
-        if (dto.getCertificateType() == CertificateType.SKILL_BASED) {
-
-            if (dto.getSkillId() == null) {
-                throw new CertificationComplianceException(
-                        "Skill ID is required for skill-based certification");
-            }
-
-            Skill skill = skillRepository.findById(dto.getSkillId())
-                    .orElseThrow(() ->
-                            new CertificationComplianceException("Skill not found"));
-
-//            if (!"CERTIFICATION".equalsIgnoreCase(skill.getSkillType())) {
-//                throw new CertificationComplianceException(
-//                        "Skill is not marked as CERTIFICATION type");
-//            }
-
-//        } else if (dto.getCertificateType() == CertificateType.ACHIEVEMENT) {
-
-            if (dto.getSkillId() != null) {
-                throw new CertificationComplianceException(
-                        "Achievement certificate must not be linked to a skill");
-            }
+        if (dto.getTimeBound() && dto.getValidityMonths() == null) {
+            throw new CertificationComplianceException(
+                    "Validity months required for time-bound certificates");
         }
 
         Certificate certificate = Certificate.builder()
                 .certificateId(UUID.randomUUID())
                 .skillId(dto.getSkillId())
-//                .certificateType(dto.getCertificateType())
                 .providerName(dto.getProviderName())
-                .certifiedAt(dto.getCertifiedAt())
-                .expiryDate(dto.getExpiryDate())
+                .timeBound(dto.getTimeBound())
+                .validityMonths(dto.getValidityMonths())
                 .activeFlag(true)
                 .build();
 
         certificateRepository.save(certificate);
 
-        return "Certificate created successfully";
+        return "Certificate master created successfully";
     }
 
     @Override

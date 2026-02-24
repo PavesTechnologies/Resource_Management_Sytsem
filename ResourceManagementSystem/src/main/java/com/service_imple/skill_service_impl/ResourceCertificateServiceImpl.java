@@ -2,73 +2,126 @@ package com.service_imple.skill_service_impl;
 
 
 import com.dto.skill_dto.ResourceCertificateRequestDTO;
+import com.entity.skill_entities.Certificate;
+import com.entity.skill_entities.ResourceCertificate;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.Skill;
+import com.entity_enums.skill_enums.CertificateStatus;
 import com.global_exception_handler.CertificationComplianceException;
-import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.skill_repo.CertificateRepository;
+import com.repo.skill_repo.ResourceCertificateRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.service_interface.skill_service_interface.ResourceCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class ResourceCertificateServiceImpl implements ResourceCertificateService {
-    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceCertificateRepository resourceCertificateRepository;
+    private final CertificateRepository certificateRepository;
     private final SkillRepository skillRepository;
 
     @Override
     @Transactional
     public String assignCertificate(ResourceCertificateRequestDTO dto) {
-        if (dto.getSkillId() == null) {
-            throw new CertificationComplianceException("Skill ID is required");
-        }
-        if (dto.getResourceId() == null) {
-            throw new CertificationComplianceException("Resource ID is required");
-        }
-        if (dto.getProficiencyId() == null) {
-            throw new CertificationComplianceException("Proficiency ID is required");
-        }
 
-        Skill skill = skillRepository.findById(dto.getSkillId())
+        Certificate master = certificateRepository.findById(dto.getCertificateId())
                 .orElseThrow(() ->
-                        new CertificationComplianceException("Certification skill not found"));
+                        new CertificationComplianceException("Certificate master not found"));
 
-//        if (!"CERTIFICATION".equalsIgnoreCase(skill.getSkillType())) {
-//            throw new CertificationComplianceException(
-//                    "Skill is not a certification");
-//        }
+        if (dto.getIssuedDate() == null) {
+            throw new CertificationComplianceException("Issued date required");
+        }
 
-        ResourceSkill entity = ResourceSkill.builder()
+        LocalDate expiryDate = null;
+        CertificateStatus status;
+
+        if (Boolean.TRUE.equals(master.getTimeBound())) {
+
+            expiryDate = dto.getIssuedDate()
+                    .plusMonths(master.getValidityMonths());
+
+            status = calculateStatus(expiryDate);
+
+        } else {
+            status = CertificateStatus.ACTIVE;
+        }
+
+        ResourceCertificate entity = ResourceCertificate.builder()
                 .resourceId(dto.getResourceId())
-                .skillId(dto.getSkillId())
-                .proficiencyId(dto.getProficiencyId())
-                .expiryDate(dto.getExpiryDate())
+                .certificateId(dto.getCertificateId())
+                .issuedDate(dto.getIssuedDate())
+                .expiryDate(expiryDate)
+                .status(status)
                 .activeFlag(true)
                 .build();
 
-        resourceSkillRepository.save(entity);
+        resourceCertificateRepository.save(entity);
 
-        return "Certification assigned to resource";
+        return "Certificate assigned successfully";
+    }
+
+    private CertificateStatus calculateStatus(LocalDate expiryDate) {
+
+        LocalDate today = LocalDate.now();
+
+        if (expiryDate.isBefore(today)) {
+            return CertificateStatus.EXPIRED;
+        }
+
+        if (expiryDate.isBefore(today.plusDays(30))) {
+            return CertificateStatus.EXPIRING_SOON;
+        }
+
+        return CertificateStatus.ACTIVE;
+    }
+
+    @Transactional
+    public String renewCertificate(UUID resourceCertificateId,
+                                   LocalDate newIssuedDate) {
+
+        ResourceCertificate rc = resourceCertificateRepository
+                .findById(resourceCertificateId)
+                .orElseThrow(() ->
+                        new CertificationComplianceException("Certificate not found"));
+
+        Certificate master = certificateRepository
+                .findById(rc.getCertificateId())
+                .orElseThrow(() ->
+                        new CertificationComplianceException("Master not found"));
+
+        if (Boolean.TRUE.equals(master.getTimeBound())) {
+
+            LocalDate newExpiry =
+                    newIssuedDate.plusMonths(master.getValidityMonths());
+
+            rc.setIssuedDate(newIssuedDate);
+            rc.setExpiryDate(newExpiry);
+            rc.setStatus(calculateStatus(newExpiry));
+        }
+
+        return "Certificate renewed successfully";
     }
 
     @Override
-    public List<ResourceSkill> getCertificatesByResourceId(Long resourceId) {
-        return resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
+    public List<ResourceCertificate> getCertificatesByResourceId(Long resourceId) {
+        return resourceCertificateRepository.findByResourceIdAndActiveFlagTrue(resourceId);
     }
 
     @Override
-    public List<ResourceSkill> getAllCertificates() {
-        return resourceSkillRepository.findByActiveFlagTrue();
+    public List<ResourceCertificate> getAllCertificates() {
+        return resourceCertificateRepository.findByActiveFlagTrue();
     }
 
     @Override
-    public ResourceSkill getCertificateById(UUID id) {
-        return resourceSkillRepository.findById(id)
+    public ResourceCertificate getCertificateById(UUID id) {
+        return resourceCertificateRepository.findById(id)
                 .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
     }
 

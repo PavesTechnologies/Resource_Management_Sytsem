@@ -1,13 +1,23 @@
 package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
+import com.dto.demand_dto.CreateDemandDTO;
+import com.dto.demand_dto.UpdateDemandDTO;
 import com.entity.demand_entities.Demand;
+import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectCompliance;
+import com.entity.resource_entities.Resource;
+import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
+import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
 import com.repo.project_repo.ProjectComplianceRepo;
+import com.repo.project_repo.ProjectRepository;
+import com.repo.resource_repo.ResourceRepository;
+import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
@@ -31,93 +41,115 @@ public class DemandServiceImpl implements DemandService {
     @Autowired
     private ProjectComplianceRepo projectComplianceRepo;
 
+    @Autowired
+    private ResourceRepository resourceRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private DeliveryRoleExpectationRepository roleRepository;
+
     @Override
-    public ResponseEntity<ApiResponse<?>> createDemand(Demand demand) {
+    public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
         try {
 
-            // 🔐 ADD THIS AS FIRST LINE (VERY IMPORTANT)
-            projectDemandValidationService.validateProjectForStaffing(
-                    demand.getProject().getPmsProjectId()
-            );
+            // 🔐 Validate project eligibility
+            projectDemandValidationService.validateProjectForStaffing(dto.getProjectId());
 
-            // 🔹 Auto-attach project compliance requirements
-            List<ProjectCompliance> compliances = projectComplianceRepo
-                    .findAllByProject_PmsProjectId(demand.getProject().getPmsProjectId())
-                    .orElse(List.of());
-            
-            for (ProjectCompliance compliance : compliances) {
-                if (compliance.getActiveFlag() && compliance.getMandatoryFlag()) {
-                    if (compliance.getRequirementType() == RequirementType.SKILL && compliance.getClientCompliance() != null && compliance.getClientCompliance().getSkill() != null) {
-                        demand.getRequiredSkills().add(compliance.getClientCompliance().getSkill());
-                    } else if (compliance.getRequirementType() == RequirementType.CERTIFICATION && compliance.getClientCompliance() != null && compliance.getClientCompliance().getCertificate() != null) {
-                        demand.getRequiredCertificates().add(compliance.getClientCompliance().getCertificate());
-                    }
-                }
-            }
+            // Fetch Project
+            Project project = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "PROJECT_NOT_FOUND",
+                            "Project not found"
+                    ));
 
-            // Set created timestamp
+            // Fetch Role
+            DeliveryRoleExpectation role = roleRepository.findById(dto.getRoleId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "ROLE_NOT_FOUND",
+                            "Role not found"
+                    ));
+
+            // Create Entity
+            Demand demand = new Demand();
+            demand.setProject(project);
+            demand.setRole(role);
+            demand.setDemandType(dto.getDemandType());
+            demand.setDemandStartDate(dto.getDemandStartDate());
+            demand.setDemandEndDate(dto.getDemandEndDate());
+            demand.setAllocationPercentage(dto.getAllocationPercentage());
+            demand.setLocationRequirement(dto.getLocationRequirement());
+            demand.setDeliveryModel(dto.getDeliveryModel());
+            demand.setDemandJustification(dto.getDemandJustification());
+            demand.setDemandPriority(dto.getDemandPriority());
             demand.setCreatedAt(LocalDateTime.now());
 
-            // Save the demand
-            Demand savedDemand = demandRepository.save(demand);
+            // Handle outgoing resource (Replacement case)
+            if (dto.getOutgoingResourceId() != null) {
+                Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "RESOURCE_NOT_FOUND",
+                                "Outgoing resource not found"
+                        ));
+                demand.setOutgoingResource(resource);
+            }
 
-            ApiResponse response = ApiResponse.success(
-                    "Demand created successfully",
-                    savedDemand.getDemandId()
+            // 🔥 Validate demand type rules
+            validateDemandTypeRules(demand);
+
+            // 🔥 Apply business rules
+            applyDemandTypeRules(demand);
+
+            // 🔹 Attach compliance requirements
+            attachMandatoryCompliances(demand);
+
+            Demand saved = demandRepository.save(demand);
+
+            return new ResponseEntity<>(
+                    ApiResponse.success("Demand created successfully", saved.getDemandId()),
+                    HttpStatus.CREATED
             );
-
-            return new ResponseEntity<>(response, HttpStatus.CREATED);
 
         } catch (ProjectExceptionHandler e) {
-            // ✅ Business validation failure (expected)
-            ApiResponse response = ApiResponse.error(
-                    e.getMessage()
+            return new ResponseEntity<>(
+                    ApiResponse.error(e.getMessage()),
+                    e.getStatus()
             );
-            return new ResponseEntity<>(response, e.getStatus());
-
         } catch (Exception e) {
-            // ❌ Unexpected failure
-            ApiResponse response = ApiResponse.error(
-                    "Failed to create demand: " + e.getMessage()
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to create demand: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
             );
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Transactional
     @Override
-    public ResponseEntity<ApiResponse<?>> updateDemand(Demand request) {
+    public ResponseEntity<ApiResponse<?>> updateDemand(UpdateDemandDTO dto) {
 
-        if (request.getDemandId() == null) {
+        if (dto.getDemandId() == null) {
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "DEMAND_ID_REQUIRED",
-                    "Demand ID is required for update"
+                    "Demand ID is required"
             );
         }
 
-        Demand existing = demandRepository.findById(request.getDemandId())
+        Demand existing = demandRepository.findById(dto.getDemandId())
                 .orElseThrow(() -> new ProjectExceptionHandler(
                         HttpStatus.NOT_FOUND,
                         "DEMAND_NOT_FOUND",
                         "Demand not found"
                 ));
 
-//        if (existing.getDemandStatus() != DemandStatus.DRAFT) {
-//            throw new ProjectExceptionHandler(
-//                    HttpStatus.CONFLICT,
-//                    "INVALID_DEMAND_STATUS",
-//                    "Only DRAFT demands can be updated"
-//            );
-//        }
-
-        projectDemandValidationService.validateProjectForStaffing(
-                existing.getProject().getPmsProjectId()
-        );
-
-        if (request.getDemandEndDate() != null &&
-                request.getDemandStartDate() != null &&
-                request.getDemandEndDate().isBefore(request.getDemandStartDate())) {
+        // Date validation
+        if (dto.getDemandStartDate() != null &&
+                dto.getDemandEndDate() != null &&
+                dto.getDemandEndDate().isBefore(dto.getDemandStartDate())) {
 
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
@@ -126,23 +158,44 @@ public class DemandServiceImpl implements DemandService {
             );
         }
 
-        // SAFE updates
-        if (request.getDemandJustification() != null)
-            existing.setDemandJustification(request.getDemandJustification());
-        if (request.getDemandStartDate() != null)
-            existing.setDemandStartDate(request.getDemandStartDate());
-        if (request.getDemandEndDate() != null)
-            existing.setDemandEndDate(request.getDemandEndDate());
-        if (request.getAllocationPercentage() != null)
-            existing.setAllocationPercentage(request.getAllocationPercentage());
-        if (request.getDeliveryModel() != null)
-            existing.setDeliveryModel(request.getDeliveryModel());
-        if (request.getLocationRequirement() != null)
-            existing.setLocationRequirement(request.getLocationRequirement());
-        if (request.getDemandPriority() != null)
-            existing.setDemandPriority(request.getDemandPriority());
-        if (request.getDemandType() != null)
-            existing.setDemandType(request.getDemandType());
+        // Safe updates
+        if (dto.getDemandType() != null)
+            existing.setDemandType(dto.getDemandType());
+
+        if (dto.getDemandJustification() != null)
+            existing.setDemandJustification(dto.getDemandJustification());
+
+        if (dto.getDemandStartDate() != null)
+            existing.setDemandStartDate(dto.getDemandStartDate());
+
+        if (dto.getDemandEndDate() != null)
+            existing.setDemandEndDate(dto.getDemandEndDate());
+
+        if (dto.getAllocationPercentage() != null)
+            existing.setAllocationPercentage(dto.getAllocationPercentage());
+
+        if (dto.getLocationRequirement() != null)
+            existing.setLocationRequirement(dto.getLocationRequirement());
+
+        if (dto.getDeliveryModel() != null)
+            existing.setDeliveryModel(dto.getDeliveryModel());
+
+        if (dto.getDemandPriority() != null)
+            existing.setDemandPriority(dto.getDemandPriority());
+
+        if (dto.getOutgoingResourceId() != null) {
+            Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "RESOURCE_NOT_FOUND",
+                            "Outgoing resource not found"
+                    ));
+            existing.setOutgoingResource(resource);
+        }
+
+        // Re-validate rules
+        validateDemandTypeRules(existing);
+        applyDemandTypeRules(existing);
 
         demandRepository.save(existing);
 
@@ -155,7 +208,7 @@ public class DemandServiceImpl implements DemandService {
     @Override
     public ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId) {
         try {
-            // Validate project ID
+
             if (projectId == null) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
@@ -164,33 +217,104 @@ public class DemandServiceImpl implements DemandService {
                 );
             }
 
-            // Validate project exists and is eligible for staffing
             projectDemandValidationService.validateProjectForStaffing(projectId);
 
-            // Fetch demands by project ID
             List<Demand> demands = demandRepository.findByProject_PmsProjectId(projectId);
 
-            ApiResponse response = ApiResponse.success(
-                    "Demands retrieved successfully",
-                    demands
+            return new ResponseEntity<>(
+                    ApiResponse.success("Demands retrieved successfully", demands),
+                    HttpStatus.OK
             );
-
-            return new ResponseEntity<>(response, HttpStatus.OK);
 
         } catch (ProjectExceptionHandler e) {
-            // Business validation failure
-            ApiResponse response = ApiResponse.error(
-                    e.getMessage()
+            return new ResponseEntity<>(
+                    ApiResponse.error(e.getMessage()),
+                    e.getStatus()
             );
-            return new ResponseEntity<>(response, e.getStatus());
-
         } catch (Exception e) {
-            // Unexpected failure
-            ApiResponse response = ApiResponse.error(
-                    "Failed to retrieve demands: " + e.getMessage()
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve demands: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
             );
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
+    private void validateDemandTypeRules(Demand demand) {
+
+        if (demand.getDemandType() == DemandType.REPLACEMENT) {
+
+            if (demand.getOutgoingResource() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "OUTGOING_RESOURCE_REQUIRED",
+                        "Replacement demand must reference outgoing resource"
+                );
+            }
+        }
+
+        if (demand.getDemandType() == DemandType.NET_NEW) {
+
+            if (demand.getDemandJustification() == null ||
+                    demand.getDemandJustification().trim().length() < 20) {
+
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "JUSTIFICATION_REQUIRED",
+                        "Net-New demand requires detailed business justification (min 20 characters)"
+                );
+            }
+        }
+    }
+
+
+    private void applyDemandTypeRules(Demand demand) {
+
+        if (demand.getDemandType() == DemandType.REPLACEMENT) {
+
+            demand.setRequiresAdditionalApproval(false);
+
+            if (demand.getDemandPriority() == null) {
+                demand.setDemandPriority(PriorityLevel.HIGH);
+            }
+        }
+
+        if (demand.getDemandType() == DemandType.NET_NEW) {
+
+            demand.setRequiresAdditionalApproval(true);
+
+            if (demand.getDemandPriority() == null) {
+                demand.setDemandPriority(PriorityLevel.MEDIUM);
+            }
+        }
+    }
+
+    private void attachMandatoryCompliances(Demand demand) {
+
+        List<ProjectCompliance> compliances = projectComplianceRepo
+                .findAllByProject_PmsProjectId(
+                        demand.getProject().getPmsProjectId()
+                ).orElse(List.of());
+
+        for (ProjectCompliance compliance : compliances) {
+
+            if (compliance.getActiveFlag() && compliance.getMandatoryFlag()) {
+
+                if (compliance.getRequirementType() == RequirementType.SKILL &&
+                        compliance.getClientCompliance() != null &&
+                        compliance.getClientCompliance().getSkill() != null) {
+
+                    demand.getRequiredSkills()
+                            .add(compliance.getClientCompliance().getSkill());
+                }
+
+                if (compliance.getRequirementType() == RequirementType.CERTIFICATION &&
+                        compliance.getClientCompliance() != null &&
+                        compliance.getClientCompliance().getCertificate() != null) {
+
+                    demand.getRequiredCertificates()
+                            .add(compliance.getClientCompliance().getCertificate());
+                }
+            }
+        }
+    }
 }

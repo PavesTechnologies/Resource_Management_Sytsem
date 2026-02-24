@@ -1,5 +1,6 @@
 package com.entity.skill_entities;
 
+import com.entity_enums.skill_enums.CertificateStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -37,4 +38,8 @@ public class ResourceCertificate {
 
     @Column(name = "active_flag")
     private Boolean activeFlag;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private CertificateStatus status;
 }
