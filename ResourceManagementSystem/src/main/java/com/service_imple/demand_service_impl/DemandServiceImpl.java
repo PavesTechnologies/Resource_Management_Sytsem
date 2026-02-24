@@ -20,6 +20,7 @@ import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
+import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -323,6 +324,56 @@ public class DemandServiceImpl implements DemandService {
             if (demand.getDemandPriority() == null) {
                 demand.setDemandPriority(PriorityLevel.MEDIUM);
             }
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerId(Long resourceManagerId) {
+        try {
+            // Validate resource manager ID
+            if (resourceManagerId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "RESOURCE_MANAGER_ID_REQUIRED",
+                        "Resource Manager ID is required"
+                );
+            }
+
+            // Fetch demands by resource manager ID (through project relationship)
+            List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
+
+            // Format response with demand ID and name
+            List<java.util.Map<String, Object>> formattedDemands = demands.stream()
+                    .map(demand -> {
+                        java.util.Map<String, Object> demandInfo = new java.util.HashMap<>();
+                        demandInfo.put("demandId", demand.getDemandId());
+                        demandInfo.put("demandName", demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand");
+                        demandInfo.put("projectId", demand.getProject().getPmsProjectId());
+                        demandInfo.put("projectName", demand.getProject().getName());
+                        return demandInfo;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
+            ApiResponse response = ApiResponse.success(
+                    "Demands retrieved successfully",
+                    formattedDemands
+            );
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
+
+        } catch (ProjectExceptionHandler e) {
+            // Business validation failure
+            ApiResponse response = ApiResponse.error(
+                    e.getMessage()
+            );
+            return new ResponseEntity<>(response, e.getStatus());
+
+        } catch (Exception e) {
+            // Unexpected failure
+            ApiResponse response = ApiResponse.error(
+                    "Failed to retrieve demands: " + e.getMessage()
+            );
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

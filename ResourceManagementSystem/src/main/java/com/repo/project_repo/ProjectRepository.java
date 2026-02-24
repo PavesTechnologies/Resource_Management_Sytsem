@@ -98,4 +98,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.projectStatus IN :statuses")
     long countByProjectStatuses(@Param("statuses") List<ProjectStatus> statuses);
+
+    boolean existsByClientIdAndProjectStatus(UUID clientId, ProjectStatus status);
 }

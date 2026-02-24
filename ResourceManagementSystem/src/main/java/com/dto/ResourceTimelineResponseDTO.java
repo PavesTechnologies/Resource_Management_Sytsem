@@ -2,6 +2,7 @@ package com.dto;
 
 import com.dto.allocation_dto.AllocationTimelineItem;
 import com.dto.allocation_dto.NoticeInfoDTO;
+import com.dto.SkillInfoDTO;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
@@ -21,6 +22,8 @@ public class ResourceTimelineResponseDTO {
     private String avatar;
     private String role;
     private List<String> skills;
+    private List<SkillInfoDTO> skillDetails;
+    private List<CertificationInfoDTO> certifications;
     private String location;
     private Integer experience;
     private Integer currentAllocation;
