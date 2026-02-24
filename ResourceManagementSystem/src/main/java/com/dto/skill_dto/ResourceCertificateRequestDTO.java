@@ -13,12 +13,15 @@ public class ResourceCertificateRequestDTO {
     @JsonProperty("resourceId")
     private Long resourceId;
     
+    @JsonProperty("certificateId")
+    private UUID certificateId;
+    
     @JsonProperty("skillId")
     private UUID skillId; // certification skill
     
     @JsonProperty("proficiencyId")
     private UUID proficiencyId;
     
-    @JsonProperty("expiryDate")
-    private LocalDate expiryDate;
+    @JsonProperty("issuedDate")
+    private LocalDate issuedDate;
 }

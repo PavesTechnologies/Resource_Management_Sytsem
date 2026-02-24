@@ -55,9 +55,20 @@ public class ClientContactServiceImple implements ClientContactService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> getClientContact(UUID clientId) {
-        List<ClientEscalationContact> Contact=clientContactRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Contact"));
 
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Contact Fentched Successfully",Contact));
+        List<ClientEscalationContact> contact =
+                clientContactRepo.findContactsByClientOrdered(clientId);
 
+        if (contact.isEmpty()) {
+            throw new ClientExceptionHandler("Failed to fetch client Contact");
+        }
+
+        return ResponseEntity.ok(
+                apiResponse.getAPIResponse(
+                        true,
+                        "Client Contact Fetched Successfully",
+                        contact
+                )
+        );
     }
 }

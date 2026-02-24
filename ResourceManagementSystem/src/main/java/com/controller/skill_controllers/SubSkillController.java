@@ -1,8 +1,10 @@
 package com.controller.skill_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.skill_dto.SubSkillCreateDTO;
 import com.entity.skill_entities.SubSkill;
 import com.service_interface.skill_service_interface.SubSkillService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,16 +21,12 @@ public class SubSkillController {
     private final SubSkillService service;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<SubSkill>> create(@RequestBody SubSkill subSkill) {
-
-        if (subSkill.getSkill() == null || subSkill.getSkill().getId() == null) {
-            throw new RuntimeException("Skill ID is required");
-        }
+    public ResponseEntity<ApiResponse<SubSkill>> create(@Valid @RequestBody SubSkillCreateDTO subSkillCreateDTO) {
 
         SubSkill created = service.create(
-                subSkill.getSkill().getId(),
-                subSkill.getName(),
-                subSkill.getDescription()
+                subSkillCreateDTO.getSkillId(),
+                subSkillCreateDTO.getName(),
+                subSkillCreateDTO.getDescription()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED)

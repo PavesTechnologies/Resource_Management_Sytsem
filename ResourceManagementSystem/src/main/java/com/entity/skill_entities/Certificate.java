@@ -35,11 +35,16 @@ public class Certificate {
     @Column(name = "certificate_file")
     private String certificateFile;
 
-    @Column(name = "certified_at")
-    private LocalDate certifiedAt;
+    //    @Column(name = "certified_at")
+//    private LocalDate certifiedAt;
+//
+//    @Column(name = "expiry_date")
+//    private LocalDate expiryDate;
+    @Column(name = "time_bound")
+    private Boolean timeBound;
 
-    @Column(name = "expiry_date")
-    private LocalDate expiryDate;
+    @Column(name = "validity_months")
+    private Integer validityMonths;
 
     @Column(name = "active_flag")
     private Boolean activeFlag;

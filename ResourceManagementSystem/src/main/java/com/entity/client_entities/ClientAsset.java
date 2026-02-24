@@ -12,11 +12,14 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Table(name = "client_asset")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -52,8 +55,8 @@ public class ClientAsset {
     @Column(nullable = false)
     private String assetType;
 
-//    @Column(name = "serial_number", unique = true)
-//    private String serialNumber;
+    @Column(length = 500)
+    private String description;
 
     private Integer quantity;
 
@@ -63,4 +66,15 @@ public class ClientAsset {
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @Column(name = "serial_numbers")
+    @OneToMany(mappedBy = "asset", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    @Builder.Default
+    private List<ClientAssetSerial> serialNumbers = new ArrayList<>();
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
