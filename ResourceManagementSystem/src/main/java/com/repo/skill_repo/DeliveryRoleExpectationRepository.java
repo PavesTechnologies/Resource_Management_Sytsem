@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -52,4 +53,26 @@ public interface DeliveryRoleExpectationRepository extends JpaRepository<Deliver
 
     @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = false ORDER BY dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findOptionalExpectationsByRoleName(@Param("roleName") String roleName);
+
+    /**
+     * Find delivery role expectation by ID with all related entities fetched
+     * Optimized for skill gap matching to avoid N+1 queries
+     */
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre " +
+           "LEFT JOIN FETCH dre.skill " +
+           "LEFT JOIN FETCH dre.subSkill " +
+           "LEFT JOIN FETCH dre.proficiencyLevel " +
+           "WHERE dre.id = :roleId")
+    Optional<DeliveryRoleExpectation> findByIdWithDetails(@Param("roleId") UUID roleId);
+
+    /**
+     * Find all delivery role expectations by role name with details
+     * Optimized for skill gap matching
+     */
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre " +
+           "LEFT JOIN FETCH dre.skill " +
+           "LEFT JOIN FETCH dre.subSkill " +
+           "LEFT JOIN FETCH dre.proficiencyLevel " +
+           "WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE'")
+    List<DeliveryRoleExpectation> findByRoleNameWithDetails(@Param("roleName") String roleName);
 }
