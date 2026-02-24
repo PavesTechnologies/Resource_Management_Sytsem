@@ -1,42 +1,50 @@
 package com.service_imple.skill_service_impl;
 
 import com.dto.skill_dto.AllocationValidationRequestDTO;
+import com.entity.skill_entities.ResourceCertificate;
 import com.entity.skill_entities.ResourceSkill;
+import com.entity_enums.skill_enums.CertificateStatus;
 import com.global_exception_handler.CertificationComplianceException;
+import com.repo.skill_repo.ResourceCertificateRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
 import com.service_interface.skill_service_interface.CertificationComplianceService;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
-@Setter
+@Service
 @RequiredArgsConstructor
 public class CertificationComplianceServiceImpl implements CertificationComplianceService {
-    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceCertificateRepository resourceCertificateRepository;
 
     @Override
-    public void validateCertificationCompliance(AllocationValidationRequestDTO dto) {
-        for (UUID certSkillId : dto.getRequiredCertificationSkillIds()) {
+    public void validateCertificationCompliance(
+            AllocationValidationRequestDTO dto) {
 
-            ResourceSkill cert = resourceSkillRepository
-                    .findByResourceIdAndSkillIdAndActiveFlagTrue(
-                            dto.getResourceId(), certSkillId)
-                    .orElse(null);
+        if (dto.getRequiredCertificationSkillIds() == null
+                || dto.getRequiredCertificationSkillIds().isEmpty()) {
+            throw new CertificationComplianceException(
+                    "Required certification list cannot be empty");
+        }
 
-            if (cert == null) {
+        for (UUID certId : dto.getRequiredCertificationSkillIds()) {
+
+            ResourceCertificate rc =
+                    resourceCertificateRepository
+                            .findByResourceIdAndCertificateIdAndActiveFlagTrue(
+                                    dto.getResourceId(), certId)
+                            .orElseThrow(() ->
+                                    new CertificationComplianceException(
+                                            "Missing required certification"));
+
+            if (rc.getStatus() == CertificateStatus.EXPIRED) {
                 throw new CertificationComplianceException(
-                        "Missing required certification");
-            }
-
-            if (cert.getExpiryDate() != null &&
-                    cert.getExpiryDate().isBefore(LocalDate.now())) {
-
-                throw new CertificationComplianceException(
-                        "Certification expired for skill: " + certSkillId);
+                        "Certificate expired on " + rc.getExpiryDate());
             }
         }
     }
-
 }
