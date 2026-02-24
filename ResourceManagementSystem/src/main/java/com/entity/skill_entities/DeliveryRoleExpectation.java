@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.Builder.Default;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -59,6 +60,7 @@ public class DeliveryRoleExpectation {
     private Boolean mandatoryFlag;
 
     @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
     private String status = "ACTIVE";
 
     @Column(nullable = false, updatable = false)

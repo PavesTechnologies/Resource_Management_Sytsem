@@ -106,11 +106,6 @@ public class ProjectCdcHandler {
             ColumnMapping mapping = ProjectCdcMappingRegistry.PMS_TO_RMS.get(pmsColumn);
             if (mapping == null) continue;
 
-            // Skip client_id as it's already handled in upsertSkeleton
-            if ("client_id".equals(pmsColumn)) {
-                continue;
-            }
-
             Object rawValue = after.schema().field(pmsColumn) != null ? after.get(pmsColumn) : null;
             Object converted = CdcValueConverter.convert(rawValue, mapping.getFieldType(), mapping.getEnumClass());
 

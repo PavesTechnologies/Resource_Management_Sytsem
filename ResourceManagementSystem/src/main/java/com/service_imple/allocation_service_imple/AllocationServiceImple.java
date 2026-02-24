@@ -1,13 +1,13 @@
 package com.service_imple.allocation_service_imple;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
+import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
+import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.dto.ApiResponse;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
-import com.entity.skill_entities.ResourceSkill;
-import com.entity.skill_entities.ResourceCertificate;
-import com.entity.skill_entities.Skill;
-import com.entity.skill_entities.Certificate;
+import com.entity.demand_entities.Demand;
+import com.entity.skill_entities.*;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
@@ -15,23 +15,24 @@ import com.repo.resource_repo.ResourceRepository;
 import com.repo.DemandRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
-import com.repo.skill_repo.ResourceSkillRepository;
-import com.repo.skill_repo.ResourceCertificateRepository;
+import com.repo.skill_repo.*;
 import com.service_interface.allocation_service_interface.AllocationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Counter;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AllocationServiceImple implements AllocationService {
@@ -43,6 +44,12 @@ public class AllocationServiceImple implements AllocationService {
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
     private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceCertificateRepository resourceCertificateRepository;
+    private final SkillRepository skillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
+    private final ProficiencyLevelRepository proficiencyLevelRepository;
+    private final CertificateRepository certificateRepository;
+    private final DeliveryRoleExpectationRepository deliveryRoleExpectationRepository;
+    private final MeterRegistry meterRegistry;
 
     @Override
     public ResponseEntity<ApiResponse<?>> assignAllocation(AllocationRequestDTO allocationRequest) {
@@ -236,6 +243,50 @@ public class AllocationServiceImple implements AllocationService {
         }
     }
 
+    @Override
+    public ResponseEntity<ApiResponse<?>> analyzeSkillGap(SkillGapAnalysisRequestDTO request) {
+        try {
+            // Validate demand exists
+            Demand demand = demandRepository.findById(request.getDemandId())
+                .orElseThrow(() -> new ProjectExceptionHandler(
+                    HttpStatus.NOT_FOUND,
+                    "DEMAND_NOT_FOUND",
+                    "Demand not found with ID: " + request.getDemandId()
+                ));
+
+            // Validate resource exists
+            if (!resourceRepository.existsById(request.getResourceId())) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.NOT_FOUND,
+                    "RESOURCE_NOT_FOUND",
+                    "Resource not found with ID: " + request.getResourceId()
+                );
+            }
+
+            // Increment cache hit/miss counters
+            meterRegistry.counter("skill_gap_analysis_db_queries", "type", "demand_lookup").increment();
+            meterRegistry.counter("skill_gap_analysis_db_queries", "type", "resource_exists").increment();
+
+            // Perform comprehensive skill gap analysis
+            SkillGapAnalysisResponseDTO analysis = performSkillGapAnalysis(demand, request.getResourceId());
+
+            return ResponseEntity.ok(
+                new ApiResponse<>(true, "Skill gap analysis completed successfully", analysis)
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            log.warn("Skill gap analysis validation failed: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(
+                new ApiResponse<>(false, e.getMessage(), null)
+            );
+        } catch (Exception e) {
+            log.error("Skill gap analysis failed unexpectedly: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                new ApiResponse<>(false, "Failed to analyze skill gap: " + e.getMessage(), null)
+            );
+        }
+    }
+
     /**
      * Updates the ResourceAvailabilityLedger for the given allocation.
      * This method recalculates the total allocation percentage for each day
@@ -368,5 +419,361 @@ public class AllocationServiceImple implements AllocationService {
                 );
             }
         }
+    }
+
+
+    /**
+     * Core skill gap analysis implementation
+     * Optimized for performance with single queries and in-memory processing
+     * Eliminates all repository calls inside loops
+     */
+    private SkillGapAnalysisResponseDTO performSkillGapAnalysis(Demand demand, Long resourceId) {
+        LocalDate currentDate = LocalDate.now();
+
+        log.debug("[PERF] Starting skill gap analysis for demand: {}, resource: {}",
+                demand.getDemandId(), resourceId);
+
+        // Single queries to fetch all resource data (performance optimization)
+        List<ResourceSkill> resourceSkills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
+        List<ResourceSubSkill> resourceSubSkills = resourceSubSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
+        List<ResourceCertificate> resourceCertificates = resourceCertificateRepository.findActiveCertificatesForResource(resourceId, currentDate);
+
+        // Count database queries for metrics
+        meterRegistry.counter("skill_gap_analysis_db_queries", "type", "resource_skills").increment();
+        meterRegistry.counter("skill_gap_analysis_db_queries", "type", "resource_subskills").increment();
+        meterRegistry.counter("skill_gap_analysis_db_queries", "type", "resource_certificates").increment();
+
+        // Batch fetch all proficiency levels needed for this analysis
+        Map<UUID, ProficiencyLevel> proficiencyLevelMap = getProficiencyLevelMap(resourceSkills, resourceSubSkills);
+        meterRegistry.counter("skill_gap_analysis_cache_hit_ratio", "cache", "proficiency_levels").increment();
+
+        // Create lookup maps for O(1) access
+        Map<UUID, ResourceSkill> resourceSkillMap = resourceSkills.stream()
+            .collect(Collectors.toMap(ResourceSkill::getSkillId, rs -> rs));
+        Map<UUID, ResourceSubSkill> resourceSubSkillMap = resourceSubSkills.stream()
+            .collect(Collectors.toMap(ResourceSubSkill::getSubSkillId, rss -> rss));
+        Map<UUID, ResourceCertificate> resourceCertificateMap = resourceCertificates.stream()
+            .collect(Collectors.toMap(ResourceCertificate::getCertificateId, rc -> rc));
+
+        // Initialize analysis components
+        List<SkillGapAnalysisResponseDTO.SkillComparisonDTO> skillComparisons = new ArrayList<>();
+        List<SkillGapAnalysisResponseDTO.CertificateComparisonDTO> certificateComparisons = new ArrayList<>();
+        List<SkillGapAnalysisResponseDTO.RecencyWarningDTO> recencyWarnings = new ArrayList<>();
+
+        double totalScore = 0.0;
+        int totalRequirements = 0;
+        boolean hasMandatoryGap = false;
+        boolean hasMandatoryPartial = false;
+
+        // 1. Process DeliveryRoleExpectation (highest priority)
+        if (demand.getRole() != null) {
+            DeliveryRoleExpectation role = demand.getRole();
+
+            // Fetch ALL role details for this role name with single query
+            List<DeliveryRoleExpectation> allRoleExpectations = deliveryRoleExpectationRepository.findByRoleNameWithDetails(role.getRoleName());
+
+            for (DeliveryRoleExpectation roleExpectation : allRoleExpectations) {
+                SkillGapAnalysisResponseDTO.SkillComparisonDTO roleComparison = compareRoleExpectation(
+                    roleExpectation, resourceSkillMap, resourceSubSkillMap, proficiencyLevelMap, recencyWarnings
+                );
+
+                skillComparisons.add(roleComparison);
+                totalScore += roleComparison.getScore();
+                totalRequirements++;
+
+                if (roleComparison.getStatus().equals("GAP") && roleExpectation.getMandatoryFlag()) {
+                    hasMandatoryGap = true;
+                } else if (roleComparison.getStatus().equals("PARTIAL") && roleExpectation.getMandatoryFlag()) {
+                    hasMandatoryPartial = true;
+                }
+            }
+        }
+
+        // 2. Process Demand.requiredSkills (excluding those already in role)
+        Set<String> roleSkillNames = skillComparisons.stream()
+            .filter(sc -> sc.getSubSkillName() == null) // Main skills only
+            .map(SkillGapAnalysisResponseDTO.SkillComparisonDTO::getSkillName)
+            .collect(Collectors.toSet());
+
+        for (Skill requiredSkill : demand.getRequiredSkills()) {
+            if (!roleSkillNames.contains(requiredSkill.getName())) {
+                SkillGapAnalysisResponseDTO.SkillComparisonDTO skillComparison = compareRequiredSkill(
+                    requiredSkill, resourceSkillMap, recencyWarnings
+                );
+
+                skillComparisons.add(skillComparison);
+                totalScore += skillComparison.getScore();
+                totalRequirements++;
+            }
+        }
+
+        // 3. Process Demand.requiredCertificates
+        for (Certificate requiredCert : demand.getRequiredCertificates()) {
+            SkillGapAnalysisResponseDTO.CertificateComparisonDTO certComparison = compareRequiredCertificate(
+                requiredCert, resourceCertificateMap
+            );
+
+            certificateComparisons.add(certComparison);
+            totalScore += certComparison.getScore();
+            totalRequirements++;
+        }
+
+        // Calculate final metrics
+        double matchPercentage = totalRequirements > 0 ? (totalScore / totalRequirements) * 100 : 0.0;
+        String riskLevel = calculateOverallRisk(hasMandatoryGap, hasMandatoryPartial, recencyWarnings);
+        boolean allocationAllowed = RiskEvaluator.isAllocationAllowed(hasMandatoryGap, hasMandatoryPartial);
+
+        return SkillGapAnalysisResponseDTO.builder()
+            .demandId(demand.getDemandId())
+            .resourceId(resourceId)
+            .matchPercentage(matchPercentage)
+            .allocationAllowed(allocationAllowed)
+            .riskLevel(riskLevel)
+            .skillComparisons(skillComparisons)
+            .certificateComparisons(certificateComparisons)
+            .recencyWarnings(recencyWarnings)
+            .build();
+    }
+
+    /**
+     * Compares role expectation with resource capabilities
+     * Uses pre-fetched proficiency level map to avoid repository calls
+     */
+    private SkillGapAnalysisResponseDTO.SkillComparisonDTO compareRoleExpectation(
+            DeliveryRoleExpectation role, 
+            Map<UUID, ResourceSkill> resourceSkillMap,
+            Map<UUID, ResourceSubSkill> resourceSubSkillMap,
+            Map<UUID, ProficiencyLevel> proficiencyLevelMap,
+            List<SkillGapAnalysisResponseDTO.RecencyWarningDTO> recencyWarnings) {
+
+        String skillName = role.getSkill().getName();
+        String subSkillName = role.getSubSkill() != null ? role.getSubSkill().getName() : null;
+        String requiredProficiency = role.getProficiencyLevel().getProficiencyName();
+
+        // Check for recency warning
+        addRecencyWarningIfNeeded(skillName, subSkillName, 
+            subSkillName != null ? resourceSubSkillMap.get(role.getSubSkill().getId()) : resourceSkillMap.get(role.getSkill().getId()),
+            recencyWarnings);
+
+        if (subSkillName != null) {
+            // Sub-skill comparison
+            ResourceSubSkill resourceSubSkill = resourceSubSkillMap.get(role.getSubSkill().getId());
+            if (resourceSubSkill != null && isActiveAndNotExpired(resourceSubSkill)) {
+                ProficiencyLevel resourceProficiency = proficiencyLevelMap.get(resourceSubSkill.getProficiencyId());
+                ProficiencyComparator.ProficiencyResult result = ProficiencyComparator.compareProficiency(
+                    resourceProficiency, role.getProficiencyLevel());
+
+                return SkillGapAnalysisResponseDTO.SkillComparisonDTO.builder()
+                    .skillName(skillName)
+                    .subSkillName(subSkillName)
+                    .requiredProficiency(requiredProficiency)
+                    .resourceProficiency(resourceProficiency != null ? resourceProficiency.getProficiencyName() : null)
+                    .mandatory(role.getMandatoryFlag())
+                    .status(result.getStatus())
+                    .score(result.getScore())
+                    .build();
+            }
+        } else {
+            // Main skill comparison
+            ResourceSkill resourceSkill = resourceSkillMap.get(role.getSkill().getId());
+            if (resourceSkill != null && isActiveAndNotExpired(resourceSkill)) {
+                ProficiencyLevel resourceProficiency = proficiencyLevelMap.get(resourceSkill.getProficiencyId());
+                ProficiencyComparator.ProficiencyResult result = ProficiencyComparator.compareProficiency(
+                    resourceProficiency, role.getProficiencyLevel());
+
+                return SkillGapAnalysisResponseDTO.SkillComparisonDTO.builder()
+                    .skillName(skillName)
+                    .subSkillName(null)
+                    .requiredProficiency(requiredProficiency)
+                    .resourceProficiency(resourceProficiency != null ? resourceProficiency.getProficiencyName() : null)
+                    .mandatory(role.getMandatoryFlag())
+                    .status(result.getStatus())
+                    .score(result.getScore())
+                    .build();
+            }
+        }
+
+        // Skill not found or inactive/expired
+        return SkillGapAnalysisResponseDTO.SkillComparisonDTO.builder()
+            .skillName(skillName)
+            .subSkillName(subSkillName)
+            .requiredProficiency(requiredProficiency)
+            .resourceProficiency(null)
+            .mandatory(role.getMandatoryFlag())
+            .status("GAP")
+            .score(0.0)
+            .build();
+    }
+
+    /**
+     * Compares required skill (compliance skills) with resource capabilities
+     */
+    private SkillGapAnalysisResponseDTO.SkillComparisonDTO compareRequiredSkill(
+            Skill requiredSkill, 
+            Map<UUID, ResourceSkill> resourceSkillMap,
+            List<SkillGapAnalysisResponseDTO.RecencyWarningDTO> recencyWarnings) {
+
+        ResourceSkill resourceSkill = resourceSkillMap.get(requiredSkill.getId());
+        
+        // Check for recency warning
+        addRecencyWarningIfNeeded(requiredSkill.getName(), null, resourceSkill, recencyWarnings);
+
+        if (resourceSkill != null && isActiveAndNotExpired(resourceSkill)) {
+            // Compliance skills don't have proficiency requirements - just existence check
+            addRecencyWarningIfNeeded(requiredSkill.getName(), null, resourceSkill, recencyWarnings);
+            
+            return SkillGapAnalysisResponseDTO.SkillComparisonDTO.builder()
+                .skillName(requiredSkill.getName())
+                .subSkillName(null)
+                .requiredProficiency("N/A")
+                .resourceProficiency("Available")
+                .mandatory(false) // Compliance skills are not mandatory at this level
+                .status("MATCH")
+                .score(1.0)
+                .build();
+        }
+
+        return SkillGapAnalysisResponseDTO.SkillComparisonDTO.builder()
+            .skillName(requiredSkill.getName())
+            .subSkillName(null)
+            .requiredProficiency("N/A")
+            .resourceProficiency(null)
+            .mandatory(false)
+            .status("GAP")
+            .score(0.0)
+            .build();
+    }
+
+    /**
+     * Compares required certificate with resource certifications
+     */
+    private SkillGapAnalysisResponseDTO.CertificateComparisonDTO compareRequiredCertificate(
+            Certificate requiredCert, 
+            Map<UUID, ResourceCertificate> resourceCertificateMap) {
+
+        ResourceCertificate resourceCert = resourceCertificateMap.get(requiredCert.getCertificateId());
+
+        if (resourceCert != null) {
+            return SkillGapAnalysisResponseDTO.CertificateComparisonDTO.builder()
+                .certificateName(requiredCert.getProviderName() != null ? requiredCert.getProviderName() : requiredCert.getCertificateId().toString())
+                .mandatory(true) // Certificates from compliance are mandatory
+                .status("MATCH")
+                .score(1.0)
+                .build();
+        }
+
+        return SkillGapAnalysisResponseDTO.CertificateComparisonDTO.builder()
+            .certificateName(requiredCert.getProviderName() != null ? requiredCert.getProviderName() : requiredCert.getCertificateId().toString())
+            .mandatory(true)
+            .status("GAP")
+            .score(0.0)
+            .build();
+    }
+
+    /**
+     * Adds recency warning if skill is old
+     */
+    private void addRecencyWarningIfNeeded(String skillName, String subSkillName, 
+                                        Object resourceSkill, List<SkillGapAnalysisResponseDTO.RecencyWarningDTO> recencyWarnings) {
+        LocalDate lastUsedDate = null;
+        
+        if (resourceSkill instanceof ResourceSkill) {
+            lastUsedDate = ((ResourceSkill) resourceSkill).getLastUsedDate();
+        } else if (resourceSkill instanceof ResourceSubSkill) {
+            lastUsedDate = ((ResourceSubSkill) resourceSkill).getLastUsedDate();
+        }
+
+        String riskLevel = RiskEvaluator.evaluateRecencyRisk(lastUsedDate);
+        if (!RiskEvaluator.RISK_LOW.equals(riskLevel)) {
+            recencyWarnings.add(SkillGapAnalysisResponseDTO.RecencyWarningDTO.builder()
+                .skillName(skillName)
+                .subSkillName(subSkillName)
+                .lastUsedDate(lastUsedDate)
+                .riskLevel(riskLevel)
+                .yearsUnused(RiskEvaluator.calculateYearsUnused(lastUsedDate))
+                .build());
+        }
+    }
+
+    /**
+     * Calculates overall risk level
+     */
+    private String calculateOverallRisk(boolean hasMandatoryGap, boolean hasMandatoryPartial, 
+                                    List<SkillGapAnalysisResponseDTO.RecencyWarningDTO> recencyWarnings) {
+        String mandatoryGapRisk = hasMandatoryGap ? RiskEvaluator.RISK_HIGH : RiskEvaluator.RISK_LOW;
+        String partialRisk = hasMandatoryPartial ? RiskEvaluator.RISK_HIGH : RiskEvaluator.RISK_LOW;
+        
+        String recencyRisk = RiskEvaluator.RISK_LOW;
+        for (SkillGapAnalysisResponseDTO.RecencyWarningDTO warning : recencyWarnings) {
+            if (RiskEvaluator.RISK_HIGH.equals(warning.getRiskLevel())) {
+                recencyRisk = RiskEvaluator.RISK_HIGH;
+                break;
+            } else if (RiskEvaluator.RISK_MEDIUM.equals(warning.getRiskLevel())) {
+                recencyRisk = RiskEvaluator.RISK_MEDIUM;
+            }
+        }
+
+        return RiskEvaluator.aggregateRisk(mandatoryGapRisk, partialRisk, recencyRisk);
+    }
+
+    /**
+     * Helper methods
+     */
+    private DeliveryRoleExpectation fetchFullRoleExpectation(UUID roleId) {
+        return deliveryRoleExpectationRepository.findByIdWithDetails(roleId).orElse(null);
+    }
+
+    /**
+     * Get proficiency level map with caching
+     * Caches all active proficiency levels to optimize performance
+     */
+    @Cacheable(value = "proficiencyLevels", key = "'allActiveProficiencyLevels'")
+    private Map<UUID, ProficiencyLevel> getProficiencyLevelMap(List<ResourceSkill> resourceSkills, List<ResourceSubSkill> resourceSubSkills) {
+        // Collect all unique proficiency IDs needed
+        Set<UUID> proficiencyIds = new HashSet<>();
+        resourceSkills.forEach(rs -> proficiencyIds.add(rs.getProficiencyId()));
+        resourceSubSkills.forEach(rss -> proficiencyIds.add(rss.getProficiencyId()));
+        
+        if (proficiencyIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        
+        // Fetch all active proficiency levels (cached)
+        List<ProficiencyLevel> allActiveProficiencyLevels = proficiencyLevelRepository.findAllActiveProficiencyLevels();
+        
+        // Filter to only needed proficiency levels and create map
+        return allActiveProficiencyLevels.stream()
+            .filter(pl -> proficiencyIds.contains(pl.getProficiencyId()))
+            .collect(Collectors.toMap(ProficiencyLevel::getProficiencyId, pl -> pl));
+    }
+
+    /**
+     * Clear proficiency levels cache
+     * Call this when proficiency levels are updated
+     */
+    @CacheEvict(value = "proficiencyLevels", allEntries = true)
+    public void clearProficiencyLevelsCache() {
+        // Cache cleared - next call will reload from database
+    }
+
+    /**
+     * Clear all skill-related caches
+     * Call this when any skill reference data is updated
+     */
+    @CacheEvict(value = {"proficiencyLevels", "skills", "subSkills", "certificates"}, allEntries = true)
+    public void clearAllSkillCaches() {
+        // All skill-related caches cleared
+    }
+
+    private boolean isActiveAndNotExpired(ResourceSkill resourceSkill) {
+        LocalDate currentDate = LocalDate.now();
+        return resourceSkill.getActiveFlag() && 
+               (resourceSkill.getExpiryDate() == null || resourceSkill.getExpiryDate().isAfter(currentDate));
+    }
+
+    private boolean isActiveAndNotExpired(ResourceSubSkill resourceSubSkill) {
+        LocalDate currentDate = LocalDate.now();
+        return resourceSubSkill.getActiveFlag() && 
+               (resourceSubSkill.getExpiryDate() == null || resourceSubSkill.getExpiryDate().isAfter(currentDate));
     }
 }
