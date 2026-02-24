@@ -2,6 +2,7 @@ package com.entity.skill_entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -28,6 +29,11 @@ public class ResourceCertificate {
 
     @Column(name = "certificate_id", nullable = false)
     private UUID certificateId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_id", referencedColumnName = "certificate_id", insertable = false, updatable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Certificate certificate;
 
     @Column(name = "issued_date")
     private LocalDate issuedDate;

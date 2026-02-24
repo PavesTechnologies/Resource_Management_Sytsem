@@ -3,6 +3,8 @@ package com.service_imple.availability_service_impl;
 import com.dto.ResourceTimelineDTO;
 import com.dto.ResourceTimelineResponseDTO;
 import com.dto.ResourceTimelineApiResponse;
+import com.dto.SkillInfoDTO;
+import com.dto.CertificationInfoDTO;
 import com.dto.allocation_dto.AllocationTimelineItem;
 import com.dto.allocation_dto.NoticeInfoDTO;
 import com.service_imple.availability_service_impl.projection.ResourceTimelineProjection;
@@ -11,6 +13,9 @@ import com.service_imple.availability_service_impl.projection.AllocationTimeline
 import com.service_imple.availability_service_impl.projection.CurrentProjectProjection;
 import com.service_imple.availability_service_impl.projection.CurrentAllocationProjection;
 import com.repo.timeline_repo.ResourceTimelineRepository;
+import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.skill_repo.ResourceSubSkillRepository;
+import com.repo.skill_repo.ResourceCertificateRepository;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
 import com.service_imple.external_api_impl.TokenService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,6 +35,9 @@ import com.entity_enums.resource_enums.EmploymentStatus;
 public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     private final ResourceTimelineRepository resourceTimelineRepository;
+    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
+    private final ResourceCertificateRepository resourceCertificateRepository;
     private final TokenService tokenService;
 
     @Override
@@ -92,10 +101,15 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                     designation, location, employmentType, minExp, maxExp, status);
         }
         
-        // Fetch allocation timeline, current projects, and current allocations for all resources
+        // Fetch allocation timeline, current projects, current allocations, skills, and certifications for all resources
         final Map<Long, List<AllocationTimelineItem>> allocationTimelineMap;
         final Map<Long, List<String>> currentProjectMap;
         final Map<Long, Integer> currentAllocationMap;
+        final Map<Long, List<String>> resourceSkillsMap;
+        final Map<Long, List<String>> resourceSubSkillsMap;
+        final Map<Long, List<SkillInfoDTO>> resourceSkillDetailsMap;
+        final Map<Long, List<SkillInfoDTO>> resourceSubSkillDetailsMap;
+        final Map<Long, List<CertificationInfoDTO>> resourceCertificationsMap;
         
         if (!filteredData.isEmpty()) {
             List<Long> resourceIds = filteredData.stream()
@@ -123,15 +137,70 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                             CurrentAllocationProjection::getResourceId,
                             CurrentAllocationProjection::getCurrentAllocation
                     ));
+            
+            // Fetch resource skills
+            resourceSkillsMap = resourceSkillRepository.findResourceIdAndSkillNames(resourceIds).stream()
+                    .collect(Collectors.groupingBy(
+                            result -> (Long) result[0], // resource ID is first element
+                            Collectors.mapping(result -> (String) result[1], Collectors.toList()) // skill name is second element
+                    ));
+            
+            // Fetch resource sub-skills
+            resourceSubSkillsMap = resourceSubSkillRepository.findResourceIdAndSubSkillNames(resourceIds).stream()
+                    .collect(Collectors.groupingBy(
+                            result -> (Long) result[0], // resource ID is first element
+                            Collectors.mapping(result -> (String) result[1], Collectors.toList()) // sub-skill name is second element
+                    ));
+            
+            // Fetch resource skill details with proficiency and last used date
+            resourceSkillDetailsMap = resourceSkillRepository.findResourceIdAndSkillDetails(resourceIds).stream()
+                    .collect(Collectors.groupingBy(
+                            result -> (Long) result[0], // resource ID is first element
+                            Collectors.mapping(result -> SkillInfoDTO.from(
+                                    (String) result[1], // skill name
+                                    (String) result[2], // proficiency name
+                                    (java.time.LocalDate) result[3] // last used date
+                            ), Collectors.toList())
+                    ));
+            
+            // Fetch resource sub-skill details with proficiency and last used date
+            resourceSubSkillDetailsMap = resourceSubSkillRepository.findResourceIdAndSubSkillDetails(resourceIds).stream()
+                    .collect(Collectors.groupingBy(
+                            result -> (Long) result[0], // resource ID is first element
+                            Collectors.mapping(result -> SkillInfoDTO.from(
+                                    (String) result[1], // sub-skill name
+                                    (String) result[2], // proficiency name
+                                    (java.time.LocalDate) result[3] // last used date
+                            ), Collectors.toList())
+                    ));
+            
+            // Fetch resource certifications (only active and non-expired)
+            LocalDate currentDate = LocalDate.now();
+            resourceCertificationsMap = resourceCertificateRepository.findResourceIdAndCertificateDetails(resourceIds, currentDate).stream()
+                    .collect(Collectors.groupingBy(
+                            result -> (Long) result[0], // resource ID is first element
+                            Collectors.mapping(result -> CertificationInfoDTO.builder()
+                                    .certificateName((String) result[1]) // certificate name from skill
+                                    .providerName((String) result[2]) // provider name
+                                    .expiryDate((LocalDate) result[3]) // expiry date
+                                    .isActive(true) // active because of query filter
+                                    .build(), 
+                            Collectors.toList())
+                    ));
         } else {
             allocationTimelineMap = Map.of();
             currentProjectMap = Map.of();
             currentAllocationMap = Map.of();
+            resourceSkillsMap = Map.of();
+            resourceSubSkillsMap = Map.of();
+            resourceSkillDetailsMap = Map.of();
+            resourceSubSkillDetailsMap = Map.of();
+            resourceCertificationsMap = Map.of();
         }
         
         // Map to full response DTOs with status filtering and notice period logic
         List<ResourceTimelineResponseDTO> responseDTOs = filteredData.stream()
-                .map(projection -> mapToFullResponseDTO(projection, allocationTimelineMap, currentProjectMap, currentAllocationMap))
+                .map(projection -> mapToFullResponseDTO(projection, allocationTimelineMap, currentProjectMap, currentAllocationMap, resourceSkillsMap, resourceSubSkillsMap, resourceSkillDetailsMap, resourceSubSkillDetailsMap, resourceCertificationsMap))
                 .filter(dto -> {
                     if (status == null) return true;
                     
@@ -202,7 +271,12 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             ResourceTimelineProjection projection,
             Map<Long, List<AllocationTimelineItem>> allocationTimelineMap,
             Map<Long, List<String>> currentProjectMap,
-            Map<Long, Integer> currentAllocationMap) {
+            Map<Long, Integer> currentAllocationMap,
+            Map<Long, List<String>> resourceSkillsMap,
+            Map<Long, List<String>> resourceSubSkillsMap,
+            Map<Long, List<SkillInfoDTO>> resourceSkillDetailsMap,
+            Map<Long, List<SkillInfoDTO>> resourceSubSkillDetailsMap,
+            Map<Long, List<CertificationInfoDTO>> resourceCertificationsMap) {
         
         List<AllocationTimelineItem> allocationTimeline = allocationTimelineMap.getOrDefault(
                 projection.getId(), List.of());
@@ -212,6 +286,25 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         
         // Use current allocation from today-based calculation, fallback to 0 if not found
         Integer currentAllocation = currentAllocationMap.getOrDefault(projection.getId(), 0);
+        
+        // Get skills and sub-skills for this resource
+        List<String> skills = resourceSkillsMap.getOrDefault(projection.getId(), List.of());
+        List<String> subSkills = resourceSubSkillsMap.getOrDefault(projection.getId(), List.of());
+        
+        // Get skill details for this resource
+        List<SkillInfoDTO> skillDetails = resourceSkillDetailsMap.getOrDefault(projection.getId(), List.of());
+        List<SkillInfoDTO> subSkillDetails = resourceSubSkillDetailsMap.getOrDefault(projection.getId(), List.of());
+        
+        // Combine skills and sub-skills for display
+        List<String> allSkills = new ArrayList<>(skills);
+        allSkills.addAll(subSkills);
+        
+        // Combine skill details and sub-skill details
+        List<SkillInfoDTO> allSkillDetails = new ArrayList<>(skillDetails);
+        allSkillDetails.addAll(subSkillDetails);
+        
+        // Get certifications for this resource
+        List<CertificationInfoDTO> certifications = resourceCertificationsMap.getOrDefault(projection.getId(), List.of());
         
         // Calculate availableFrom date (day after current allocations end)
         LocalDate availableFrom = null;
@@ -226,26 +319,20 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         // Create notice info DTO
-        // Debug logging - remove in production
-        System.out.println("DEBUG: Projection ID: " + projection.getId());
-        System.out.println("DEBUG: Notice Start from projection: " + projection.getNoticeStartDate());
-        System.out.println("DEBUG: Notice End from projection: " + projection.getNoticeEndDate());
-        System.out.println("DEBUG: Allocation Allowed from projection: " + projection.getAllocationAllowed());
-        
         NoticeInfoDTO noticeInfo = createNoticeInfoDTO(
             projection.getNoticeStartDate(), 
             projection.getNoticeEndDate(), 
             projection.getAllocationAllowed()
         );
         
-        System.out.println("DEBUG: Created NoticeInfo: " + noticeInfo);
-        
         return ResourceTimelineResponseDTO.builder()
                 .resourceId(projection.getId())
                 .name(projection.getFullName())
                 .avatar(generateAvatarFromName(projection.getFullName()))
                 .role(projection.getDesignation())
-                .skills(List.of()) // Placeholder - would need separate query
+                .skills(allSkills)
+                .skillDetails(allSkillDetails)
+                .certifications(certifications)
                 .location(projection.getWorkingLocation())
                 .experience(projection.getExperiance())
                 .currentAllocation(currentAllocation)
@@ -289,12 +376,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         LocalDate today = LocalDate.now();
         boolean isNoticePeriod = noticeStartDate != null && noticeEndDate != null 
             && !today.isBefore(noticeStartDate) && !today.isAfter(noticeEndDate);
-        
-//         Debug logging - remove in production
-        System.out.println("DEBUG: Today: " + today);
-        System.out.println("DEBUG: Notice Start: " + noticeStartDate);
-        System.out.println("DEBUG: Notice End: " + noticeEndDate);
-        System.out.println("DEBUG: Is Notice Period: " + isNoticePeriod);
         
         return NoticeInfoDTO.builder()
             .isNoticePeriod(isNoticePeriod)

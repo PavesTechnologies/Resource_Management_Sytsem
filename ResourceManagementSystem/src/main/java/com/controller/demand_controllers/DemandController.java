@@ -45,4 +45,10 @@ public class DemandController {
     public ResponseEntity<ApiResponse<?>> getDemandById(@PathVariable UUID demandId) {
         return demandService.getDemandById(demandId);
     }
+
+    @GetMapping("/demands")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerProjects(@CurrentUser UserDTO userDTO) {
+        return demandService.getDemandsByResourceManagerId(userDTO.getId());
+    }
 }

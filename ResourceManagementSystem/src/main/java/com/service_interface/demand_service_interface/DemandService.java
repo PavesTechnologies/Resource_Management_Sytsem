@@ -11,4 +11,5 @@ public interface DemandService {
     ResponseEntity<ApiResponse<?>> updateDemand(Demand demand);
     ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId);
     ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId);
+    ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerId(Long resourceManagerId);
 }
