@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SkillRepository extends JpaRepository<Skill, UUID> {
@@ -31,6 +32,12 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     @Query("SELECT s FROM Skill s WHERE s.category.id = :categoryId AND s.status = 'ACTIVE' ORDER BY s.name")
     List<Skill> findActiveSkillsByCategoryId(@Param("categoryId") UUID categoryId);
+
+    /**
+     * Find skill by name for skill gap matching
+     */
+    @Query("SELECT s FROM Skill s WHERE s.name = :name")
+    Optional<Skill> findByName(@Param("name") String name);
 
     // Commented out - skillType field doesn't exist in Skill entity
     // List<Skill> findBySkillTypeIgnoreCaseAndStatusIgnoreCase(String certification, String active);

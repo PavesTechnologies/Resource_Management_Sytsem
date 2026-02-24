@@ -4,9 +4,11 @@ import com.entity.project_entities.Project;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
+import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.centralised_enums.PriorityLevel;
 //import com.entity_enums.skill_enums.DemandStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -30,10 +32,12 @@ public class Demand {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private DeliveryRoleExpectation role;
 
     @Column(name = "demand_justification", length = 500)
@@ -58,9 +62,9 @@ public class Demand {
     @Column(name = "demand_type_name", nullable = false, length = 20)
     private DemandType demandType;
 
-//    @Enumerated(EnumType.STRING)
-//    @Column(name = "demand_status", length = 30)
-//    private DemandStatus demandStatus;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "demand_status", length = 30)
+    private DemandStatus demandStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_priority", nullable = false, length = 20)
@@ -79,6 +83,7 @@ public class Demand {
         joinColumns = @JoinColumn(name = "demand_id"),
         inverseJoinColumns = @JoinColumn(name = "skill_id")
     )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Set<Skill> requiredSkills = new HashSet<>();
 
     @ManyToMany
@@ -87,5 +92,6 @@ public class Demand {
         joinColumns = @JoinColumn(name = "demand_id"),
         inverseJoinColumns = @JoinColumn(name = "certificate_id")
     )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Set<Certificate> requiredCertificates = new HashSet<>();
 }
