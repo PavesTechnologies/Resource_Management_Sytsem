@@ -230,7 +230,7 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
             return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         if (project.getStaffingReadinessStatus() != StaffingReadinessStatus.READY) {
-            response.setReason("Staffing is not allowed for this project.");
+            response.setReason(project.getStaffingReadinessReason());
             return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         if (project.getStartDate() == null) {
@@ -267,5 +267,11 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         project.setStaffingReadinessUpdatedAt(LocalDateTime.now());
         projectRepository.save(project);
         return ResponseEntity.ok(new ApiResponse<>(true, "Readiness Status updated successfully!", null));
+    }
+
+    @Override
+    public ResponseEntity<?> getLocationsByStatus() {
+        List<String> project = projectRepository.findDistinctPrimaryLocationByStatus(ProjectStatus.ACTIVE);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Locations fetched successfully", project));
     }
 }
