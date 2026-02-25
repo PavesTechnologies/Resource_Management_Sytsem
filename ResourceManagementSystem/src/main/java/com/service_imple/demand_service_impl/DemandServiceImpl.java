@@ -348,14 +348,27 @@ public class DemandServiceImpl implements DemandService {
             // Fetch demands by resource manager ID (through project relationship)
             List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
 
-            // Format response with demand ID and name
             List<java.util.Map<String, Object>> formattedDemands = demands.stream()
+
+                    // 🔥 STORY 3 – SORT BY DERIVED PRIORITY SCORE (DESC)
+                    .sorted((d1, d2) -> Integer.compare(
+                            calculatePriorityScore(d2),
+                            calculatePriorityScore(d1)
+                    ))
+
                     .map(demand -> {
                         java.util.Map<String, Object> demandInfo = new java.util.HashMap<>();
                         demandInfo.put("demandId", demand.getDemandId());
-                        demandInfo.put("demandName", demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand");
+                        demandInfo.put("demandName",
+                                demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand");
                         demandInfo.put("projectId", demand.getProject().getPmsProjectId());
                         demandInfo.put("projectName", demand.getProject().getName());
+
+                        // 👇 Visible for explainability
+                        demandInfo.put("demandPriority", demand.getDemandPriority());
+                        demandInfo.put("projectPriority", demand.getProject().getPriorityLevel());
+                        demandInfo.put("priorityScore", calculatePriorityScore(demand));
+
                         return demandInfo;
                     })
                     .collect(java.util.stream.Collectors.toList());
@@ -411,5 +424,23 @@ public class DemandServiceImpl implements DemandService {
                 }
             }
         }
+    }
+    private int mapPriorityToScore(PriorityLevel level) {
+        if (level == null) return 0;
+
+        return switch (level) {
+            case CRITICAL -> 4;
+            case HIGH -> 3;
+            case MEDIUM -> 2;
+            case LOW -> 1;
+        };
+    }
+    private int calculatePriorityScore(Demand demand) {
+
+        int demandScore = mapPriorityToScore(demand.getDemandPriority());
+        int projectScore = mapPriorityToScore(demand.getProject().getPriorityLevel());
+
+        // Demand priority has higher weight
+        return (demandScore * 2) + projectScore;
     }
 }
