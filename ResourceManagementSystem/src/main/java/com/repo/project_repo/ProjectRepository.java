@@ -100,4 +100,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     long countByProjectStatuses(@Param("statuses") List<ProjectStatus> statuses);
 
     boolean existsByClientIdAndProjectStatus(UUID clientId, ProjectStatus status);
+
+    @Query("SELECT DISTINCT p.primaryLocation FROM Project p WHERE p.projectStatus = :status")
+    List<String> findDistinctPrimaryLocationByStatus(@Param("status") ProjectStatus status);
 }

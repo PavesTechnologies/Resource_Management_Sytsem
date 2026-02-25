@@ -57,8 +57,7 @@ public class DemandServiceImpl implements DemandService {
         try {
 
             // 🔐 Validate project eligibility
-            projectDemandValidationService.validateProjectForStaffing(dto.getProjectId());
-
+//            projectDemandValidationService.validateProjectForStaffing(dto.getProjectId());
             // Fetch Project
             Project project = projectRepository.findById(dto.getProjectId())
                     .orElseThrow(() -> new ProjectExceptionHandler(
@@ -66,6 +65,9 @@ public class DemandServiceImpl implements DemandService {
                             "PROJECT_NOT_FOUND",
                             "Project not found"
                     ));
+            if (dto.getDemandStartDate().isBefore(project.getStartDate()) || dto.getDemandEndDate().isAfter(project.getEndDate())) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Demand date range is not in between project date range"));
+            }
 
             // Fetch Role
             DeliveryRoleExpectation role = roleRepository.findById(dto.getRoleId())
@@ -79,14 +81,18 @@ public class DemandServiceImpl implements DemandService {
             Demand demand = new Demand();
             demand.setProject(project);
             demand.setRole(role);
+            demand.setDemandName(dto.getDemandName());
             demand.setDemandType(dto.getDemandType());
             demand.setDemandStartDate(dto.getDemandStartDate());
             demand.setDemandEndDate(dto.getDemandEndDate());
             demand.setAllocationPercentage(dto.getAllocationPercentage());
             demand.setLocationRequirement(dto.getLocationRequirement());
             demand.setDeliveryModel(dto.getDeliveryModel());
+            demand.setDemandStatus(dto.getDemandStatus());
             demand.setDemandJustification(dto.getDemandJustification());
             demand.setDemandPriority(dto.getDemandPriority());
+            demand.setMinExp(dto.getMinExp());
+            demand.setResourcesRequired(dto.getResourceRequired());
             demand.setCreatedBy(userId);
             demand.setCreatedAt(LocalDateTime.now());
 
@@ -169,10 +175,10 @@ public class DemandServiceImpl implements DemandService {
             existing.setDemandJustification(dto.getDemandJustification());
 
         if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate());
+            existing.setDemandStartDate(dto.getDemandStartDate().atStartOfDay());
 
         if (dto.getDemandEndDate() != null)
-            existing.setDemandEndDate(dto.getDemandEndDate());
+            existing.setDemandEndDate(dto.getDemandEndDate().atStartOfDay());
 
         if (dto.getAllocationPercentage() != null)
             existing.setAllocationPercentage(dto.getAllocationPercentage());

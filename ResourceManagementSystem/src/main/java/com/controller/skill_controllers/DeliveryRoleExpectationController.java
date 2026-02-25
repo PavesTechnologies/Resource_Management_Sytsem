@@ -69,7 +69,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<List<DeliveryRoleExpectationResponse>>> getAllRoleExpectations() {
         
         log.info("Admin request to get all role expectations");

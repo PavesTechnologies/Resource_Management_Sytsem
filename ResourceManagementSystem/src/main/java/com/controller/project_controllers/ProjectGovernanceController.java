@@ -154,4 +154,10 @@ public class ProjectGovernanceController {
         return projectGovernanceService.getProjectByClient(clientId);
     }
 
+    @GetMapping("/get-locations")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    public ResponseEntity<?> getLocations() {
+        return projectGovernanceService.getLocationsByStatus();
+    }
+
 }

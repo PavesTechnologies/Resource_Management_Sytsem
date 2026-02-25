@@ -5,6 +5,7 @@ import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
+import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.centralised_enums.PriorityLevel;
@@ -47,10 +48,10 @@ public class Demand {
     private String demandJustification;
 
     @Column(name = "demand_start_date", nullable = false)
-    private LocalDate demandStartDate;
+    private LocalDateTime demandStartDate;
 
     @Column(name = "demand_end_date")
-    private LocalDate demandEndDate;
+    private LocalDateTime demandEndDate;
 
     @Column(name = "allocation_percentage")
     private Integer allocationPercentage;
@@ -59,7 +60,7 @@ public class Demand {
     private String locationRequirement;
 
     @Column(name = "delivery_model", length = 50)
-    private String deliveryModel;
+    private DeliveryModel deliveryModel;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_type_name", nullable = false, length = 20)
@@ -72,6 +73,11 @@ public class Demand {
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_priority", nullable = false, length = 20)
     private PriorityLevel demandPriority;
+
+    @Column(name = "min_exp", nullable = false)
+    private Integer minExp;
+    @Column(name = "resources_required", nullable = false)
+    private Integer resourcesRequired;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;
