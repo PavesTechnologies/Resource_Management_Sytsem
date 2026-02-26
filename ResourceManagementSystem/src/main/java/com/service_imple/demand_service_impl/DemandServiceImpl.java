@@ -85,7 +85,7 @@ public class DemandServiceImpl implements DemandService {
             demand.setDemandName(dto.getDemandName());
             demand.setDemandType(dto.getDemandType());
             demand.setDemandStartDate(dto.getDemandStartDate());
-            demand.setDemandEndDate(dto.getDemandEndDate());
+            demand.setDemandEndDate(dto.getDemandEndDate().atStartOfDay());
             demand.setAllocationPercentage(dto.getAllocationPercentage());
             demand.setDeliveryModel(dto.getDeliveryModel());
             demand.setDemandStatus(dto.getDemandStatus());
@@ -181,7 +181,7 @@ public class DemandServiceImpl implements DemandService {
             existing.setDemandJustification(dto.getDemandJustification());
 
         if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate());
+            existing.setDemandStartDate(dto.getDemandStartDate().toLocalDate());
 
         if (dto.getDemandEndDate() != null)
             existing.setDemandEndDate(dto.getDemandEndDate());
