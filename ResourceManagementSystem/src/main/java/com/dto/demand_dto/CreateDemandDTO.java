@@ -10,8 +10,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -30,10 +29,11 @@ public class CreateDemandDTO {
     private Long outgoingResourceId;
 
     @NotNull(message = "Start date is required")
-    private LocalDateTime demandStartDate;
+    private LocalDate demandStartDate;
+
 
     @NotNull(message = "End date is required")
-    private LocalDateTime demandEndDate;
+    private LocalDate demandEndDate;
 
     @Min(value = 1, message = "Allocation must be at least 1%")
     @Max(value = 100, message = "Allocation cannot exceed 100%")

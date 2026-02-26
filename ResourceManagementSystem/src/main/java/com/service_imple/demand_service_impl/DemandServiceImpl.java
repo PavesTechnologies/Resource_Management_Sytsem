@@ -66,7 +66,7 @@ public class DemandServiceImpl implements DemandService {
                             "PROJECT_NOT_FOUND",
                             "Project not found"
                     ));
-            if (dto.getDemandStartDate().isBefore(project.getStartDate()) || dto.getDemandEndDate().isAfter(project.getEndDate())) {
+            if (dto.getDemandStartDate().isBefore(project.getStartDate().toLocalDate()) || dto.getDemandEndDate().isAfter(project.getEndDate().toLocalDate())) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Demand date range is not in between project date range"));
             }
 
