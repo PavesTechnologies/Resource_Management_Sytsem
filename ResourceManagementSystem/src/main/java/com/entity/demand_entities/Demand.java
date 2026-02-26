@@ -1,17 +1,25 @@
 package com.entity.demand_entities;
 
 import com.entity.project_entities.Project;
-import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity.resource_entities.Resource;
+import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.Certificate;
+import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.entity_enums.centralised_enums.PriorityLevel;
+//import com.entity_enums.skill_enums.DemandStatus;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 
 @Entity
@@ -20,80 +28,86 @@ import java.util.UUID;
 public class Demand {
 
     @Id
-    @Column(name = "demand_id", unique = true)
+    @UuidGenerator
+    @Column(name = "demand_id")
     private UUID demandId;
 
+    private String demandName;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", insertable = false, updatable = false, referencedColumnName = "pms_project_id")
-    @JsonIgnore
+    @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Project project;
 
-    @Column(name = "project_id")
-    private Long projectId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private DeliveryRoleExpectation role;
 
-    @Column(name = "role_id")
-    private UUID roleId;
+    @Column(name = "demand_justification", length = 500)
+    private String demandJustification;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "demand_type", nullable = false, length = 20)
-    private DemandType demandType;
-
-    @Column(name = "outgoing_resource_id")
-    private Long outgoingResourceId;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "demand_status", nullable = false, length = 20)
-    private DemandStatus demandStatus;
-
-    @Column(name = "requires_additional_approval")
-    private Boolean requiresAdditionalApproval;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "demand_priority", length = 20)
-    private PriorityLevel demandPriority;
-
-    @Column(name = "demand_start_date")
-    private LocalDate demandStartDate;
+    @Column(name = "demand_start_date", nullable = false)
+    private LocalDateTime demandStartDate;
 
     @Column(name = "demand_end_date")
-    private LocalDate demandEndDate;
+    private LocalDateTime demandEndDate;
 
     @Column(name = "allocation_percentage")
     private Integer allocationPercentage;
 
-    @Column(name = "location_requirement", length = 255)
+    @Column(name = "location_requirement", length = 100)
     private String locationRequirement;
 
-    @Column(name = "delivery_model", length = 100)
-    private String deliveryModel;
+    @Column(name = "delivery_model", length = 50)
+    private DeliveryModel deliveryModel;
 
-    @Column(name = "demand_justification", length = 1000)
-    private String demandJustification;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "demand_type_name", nullable = false, length = 20)
+    private DemandType demandType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "demand_status", length = 30)
+    private DemandStatus demandStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "demand_priority", nullable = false, length = 20)
+    private PriorityLevel demandPriority;
+
+    @Column(name = "min_exp", nullable = false)
+    private Integer minExp;
+    @Column(name = "resources_required", nullable = false)
+    private Integer resourcesRequired;
+
+    @Column(name = "created_by", nullable = false)
+    private Long createdBy;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "outgoing_resource_id")
+    private Resource outgoingResource;
 
-    @Column(name = "created_by")
-    private Long createdBy;
+    @Column(name = "requires_additional_approval")
+    private Boolean requiresAdditionalApproval = false;
 
-    @Column(name = "updated_by")
-    private Long updatedBy;
+    @ManyToMany
+    @JoinTable(
+        name = "demand_skill",
+        joinColumns = @JoinColumn(name = "demand_id"),
+        inverseJoinColumns = @JoinColumn(name = "skill_id")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Set<Skill> requiredSkills = new HashSet<>();
 
-    @PrePersist
-    protected void onCreate() {
-        if (demandId == null) {
-            demandId = UUID.randomUUID();
-        }
-        if (demandStatus == null) {
-            demandStatus = DemandStatus.DRAFT;
-        }
-        if (requiresAdditionalApproval == null) {
-            requiresAdditionalApproval = false;
-        }
-    }
+    @ManyToMany
+    @JoinTable(
+        name = "demand_certificate",
+        joinColumns = @JoinColumn(name = "demand_id"),
+        inverseJoinColumns = @JoinColumn(name = "certificate_id")
+    )
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Set<Certificate> requiredCertificates = new HashSet<>();
 }

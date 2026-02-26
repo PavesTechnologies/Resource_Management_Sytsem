@@ -1,5 +1,6 @@
 package com.dto.demand_dto;
 
+import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.demand_enums.DemandType;
 import lombok.Data;
@@ -23,7 +24,7 @@ public class UpdateDemandDTO {
     private Integer allocationPercentage;
 
     private String locationRequirement;
-    private String deliveryModel;
+    private DeliveryModel deliveryModel;
 
     private PriorityLevel demandPriority;
 }
