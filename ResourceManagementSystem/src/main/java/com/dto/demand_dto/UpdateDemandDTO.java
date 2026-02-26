@@ -33,7 +33,7 @@ public class UpdateDemandDTO {
 
     private DemandCommitment demandCommitment;
 
-    private Integer softDemandExpiry;
+    private LocalDate softDemandExpiry;
 
     private Boolean requiresAdditionalApproval;
 }

@@ -41,5 +41,5 @@ public class DemandResponseDTO {
     private Integer minExp;
     private Integer resourcesRequired;
 
-    private Integer softDemandExpiry;
+    private LocalDate softDemandExpiry;
 }
