@@ -8,6 +8,7 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -33,7 +34,7 @@ public class UpdateDemandDTO {
 
     private DemandCommitment demandCommitment;
 
-    private Integer softDemandExpiry;
+    private LocalDate softDemandExpiry;
 
     private Boolean requiresAdditionalApproval;
 }

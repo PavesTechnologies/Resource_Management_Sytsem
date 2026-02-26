@@ -118,5 +118,5 @@ public class Demand {
     private DemandCommitment demandCommitment;
 
     @Column(name = "soft_demand_expiry")
-    private int softDemandExpiry;
+    private LocalDate softDemandExpiry;
 }
