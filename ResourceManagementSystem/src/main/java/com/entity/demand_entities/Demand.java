@@ -50,7 +50,7 @@ public class Demand {
     private String demandJustification;
 
     @Column(name = "demand_start_date", nullable = false)
-    private LocalDateTime demandStartDate;
+    private LocalDate demandStartDate;
 
     @Column(name = "demand_end_date",nullable = false)
     private LocalDateTime demandEndDate;
