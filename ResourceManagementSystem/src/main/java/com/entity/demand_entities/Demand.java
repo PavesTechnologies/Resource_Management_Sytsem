@@ -53,7 +53,7 @@ public class Demand {
     private LocalDate demandStartDate;
 
     @Column(name = "demand_end_date",nullable = false)
-    private LocalDateTime demandEndDate;
+    private LocalDate demandEndDate;
 
     @Column(name = "allocation_percentage",nullable = false)
     private Integer allocationPercentage;
