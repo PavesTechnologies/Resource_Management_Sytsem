@@ -180,6 +180,8 @@ public class DemandServiceImpl implements DemandService {
             existing.setDemandStartDate(dto.getDemandStartDate());
             criticalChanged = true;
         }
+        if (dto.getDemandStartDate() != null)
+            existing.setDemandStartDate(dto.getDemandStartDate());
 
         if (dto.getDemandEndDate() != null &&
                 !dto.getDemandEndDate().equals(existing.getDemandEndDate())) {
