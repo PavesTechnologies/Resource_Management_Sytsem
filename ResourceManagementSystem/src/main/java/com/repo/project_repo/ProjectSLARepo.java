@@ -1,5 +1,6 @@
 package com.repo.project_repo;
 
+import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectSLA;
 import com.entity_enums.client_enums.SLAType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,4 +19,6 @@ public interface ProjectSLARepo extends JpaRepository<ProjectSLA, UUID> {
     boolean existsByClientSLA_SlaIdAndActiveFlagTrue(UUID clientSlaId);
     
     List<ProjectSLA> findByClientSLA_SlaIdAndActiveFlagTrue(UUID clientSlaId);
+
+    Optional<ProjectSLA> findByProjectAndSlaTypeAndActiveFlagTrue(Project project, SLAType slaType);
 }
