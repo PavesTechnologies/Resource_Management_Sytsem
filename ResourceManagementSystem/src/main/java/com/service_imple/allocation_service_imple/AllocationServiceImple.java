@@ -367,8 +367,7 @@ public class AllocationServiceImple implements AllocationService {
                     .findByResourceIdAndActiveFlagTrue(resourceId);
             
             Set<UUID> resourceSkillIds = resourceSkills.stream()
-                    .filter(rs -> rs.getExpiryDate() == null || rs.getExpiryDate().isAfter(currentDate))
-                    .map(ResourceSkill::getSkillId)
+                    .map(rs -> rs.getSkill().getId())
                     .collect(Collectors.toSet());
             
             Set<UUID> requiredSkillIds = demand.getRequiredSkills().stream()
@@ -449,9 +448,9 @@ public class AllocationServiceImple implements AllocationService {
 
         // Create lookup maps for O(1) access
         Map<UUID, ResourceSkill> resourceSkillMap = resourceSkills.stream()
-            .collect(Collectors.toMap(ResourceSkill::getSkillId, rs -> rs));
+            .collect(Collectors.toMap(rs -> rs.getSkill().getId(), rs -> rs));
         Map<UUID, ResourceSubSkill> resourceSubSkillMap = resourceSubSkills.stream()
-            .collect(Collectors.toMap(ResourceSubSkill::getSubSkillId, rss -> rss));
+            .collect(Collectors.toMap(rss -> rss.getSubSkill().getId(), rss -> rss));
         Map<UUID, ResourceCertificate> resourceCertificateMap = resourceCertificates.stream()
             .collect(Collectors.toMap(ResourceCertificate::getCertificateId, rc -> rc));
 
@@ -766,14 +765,10 @@ public class AllocationServiceImple implements AllocationService {
     }
 
     private boolean isActiveAndNotExpired(ResourceSkill resourceSkill) {
-        LocalDate currentDate = LocalDate.now();
-        return resourceSkill.getActiveFlag() && 
-               (resourceSkill.getExpiryDate() == null || resourceSkill.getExpiryDate().isAfter(currentDate));
+        return resourceSkill.getActiveFlag();
     }
 
     private boolean isActiveAndNotExpired(ResourceSubSkill resourceSubSkill) {
-        LocalDate currentDate = LocalDate.now();
-        return resourceSubSkill.getActiveFlag() && 
-               (resourceSubSkill.getExpiryDate() == null || resourceSubSkill.getExpiryDate().isAfter(currentDate));
+        return resourceSubSkill.getActiveFlag();
     }
 }

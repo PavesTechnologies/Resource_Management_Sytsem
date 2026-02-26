@@ -19,7 +19,7 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
     @Query("SELECT rss FROM ResourceSubSkill rss WHERE rss.resourceId = :resourceId AND rss.activeFlag = true")
     List<ResourceSubSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") Long resourceId);
 
-    @Query("SELECT rss FROM ResourceSubSkill rss WHERE rss.resourceId = :resourceId AND rss.subSkillId IN :subSkillIds AND rss.activeFlag = true")
+    @Query("SELECT rss FROM ResourceSubSkill rss WHERE rss.resourceId = :resourceId AND rss.subSkill.id IN :subSkillIds AND rss.activeFlag = true")
     List<ResourceSubSkill> findByResourceIdAndSubSkillIdsAndActiveFlagTrue(
             @Param("resourceId") Long resourceId, 
             @Param("subSkillIds") List<UUID> subSkillIds);

@@ -4,6 +4,8 @@ import com.global_exception_handler.SkillTaxonomyExceptionHandler;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
 import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
+import com.dto.skill_dto.ResourceSkillRequestDTO;
+import com.dto.skill_dto.ResourceSubSkillRequestDTO;
 import com.dto.skill_dto.SkillWithSubSkillDTO;
 import com.dto.skill_dto.SubSkillDTO;
 import com.entity.skill_entities.ProficiencyLevel;
@@ -50,10 +52,9 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
             // Add skill-level proficiency
             ResourceSkill skillResource = ResourceSkill.builder()
                     .resourceId(dto.getResourceId())
-                    .skillId(skillDTO.getSkillId())
+                    .skill(skillRepository.getReferenceById(skillDTO.getSkillId()))
                     .proficiencyId(skillDTO.getProficiencyId())
                     .lastUsedDate(LocalDate.now())
-                    .expiryDate(null)
                     .activeFlag(true)
                     .build();
             resourceSkills.add(skillResource);
@@ -63,10 +64,9 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                 for (SubSkillDTO subSkillDTO : skillDTO.getSubSkills()) {
                     ResourceSubSkill subSkillResource = ResourceSubSkill.builder()
                             .resourceId(dto.getResourceId())
-                            .subSkillId(subSkillDTO.getSubSkillId())
+                            .subSkill(subSkillRepository.getReferenceById(subSkillDTO.getSubSkillId()))
                             .proficiencyId(subSkillDTO.getProficiencyId())
                             .lastUsedDate(LocalDate.now())
-                            .expiryDate(null)
                             .activeFlag(true)
                             .build();
                     resourceSubSkills.add(subSkillResource);
@@ -180,28 +180,25 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         
         // Group sub-skills by their parent skill
         Map<UUID, List<ResourceSubSkill>> subSkillsBySkill = subSkills.stream()
-                .collect(Collectors.groupingBy(rss -> {
-                    SubSkill subSkill = subSkillRepository.findById(rss.getSubSkillId()).orElseThrow();
-                    return subSkill.getSkill().getId();
-                }));
+                .collect(Collectors.groupingBy(rss -> rss.getSubSkill().getSkill().getId()));
         
         List<ResourceSkillProfileResponseDTO> result = new ArrayList<>();
         
         for (ResourceSkill skillRecord : skills) {
             // Get skill details
-            Skill skill = skillRepository.findById(skillRecord.getSkillId()).orElseThrow();
+            Skill skill = skillRecord.getSkill();
             
             // Get skill proficiency
             ProficiencyLevel skillProficiencyLevel = proficiencyLevelRepository
                     .findById(skillRecord.getProficiencyId()).orElseThrow();
             
             // Get sub-skills for this skill
-            List<ResourceSubSkill> skillSubSkills = subSkillsBySkill.getOrDefault(skillRecord.getSkillId(), new ArrayList<>());
+            List<ResourceSubSkill> skillSubSkills = subSkillsBySkill.getOrDefault(skillRecord.getSkill().getId(), new ArrayList<>());
             
             // Process sub-skill proficiencies
             List<ResourceSkillProfileResponseDTO.SubSkillProficiencyDTO> subSkillProficiencies = new ArrayList<>();
             for (ResourceSubSkill subSkillRecord : skillSubSkills) {
-                SubSkill subSkill = subSkillRepository.findById(subSkillRecord.getSubSkillId()).orElseThrow();
+                SubSkill subSkill = subSkillRecord.getSubSkill();
                 ProficiencyLevel subProficiencyLevel = proficiencyLevelRepository
                         .findById(subSkillRecord.getProficiencyId()).orElseThrow();
                 
@@ -220,13 +217,104 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                     .skillProficiencyCode(skillProficiencyLevel.getProficiencyCode())
                     .subSkills(subSkillProficiencies)
                     .lastUsedDate(skillRecord.getLastUsedDate())
-                    .expiryDate(skillRecord.getExpiryDate())
                     .build();
             
             result.add(responseDTO);
         }
         
         return result;
+    }
+
+    @Override
+    @Transactional
+    public String addSingleSkillToResource(ResourceSkillRequestDTO dto) {
+        // Validate skill exists and is ACTIVE
+        Skill skill = skillRepository.findById(dto.getSkillId())
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Skill not found: " + dto.getSkillId()));
+        
+        if (!"ACTIVE".equalsIgnoreCase(skill.getStatus())) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "Skill is not active: " + skill.getName());
+        }
+        
+        // Validate proficiency exists and is ACTIVE
+        ProficiencyLevel proficiency = proficiencyLevelRepository
+                .findById(dto.getProficiencyId())
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Proficiency not found: " + dto.getProficiencyId()));
+        
+        if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "Proficiency level is inactive: " + proficiency.getProficiencyName());
+        }
+        
+        // Check if skill already assigned to resource
+        boolean skillExists = resourceSkillRepository
+                .existsByResourceIdAndSkillId(dto.getResourceId(), dto.getSkillId());
+        
+        if (skillExists) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "Skill already assigned to this resource: " + skill.getName());
+        }
+        
+        // Create and save resource skill
+        ResourceSkill resourceSkill = ResourceSkill.builder()
+                .resourceId(dto.getResourceId())
+                .skill(skillRepository.getReferenceById(dto.getSkillId()))
+                .proficiencyId(dto.getProficiencyId())
+                .lastUsedDate(LocalDate.now())
+                .activeFlag(true)
+                .build();
+        
+        resourceSkillRepository.save(resourceSkill);
+        return "Skill successfully added to resource";
+    }
+
+    @Override
+    @Transactional
+    public String addSingleSubSkillToResource(ResourceSubSkillRequestDTO dto) {
+        // Validate sub-skill exists and is ACTIVE
+        SubSkill subSkill = subSkillRepository.findById(dto.getSubSkillId())
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "SubSkill not found: " + dto.getSubSkillId()));
+        
+        if (!"ACTIVE".equalsIgnoreCase(subSkill.getStatus())) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "SubSkill is not active: " + subSkill.getName());
+        }
+        
+        // Validate proficiency exists and is ACTIVE
+        ProficiencyLevel proficiency = proficiencyLevelRepository
+                .findById(dto.getProficiencyId())
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Proficiency not found: " + dto.getProficiencyId()));
+        
+        if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "Proficiency level is inactive: " + proficiency.getProficiencyName());
+        }
+        
+        // Check if sub-skill already assigned to resource
+        boolean subSkillExists = resourceSubSkillRepository
+                .existsByResourceIdAndSubSkillId(dto.getResourceId(), dto.getSubSkillId());
+        
+        if (subSkillExists) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "SubSkill already assigned to this resource: " + subSkill.getName());
+        }
+        
+        // Create and save resource sub-skill
+        ResourceSubSkill resourceSubSkill = ResourceSubSkill.builder()
+                .resourceId(dto.getResourceId())
+                .subSkill(subSkillRepository.getReferenceById(dto.getSubSkillId()))
+                .proficiencyId(dto.getProficiencyId())
+                .lastUsedDate(LocalDate.now())
+                .activeFlag(true)
+                .build();
+        
+        resourceSubSkillRepository.save(resourceSubSkill);
+        return "SubSkill successfully added to resource";
     }
 
 }

@@ -27,8 +27,8 @@ public class ResourceSubSkill {
     @Column(name = "resource_id", nullable = false)
     private Long resourceId;
 
-    @Column(name = "sub_skill_id", nullable = false)
-    private UUID subSkillId;
+//    @Column(name = "sub_skill_id", nullable = false)
+//    private UUID subSkillId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sub_skill_id", referencedColumnName = "sub_skill_id", insertable = false, updatable = false)
@@ -41,8 +41,8 @@ public class ResourceSubSkill {
     @Column(name = "last_used_date")
     private LocalDate lastUsedDate;
 
-    @Column(name = "expiry_date")
-    private LocalDate expiryDate;
+//    @Column(name = "expiry_date")
+//    private LocalDate expiryDate;
 
     @Column(name = "active_flag")
     private Boolean activeFlag;

@@ -15,5 +15,4 @@ public class ResourceSkillProfileDTO {
     private String proficiency;
     private String proficiencyCode;
     private LocalDate lastUsedDate;
-    private LocalDate expiryDate;
 }
