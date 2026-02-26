@@ -204,17 +204,19 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getRequiresAdditionalApproval() != null)
             existing.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
 
-        if (dto.getOutgoingResourceId() != null && dto.getOutgoingResourceId() != 0) {
-            Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
-                    .orElseThrow(() -> new ProjectExceptionHandler(
-                            HttpStatus.NOT_FOUND,
-                            "RESOURCE_NOT_FOUND",
-                            "Outgoing resource not found"
-                    ));
-            existing.setOutgoingResource(resource);
-        } else if (dto.getOutgoingResourceId() != null && dto.getOutgoingResourceId() == 0) {
-            // Explicitly set to null when ID is 0
-            existing.setOutgoingResource(null);
+        if (dto.getOutgoingResourceId() != null) {
+            if (dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
+                Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "RESOURCE_NOT_FOUND",
+                                "Outgoing resource not found"
+                        ));
+                existing.setOutgoingResource(resource);
+            } else if (dto.getOutgoingResourceId() == 0) {
+                // Explicitly set to null when ID is 0
+                existing.setOutgoingResource(null);
+            }
         }
 
         // Re-validate rules
@@ -328,11 +330,11 @@ public class DemandServiceImpl implements DemandService {
         // Validate demand commitment rules
         if (demand.getDemandCommitment() == DemandCommitment.SOFT) {
             
-            if (demand.getSoftDemandExpiry() <= 0) {
+            if (demand.getSoftDemandExpiry() == null) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "SOFT_DEMAND_EXPIRY_REQUIRED",
-                        "Soft demand commitment requires positive soft demand expiry value"
+                        "Soft demand commitment requires expiry date"
                 );
             }
         }

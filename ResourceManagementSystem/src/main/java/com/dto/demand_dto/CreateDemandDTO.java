@@ -12,6 +12,7 @@ import lombok.Data;
 
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -59,7 +60,7 @@ public class CreateDemandDTO {
     @NotNull(message = "Demand commitment is required")
     private DemandCommitment demandCommitment;
 
-    private Integer softDemandExpiry;
+    private LocalDate softDemandExpiry;
 
     private Boolean requiresAdditionalApproval;
 }

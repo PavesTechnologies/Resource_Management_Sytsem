@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -41,5 +42,5 @@ public class DemandResponseDTO {
     private Integer minExp;
     private Integer resourcesRequired;
 
-    private Integer softDemandExpiry;
+    private LocalDate softDemandExpiry;
 }
