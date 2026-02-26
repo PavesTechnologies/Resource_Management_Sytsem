@@ -3,6 +3,8 @@ package com.controller.skill_controllers;
 import com.dto.ApiResponse;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
 import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
+import com.dto.skill_dto.ResourceSkillRequestDTO;
+import com.dto.skill_dto.ResourceSubSkillRequestDTO;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,18 @@ public class ResourceSkillController {
     @PostMapping("/bulk")
     public ResponseEntity<ApiResponse<String>> addSkillsToResource(@Valid @RequestBody ResourceSkillBulkRequestDTO dto) {
         String result = resourceSkillService.addSkillsToResource(dto);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @PostMapping("/skill")
+    public ResponseEntity<ApiResponse<String>> addSingleSkillToResource(@Valid @RequestBody ResourceSkillRequestDTO dto) {
+        String result = resourceSkillService.addSingleSkillToResource(dto);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @PostMapping("/subskill")
+    public ResponseEntity<ApiResponse<String>> addSingleSubSkillToResource(@Valid @RequestBody ResourceSubSkillRequestDTO dto) {
+        String result = resourceSkillService.addSingleSubSkillToResource(dto);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

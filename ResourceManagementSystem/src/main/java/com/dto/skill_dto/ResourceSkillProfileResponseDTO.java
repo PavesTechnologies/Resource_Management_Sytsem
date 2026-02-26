@@ -21,7 +21,6 @@ public class ResourceSkillProfileResponseDTO {
     private String skillProficiencyCode;
     private List<SubSkillProficiencyDTO> subSkills;
     private LocalDate lastUsedDate;
-    private LocalDate expiryDate;
     
     @Getter
     @Setter

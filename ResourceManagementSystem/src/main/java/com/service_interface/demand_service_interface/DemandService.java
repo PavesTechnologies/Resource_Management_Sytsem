@@ -9,10 +9,6 @@ import org.springframework.http.ResponseEntity;
 import java.util.UUID;
 
 public interface DemandService {
-//    ResponseEntity<ApiResponse<?>> createDemand(Demand demand);
-//    ResponseEntity<ApiResponse<?>> updateDemand(Demand demand);
-
-//    ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto);
 
     ResponseEntity<ApiResponse<?>> updateDemand(UpdateDemandDTO dto);
     ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId);
