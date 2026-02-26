@@ -1,4 +1,4 @@
-package com.repo;
+package com.repo.demand_repo;
 
 import com.entity.demand_entities.Demand;
 import org.springframework.data.jpa.repository.JpaRepository;

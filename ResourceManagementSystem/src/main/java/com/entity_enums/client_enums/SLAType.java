@@ -1,7 +1,8 @@
 package com.entity_enums.client_enums;
 
 public enum SLAType {
-    NEW_DEMAND,
+    NET_NEW,
     REPLACEMENT,
+    BACKFILL,
     EMERGENCY
 }

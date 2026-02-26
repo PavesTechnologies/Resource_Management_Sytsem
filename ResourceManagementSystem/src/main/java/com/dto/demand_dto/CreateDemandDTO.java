@@ -2,6 +2,7 @@ package com.dto.demand_dto;
 
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
+import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.DemandCommitment;
@@ -25,7 +26,7 @@ public class CreateDemandDTO {
     private UUID roleId;
 
     @NotNull(message = "Demand type is required")
-    private DemandType demandType;
+    private SLAType demandType;
 
     // Required only for REPLACEMENT (validated in service)
     private Long outgoingResourceId;
