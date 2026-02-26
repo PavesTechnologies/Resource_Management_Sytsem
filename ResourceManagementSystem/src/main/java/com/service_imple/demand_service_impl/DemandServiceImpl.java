@@ -11,6 +11,7 @@ import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
+import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
@@ -86,18 +87,20 @@ public class DemandServiceImpl implements DemandService {
             demand.setDemandStartDate(dto.getDemandStartDate());
             demand.setDemandEndDate(dto.getDemandEndDate());
             demand.setAllocationPercentage(dto.getAllocationPercentage());
-            demand.setLocationRequirement(dto.getLocationRequirement());
             demand.setDeliveryModel(dto.getDeliveryModel());
             demand.setDemandStatus(dto.getDemandStatus());
             demand.setDemandJustification(dto.getDemandJustification());
             demand.setDemandPriority(dto.getDemandPriority());
             demand.setMinExp(dto.getMinExp());
-            demand.setResourcesRequired(dto.getResourceRequired());
+            demand.setResourcesRequired(dto.getResourcesRequired());
             demand.setCreatedBy(userId);
+            demand.setDemandCommitment(dto.getDemandCommitment());
+            demand.setSoftDemandExpiry(dto.getSoftDemandExpiry());
+            demand.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
             demand.setCreatedAt(LocalDateTime.now());
 
             // Handle outgoing resource (Replacement case)
-            if (dto.getOutgoingResourceId() != null) {
+            if ( dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != null) {
                 Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
                         .orElseThrow(() -> new ProjectExceptionHandler(
                                 HttpStatus.NOT_FOUND,
@@ -171,20 +174,20 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDemandType() != null)
             existing.setDemandType(dto.getDemandType());
 
+        if (dto.getDemandStatus() != null)
+            existing.setDemandStatus(dto.getDemandStatus());
+
         if (dto.getDemandJustification() != null)
             existing.setDemandJustification(dto.getDemandJustification());
 
         if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate().atStartOfDay());
+            existing.setDemandStartDate(dto.getDemandStartDate());
 
         if (dto.getDemandEndDate() != null)
-            existing.setDemandEndDate(dto.getDemandEndDate().atStartOfDay());
+            existing.setDemandEndDate(dto.getDemandEndDate());
 
         if (dto.getAllocationPercentage() != null)
             existing.setAllocationPercentage(dto.getAllocationPercentage());
-
-        if (dto.getLocationRequirement() != null)
-            existing.setLocationRequirement(dto.getLocationRequirement());
 
         if (dto.getDeliveryModel() != null)
             existing.setDeliveryModel(dto.getDeliveryModel());
@@ -192,7 +195,16 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDemandPriority() != null)
             existing.setDemandPriority(dto.getDemandPriority());
 
-        if (dto.getOutgoingResourceId() != null) {
+        if (dto.getDemandCommitment() != null)
+            existing.setDemandCommitment(dto.getDemandCommitment());
+
+        if (dto.getSoftDemandExpiry() != null)
+            existing.setSoftDemandExpiry(dto.getSoftDemandExpiry());
+
+        if (dto.getRequiresAdditionalApproval() != null)
+            existing.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
+
+        if (dto.getOutgoingResourceId() != null && dto.getOutgoingResourceId() != 0) {
             Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
                     .orElseThrow(() -> new ProjectExceptionHandler(
                             HttpStatus.NOT_FOUND,
@@ -200,6 +212,9 @@ public class DemandServiceImpl implements DemandService {
                             "Outgoing resource not found"
                     ));
             existing.setOutgoingResource(resource);
+        } else if (dto.getOutgoingResourceId() != null && dto.getOutgoingResourceId() == 0) {
+            // Explicitly set to null when ID is 0
+            existing.setOutgoingResource(null);
         }
 
         // Re-validate rules
@@ -306,6 +321,18 @@ public class DemandServiceImpl implements DemandService {
                         HttpStatus.BAD_REQUEST,
                         "JUSTIFICATION_REQUIRED",
                         "Net-New demand requires detailed business justification (min 20 characters)"
+                );
+            }
+        }
+
+        // Validate demand commitment rules
+        if (demand.getDemandCommitment() == DemandCommitment.SOFT) {
+            
+            if (demand.getSoftDemandExpiry() <= 0) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "SOFT_DEMAND_EXPIRY_REQUIRED",
+                        "Soft demand commitment requires positive soft demand expiry value"
                 );
             }
         }
