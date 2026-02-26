@@ -12,6 +12,7 @@ import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandCommitment;
+import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.DemandRepository;
@@ -158,72 +159,98 @@ public class DemandServiceImpl implements DemandService {
                         "Demand not found"
                 ));
 
-        // Date validation
-        if (dto.getDemandStartDate() != null &&
-                dto.getDemandEndDate() != null &&
-                dto.getDemandEndDate().isBefore(dto.getDemandStartDate())) {
+        // 🚫 Hard restriction
+        if (existing.getDemandStatus() == DemandStatus.CANCELLED ||
+                existing.getDemandStatus() == DemandStatus.REJECTED) {
 
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
-                    "INVALID_DATE_RANGE",
-                    "Demand end date cannot be before start date"
+                    "INVALID_STATE",
+                    "Cancelled or Rejected demands cannot be modified"
             );
         }
 
-        // Safe updates
-        if (dto.getDemandType() != null)
-            existing.setDemandType(dto.getDemandType());
+        boolean criticalChanged = false;
 
-        if (dto.getDemandStatus() != null)
-            existing.setDemandStatus(dto.getDemandStatus());
+        // ===== Critical Comparisons =====
+
+        if (dto.getDemandStartDate() != null &&
+                !dto.getDemandStartDate().equals(existing.getDemandStartDate())) {
+
+            existing.setDemandStartDate(dto.getDemandStartDate());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandEndDate() != null &&
+                !dto.getDemandEndDate().equals(existing.getDemandEndDate())) {
+
+            existing.setDemandEndDate(dto.getDemandEndDate());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandPriority() != null &&
+                dto.getDemandPriority() != existing.getDemandPriority()) {
+
+            existing.setDemandPriority(dto.getDemandPriority());
+            criticalChanged = true;
+        }
+
+        if (dto.getResourcesRequired() != null &&
+                !dto.getResourcesRequired().equals(existing.getResourcesRequired())) {
+
+            existing.setResourcesRequired(dto.getResourcesRequired());
+            criticalChanged = true;
+        }
+
+        if (dto.getAllocationPercentage() != null &&
+                !dto.getAllocationPercentage().equals(existing.getAllocationPercentage())) {
+
+            existing.setAllocationPercentage(dto.getAllocationPercentage());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandCommitment() != null &&
+                dto.getDemandCommitment() != existing.getDemandCommitment()) {
+
+            existing.setDemandCommitment(dto.getDemandCommitment());
+            criticalChanged = true;
+        }
+
+        // ===== Non-Critical Updates =====
 
         if (dto.getDemandJustification() != null)
             existing.setDemandJustification(dto.getDemandJustification());
 
-        if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate());
-
-        if (dto.getDemandEndDate() != null)
-            existing.setDemandEndDate(dto.getDemandEndDate());
-
-        if (dto.getAllocationPercentage() != null)
-            existing.setAllocationPercentage(dto.getAllocationPercentage());
-
         if (dto.getDeliveryModel() != null)
             existing.setDeliveryModel(dto.getDeliveryModel());
-
-        if (dto.getDemandPriority() != null)
-            existing.setDemandPriority(dto.getDemandPriority());
-
-        if (dto.getDemandCommitment() != null)
-            existing.setDemandCommitment(dto.getDemandCommitment());
 
         if (dto.getSoftDemandExpiry() != null)
             existing.setSoftDemandExpiry(dto.getSoftDemandExpiry());
 
-        if (dto.getRequiresAdditionalApproval() != null)
-            existing.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
+        // 🔥 GOVERNANCE RULE
+        if (criticalChanged &&
+                existing.getDemandStatus() == DemandStatus.APPROVED) {
 
-        if (dto.getOutgoingResourceId() != null) {
-            if (dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
-                Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
-                        .orElseThrow(() -> new ProjectExceptionHandler(
-                                HttpStatus.NOT_FOUND,
-                                "RESOURCE_NOT_FOUND",
-                                "Outgoing resource not found"
-                        ));
-                existing.setOutgoingResource(resource);
-            } else if (dto.getOutgoingResourceId() == 0) {
-                // Explicitly set to null when ID is 0
-                existing.setOutgoingResource(null);
-            }
+            existing.setDemandStatus(DemandStatus.REQUESTED);
+            existing.setRequiresAdditionalApproval(true);
         }
 
-        // Re-validate rules
-        validateDemandTypeRules(existing);
-        applyDemandTypeRules(existing);
+        // Versioning
+        existing.setVersionNumber(existing.getVersionNumber() + 1);
+        existing.setLastModifiedAt(LocalDateTime.now());
+        existing.setLastModifiedBy(dto.getModifiedBy());
 
         demandRepository.save(existing);
+
+        // Optional message change
+        if (criticalChanged) {
+            return ResponseEntity.ok(
+                    ApiResponse.success(
+                            "Critical changes detected. Demand moved to REQUESTED state.",
+                            existing.getDemandId()
+                    )
+            );
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success("Demand updated successfully", existing.getDemandId())
