@@ -6,6 +6,7 @@ import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
 import com.entity_enums.centralised_enums.DeliveryModel;
+import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.centralised_enums.PriorityLevel;
@@ -32,10 +33,11 @@ public class Demand {
     @Column(name = "demand_id")
     private UUID demandId;
 
+    @Column(name = "demand_name", nullable = false)
     private String demandName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id")
+    @JoinColumn(name = "project_id", referencedColumnName = "pms_project_id",nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Project project;
 
@@ -50,14 +52,14 @@ public class Demand {
     @Column(name = "demand_start_date", nullable = false)
     private LocalDate demandStartDate;
 
-    @Column(name = "demand_end_date")
-    private LocalDate demandEndDate;
+    @Column(name = "demand_end_date",nullable = false)
+    private LocalDateTime demandEndDate;
 
-    @Column(name = "allocation_percentage")
+    @Column(name = "allocation_percentage",nullable = false)
     private Integer allocationPercentage;
 
-    @Column(name = "location_requirement", length = 100)
-    private String locationRequirement;
+//    @Column(name = "location_requirement", length = 100)
+//    private String locationRequirement;
 
     @Column(name = "delivery_model", length = 50)
     private DeliveryModel deliveryModel;
@@ -76,6 +78,7 @@ public class Demand {
 
     @Column(name = "min_exp", nullable = false)
     private Integer minExp;
+
     @Column(name = "resources_required", nullable = false)
     private Integer resourcesRequired;
 
@@ -110,4 +113,10 @@ public class Demand {
     )
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Set<Certificate> requiredCertificates = new HashSet<>();
+
+    @Column(name = "demand_commitment", length = 500,nullable = false)
+    private DemandCommitment demandCommitment;
+
+    @Column(name = "soft_demand_expiry")
+    private int softDemandExpiry;
 }
