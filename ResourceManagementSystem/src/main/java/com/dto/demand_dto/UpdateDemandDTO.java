@@ -7,7 +7,6 @@ import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandCommitment;
 import lombok.Data;
 
-import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,8 +20,8 @@ public class UpdateDemandDTO {
 
     private String demandJustification;
 
-    private LocalDateTime demandStartDate;
-    private LocalDateTime demandEndDate;
+    private LocalDate demandStartDate;
+    private LocalDate demandEndDate;
 
     private Integer allocationPercentage;
 
