@@ -530,7 +530,7 @@ public class DemandServiceImpl implements DemandService {
     @Transactional
     public void mapSlaToDemand(Demand demand) {
 
-        if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+        if (demand.getDemandCommitment()!=DemandCommitment.CONFIRMED) {
             return;
         }
 
