@@ -59,6 +59,7 @@ public class Demand {
     @Column(name = "allocation_percentage",nullable = false)
     private Integer allocationPercentage;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "delivery_model", length = 50)
     private DeliveryModel deliveryModel;
 

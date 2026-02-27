@@ -15,12 +15,17 @@ import java.util.UUID;
 @Repository
 public interface DeliveryRoleExpectationRepository extends JpaRepository<DeliveryRoleExpectation, UUID> {
 
+    @Query("SELECT COUNT(dre) > 0 FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")
     boolean existsByRoleNameAndSkill_IdAndSubSkill_Id(
-            String roleName, UUID skillId, UUID subSkillId
+            @Param("roleName") String roleName, 
+            @Param("skillId") UUID skillId, 
+            @Param("subSkillId") UUID subSkillId
     );
 
+    @Query("SELECT COUNT(dre) > 0 FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill IS NULL AND dre.status = 'ACTIVE'")
     boolean existsByRoleNameAndSkill_IdAndSubSkill_IdIsNull(
-            String roleName, UUID skillId
+            @Param("roleName") String roleName, 
+            @Param("skillId") UUID skillId
     );
 
     @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' ORDER BY dre.skill.name, dre.subSkill.name")
