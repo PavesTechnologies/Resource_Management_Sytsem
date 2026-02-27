@@ -15,6 +15,11 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.exception.skill_exceptions.SkillValidationException;
+import com.exception.skill_exceptions.DuplicateRoleExpectationException;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @ControllerAdvice
 public class GlobalExceptionHandler{
 
@@ -133,6 +138,26 @@ public class GlobalExceptionHandler{
         apiResponse.setData(null);
 
         return ResponseEntity.badRequest().body(apiResponse);
+    }
+
+    @ExceptionHandler(SkillValidationException.class)
+    public ResponseEntity<ApiResponse> handleSkillValidationException(SkillValidationException e) {
+        log.warn("Skill validation error: {}", e.getMessage());
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage(e.getMessage());
+        apiResponse.setData(null);
+        return ResponseEntity.badRequest().body(apiResponse);
+    }
+
+    @ExceptionHandler(DuplicateRoleExpectationException.class)
+    public ResponseEntity<ApiResponse> handleDuplicateRoleExpectationException(DuplicateRoleExpectationException e) {
+        log.warn("Duplicate role expectation: {}", e.getMessage());
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage(e.getMessage());
+        apiResponse.setData(null);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
     }
 
 }

@@ -2,6 +2,7 @@ package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
 import com.dto.demand_dto.CreateDemandDTO;
+import com.dto.demand_dto.DemandConflictValidationDTO;
 import com.dto.demand_dto.UpdateDemandDTO;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
@@ -35,6 +36,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -70,6 +73,25 @@ public class DemandServiceImpl implements DemandService {
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long userId) {
         try {
 
+            // 🔥 PRE-SUBMISSION VALIDATION - Early conflict detection
+            ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse = validateDemandConflicts(dto);
+            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody().getData() != null) {
+                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
+                
+                // Block submission if there are error-level conflicts
+                if (!validation.isCanSubmit()) {
+                    return ResponseEntity.badRequest().body(ApiResponse.error(
+                        "Demand submission blocked due to unresolved conflicts. Please resolve the following issues:\n" + 
+                        formatConflictDetails(validation.getConflicts())
+                    ));
+                }
+                
+                // Log warnings but allow submission
+                if (validation.isHasConflicts()) {
+                    System.out.println("WARNING: Demand submitted with conflicts: " + validation.getValidationMessage());
+                }
+            }
+
             // 🔐 Validate project eligibility
 //            projectDemandValidationService.validateProjectForStaffing(dto.getProjectId());
             // Fetch Project
@@ -84,12 +106,21 @@ public class DemandServiceImpl implements DemandService {
             }
 
             // Fetch Role
-            DeliveryRoleExpectation role = roleRepository.findById(dto.getDeliveryRole())
-                    .orElseThrow(() -> new ProjectExceptionHandler(
-                            HttpStatus.NOT_FOUND,
-                            "ROLE_NOT_FOUND",
-                            "Role not found"
-                    ));
+            DeliveryRoleExpectation role;
+            try {
+                role = roleRepository.findById(dto.getDeliveryRole())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "ROLE_NOT_FOUND",
+                                "Role not found with ID: " + dto.getDeliveryRole()
+                        ));
+            } catch (IllegalArgumentException e) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_ROLE_ID",
+                        "Invalid role ID format. Expected UUID format, received: " + dto.getDeliveryRole()
+                );
+            }
 
             // Validate required fields
             if (dto.getResourcesRequired() == null || dto.getResourcesRequired() < 1) {
@@ -130,6 +161,12 @@ public class DemandServiceImpl implements DemandService {
             // 🔥 Validate demand type rules
             validateDemandTypeRules(demand);
 
+            // 🔥 Detect duplicate demands
+            detectAndHandleDuplicateDemand(demand);
+
+            // 🔥 Identify conflicting demands
+            detectAndResolveConflicts(demand);
+
             // 🔥 Apply business rules
             applyDemandTypeRules(demand);
 
@@ -156,6 +193,17 @@ public class DemandServiceImpl implements DemandService {
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
         }
+    }
+    
+    private String formatConflictDetails(List<DemandConflictValidationDTO.ConflictDetail> conflicts) {
+        StringBuilder sb = new StringBuilder();
+        for (DemandConflictValidationDTO.ConflictDetail conflict : conflicts) {
+            sb.append("• ").append(conflict.getDescription())
+              .append(" (").append(conflict.getConflictType()).append(")\n")
+              .append("  Impact: ").append(conflict.getImpact()).append("\n")
+              .append("  Resolution: ").append(conflict.getSuggestedResolution()).append("\n\n");
+        }
+        return sb.toString();
     }
 
     @Transactional
@@ -595,5 +643,570 @@ public class DemandServiceImpl implements DemandService {
         }
 
         mapSlaToDemand(demand);
+    }
+
+    // ============================
+    // TASK 1: DUPLICATE DEMAND DETECTION
+    // ============================
+    
+    private void detectAndHandleDuplicateDemand(Demand demand) {
+        // Check for exact duplicates
+        List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+        
+        for (Demand existing : existingDemands) {
+            if (isExactDuplicate(demand, existing)) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.CONFLICT,
+                        "DUPLICATE_DEMAND",
+                        "Exact duplicate demand exists for project: " + demand.getProject().getName() + 
+                        ", role: " + demand.getRole().getRoleName() + 
+                        ", dates: " + demand.getDemandStartDate() + " to " + demand.getDemandEndDate()
+                );
+            }
+        }
+        
+        // Check for similar demands (warning)
+        List<Demand> similarDemands = findSimilarDemands(demand, existingDemands);
+        if (!similarDemands.isEmpty()) {
+            // Log warning but allow creation
+            System.out.println("WARNING: Similar demands found for project " + demand.getProject().getName() + 
+                             ". Consider reviewing existing demands before proceeding.");
+        }
+    }
+    
+    private boolean isExactDuplicate(Demand newDemand, Demand existing) {
+        return newDemand.getProject().getPmsProjectId().equals(existing.getProject().getPmsProjectId()) &&
+               newDemand.getRole().getId().equals(existing.getRole().getId()) &&
+               newDemand.getDemandStartDate().equals(existing.getDemandStartDate()) &&
+               newDemand.getDemandEndDate().equals(existing.getDemandEndDate()) &&
+               newDemand.getAllocationPercentage().equals(existing.getAllocationPercentage());
+    }
+    
+    private List<Demand> findSimilarDemands(Demand newDemand, List<Demand> existingDemands) {
+        return existingDemands.stream()
+                .filter(existing -> isSimilarDemand(newDemand, existing))
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    private boolean isSimilarDemand(Demand newDemand, Demand existing) {
+        // Same project and role with overlapping dates
+        return newDemand.getProject().getPmsProjectId().equals(existing.getProject().getPmsProjectId()) &&
+               newDemand.getRole().getId().equals(existing.getRole().getId()) &&
+               isDateRangeOverlapping(newDemand.getDemandStartDate(), newDemand.getDemandEndDate(), 
+                                     existing.getDemandStartDate(), existing.getDemandEndDate());
+    }
+    
+    private boolean isDateRangeOverlapping(LocalDate start1, LocalDate end1, LocalDate start2, LocalDate end2) {
+        return !start1.isAfter(end2) && !start2.isAfter(end1);
+    }
+
+    // ============================
+    // TASK 2: CONFLICT DETECTION
+    // ============================
+    
+    private void detectAndResolveConflicts(Demand demand) {
+        // Detect resource allocation conflicts
+        detectAllocationConflicts(demand);
+        
+        // Detect timeline conflicts
+        detectTimelineConflicts(demand);
+        
+        // Detect skill requirement conflicts
+        detectSkillConflicts(demand);
+    }
+    
+    private void detectAllocationConflicts(Demand demand) {
+        List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+        
+        // Calculate total allocation for overlapping demands
+        int totalAllocation = demand.getAllocationPercentage();
+        
+        for (Demand existing : projectDemands) {
+            if (isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
+                                      existing.getDemandStartDate(), existing.getDemandEndDate()) &&
+                existing.getDemandStatus() != DemandStatus.CANCELLED &&
+                existing.getDemandStatus() != DemandStatus.REJECTED) {
+                
+                totalAllocation += existing.getAllocationPercentage();
+            }
+        }
+        
+        // Conflict if total allocation exceeds 100%
+        if (totalAllocation > 100) {
+            // Apply conflict resolution rule
+            resolveAllocationConflict(demand, totalAllocation);
+        }
+    }
+    
+    private void resolveAllocationConflict(Demand demand, int totalAllocation) {
+        // Rule: High priority demands take precedence
+        if (demand.getDemandPriority() == PriorityLevel.CRITICAL || 
+            demand.getDemandPriority() == PriorityLevel.HIGH) {
+            
+            // Reduce allocation of lower priority existing demands
+            List<Demand> conflictingDemands = findConflictingDemandsForReduction(demand);
+            
+            for (Demand conflicting : conflictingDemands) {
+                if (conflicting.getDemandPriority() == PriorityLevel.LOW || 
+                    conflicting.getDemandPriority() == PriorityLevel.MEDIUM) {
+                    
+                    // Reduce allocation to make room
+                    int reduction = Math.min(conflicting.getAllocationPercentage(), totalAllocation - 100);
+                    conflicting.setAllocationPercentage(conflicting.getAllocationPercentage() - reduction);
+                    conflicting.setRequiresAdditionalApproval(true);
+                    demandRepository.save(conflicting);
+                    
+                    System.out.println("CONFLICT RESOLVED: Reduced allocation for demand " + conflicting.getDemandName() + 
+                                     " by " + reduction + "% to accommodate high priority demand.");
+                    
+                    totalAllocation -= reduction;
+                    if (totalAllocation <= 100) break;
+                }
+            }
+        } else {
+            // Lower priority demand - require approval
+            demand.setRequiresAdditionalApproval(true);
+            System.out.println("ALLOCATION CONFLICT: Demand requires additional approval due to resource constraints. Total allocation: " + totalAllocation + "%");
+        }
+    }
+    
+    private List<Demand> findConflictingDemandsForReduction(Demand newDemand) {
+        return demandRepository.findByProject_PmsProjectId(newDemand.getProject().getPmsProjectId())
+                .stream()
+                .filter(existing -> 
+                    isDateRangeOverlapping(newDemand.getDemandStartDate(), newDemand.getDemandEndDate(),
+                                          existing.getDemandStartDate(), existing.getDemandEndDate()) &&
+                    existing.getDemandStatus() != DemandStatus.CANCELLED &&
+                    existing.getDemandStatus() != DemandStatus.REJECTED &&
+                    (existing.getDemandPriority() == PriorityLevel.LOW || 
+                     existing.getDemandPriority() == PriorityLevel.MEDIUM))
+                .sorted((d1, d2) -> d1.getDemandPriority().compareTo(d2.getDemandPriority()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    private void detectTimelineConflicts(Demand demand) {
+        List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+        
+        for (Demand existing : projectDemands) {
+            if (existing.getDemandStatus() != DemandStatus.CANCELLED &&
+                existing.getDemandStatus() != DemandStatus.REJECTED &&
+                isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
+                                      existing.getDemandStartDate(), existing.getDemandEndDate()) &&
+                demand.getRole().getId().equals(existing.getRole().getId())) {
+                
+                // Timeline conflict detected - resolve based on priority
+                resolveTimelineConflict(demand, existing);
+            }
+        }
+    }
+    
+    private void resolveTimelineConflict(Demand newDemand, Demand existing) {
+        // Rule: Higher priority demand gets preferred dates
+        int comparison = newDemand.getDemandPriority().compareTo(existing.getDemandPriority());
+        
+        if (comparison > 0) {
+            // New demand has higher priority - adjust existing demand
+            System.out.println("TIMELINE CONFLICT RESOLVED: New demand " + newDemand.getDemandName() + 
+                             " has higher priority than existing demand " + existing.getDemandName());
+            
+            // Mark existing demand for review
+            existing.setRequiresAdditionalApproval(true);
+            demandRepository.save(existing);
+        } else if (comparison < 0) {
+            // Existing demand has higher priority - new demand needs adjustment
+            newDemand.setRequiresAdditionalApproval(true);
+            System.out.println("TIMELINE CONFLICT: New demand requires approval due to conflict with higher priority existing demand.");
+        } else {
+            // Same priority - both require review
+            newDemand.setRequiresAdditionalApproval(true);
+            existing.setRequiresAdditionalApproval(true);
+            demandRepository.save(existing);
+            System.out.println("TIMELINE CONFLICT: Same priority demands conflict - both require review.");
+        }
+    }
+    
+    private void detectSkillConflicts(Demand demand) {
+        // Check for incompatible skill requirements within the same role
+        if (demand.getRequiredSkills().size() > 10) {
+            // Rule: Limit skill requirements to prevent over-specification
+            demand.setRequiresAdditionalApproval(true);
+            System.out.println("SKILL CONFLICT: Too many skills required (" + demand.getRequiredSkills().size() + 
+                             "). Consider consolidating or prioritizing skills.");
+        }
+        
+        // Check for conflicting skill levels (if implemented)
+        // This would require skill level tracking in the entity
+    }
+
+    // ============================
+    // TASK 3: CONFLICT RESOLUTION RULES
+    // ============================
+    
+    public ResponseEntity<ApiResponse<?>> resolveDemandConflicts(Long projectId) {
+        try {
+            List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(projectId);
+            
+            int resolvedCount = 0;
+            int escalatedCount = 0;
+            
+            for (Demand demand : projectDemands) {
+                if (demand.getRequiresAdditionalApproval()) {
+                    // Apply resolution rules
+                    ConflictResolutionResult result = applyConflictResolutionRules(demand);
+                    
+                    if (result == ConflictResolutionResult.RESOLVED) {
+                        resolvedCount++;
+                    } else if (result == ConflictResolutionResult.ESCALATED) {
+                        escalatedCount++;
+                    }
+                }
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                "Conflict resolution completed. Resolved: " + resolvedCount + ", Escalated: " + escalatedCount,
+                java.util.Map.of("resolved", resolvedCount, "escalated", escalatedCount)
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to resolve conflicts: " + e.getMessage()));
+        }
+    }
+    
+    private ConflictResolutionResult applyConflictResolutionRules(Demand demand) {
+        // Rule 1: Critical demands auto-approve
+        if (demand.getDemandPriority() == PriorityLevel.CRITICAL) {
+            demand.setRequiresAdditionalApproval(false);
+            demandRepository.save(demand);
+            return ConflictResolutionResult.RESOLVED;
+        }
+        
+        // Rule 2: Emergency demands auto-approve
+        if (demand.getDemandType() == DemandType.EMERGENCY) {
+            demand.setRequiresAdditionalApproval(false);
+            demandRepository.save(demand);
+            return ConflictResolutionResult.RESOLVED;
+        }
+        
+        // Rule 3: Low allocation demands (<20%) auto-approve
+        if (demand.getAllocationPercentage() < 20) {
+            demand.setRequiresAdditionalApproval(false);
+            demandRepository.save(demand);
+            return ConflictResolutionResult.RESOLVED;
+        }
+        
+        // Rule 4: High allocation (>80%) escalate
+        if (demand.getAllocationPercentage() > 80) {
+            return ConflictResolutionResult.ESCALATED;
+        }
+        
+        // Default: keep as requires approval
+        return ConflictResolutionResult.MANUAL_REVIEW;
+    }
+    
+    private enum ConflictResolutionResult {
+        RESOLVED, ESCALATED, MANUAL_REVIEW
+    }
+
+    // ============================
+    // EARLY CONFLICT VALIDATION
+    // ============================
+    
+    @Override
+    public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandConflicts(CreateDemandDTO dto) {
+        try {
+            DemandConflictValidationDTO validation = new DemandConflictValidationDTO();
+            validation.setConflicts(new ArrayList<>());
+            
+            // Validate project exists
+            Project project = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "PROJECT_NOT_FOUND",
+                            "Project not found"
+                    ));
+            
+            // Validate role exists
+            DeliveryRoleExpectation role;
+            try {
+                role = roleRepository.findById(dto.getDeliveryRole())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "ROLE_NOT_FOUND",
+                                "Role not found with ID: " + dto.getDeliveryRole()
+                        ));
+            } catch (IllegalArgumentException e) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_ROLE_ID",
+                        "Invalid role ID format. Expected UUID format, received: " + dto.getDeliveryRole()
+                );
+            }
+            
+            // Create temporary demand for validation
+            Demand tempDemand = createTempDemand(dto, project, role);
+            
+            // Check all conflict types
+            validateCapacityLimits(tempDemand, validation);
+            validateContradictoryRoles(tempDemand, validation);
+            validateTimelineConflicts(tempDemand, validation);
+            validateSkillRequirements(tempDemand, validation);
+            validateBusinessRules(tempDemand, validation);
+            
+            // Determine if submission is allowed
+            boolean hasErrors = validation.getConflicts().stream()
+                    .anyMatch(conflict -> "ERROR".equals(conflict.getSeverity()));
+            
+            validation.setHasConflicts(!validation.getConflicts().isEmpty());
+            validation.setCanSubmit(!hasErrors);
+            
+            if (hasErrors) {
+                validation.setValidationMessage("Demand has blocking conflicts that must be resolved before submission.");
+            } else if (validation.getConflicts().isEmpty()) {
+                validation.setValidationMessage("No conflicts detected. Demand can be submitted.");
+            } else {
+                validation.setValidationMessage("Demand has warnings but can be submitted.");
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success("Validation completed", validation));
+            
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error(e.getMessage()),
+                    e.getStatus()
+            );
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Validation failed: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    
+    private Demand createTempDemand(CreateDemandDTO dto, Project project, DeliveryRoleExpectation role) {
+        Demand demand = new Demand();
+        demand.setProject(project);
+        demand.setRole(role);
+        demand.setDemandName(dto.getDemandName());
+        demand.setDemandType(dto.getDemandType());
+        demand.setDemandStartDate(dto.getDemandStartDate());
+        demand.setDemandEndDate(dto.getDemandEndDate());
+        demand.setAllocationPercentage(dto.getAllocationPercentage());
+        demand.setDeliveryModel(dto.getDeliveryModel());
+        demand.setDemandStatus(dto.getDemandStatus());
+        demand.setDemandJustification(dto.getDemandJustification());
+        demand.setDemandPriority(dto.getDemandPriority());
+        demand.setMinExp(dto.getMinExp());
+        demand.setResourcesRequired(dto.getResourcesRequired());
+        demand.setDemandCommitment(dto.getDemandCommitment());
+        demand.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
+        return demand;
+    }
+    
+    private void validateCapacityLimits(Demand demand, DemandConflictValidationDTO validation) {
+        List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+        
+        // Calculate total allocation for overlapping demands
+        int totalAllocation = demand.getAllocationPercentage();
+        
+        for (Demand existing : existingDemands) {
+            if (isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
+                                      existing.getDemandStartDate(), existing.getDemandEndDate()) &&
+                existing.getDemandStatus() != DemandStatus.CANCELLED &&
+                existing.getDemandStatus() != DemandStatus.REJECTED) {
+                
+                totalAllocation += existing.getAllocationPercentage();
+            }
+        }
+        
+        // Check capacity limits
+        if (totalAllocation > 100) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.error(
+                    "CAPACITY_EXCEEDED",
+                    "Project resource allocation exceeds 100% capacity",
+                    "Current allocation: " + totalAllocation + "% (Maximum allowed: 100%)",
+                    "Reduce allocation percentage or adjust demand dates to avoid overlap"
+                )
+            );
+        } else if (totalAllocation > 90) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.warning(
+                    "CAPACITY_WARNING",
+                    "Project resource allocation is approaching capacity limits",
+                    "Current allocation: " + totalAllocation + "% (Recommended maximum: 90%)",
+                    "Consider monitoring resource utilization closely"
+                )
+            );
+        }
+    }
+    
+    private void validateContradictoryRoles(Demand demand, DemandConflictValidationDTO validation) {
+        List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+        
+        for (Demand existing : existingDemands) {
+            if (existing.getDemandStatus() != DemandStatus.CANCELLED &&
+                existing.getDemandStatus() != DemandStatus.REJECTED &&
+                isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
+                                      existing.getDemandStartDate(), existing.getDemandEndDate())) {
+                
+                // Check for contradictory role combinations
+                if (hasContradictoryRoles(demand.getRole(), existing.getRole())) {
+                    validation.getConflicts().add(
+                        DemandConflictValidationDTO.ConflictDetail.error(
+                            "CONTRADICTORY_ROLES",
+                            "Demand has contradictory role requirements with existing demand",
+                            "Role '" + demand.getRole().getRoleName() + "' conflicts with role '" + existing.getRole().getRoleName() + "'",
+                            "Review role assignments and ensure they are compatible"
+                        )
+                    );
+                }
+                
+                // Check for same resource assignment to multiple full-time roles
+                if (demand.getRole().getId().equals(existing.getRole().getId()) &&
+                    demand.getAllocationPercentage() > 50 && existing.getAllocationPercentage() > 50) {
+                    
+                    validation.getConflicts().add(
+                        DemandConflictValidationDTO.ConflictDetail.error(
+                            "DUPLICATE_FULL_TIME_ROLE",
+                            "Same role assigned to multiple resources with high allocation",
+                            "Role '" + demand.getRole().getRoleName() + "' has conflicting high allocations",
+                            "Reduce allocation or use different role designation"
+                        )
+                    );
+                }
+            }
+        }
+    }
+    
+    private boolean hasContradictoryRoles(DeliveryRoleExpectation role1, DeliveryRoleExpectation role2) {
+        // Define contradictory role combinations
+        // This is a simplified example - you'd need to define actual business rules
+        String role1Name = role1.getRoleName().toLowerCase();
+        String role2Name = role2.getRoleName().toLowerCase();
+        
+        // Example: Project Manager and Team Lead might be contradictory if both are full-time
+        if ((role1Name.contains("project manager") && role2Name.contains("team lead")) ||
+            (role1Name.contains("team lead") && role2Name.contains("project manager"))) {
+            return true;
+        }
+        
+        // Example: Developer and Tester for same resource might be contradictory
+        if ((role1Name.contains("developer") && role2Name.contains("tester")) ||
+            (role1Name.contains("tester") && role2Name.contains("developer"))) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private void validateTimelineConflicts(Demand demand, DemandConflictValidationDTO validation) {
+        List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+        
+        for (Demand existing : existingDemands) {
+            if (existing.getDemandStatus() != DemandStatus.CANCELLED &&
+                existing.getDemandStatus() != DemandStatus.REJECTED &&
+                isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
+                                      existing.getDemandStartDate(), existing.getDemandEndDate()) &&
+                demand.getRole().getId().equals(existing.getRole().getId())) {
+                
+                validation.getConflicts().add(
+                    DemandConflictValidationDTO.ConflictDetail.error(
+                        "TIMELINE_CONFLICT",
+                        "Demand timeline conflicts with existing demand for same role",
+                        "Role '" + demand.getRole().getRoleName() + "' is already assigned during this period",
+                        "Adjust demand dates or choose different role/time period"
+                    )
+                );
+            }
+        }
+    }
+    
+    private void validateSkillRequirements(Demand demand, DemandConflictValidationDTO validation) {
+        // Check for excessive skill requirements
+        if (demand.getRequiredSkills().size() > 15) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.error(
+                    "EXCESSIVE_SKILLS",
+                    "Demand requires too many skills",
+                    "Current skills: " + demand.getRequiredSkills().size() + " (Recommended maximum: 15)",
+                    "Consolidate skill requirements or prioritize essential skills"
+                )
+            );
+        } else if (demand.getRequiredSkills().size() > 10) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.warning(
+                    "MANY_SKILLS",
+                    "Demand has many skill requirements",
+                    "Current skills: " + demand.getRequiredSkills().size() + " (Recommended maximum: 10)",
+                    "Consider if all skills are essential"
+                )
+            );
+        }
+        
+        // Check for impossible skill combinations (simplified example)
+        // This would need actual business logic based on your skill taxonomy
+        boolean hasConflictingSkills = demand.getRequiredSkills().stream()
+                .anyMatch(skill -> skill.getName().toLowerCase().contains("senior")) &&
+                demand.getMinExp() < 5;
+                
+        if (hasConflictingSkills) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.error(
+                    "SKILL_EXPERIENCE_MISMATCH",
+                    "Skill requirements conflict with experience level",
+                    "Senior skills require minimum 5 years experience (current: " + demand.getMinExp() + ")",
+                    "Increase minimum experience requirement or adjust skill level"
+                )
+            );
+        }
+    }
+    
+    private void validateBusinessRules(Demand demand, DemandConflictValidationDTO validation) {
+        // Validate demand type specific rules
+        if (demand.getDemandType() == DemandType.NET_NEW && 
+            (demand.getDemandJustification() == null || demand.getDemandJustification().trim().length() < 20)) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.error(
+                    "INSUFFICIENT_JUSTIFICATION",
+                    "Net-New demand requires detailed business justification",
+                    "Justification must be at least 20 characters",
+                    "Provide detailed business justification for this net-new demand"
+                )
+            );
+        }
+        
+        if (demand.getDemandType() == DemandType.REPLACEMENT && demand.getOutgoingResource() == null) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.error(
+                    "MISSING_OUTGOING_RESOURCE",
+                    "Replacement demand must specify outgoing resource",
+                    "Replacement type requires outgoing resource reference",
+                    "Specify the resource being replaced"
+                )
+            );
+        }
+        
+        // Validate allocation percentage
+        if (demand.getAllocationPercentage() < 10) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.warning(
+                    "LOW_ALLOCATION",
+                    "Very low allocation percentage",
+                    "Allocation: " + demand.getAllocationPercentage() + "% (Recommended minimum: 10%)",
+                    "Consider if this low allocation is intentional"
+                )
+            );
+        }
+        
+        if (demand.getAllocationPercentage() > 100) {
+            validation.getConflicts().add(
+                DemandConflictValidationDTO.ConflictDetail.error(
+                    "INVALID_ALLOCATION",
+                    "Allocation percentage exceeds 100%",
+                    "Allocation: " + demand.getAllocationPercentage() + "% (Maximum: 100%)",
+                    "Reduce allocation percentage to valid range (1-100)"
+                )
+            );
+        }
     }
 }
