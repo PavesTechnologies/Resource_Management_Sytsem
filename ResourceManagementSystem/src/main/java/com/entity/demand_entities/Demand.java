@@ -17,7 +17,6 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.HashSet;
@@ -116,7 +115,4 @@ public class Demand {
 
     @Column(name = "demand_commitment", length = 500,nullable = false)
     private DemandCommitment demandCommitment;
-
-    @Column(name = "soft_demand_expiry")
-    private LocalDate softDemandExpiry;
 }

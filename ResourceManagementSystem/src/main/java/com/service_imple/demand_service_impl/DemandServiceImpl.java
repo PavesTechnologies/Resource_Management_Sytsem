@@ -23,9 +23,11 @@ import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class DemandServiceImpl implements DemandService {
 
     @Autowired
@@ -95,7 +98,6 @@ public class DemandServiceImpl implements DemandService {
             demand.setResourcesRequired(dto.getResourcesRequired());
             demand.setCreatedBy(userId);
             demand.setDemandCommitment(dto.getDemandCommitment());
-            demand.setSoftDemandExpiry(dto.getSoftDemandExpiry());
             demand.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
             demand.setCreatedAt(LocalDateTime.now());
 
@@ -197,9 +199,6 @@ public class DemandServiceImpl implements DemandService {
 
         if (dto.getDemandCommitment() != null)
             existing.setDemandCommitment(dto.getDemandCommitment());
-
-        if (dto.getSoftDemandExpiry() != null)
-            existing.setSoftDemandExpiry(dto.getSoftDemandExpiry());
 
         if (dto.getRequiresAdditionalApproval() != null)
             existing.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
@@ -329,14 +328,7 @@ public class DemandServiceImpl implements DemandService {
 
         // Validate demand commitment rules
         if (demand.getDemandCommitment() == DemandCommitment.SOFT) {
-            
-            if (demand.getSoftDemandExpiry() == null) {
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "SOFT_DEMAND_EXPIRY_REQUIRED",
-                        "Soft demand commitment requires expiry date"
-                );
-            }
+            // No specific validation for soft demands currently
         }
     }
 
@@ -471,5 +463,34 @@ public class DemandServiceImpl implements DemandService {
 
         // Demand priority has higher weight
         return (demandScore * 2) + projectScore;
+    }
+    
+    @Scheduled(cron = "0 0 2 * * ?")
+    @Transactional
+    public void deleteSoftDemandsAfter30Days() {
+        log.info("Starting soft demand cleanup process at {}", LocalDateTime.now());
+        
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
+        
+        List<Demand> softDemandsToDelete = demandRepository.findByDemandCommitmentAndCreatedAtBefore(
+            DemandCommitment.SOFT, 
+            cutoffDate
+        );
+        
+        log.info("Found {} soft demands to delete (older than 30 days)", softDemandsToDelete.size());
+        
+        for (Demand demand : softDemandsToDelete) {
+            try {
+                demandRepository.delete(demand);
+                log.info("Deleted soft demand: {} created on: {}", 
+                    demand.getDemandId(), demand.getCreatedAt());
+            } catch (Exception e) {
+                log.error("Error deleting soft demand {}: {}", 
+                    demand.getDemandId(), e.getMessage(), e);
+            }
+        }
+        
+        log.info("Completed soft demand cleanup process. Deleted {} demands", 
+            softDemandsToDelete.size());
     }
 }
