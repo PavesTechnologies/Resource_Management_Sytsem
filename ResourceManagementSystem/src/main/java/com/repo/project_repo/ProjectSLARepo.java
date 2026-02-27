@@ -21,5 +21,5 @@ public interface ProjectSLARepo extends JpaRepository<ProjectSLA, UUID> {
     
     List<ProjectSLA> findByClientSLA_SlaIdAndActiveFlagTrue(UUID clientSlaId);
 
-    Optional<ProjectSLA> findByProjectAndSlaTypeAndActiveFlagTrue(Project project, DemandType slaType);
+    Optional<ProjectSLA> findByProjectAndSlaTypeAndActiveFlagTrue(Project project, SLAType slaType);
 }
