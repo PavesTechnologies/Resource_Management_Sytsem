@@ -9,6 +9,7 @@ import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
 import com.entity.skill_entities.*;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.demand_enums.DemandCommitment;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.resource_repo.ResourceRepository;
@@ -62,9 +63,16 @@ public class AllocationServiceImple implements AllocationService {
 
             // Validate demand or project exists
             if (allocationRequest.getDemandId() != null) {
-                if (!demandRepository.existsById(allocationRequest.getDemandId())) {
+                Demand demand =demandRepository.findById(allocationRequest.getDemandId()).get();
+                if ( demand == null) {
                     return ResponseEntity.badRequest().body(
                         new ApiResponse<>(false, "Demand not found with ID: " + allocationRequest.getDemandId(), null)
+                    );
+                }
+                if(demand.getDemandCommitment().equals(DemandCommitment.SOFT))
+                {
+                    return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false, "Demand Commitment is Soft allocation not allowed", null)
                     );
                 }
             } else if (allocationRequest.getProjectId() != null) {

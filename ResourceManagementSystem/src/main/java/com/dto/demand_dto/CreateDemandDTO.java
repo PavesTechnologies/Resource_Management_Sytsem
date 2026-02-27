@@ -12,8 +12,8 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 
-import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -26,7 +26,7 @@ public class CreateDemandDTO {
     private UUID roleId;
 
     @NotNull(message = "Demand type is required")
-    private SLAType demandType;
+    private DemandType demandType;
 
     // Required only for REPLACEMENT (validated in service)
     private Long outgoingResourceId;
@@ -61,8 +61,6 @@ public class CreateDemandDTO {
 
     @NotNull(message = "Demand commitment is required")
     private DemandCommitment demandCommitment;
-
-    private LocalDate softDemandExpiry;
 
     private Boolean requiresAdditionalApproval;
 }

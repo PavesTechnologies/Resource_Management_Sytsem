@@ -59,15 +59,12 @@ public class Demand {
     @Column(name = "allocation_percentage",nullable = false)
     private Integer allocationPercentage;
 
-//    @Column(name = "location_requirement", length = 100)
-//    private String locationRequirement;
-
     @Column(name = "delivery_model", length = 50)
     private DeliveryModel deliveryModel;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_type_name", nullable = false, length = 20)
-    private SLAType demandType;
+    private DemandType demandType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_status", length = 30)
@@ -117,16 +114,4 @@ public class Demand {
 
     @Column(name = "demand_commitment", length = 500,nullable = false)
     private DemandCommitment demandCommitment;
-
-    @Column(name = "soft_demand_expiry")
-    private LocalDate softDemandExpiry;
-
-    @Column(name = "version_number")
-    private Integer versionNumber = 1;
-
-    @Column(name = "last_modified_by")
-    private Long lastModifiedBy;
-
-    @Column(name = "last_modified_at")
-    private LocalDateTime lastModifiedAt;
 }

@@ -108,12 +108,11 @@ public class DemandServiceImpl implements DemandService {
             demand.setResourcesRequired(dto.getResourcesRequired());
             demand.setCreatedBy(userId);
             demand.setDemandCommitment(dto.getDemandCommitment());
-            demand.setSoftDemandExpiry(dto.getSoftDemandExpiry());
             demand.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
             demand.setCreatedAt(LocalDateTime.now());
 
             // Handle outgoing resource (Replacement case)
-            if ( dto.getDemandType() == SLAType.REPLACEMENT && dto.getOutgoingResourceId() != null) {
+            if ( dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != null) {
                 Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
                         .orElseThrow(() -> new ProjectExceptionHandler(
                                 HttpStatus.NOT_FOUND,
@@ -173,7 +172,7 @@ public class DemandServiceImpl implements DemandService {
                         "Demand not found"
                 ));
 
-        SLAType old = existing.getDemandType();
+        DemandType old = existing.getDemandType();
 
 
         // Date validation
@@ -252,9 +251,6 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDeliveryModel() != null)
             existing.setDeliveryModel(dto.getDeliveryModel());
 
-        if (dto.getSoftDemandExpiry() != null)
-            existing.setSoftDemandExpiry(dto.getSoftDemandExpiry());
-
         // 🔥 GOVERNANCE RULE
         if (criticalChanged &&
                 existing.getDemandStatus() == DemandStatus.APPROVED) {
@@ -264,7 +260,7 @@ public class DemandServiceImpl implements DemandService {
         }
 
         if (dto.getOutgoingResourceId() != null) {
-            if (dto.getDemandType() == SLAType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
+            if (dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
                 Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
                         .orElseThrow(() -> new ProjectExceptionHandler(
                                 HttpStatus.NOT_FOUND,
@@ -277,11 +273,6 @@ public class DemandServiceImpl implements DemandService {
                 existing.setOutgoingResource(null);
             }
         }
-
-        // Versioning
-        existing.setVersionNumber(existing.getVersionNumber() + 1);
-        existing.setLastModifiedAt(LocalDateTime.now());
-        existing.setLastModifiedBy(dto.getModifiedBy());
 
         if (!old.equals(dto.getDemandType())) {
             remapSla(existing);
@@ -377,7 +368,7 @@ public class DemandServiceImpl implements DemandService {
 
     private void validateDemandTypeRules(Demand demand) {
 
-        if (demand.getDemandType() == SLAType.REPLACEMENT) {
+        if (demand.getDemandType() == DemandType.REPLACEMENT) {
 
             if (demand.getOutgoingResource() == null) {
                 throw new ProjectExceptionHandler(
@@ -388,7 +379,7 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        if (demand.getDemandType() == SLAType.NET_NEW) {
+        if (demand.getDemandType() == DemandType.NET_NEW) {
 
             if (demand.getDemandJustification() == null ||
                     demand.getDemandJustification().trim().length() < 20) {
@@ -401,23 +392,12 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        // Validate demand commitment rules
-        if (demand.getDemandCommitment() == DemandCommitment.SOFT) {
-            
-            if (demand.getSoftDemandExpiry() == null) {
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "SOFT_DEMAND_EXPIRY_REQUIRED",
-                        "Soft demand commitment requires expiry date"
-                );
-            }
-        }
     }
 
 
     private void applyDemandTypeRules(Demand demand) {
 
-        if (demand.getDemandType() == SLAType.REPLACEMENT) {
+        if (demand.getDemandType() == DemandType.REPLACEMENT) {
 
             demand.setRequiresAdditionalApproval(false);
 
@@ -426,7 +406,7 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        if (demand.getDemandType() == SLAType.NET_NEW) {
+        if (demand.getDemandType() == DemandType.NET_NEW) {
 
             demand.setRequiresAdditionalApproval(true);
 
@@ -550,7 +530,7 @@ public class DemandServiceImpl implements DemandService {
     @Transactional
     public void mapSlaToDemand(Demand demand) {
 
-        if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+        if (demand.getDemandCommitment()!=DemandCommitment.CONFIRMED) {
             return;
         }
 
