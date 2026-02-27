@@ -6,6 +6,7 @@ import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
 import com.entity_enums.centralised_enums.DeliveryModel;
+import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
@@ -58,9 +59,6 @@ public class Demand {
     @Column(name = "allocation_percentage",nullable = false)
     private Integer allocationPercentage;
 
-//    @Column(name = "location_requirement", length = 100)
-//    private String locationRequirement;
-
     @Column(name = "delivery_model", length = 50)
     private DeliveryModel deliveryModel;
 
@@ -77,7 +75,7 @@ public class Demand {
     private PriorityLevel demandPriority;
 
     @Column(name = "min_exp", nullable = false)
-    private Integer minExp;
+    private Double minExp;
 
     @Column(name = "resources_required", nullable = false)
     private Integer resourcesRequired;
@@ -114,9 +112,7 @@ public class Demand {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Set<Certificate> requiredCertificates = new HashSet<>();
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "demand_commitment", length = 500,nullable = false)
     private DemandCommitment demandCommitment;
-
-    @Column(name = "soft_demand_expiry")
-    private LocalDate softDemandExpiry;
 }
