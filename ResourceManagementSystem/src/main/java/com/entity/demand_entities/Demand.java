@@ -75,7 +75,7 @@ public class Demand {
     private PriorityLevel demandPriority;
 
     @Column(name = "min_exp", nullable = false)
-    private Integer minExp;
+    private Double minExp;
 
     @Column(name = "resources_required", nullable = false)
     private Integer resourcesRequired;
@@ -112,6 +112,7 @@ public class Demand {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Set<Certificate> requiredCertificates = new HashSet<>();
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "demand_commitment", length = 500,nullable = false)
     private DemandCommitment demandCommitment;
 }

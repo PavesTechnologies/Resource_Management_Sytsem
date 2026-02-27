@@ -84,13 +84,18 @@ public class DemandServiceImpl implements DemandService {
             }
 
             // Fetch Role
-            DeliveryRoleExpectation role = roleRepository.findById(dto.getRoleId())
+            DeliveryRoleExpectation role = roleRepository.findById(dto.getDeliveryRole())
                     .orElseThrow(() -> new ProjectExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "ROLE_NOT_FOUND",
                             "Role not found"
                     ));
 
+            // Validate required fields
+            if (dto.getResourcesRequired() == null || dto.getResourcesRequired() < 1) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Resources required is mandatory and must be at least 1"));
+            }
+            
             // Create Entity
             Demand demand = new Demand();
             demand.setProject(project);
@@ -527,6 +532,17 @@ public class DemandServiceImpl implements DemandService {
         return (demandScore * 2) + projectScore;
     }
 
+    private SLAType mapDemandTypeToSLAType(DemandType demandType) {
+        if (demandType == null) return null;
+        
+        return switch (demandType) {
+            case NET_NEW -> SLAType.NET_NEW;
+            case REPLACEMENT -> SLAType.REPLACEMENT;
+            case BACKFILL -> SLAType.BACKFILL;
+            case EMERGENCY -> SLAType.EMERGENCY;
+        };
+    }
+
     @Transactional
     public void mapSlaToDemand(Demand demand) {
 
@@ -534,10 +550,15 @@ public class DemandServiceImpl implements DemandService {
             return;
         }
 
+        SLAType slaType = mapDemandTypeToSLAType(demand.getDemandType());
+        if (slaType == null) {
+            return; // No valid SLA type mapping
+        }
+
         Optional<ProjectSLA> projectSlaOpt =
                 projectSLARepository.findByProjectAndSlaTypeAndActiveFlagTrue(
                         demand.getProject(),
-                        demand.getDemandType()
+                        slaType
                 );
 
         if (projectSlaOpt.isEmpty()) {
