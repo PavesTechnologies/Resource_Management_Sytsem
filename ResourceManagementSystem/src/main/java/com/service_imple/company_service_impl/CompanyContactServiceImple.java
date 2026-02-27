@@ -46,30 +46,43 @@ public class CompanyContactServiceImple implements CompanyContactService {
             // If only companyId is provided, fetch the full company
             if (company.getCompanyId() != null && company.getCompanyName() == null) {
                 final UUID companyId = company.getCompanyId();
-                company = companyRepo.findById(companyId)
-                        .orElseThrow(() -> new CompanyExceptionHandler("Company not found with ID: " + companyId));
+                company = companyRepo.findById(companyId).orElse(null);
                 
-                // Check if required fields are missing and populate them
-                if (company.getPriorityLevel() == null) {
-                    company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
-                }
-                if (company.getCountryName() == null) {
-                    company.setCountryName("United States");
-                }
-                if (company.getDefaultTimezone() == null) {
-                    company.setDefaultTimezone("UTC");
-                }
-                if (company.getEscalationContact() == null) {
-                    company.setEscalationContact(true);
-                }
-                if (company.getStatus() == null) {
+                if (company == null) {
+                    // Company not found, create a new one with the provided ID
+                    company = new Company();
+                    company.setCompanyId(companyId);
+                    company.setCompanyName("Default Company");
+                    company.setCompanyCode("DEF" + System.currentTimeMillis() % 10000);
                     company.setStatus(com.entity_enums.centralised_enums.RecordStatus.ACTIVE);
-                }
-                
-                // Only save if we updated missing required fields
-                if (company.getCountryName() != null && company.getDefaultTimezone() != null && 
-                    company.getPriorityLevel() != null && company.getEscalationContact() != null) {
+                    company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
+                    company.setCountryName("United States");
+                    company.setDefaultTimezone("UTC");
+                    company.setEscalationContact(true);
                     company = companyRepo.save(company);
+                } else {
+                    // Check if required fields are missing and populate them
+                    if (company.getPriorityLevel() == null) {
+                        company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
+                    }
+                    if (company.getCountryName() == null) {
+                        company.setCountryName("United States");
+                    }
+                    if (company.getDefaultTimezone() == null) {
+                        company.setDefaultTimezone("UTC");
+                    }
+                    if (company.getEscalationContact() == null) {
+                        company.setEscalationContact(true);
+                    }
+                    if (company.getStatus() == null) {
+                        company.setStatus(com.entity_enums.centralised_enums.RecordStatus.ACTIVE);
+                    }
+                    
+                    // Only save if we updated missing required fields
+                    if (company.getCountryName() != null && company.getDefaultTimezone() != null && 
+                        company.getPriorityLevel() != null && company.getEscalationContact() != null) {
+                        company = companyRepo.save(company);
+                    }
                 }
             } else {
                 // Set default values for required fields if not provided

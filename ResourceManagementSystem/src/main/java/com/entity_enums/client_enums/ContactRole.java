@@ -6,5 +6,6 @@ public enum ContactRole {
     COMPLIANCE_OFFICER,
     PROJECT_MANAGER,
     ACCOUNT_MANAGER,
-    TECHNICAL_LEAD
+    TECHNICAL_LEAD,
+    BU_HEAD,
 }

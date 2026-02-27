@@ -3,6 +3,7 @@ package com.controller.demand_controllers;
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
 import com.dto.demand_dto.CreateDemandDTO;
+import com.dto.demand_dto.DemandConflictValidationDTO;
 import com.dto.demand_dto.UpdateDemandDTO;
 import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
@@ -31,6 +32,14 @@ public class DemandController {
         return demandService.createDemand(dto, userDTO.getId());
     }
 
+    // Pre-submission validation endpoint for early conflict detection
+    @PostMapping("/validate-conflicts")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandConflicts(
+            @RequestBody CreateDemandDTO dto) {
+        return demandService.validateDemandConflicts(dto);
+    }
+
     @PutMapping("/update")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody UpdateDemandDTO dto) {
@@ -54,5 +63,12 @@ public class DemandController {
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerProjects(@CurrentUser UserDTO userDTO) {
         return demandService.getDemandsByResourceManagerId(userDTO.getId());
+    }
+
+    // Conflict resolution endpoint
+    @PostMapping("/resolve-conflicts/{projectId}")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<?>> resolveDemandConflicts(@PathVariable Long projectId) {
+        return demandService.resolveDemandConflicts(projectId);
     }
 }
