@@ -98,7 +98,7 @@ public class DemandServiceImpl implements DemandService {
             demand.setDemandName(dto.getDemandName());
             demand.setDemandType(dto.getDemandType());
             demand.setDemandStartDate(dto.getDemandStartDate());
-            demand.setDemandEndDate(dto.getDemandEndDate().atStartOfDay());
+            demand.setDemandEndDate(dto.getDemandEndDate());
             demand.setAllocationPercentage(dto.getAllocationPercentage());
             demand.setDeliveryModel(dto.getDeliveryModel());
             demand.setDemandStatus(dto.getDemandStatus());
@@ -180,47 +180,88 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDemandStartDate() != null &&
                 dto.getDemandEndDate() != null &&
                 dto.getDemandEndDate().isBefore(dto.getDemandStartDate())) {
-
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_DATE_RANGE",
-                    "Demand end date cannot be before start date"
+                    "End date cannot be before start date"
             );
         }
 
-        // Safe updates
-        if (dto.getDemandType() != null)
-            existing.setDemandType(dto.getDemandType());
+        // 🚫 Hard restriction
+        if (existing.getDemandStatus() == DemandStatus.CANCELLED ||
+                existing.getDemandStatus() == DemandStatus.REJECTED) {
 
-        if (dto.getDemandStatus() != null)
-            existing.setDemandStatus(dto.getDemandStatus());
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Cancelled or Rejected demands cannot be modified"
+            );
+        }
+
+        boolean criticalChanged = false;
+
+        // ===== Critical Comparisons =====
+
+        if (dto.getDemandStartDate() != null &&
+                !dto.getDemandStartDate().equals(existing.getDemandStartDate())) {
+
+            existing.setDemandStartDate(dto.getDemandStartDate());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandEndDate() != null &&
+                !dto.getDemandEndDate().equals(existing.getDemandEndDate())) {
+
+            existing.setDemandEndDate(dto.getDemandEndDate());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandPriority() != null &&
+                dto.getDemandPriority() != existing.getDemandPriority()) {
+
+            existing.setDemandPriority(dto.getDemandPriority());
+            criticalChanged = true;
+        }
+
+        if (dto.getResourcesRequired() != null &&
+                !dto.getResourcesRequired().equals(existing.getResourcesRequired())) {
+
+            existing.setResourcesRequired(dto.getResourcesRequired());
+            criticalChanged = true;
+        }
+
+        if (dto.getAllocationPercentage() != null &&
+                !dto.getAllocationPercentage().equals(existing.getAllocationPercentage())) {
+
+            existing.setAllocationPercentage(dto.getAllocationPercentage());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandCommitment() != null &&
+                dto.getDemandCommitment() != existing.getDemandCommitment()) {
+
+            existing.setDemandCommitment(dto.getDemandCommitment());
+            criticalChanged = true;
+        }
+
+        // ===== Non-Critical Updates =====
 
         if (dto.getDemandJustification() != null)
             existing.setDemandJustification(dto.getDemandJustification());
 
-        if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate().toLocalDate());
-
-        if (dto.getDemandEndDate() != null)
-            existing.setDemandEndDate(dto.getDemandEndDate());
-
-        if (dto.getAllocationPercentage() != null)
-            existing.setAllocationPercentage(dto.getAllocationPercentage());
-
         if (dto.getDeliveryModel() != null)
             existing.setDeliveryModel(dto.getDeliveryModel());
-
-        if (dto.getDemandPriority() != null)
-            existing.setDemandPriority(dto.getDemandPriority());
-
-        if (dto.getDemandCommitment() != null)
-            existing.setDemandCommitment(dto.getDemandCommitment());
 
         if (dto.getSoftDemandExpiry() != null)
             existing.setSoftDemandExpiry(dto.getSoftDemandExpiry());
 
-        if (dto.getRequiresAdditionalApproval() != null)
-            existing.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
+        // 🔥 GOVERNANCE RULE
+        if (criticalChanged &&
+                existing.getDemandStatus() == DemandStatus.APPROVED) {
+
+            existing.setDemandStatus(DemandStatus.REQUESTED);
+            existing.setRequiresAdditionalApproval(true);
+        }
 
         if (dto.getOutgoingResourceId() != null) {
             if (dto.getDemandType() == SLAType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
@@ -237,15 +278,26 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        // Re-validate rules
-        validateDemandTypeRules(existing);
-        applyDemandTypeRules(existing);
+        // Versioning
+        existing.setVersionNumber(existing.getVersionNumber() + 1);
+        existing.setLastModifiedAt(LocalDateTime.now());
+        existing.setLastModifiedBy(dto.getModifiedBy());
 
         if (!old.equals(dto.getDemandType())) {
             remapSla(existing);
         }
 
         demandRepository.save(existing);
+
+        // Optional message change
+        if (criticalChanged) {
+            return ResponseEntity.ok(
+                    ApiResponse.success(
+                            "Critical changes detected. Demand moved to REQUESTED state.",
+                            existing.getDemandId()
+                    )
+            );
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success("Demand updated successfully", existing.getDemandId())

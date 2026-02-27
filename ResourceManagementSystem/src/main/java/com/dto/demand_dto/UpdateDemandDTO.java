@@ -37,4 +37,8 @@ public class UpdateDemandDTO {
     private LocalDate softDemandExpiry;
 
     private Boolean requiresAdditionalApproval;
+
+    private Integer resourcesRequired;
+
+    private Long modifiedBy;
 }

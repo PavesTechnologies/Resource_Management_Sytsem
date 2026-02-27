@@ -120,4 +120,13 @@ public class Demand {
 
     @Column(name = "soft_demand_expiry")
     private LocalDate softDemandExpiry;
+
+    @Column(name = "version_number")
+    private Integer versionNumber = 1;
+
+    @Column(name = "last_modified_by")
+    private Long lastModifiedBy;
+
+    @Column(name = "last_modified_at")
+    private LocalDateTime lastModifiedAt;
 }
