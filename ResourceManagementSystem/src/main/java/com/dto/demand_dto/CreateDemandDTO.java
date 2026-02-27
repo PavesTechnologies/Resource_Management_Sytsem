@@ -22,8 +22,8 @@ public class CreateDemandDTO {
     private String demandName;
     @NotNull(message ="Project ID is required")
     private Long projectId;
-    @NotNull(message = "Role ID is required")
-    private UUID roleId;
+    @NotNull(message = "Delivery role is required")
+    private UUID deliveryRole;
 
     @NotNull(message = "Demand type is required")
     private DemandType demandType;
@@ -52,7 +52,7 @@ public class CreateDemandDTO {
     private PriorityLevel demandPriority;
 
     @NotNull(message = "Minimum experience is required")
-    private Integer minExp;
+    private Double minExp;
     @NotNull(message = "Maximum experience is required")
     @Min(value = 1, message = "Resources required must be at least 1")
     private Integer resourcesRequired;
