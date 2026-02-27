@@ -4,33 +4,39 @@ import com.dto.ApiResponse;
 import com.dto.demand_dto.CreateDemandDTO;
 import com.dto.demand_dto.UpdateDemandDTO;
 import com.entity.demand_entities.Demand;
+import com.entity.demand_entities.DemandSLA;
 import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectCompliance;
+import com.entity.project_entities.ProjectSLA;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
+import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
-import com.repo.DemandRepository;
+import com.repo.demand_repo.DemandRepository;
+import com.repo.demand_repo.DemandSLARepository;
 import com.repo.project_repo.ProjectComplianceRepo;
 import com.repo.project_repo.ProjectRepository;
+import com.repo.project_repo.ProjectSLARepo;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
-import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -53,6 +59,12 @@ public class DemandServiceImpl implements DemandService {
 
     @Autowired
     private DeliveryRoleExpectationRepository roleRepository;
+
+    @Autowired
+    private ProjectSLARepo projectSLARepository;
+
+    @Autowired
+    private DemandSLARepository demandSLARepository;
 
     @Override
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long userId) {
@@ -101,7 +113,7 @@ public class DemandServiceImpl implements DemandService {
             demand.setCreatedAt(LocalDateTime.now());
 
             // Handle outgoing resource (Replacement case)
-            if ( dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != null) {
+            if ( dto.getDemandType() == SLAType.REPLACEMENT && dto.getOutgoingResourceId() != null) {
                 Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
                         .orElseThrow(() -> new ProjectExceptionHandler(
                                 HttpStatus.NOT_FOUND,
@@ -121,6 +133,8 @@ public class DemandServiceImpl implements DemandService {
             attachMandatoryCompliances(demand);
 
             Demand saved = demandRepository.save(demand);
+
+            mapSlaToDemand(saved);
 
             return new ResponseEntity<>(
                     ApiResponse.success("Demand created successfully", saved.getDemandId()),
@@ -159,6 +173,20 @@ public class DemandServiceImpl implements DemandService {
                         "Demand not found"
                 ));
 
+        SLAType old = existing.getDemandType();
+
+
+        // Date validation
+        if (dto.getDemandStartDate() != null &&
+                dto.getDemandEndDate() != null &&
+                dto.getDemandEndDate().isBefore(dto.getDemandStartDate())) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_DATE_RANGE",
+                    "End date cannot be before start date"
+            );
+        }
+
         // 🚫 Hard restriction
         if (existing.getDemandStatus() == DemandStatus.CANCELLED ||
                 existing.getDemandStatus() == DemandStatus.REJECTED) {
@@ -180,8 +208,6 @@ public class DemandServiceImpl implements DemandService {
             existing.setDemandStartDate(dto.getDemandStartDate());
             criticalChanged = true;
         }
-        if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate());
 
         if (dto.getDemandEndDate() != null &&
                 !dto.getDemandEndDate().equals(existing.getDemandEndDate())) {
@@ -237,10 +263,29 @@ public class DemandServiceImpl implements DemandService {
             existing.setRequiresAdditionalApproval(true);
         }
 
+        if (dto.getOutgoingResourceId() != null) {
+            if (dto.getDemandType() == SLAType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
+                Resource resource = resourceRepository.findById(dto.getOutgoingResourceId())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "RESOURCE_NOT_FOUND",
+                                "Outgoing resource not found"
+                        ));
+                existing.setOutgoingResource(resource);
+            } else if (dto.getOutgoingResourceId() == 0) {
+                // Explicitly set to null when ID is 0
+                existing.setOutgoingResource(null);
+            }
+        }
+
         // Versioning
         existing.setVersionNumber(existing.getVersionNumber() + 1);
         existing.setLastModifiedAt(LocalDateTime.now());
         existing.setLastModifiedBy(dto.getModifiedBy());
+
+        if (!old.equals(dto.getDemandType())) {
+            remapSla(existing);
+        }
 
         demandRepository.save(existing);
 
@@ -332,7 +377,7 @@ public class DemandServiceImpl implements DemandService {
 
     private void validateDemandTypeRules(Demand demand) {
 
-        if (demand.getDemandType() == DemandType.REPLACEMENT) {
+        if (demand.getDemandType() == SLAType.REPLACEMENT) {
 
             if (demand.getOutgoingResource() == null) {
                 throw new ProjectExceptionHandler(
@@ -343,7 +388,7 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        if (demand.getDemandType() == DemandType.NET_NEW) {
+        if (demand.getDemandType() == SLAType.NET_NEW) {
 
             if (demand.getDemandJustification() == null ||
                     demand.getDemandJustification().trim().length() < 20) {
@@ -372,7 +417,7 @@ public class DemandServiceImpl implements DemandService {
 
     private void applyDemandTypeRules(Demand demand) {
 
-        if (demand.getDemandType() == DemandType.REPLACEMENT) {
+        if (demand.getDemandType() == SLAType.REPLACEMENT) {
 
             demand.setRequiresAdditionalApproval(false);
 
@@ -381,7 +426,7 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        if (demand.getDemandType() == DemandType.NET_NEW) {
+        if (demand.getDemandType() == SLAType.NET_NEW) {
 
             demand.setRequiresAdditionalApproval(true);
 
@@ -500,5 +545,54 @@ public class DemandServiceImpl implements DemandService {
 
         // Demand priority has higher weight
         return (demandScore * 2) + projectScore;
+    }
+
+    @Transactional
+    public void mapSlaToDemand(Demand demand) {
+
+        if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+            return;
+        }
+
+        Optional<ProjectSLA> projectSlaOpt =
+                projectSLARepository.findByProjectAndSlaTypeAndActiveFlagTrue(
+                        demand.getProject(),
+                        demand.getDemandType()
+                );
+
+        if (projectSlaOpt.isEmpty()) {
+            return; // No SLA defined for this type
+        }
+
+        ProjectSLA projectSLA = projectSlaOpt.get();
+
+        LocalDate now = LocalDate.now();
+        LocalDate dueAt = now.plusDays(projectSLA.getSlaDurationDays());
+
+        DemandSLA demandSLA = DemandSLA.builder()
+                .demand(demand)
+                .projectSLA(projectSLA)
+                .slaType(projectSLA.getSlaType())
+                .slaDurationDays(projectSLA.getSlaDurationDays())
+                .warningThresholdDays(projectSLA.getWarningThresholdDays())
+                .createdAt(now)
+                .dueAt(dueAt)
+                .activeFlag(true)
+                .build();
+
+        demandSLARepository.save(demandSLA);
+    }
+
+    @Transactional
+    public void remapSla(Demand demand) {
+
+        int updatedRows = demandSLARepository
+                .deactivateByDemandId(demand.getDemandId());
+
+        if (updatedRows == 0) {
+            throw new RuntimeException("No Active Demand SLA Found with the ID.");
+        }
+
+        mapSlaToDemand(demand);
     }
 }

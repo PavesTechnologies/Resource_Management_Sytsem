@@ -6,6 +6,7 @@ import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
 import com.entity_enums.centralised_enums.DeliveryModel;
+import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
@@ -66,7 +67,7 @@ public class Demand {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_type_name", nullable = false, length = 20)
-    private DemandType demandType;
+    private SLAType demandType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_status", length = 30)
