@@ -6,6 +6,7 @@ import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
 import com.entity_enums.centralised_enums.DeliveryModel;
+import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
@@ -17,6 +18,7 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.HashSet;
@@ -49,16 +51,13 @@ public class Demand {
     private String demandJustification;
 
     @Column(name = "demand_start_date", nullable = false)
-    private LocalDateTime demandStartDate;
+    private LocalDate demandStartDate;
 
     @Column(name = "demand_end_date",nullable = false)
-    private LocalDateTime demandEndDate;
+    private LocalDate demandEndDate;
 
     @Column(name = "allocation_percentage",nullable = false)
     private Integer allocationPercentage;
-
-//    @Column(name = "location_requirement", length = 100)
-//    private String locationRequirement;
 
     @Column(name = "delivery_model", length = 50)
     private DeliveryModel deliveryModel;

@@ -13,7 +13,7 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.resource_repo.ResourceRepository;
-import com.repo.DemandRepository;
+import com.repo.demand_repo.DemandRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.repo.skill_repo.*;
@@ -26,7 +26,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Counter;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;

@@ -7,7 +7,7 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -28,8 +28,8 @@ public class DemandResponseDTO {
 
     private PriorityLevel demandPriority;
 
-    private LocalDateTime demandStartDate;
-    private LocalDateTime demandEndDate;
+    private LocalDate demandStartDate;
+    private LocalDate demandEndDate;
 
     private Integer allocationPercentage;
 
@@ -40,4 +40,6 @@ public class DemandResponseDTO {
 
     private Integer minExp;
     private Integer resourcesRequired;
+
+    private LocalDate softDemandExpiry;
 }

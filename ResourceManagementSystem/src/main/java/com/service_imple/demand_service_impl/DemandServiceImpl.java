@@ -4,38 +4,42 @@ import com.dto.ApiResponse;
 import com.dto.demand_dto.CreateDemandDTO;
 import com.dto.demand_dto.UpdateDemandDTO;
 import com.entity.demand_entities.Demand;
+import com.entity.demand_entities.DemandSLA;
 import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectCompliance;
+import com.entity.project_entities.ProjectSLA;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
+import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
+import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
-import com.repo.DemandRepository;
+import com.repo.demand_repo.DemandRepository;
+import com.repo.demand_repo.DemandSLARepository;
 import com.repo.project_repo.ProjectComplianceRepo;
 import com.repo.project_repo.ProjectRepository;
+import com.repo.project_repo.ProjectSLARepo;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
-import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import jakarta.transaction.Transactional;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@Slf4j
 public class DemandServiceImpl implements DemandService {
 
     @Autowired
@@ -56,6 +60,12 @@ public class DemandServiceImpl implements DemandService {
     @Autowired
     private DeliveryRoleExpectationRepository roleRepository;
 
+    @Autowired
+    private ProjectSLARepo projectSLARepository;
+
+    @Autowired
+    private DemandSLARepository demandSLARepository;
+
     @Override
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long userId) {
         try {
@@ -69,7 +79,7 @@ public class DemandServiceImpl implements DemandService {
                             "PROJECT_NOT_FOUND",
                             "Project not found"
                     ));
-            if (dto.getDemandStartDate().isBefore(project.getStartDate()) || dto.getDemandEndDate().isAfter(project.getEndDate())) {
+            if (dto.getDemandStartDate().isBefore(project.getStartDate().toLocalDate()) || dto.getDemandEndDate().isAfter(project.getEndDate().toLocalDate())) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Demand date range is not in between project date range"));
             }
 
@@ -123,6 +133,8 @@ public class DemandServiceImpl implements DemandService {
 
             Demand saved = demandRepository.save(demand);
 
+            mapSlaToDemand(saved);
+
             return new ResponseEntity<>(
                     ApiResponse.success("Demand created successfully", saved.getDemandId()),
                     HttpStatus.CREATED
@@ -160,48 +172,92 @@ public class DemandServiceImpl implements DemandService {
                         "Demand not found"
                 ));
 
+        DemandType old = existing.getDemandType();
+
+
         // Date validation
         if (dto.getDemandStartDate() != null &&
                 dto.getDemandEndDate() != null &&
                 dto.getDemandEndDate().isBefore(dto.getDemandStartDate())) {
-
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_DATE_RANGE",
-                    "Demand end date cannot be before start date"
+                    "End date cannot be before start date"
             );
         }
 
-        // Safe updates
-        if (dto.getDemandType() != null)
-            existing.setDemandType(dto.getDemandType());
+        // 🚫 Hard restriction
+        if (existing.getDemandStatus() == DemandStatus.CANCELLED ||
+                existing.getDemandStatus() == DemandStatus.REJECTED) {
 
-        if (dto.getDemandStatus() != null)
-            existing.setDemandStatus(dto.getDemandStatus());
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Cancelled or Rejected demands cannot be modified"
+            );
+        }
+
+        boolean criticalChanged = false;
+
+        // ===== Critical Comparisons =====
+
+        if (dto.getDemandStartDate() != null &&
+                !dto.getDemandStartDate().equals(existing.getDemandStartDate())) {
+
+            existing.setDemandStartDate(dto.getDemandStartDate());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandEndDate() != null &&
+                !dto.getDemandEndDate().equals(existing.getDemandEndDate())) {
+
+            existing.setDemandEndDate(dto.getDemandEndDate());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandPriority() != null &&
+                dto.getDemandPriority() != existing.getDemandPriority()) {
+
+            existing.setDemandPriority(dto.getDemandPriority());
+            criticalChanged = true;
+        }
+
+        if (dto.getResourcesRequired() != null &&
+                !dto.getResourcesRequired().equals(existing.getResourcesRequired())) {
+
+            existing.setResourcesRequired(dto.getResourcesRequired());
+            criticalChanged = true;
+        }
+
+        if (dto.getAllocationPercentage() != null &&
+                !dto.getAllocationPercentage().equals(existing.getAllocationPercentage())) {
+
+            existing.setAllocationPercentage(dto.getAllocationPercentage());
+            criticalChanged = true;
+        }
+
+        if (dto.getDemandCommitment() != null &&
+                dto.getDemandCommitment() != existing.getDemandCommitment()) {
+
+            existing.setDemandCommitment(dto.getDemandCommitment());
+            criticalChanged = true;
+        }
+
+        // ===== Non-Critical Updates =====
 
         if (dto.getDemandJustification() != null)
             existing.setDemandJustification(dto.getDemandJustification());
 
-        if (dto.getDemandStartDate() != null)
-            existing.setDemandStartDate(dto.getDemandStartDate());
-
-        if (dto.getDemandEndDate() != null)
-            existing.setDemandEndDate(dto.getDemandEndDate());
-
-        if (dto.getAllocationPercentage() != null)
-            existing.setAllocationPercentage(dto.getAllocationPercentage());
-
         if (dto.getDeliveryModel() != null)
             existing.setDeliveryModel(dto.getDeliveryModel());
 
-        if (dto.getDemandPriority() != null)
-            existing.setDemandPriority(dto.getDemandPriority());
+        // 🔥 GOVERNANCE RULE
+        if (criticalChanged &&
+                existing.getDemandStatus() == DemandStatus.APPROVED) {
 
-        if (dto.getDemandCommitment() != null)
-            existing.setDemandCommitment(dto.getDemandCommitment());
-
-        if (dto.getRequiresAdditionalApproval() != null)
-            existing.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
+            existing.setDemandStatus(DemandStatus.REQUESTED);
+            existing.setRequiresAdditionalApproval(true);
+        }
 
         if (dto.getOutgoingResourceId() != null) {
             if (dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != 0) {
@@ -218,11 +274,21 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        // Re-validate rules
-        validateDemandTypeRules(existing);
-        applyDemandTypeRules(existing);
+        if (!old.equals(dto.getDemandType())) {
+            remapSla(existing);
+        }
 
         demandRepository.save(existing);
+
+        // Optional message change
+        if (criticalChanged) {
+            return ResponseEntity.ok(
+                    ApiResponse.success(
+                            "Critical changes detected. Demand moved to REQUESTED state.",
+                            existing.getDemandId()
+                    )
+            );
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success("Demand updated successfully", existing.getDemandId())
@@ -326,10 +392,6 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        // Validate demand commitment rules
-        if (demand.getDemandCommitment() == DemandCommitment.SOFT) {
-            // No specific validation for soft demands currently
-        }
     }
 
 
@@ -464,33 +526,53 @@ public class DemandServiceImpl implements DemandService {
         // Demand priority has higher weight
         return (demandScore * 2) + projectScore;
     }
-    
-    @Scheduled(cron = "0 0 2 * * ?")
+
     @Transactional
-    public void deleteSoftDemandsAfter30Days() {
-        log.info("Starting soft demand cleanup process at {}", LocalDateTime.now());
-        
-        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(30);
-        
-        List<Demand> softDemandsToDelete = demandRepository.findByDemandCommitmentAndCreatedAtBefore(
-            DemandCommitment.SOFT, 
-            cutoffDate
-        );
-        
-        log.info("Found {} soft demands to delete (older than 30 days)", softDemandsToDelete.size());
-        
-        for (Demand demand : softDemandsToDelete) {
-            try {
-                demandRepository.delete(demand);
-                log.info("Deleted soft demand: {} created on: {}", 
-                    demand.getDemandId(), demand.getCreatedAt());
-            } catch (Exception e) {
-                log.error("Error deleting soft demand {}: {}", 
-                    demand.getDemandId(), e.getMessage(), e);
-            }
+    public void mapSlaToDemand(Demand demand) {
+
+        if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+            return;
         }
-        
-        log.info("Completed soft demand cleanup process. Deleted {} demands", 
-            softDemandsToDelete.size());
+
+        Optional<ProjectSLA> projectSlaOpt =
+                projectSLARepository.findByProjectAndSlaTypeAndActiveFlagTrue(
+                        demand.getProject(),
+                        demand.getDemandType()
+                );
+
+        if (projectSlaOpt.isEmpty()) {
+            return; // No SLA defined for this type
+        }
+
+        ProjectSLA projectSLA = projectSlaOpt.get();
+
+        LocalDate now = LocalDate.now();
+        LocalDate dueAt = now.plusDays(projectSLA.getSlaDurationDays());
+
+        DemandSLA demandSLA = DemandSLA.builder()
+                .demand(demand)
+                .projectSLA(projectSLA)
+                .slaType(projectSLA.getSlaType())
+                .slaDurationDays(projectSLA.getSlaDurationDays())
+                .warningThresholdDays(projectSLA.getWarningThresholdDays())
+                .createdAt(now)
+                .dueAt(dueAt)
+                .activeFlag(true)
+                .build();
+
+        demandSLARepository.save(demandSLA);
+    }
+
+    @Transactional
+    public void remapSla(Demand demand) {
+
+        int updatedRows = demandSLARepository
+                .deactivateByDemandId(demand.getDemandId());
+
+        if (updatedRows == 0) {
+            throw new RuntimeException("No Active Demand SLA Found with the ID.");
+        }
+
+        mapSlaToDemand(demand);
     }
 }
