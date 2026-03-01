@@ -65,6 +65,12 @@ public class DemandController {
         return demandService.getDemandsByResourceManagerId(userDTO.getId());
     }
 
+    @GetMapping("/kpi")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerProjects(@CurrentUser UserDTO userDTO) {
+        return demandService.getDemandKpiByResourceManagerId(userDTO.getId());
+    }
+
     // Conflict resolution endpoint
     @PostMapping("/resolve-conflicts/{projectId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
