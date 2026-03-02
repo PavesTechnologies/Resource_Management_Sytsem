@@ -476,7 +476,7 @@ public class AllocationServiceImple implements AllocationService {
             DeliveryRoleExpectation role = demand.getRole();
 
             // Fetch ALL role details for this role name with single query
-            List<DeliveryRoleExpectation> allRoleExpectations = deliveryRoleExpectationRepository.findByRoleNameWithDetails(role.getRoleName());
+            List<DeliveryRoleExpectation> allRoleExpectations = deliveryRoleExpectationRepository.findByRoleIdWithDetails(role.getRole().getId());
 
             for (DeliveryRoleExpectation roleExpectation : allRoleExpectations) {
                 SkillGapAnalysisResponseDTO.SkillComparisonDTO roleComparison = compareRoleExpectation(

@@ -15,48 +15,48 @@ import java.util.UUID;
 @Repository
 public interface DeliveryRoleExpectationRepository extends JpaRepository<DeliveryRoleExpectation, UUID> {
 
-    @Query("SELECT COUNT(dre) > 0 FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")
+    @Query("SELECT COUNT(dre) > 0 FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")
     boolean existsByRoleNameAndSkill_IdAndSubSkill_Id(
             @Param("roleName") String roleName, 
             @Param("skillId") UUID skillId, 
             @Param("subSkillId") UUID subSkillId
     );
 
-    @Query("SELECT COUNT(dre) > 0 FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill IS NULL AND dre.status = 'ACTIVE'")
+    @Query("SELECT COUNT(dre) > 0 FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill IS NULL AND dre.status = 'ACTIVE'")
     boolean existsByRoleNameAndSkill_IdAndSubSkill_IdIsNull(
             @Param("roleName") String roleName, 
             @Param("skillId") UUID skillId
     );
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' ORDER BY dre.skill.name, dre.subSkill.name")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.status = 'ACTIVE' ORDER BY dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findByRoleNameAndStatus(@Param("roleName") String roleName);
 
-    @Query("SELECT DISTINCT dre.roleName FROM DeliveryRoleExpectation dre WHERE dre.status = 'ACTIVE' ORDER BY dre.roleName")
+    @Query("SELECT DISTINCT dre.role.roleName FROM DeliveryRoleExpectation dre WHERE dre.status = 'ACTIVE' ORDER BY dre.role.roleName")
     List<String> findDistinctRoleNames();
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.status = 'ACTIVE' ORDER BY dre.roleName, dre.skill.name, dre.subSkill.name")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.status = 'ACTIVE' ORDER BY dre.role.roleName, dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findAllActive();
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")
     DeliveryRoleExpectation findByRoleNameAndSkillIdAndSubSkillId(
             @Param("roleName") String roleName,
             @Param("skillId") UUID skillId,
             @Param("subSkillId") UUID subSkillId
     );
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill IS NULL AND dre.status = 'ACTIVE'")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill IS NULL AND dre.status = 'ACTIVE'")
     DeliveryRoleExpectation findByRoleNameAndSkillIdAndSubSkillIsNull(
             @Param("roleName") String roleName,
             @Param("skillId") UUID skillId
     );
 
-    @Query("SELECT COUNT(dre) FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE'")
+    @Query("SELECT COUNT(dre) FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.status = 'ACTIVE'")
     long countByRoleNameAndStatus(@Param("roleName") String roleName);
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = true ORDER BY dre.skill.name, dre.subSkill.name")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = true ORDER BY dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findMandatoryExpectationsByRoleName(@Param("roleName") String roleName);
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = false ORDER BY dre.skill.name, dre.subSkill.name")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = false ORDER BY dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findOptionalExpectationsByRoleName(@Param("roleName") String roleName);
 
     @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.id = :roleId AND dre.status = 'ACTIVE' ORDER BY dre.skill.name, dre.subSkill.name")

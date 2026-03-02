@@ -730,7 +730,7 @@ public class DemandServiceImpl implements DemandService {
                         HttpStatus.CONFLICT,
                         "DUPLICATE_DEMAND",
                         "Exact duplicate demand exists for project: " + demand.getProject().getName() + 
-                        ", role: " + demand.getRole().getRoleName() + 
+                        ", role: " + demand.getRole().getRole().getRoleName() + 
                         ", dates: " + demand.getDemandStartDate() + " to " + demand.getDemandEndDate()
                 );
             }
@@ -1126,7 +1126,7 @@ public class DemandServiceImpl implements DemandService {
                         DemandConflictValidationDTO.ConflictDetail.error(
                             "CONTRADICTORY_ROLES",
                             "Demand has contradictory role requirements with existing demand",
-                            "Role '" + demand.getRole().getRoleName() + "' conflicts with role '" + existing.getRole().getRoleName() + "'",
+                            "Role '" + demand.getRole().getRole().getRoleName() + "' conflicts with role '" + existing.getRole().getRole().getRoleName() + "'",
                             "Review role assignments and ensure they are compatible"
                         )
                     );
@@ -1140,7 +1140,7 @@ public class DemandServiceImpl implements DemandService {
                         DemandConflictValidationDTO.ConflictDetail.error(
                             "DUPLICATE_FULL_TIME_ROLE",
                             "Same role assigned to multiple resources with high allocation",
-                            "Role '" + demand.getRole().getRoleName() + "' has conflicting high allocations",
+                            "Role '" + demand.getRole().getRole().getRoleName() + "' has conflicting high allocations",
                             "Reduce allocation or use different role designation"
                         )
                     );
@@ -1152,8 +1152,8 @@ public class DemandServiceImpl implements DemandService {
     private boolean hasContradictoryRoles(DeliveryRoleExpectation role1, DeliveryRoleExpectation role2) {
         // Define contradictory role combinations
         // This is a simplified example - you'd need to define actual business rules
-        String role1Name = role1.getRoleName().toLowerCase();
-        String role2Name = role2.getRoleName().toLowerCase();
+        String role1Name = role1.getRole().getRoleName().toLowerCase();
+        String role2Name = role2.getRole().getRoleName().toLowerCase();
         
         // Example: Project Manager and Team Lead might be contradictory if both are full-time
         if ((role1Name.contains("project manager") && role2Name.contains("team lead")) ||
@@ -1184,7 +1184,7 @@ public class DemandServiceImpl implements DemandService {
                     DemandConflictValidationDTO.ConflictDetail.error(
                         "TIMELINE_CONFLICT",
                         "Demand timeline conflicts with existing demand for same role",
-                        "Role '" + demand.getRole().getRoleName() + "' is already assigned during this period",
+                        "Role '" + demand.getRole().getRole().getRoleName() + "' is already assigned during this period",
                         "Adjust demand dates or choose different role/time period"
                     )
                 );
