@@ -14,11 +14,11 @@ import java.util.UUID;
 
 @Entity
 @Table(
-        name = "delivery_role_expectation",
+        name = "role_expectation",
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uk_role_skill_subskill",
-                        columnNames = {"role_name", "skill_id", "sub_skill_id"}
+                        columnNames = {"role_id", "skill_id", "sub_skill_id"}
                 )
         }
 )
@@ -35,8 +35,11 @@ public class DeliveryRoleExpectation {
     @Column(name = "id")
     private UUID id;
 
-    @Column(name = "role_name", nullable = false, length = 100)
-    private String roleName;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "role_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_expectation_role"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Role role;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "skill_id", nullable = false,

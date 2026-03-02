@@ -59,6 +59,30 @@ public interface DeliveryRoleExpectationRepository extends JpaRepository<Deliver
     @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE' AND dre.mandatoryFlag = false ORDER BY dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findOptionalExpectationsByRoleName(@Param("roleName") String roleName);
 
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.id = :roleId AND dre.status = 'ACTIVE' ORDER BY dre.skill.name, dre.subSkill.name")
+    List<DeliveryRoleExpectation> findByRoleIdAndStatus(@Param("roleId") UUID roleId);
+
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.id = :roleId AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")
+    boolean existsByRoleIdAndSkill_IdAndSubSkill_Id(
+            @Param("roleId") UUID roleId, 
+            @Param("skillId") UUID skillId, 
+            @Param("subSkillId") UUID subSkillId
+    );
+
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.id = :roleId AND dre.skill.id = :skillId AND dre.subSkill IS NULL AND dre.status = 'ACTIVE'")
+    boolean existsByRoleIdAndSkill_IdAndSubSkill_IdIsNull(
+            @Param("roleId") UUID roleId, 
+            @Param("skillId") UUID skillId
+    );
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM DeliveryRoleExpectation dre WHERE dre.role.id = :roleId")
+    void deleteByRoleId(@Param("roleId") UUID roleId);
+
+    @Query("SELECT COUNT(dre) FROM DeliveryRoleExpectation dre WHERE dre.role.id = :roleId AND dre.status = 'ACTIVE'")
+    long countByRoleIdAndStatus(@Param("roleId") UUID roleId);
+
     /**
      * Find delivery role expectation by ID with all related entities fetched
      * Optimized for skill gap matching to avoid N+1 queries
@@ -71,13 +95,13 @@ public interface DeliveryRoleExpectationRepository extends JpaRepository<Deliver
     Optional<DeliveryRoleExpectation> findByIdWithDetails(@Param("roleId") UUID roleId);
 
     /**
-     * Find all delivery role expectations by role name with details
+     * Find all delivery role expectations by role ID with details
      * Optimized for skill gap matching
      */
     @Query("SELECT dre FROM DeliveryRoleExpectation dre " +
            "LEFT JOIN FETCH dre.skill " +
            "LEFT JOIN FETCH dre.subSkill " +
            "LEFT JOIN FETCH dre.proficiencyLevel " +
-           "WHERE dre.roleName = :roleName AND dre.status = 'ACTIVE'")
-    List<DeliveryRoleExpectation> findByRoleNameWithDetails(@Param("roleName") String roleName);
+           "WHERE dre.role.id = :roleId AND dre.status = 'ACTIVE'")
+    List<DeliveryRoleExpectation> findByRoleIdWithDetails(@Param("roleId") UUID roleId);
 }
