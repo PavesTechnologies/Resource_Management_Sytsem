@@ -3,6 +3,7 @@ package com.controller.skill_controllers;
 import com.dto.ApiResponse;
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
+import com.dto.skill_dto.RoleExpectationRequest;
 import com.dto.skill_dto.RoleExpectationWithMandatoryResponse;
 import com.dto.skill_dto.RoleListResponse;
 import com.exception.skill_exceptions.DuplicateRoleExpectationException;
@@ -27,6 +28,28 @@ import jakarta.validation.Valid;
 public class DeliveryRoleExpectationController {
 
     private final DeliveryRoleExpectationService service;
+
+    @PostMapping("/role-expectations")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> saveOrUpdateRoleExpectations(
+            @Valid @RequestBody RoleExpectationRequest request) {
+        
+        log.info("Admin request to save/update role expectations for roleId: {}", request.getRoleId());
+        
+        try {
+            return service.saveOrUpdateRoleExpectations(request);
+        } catch (SkillValidationException e) {
+            log.warn("Validation error for role expectations: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        } catch (DuplicateRoleExpectationException e) {
+            log.warn("Duplicate role expectation: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error saving/updating role expectations", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Internal server error"));
+        }
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
