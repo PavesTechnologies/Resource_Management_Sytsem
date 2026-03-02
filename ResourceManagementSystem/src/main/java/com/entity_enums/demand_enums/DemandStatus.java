@@ -5,5 +5,6 @@ public enum DemandStatus {
     REQUESTED,
     APPROVED,
     REJECTED,
-    CANCELLED
+    CANCELLED,
+    FULFILLED
 }

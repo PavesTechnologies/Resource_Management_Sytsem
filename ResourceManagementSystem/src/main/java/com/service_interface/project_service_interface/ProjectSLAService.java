@@ -17,4 +17,11 @@ public interface ProjectSLAService {
     ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> getProjectSLAByProjectAndType(Long projectId, SLAType slaType);
     ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> inheritClientSLA(Long projectId, SLAType slaType);
     ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> saveAll(List<ProjectSLA> projectSLAs);
+    
+    /**
+     * Maps all active client SLAs to project SLAs with inheritance = true
+     * @param projectId the project ID to map SLAs for
+     * @return list of created project SLAs
+     */
+    List<ProjectSLA> mapActiveClientSLAsToProject(Long projectId);
 }

@@ -258,6 +258,39 @@ public class ProjectSLAServiceImpl implements ProjectSLAService {
     }
 
     @Override
+    public List<ProjectSLA> mapActiveClientSLAsToProject(Long projectId) {
+        // Get the project to access client info
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> ProjectExceptionHandler.notFound("Project not found with id: " + projectId));
+        
+        // Get all active client SLAs for the project's client
+        List<ClientSLA> activeClientSLAs = clientSLARepo.findByClient_ClientIdAndActiveFlag(
+            project.getClient().getClientId(), 
+            true
+        );
+        
+        if (activeClientSLAs.isEmpty()) {
+            return List.of(); // Return empty list if no active client SLAs found
+        }
+        
+        // Create ProjectSLA entities for each active client SLA with inheritance
+        List<ProjectSLA> inheritedSLAs = activeClientSLAs.stream().map(clientSLA -> {
+            return ProjectSLA.builder()
+                .project(project)
+                .clientSLA(clientSLA)
+                .slaType(clientSLA.getSlaType())
+                .slaDurationDays(clientSLA.getSlaDurationDays())
+                .warningThresholdDays(clientSLA.getWarningThresholdDays())
+                .isInherited(true)
+                .activeFlag(clientSLA.getActiveFlag())
+                .build();
+        }).toList();
+        
+        // Save and return all inherited SLAs
+        return projectSLARepo.saveAll(inheritedSLAs);
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> saveAll(List<ProjectSLA> projectSLAs) {
         if (projectSLAs == null || projectSLAs.isEmpty()) {
             throw ProjectExceptionHandler.badRequest("Project SLAs list cannot be null or empty");

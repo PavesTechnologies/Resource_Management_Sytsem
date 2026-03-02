@@ -12,4 +12,6 @@ public interface ClientSLARepo extends JpaRepository<ClientSLA,UUID> {
     Optional<List<ClientSLA>> findAllByClient_ClientId(UUID clientId);
     
     Optional<ClientSLA> findByClient_ClientIdAndSlaType(UUID clientId, SLAType slaType);
+    
+    List<ClientSLA> findByClient_ClientIdAndActiveFlag(UUID clientId, Boolean activeFlag);
 }
