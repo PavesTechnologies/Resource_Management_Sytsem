@@ -16,6 +16,7 @@ public interface DemandService {
 
     ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id);
     ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId);
+    ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resourceManagerId);
     ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerId(Long resourceManagerId);
     
     // Conflict resolution method

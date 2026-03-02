@@ -1,9 +1,7 @@
 package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
-import com.dto.demand_dto.CreateDemandDTO;
-import com.dto.demand_dto.DemandConflictValidationDTO;
-import com.dto.demand_dto.UpdateDemandDTO;
+import com.dto.demand_dto.*;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
 import com.entity.project_entities.Project;
@@ -41,6 +39,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static com.entity_enums.demand_enums.DemandCommitment.SOFT;
+
 
 @Service
 public class DemandServiceImpl implements DemandService {
@@ -401,8 +402,46 @@ public class DemandServiceImpl implements DemandService {
                             "Demand not found"
                     ));
 
+            // Get SLA details for the demand
+            Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+            
+            // Create a response map to include both demand and SLA data
+            java.util.Map<String, Object> response = new java.util.HashMap<>();
+            response.put("demand", demand);
+            
+            // Add SLA details if present
+            if (demandSLAOpt.isPresent()) {
+                DemandSLA demandSLA = demandSLAOpt.get();
+                LocalDate today = LocalDate.now();
+                
+                java.util.Map<String, Object> slaData = new java.util.HashMap<>();
+                slaData.put("demandSlaId", demandSLA.getDemandSlaId());
+                slaData.put("slaType", demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
+                slaData.put("slaDurationDays", demandSLA.getSlaDurationDays());
+                slaData.put("warningThresholdDays", demandSLA.getWarningThresholdDays());
+                slaData.put("slaCreatedAt", demandSLA.getCreatedAt());
+                slaData.put("slaDueAt", demandSLA.getDueAt());
+                
+                // Calculate SLA status
+                if (demandSLA.getDueAt() != null) {
+                    if (today.isAfter(demandSLA.getDueAt())) {
+                        slaData.put("slaBreached", true);
+                        slaData.put("overdueDays", java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                        slaData.put("remainingDays", 0);
+                    } else {
+                        slaData.put("slaBreached", false);
+                        slaData.put("remainingDays", java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                        slaData.put("overdueDays", 0);
+                    }
+                }
+                
+                response.put("sla", slaData);
+            } else {
+                response.put("sla", null);
+            }
+
             return new ResponseEntity<>(
-                    ApiResponse.success("Demand retrieved successfully", demand),
+                    ApiResponse.success("Demand retrieved successfully", response),
                     HttpStatus.OK
             );
 
@@ -484,7 +523,7 @@ public class DemandServiceImpl implements DemandService {
             // Fetch demands by resource manager ID (through project relationship)
             List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
 
-            List<java.util.Map<String, Object>> formattedDemands = demands.stream()
+            List<DemandDetailResponseDTO> formattedDemands = demands.stream()
 
                     // 🔥 STORY 3 – SORT BY DERIVED PRIORITY SCORE (DESC)
                     .sorted((d1, d2) -> Integer.compare(
@@ -493,17 +532,49 @@ public class DemandServiceImpl implements DemandService {
                     ))
 
                     .map(demand -> {
-                        java.util.Map<String, Object> demandInfo = new java.util.HashMap<>();
-                        demandInfo.put("demandId", demand.getDemandId());
-                        demandInfo.put("demandName",
-                                demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand");
-                        demandInfo.put("projectId", demand.getProject().getPmsProjectId());
-                        demandInfo.put("projectName", demand.getProject().getName());
+                        // Get SLA details for the demand
+                        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                        
+                        DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
+                                .clientId(demand.getProject().getClientId())
+                                .clientName(demand.getProject().getClient() != null ? 
+                                    demand.getProject().getClient().getClientName() : "Unknown Client")
+                                .projectId(demand.getProject().getPmsProjectId())
+                                .projectName(demand.getProject().getName())
+                                .demandId(demand.getDemandId())
+                                .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
+                                .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
+                                .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
+                                .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
+                                .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .priorityScore(calculatePriorityScore(demand))
+                                .build();
 
-                        // 👇 Visible for explainability
-                        demandInfo.put("demandPriority", demand.getDemandPriority());
-                        demandInfo.put("projectPriority", demand.getProject().getPriorityLevel());
-                        demandInfo.put("priorityScore", calculatePriorityScore(demand));
+                        // Add SLA details if present
+                        if (demandSLAOpt.isPresent()) {
+                            DemandSLA demandSLA = demandSLAOpt.get();
+                            LocalDate today = LocalDate.now();
+                            
+                            demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
+                            demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
+                            demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
+                            demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
+                            demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
+                            demandInfo.setSlaDueAt(demandSLA.getDueAt());
+                            
+                            // Calculate SLA status
+                            if (demandSLA.getDueAt() != null) {
+                                if (today.isAfter(demandSLA.getDueAt())) {
+                                    demandInfo.setSlaBreached(true);
+                                    demandInfo.setOverdueDays(java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                                    demandInfo.setRemainingDays(0);
+                                } else {
+                                    demandInfo.setSlaBreached(false);
+                                    demandInfo.setRemainingDays(java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                                    demandInfo.setOverdueDays(0);
+                                }
+                            }
+                        }
 
                         return demandInfo;
                     })
@@ -1206,6 +1277,91 @@ public class DemandServiceImpl implements DemandService {
                     "Allocation: " + demand.getAllocationPercentage() + "% (Maximum: 100%)",
                     "Reduce allocation percentage to valid range (1-100)"
                 )
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resourceManagerId) {
+        try {
+            if (resourceManagerId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "RESOURCE_MANAGER_ID_REQUIRED",
+                        "Resource Manager ID is required"
+                );
+            }
+
+            // Fetch demands by resource manager ID
+            List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
+            
+            // Initialize KPI counters
+            DemandKpiDTO kpi = new DemandKpiDTO();
+            kpi.setActive(0L);
+            kpi.setSoft(0L);
+            kpi.setPending(0L);
+            kpi.setApproved(0L);
+            kpi.setSlaAtRisk(0L);
+            kpi.setSlaBreached(0L);
+            
+            LocalDate today = LocalDate.now();
+            
+            for (Demand demand : demands) {
+                // Count by demand status
+                if (demand.getDemandStatus() != null) {
+                    switch (demand.getDemandStatus()) {
+                        case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
+                        case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
+                        case REJECTED -> kpi.setPending(kpi.getPending() + 1);
+                        case CANCELLED -> {} // Don't count cancelled demands
+                        default -> {} // Handle other statuses if needed
+                    }
+                }
+                
+                // Count active demands (REQUESTED or APPROVED with CONFIRMED commitment)
+                if((demand.getDemandStatus()==DemandStatus.REQUESTED || demand.getDemandStatus()==DemandStatus.APPROVED) 
+                    && demand.getDemandCommitment()==DemandCommitment.CONFIRMED) {
+                    kpi.setActive(kpi.getActive() + 1);
+                }
+                
+                // Count by demand commitment for SOFT commitments
+                if (demand.getDemandCommitment() != null && demand.getDemandCommitment() == DemandCommitment.SOFT) {
+                    kpi.setSoft(kpi.getSoft() + 1);
+                }
+                
+                // Check SLA status
+                Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                if (demandSLAOpt.isPresent()) {
+                    DemandSLA demandSLA = demandSLAOpt.get();
+                    if (demandSLA.getDueAt() != null) {
+                        if (today.isAfter(demandSLA.getDueAt())) {
+                            kpi.setSlaBreached(kpi.getSlaBreached() + 1);
+                        } else {
+                            // Check if SLA is at risk (within warning threshold)
+                            long daysUntilDue = java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt());
+                            if (demandSLA.getWarningThresholdDays() != null && 
+                                daysUntilDue <= demandSLA.getWarningThresholdDays()) {
+                                kpi.setSlaAtRisk(kpi.getSlaAtRisk() + 1);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return new ResponseEntity<>(
+                    ApiResponse.success("Demand KPI retrieved successfully", kpi),
+                    HttpStatus.OK
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error(e.getMessage()),
+                    e.getStatus()
+            );
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve demand KPI: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
             );
         }
     }

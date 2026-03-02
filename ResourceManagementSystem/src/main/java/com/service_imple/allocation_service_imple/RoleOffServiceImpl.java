@@ -89,7 +89,7 @@ public class RoleOffServiceImpl {
         CreateDemandDTO dto = new CreateDemandDTO();
 
         dto.setProjectId(event.getProject().getPmsProjectId());
-        dto.setRoleId(event.getRole().getId());
+        dto.setDeliveryRole(event.getRole().getId());
         dto.setDemandName("Replacement for " + event.getResource().getFullName());
         dto.setDemandType(DemandType.REPLACEMENT);
         dto.setDemandStartDate(event.getRoleOffDate().plusDays(1));
@@ -99,7 +99,7 @@ public class RoleOffServiceImpl {
         dto.setDemandPriority(event.getProject().getPriorityLevel());
         dto.setDemandCommitment(DemandCommitment.CONFIRMED);
         dto.setResourcesRequired(1);
-        dto.setMinExp(event.getResource().getExperiance() != null ? event.getResource().getExperiance().intValue() : 0);
+        dto.setMinExp(event.getResource().getExperiance() != null ? event.getResource().getExperiance().intValue() : 0.0);
         dto.setOutgoingResourceId(event.getResource().getResourceId());
 
         demandService.createDemand(dto, userId);
