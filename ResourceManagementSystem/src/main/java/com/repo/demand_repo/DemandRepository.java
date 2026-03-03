@@ -23,6 +23,18 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
     @Query("SELECT d FROM Demand d WHERE d.project.resourceManagerId = :resourceManagerId")
     List<Demand> findByProjectResourceManagerId(@Param("resourceManagerId") Long resourceManagerId);
     
+    @Query("SELECT d FROM Demand d WHERE d.createdBy = :createdBy")
+    List<Demand> findByCreatedBy(@Param("createdBy") Long createdBy);
+    
+    @Query("SELECT d FROM Demand d WHERE d.createdBy = :createdBy AND d.project.pmsProjectId = :projectId")
+    List<Demand> findByCreatedByAndProjectId(@Param("createdBy") Long createdBy, @Param("projectId") Long projectId);
+    
+    @Query("SELECT d FROM Demand d WHERE d.project.projectManagerId = :projectManagerId OR d.createdBy = :projectManagerId")
+    List<Demand> findByProjectManagerIdOrCreatedBy(@Param("projectManagerId") Long projectManagerId);
+
+    @Query("SELECT d FROM Demand d WHERE d.project.pmsProjectId = :projectId")
+    List<Demand> findByProjectId(@Param("projectId") Long projectId);
+    
     List<Demand> findByDemandCommitmentAndCreatedAtBefore(DemandCommitment demandCommitment, LocalDateTime cutoffDate);
     
     // ============================

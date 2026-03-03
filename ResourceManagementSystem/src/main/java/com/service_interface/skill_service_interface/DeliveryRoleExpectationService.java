@@ -15,7 +15,9 @@ public interface DeliveryRoleExpectationService {
 
     ResponseEntity<ApiResponse<String>> saveOrUpdateRoleExpectations(RoleExpectationRequest request);
 
-    DeliveryRoleExpectationResponse createOrUpdateRoleExpectations(DeliveryRoleExpectationRequest request);
+    DeliveryRoleExpectationResponse createRoleExpectations(DeliveryRoleExpectationRequest request);
+
+    DeliveryRoleExpectationResponse updateRoleExpectations(UUID roleId, DeliveryRoleExpectationRequest request);
 
     DeliveryRoleExpectationResponse getRoleExpectations(String roleName);
 

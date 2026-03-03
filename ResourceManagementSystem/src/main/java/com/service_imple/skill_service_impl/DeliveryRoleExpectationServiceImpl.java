@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectationService {
 
     private final DeliveryRoleExpectationRepository expectationRepository;
@@ -39,7 +38,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     @Override
     @Transactional
     public ResponseEntity<ApiResponse<String>> saveOrUpdateRoleExpectations(RoleExpectationRequest request) {
-        log.info("Saving/updating role expectations for roleId: {}", request.getRoleId());
 
         validateRequest(request);
 
@@ -48,7 +46,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         boolean isUpdate = !existing.isEmpty();
 
         if (isUpdate) {
-            log.info("UPDATE flow: Deleting existing expectations for roleId: {}", role.getId());
             expectationRepository.deleteByRoleId(role.getId());
         }
 
@@ -71,9 +68,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
             "Role expectations created successfully";
         
         HttpStatus status = isUpdate ? HttpStatus.OK : HttpStatus.CREATED;
-        
-        log.info("{} {} expectations for roleId: {}", 
-            isUpdate ? "Updated" : "Created", expectations.size(), role.getId());
 
         return ResponseEntity.status(status)
             .body(ApiResponse.success(message));
@@ -81,58 +75,78 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     @Override
     @Transactional
-    public DeliveryRoleExpectationResponse createOrUpdateRoleExpectations(DeliveryRoleExpectationRequest request) {
-        log.info("Creating/updating role expectations for roleName: {}", request.getRoleName());
+    public DeliveryRoleExpectationResponse createRoleExpectations(DeliveryRoleExpectationRequest request) {
 
         validateDeliveryRoleRequest(request);
 
-        Role role = getAndValidateRoleByName(request.getRoleName());
+        // Create or get role by name
+        Role role = getOrCreateRoleByName(request.getRoleName());
         List<DeliveryRoleExpectation> existing = expectationRepository.findByRoleIdAndStatus(role.getId());
-        boolean isUpdate = !existing.isEmpty();
-
-        if (isUpdate) {
-            log.info("UPDATE flow: Deleting existing expectations for roleName: {}", request.getRoleName());
-            expectationRepository.deleteByRoleId(role.getId());
+        
+        if (!existing.isEmpty()) {
+            throw new DuplicateRoleExpectationException(
+                    "Role expectations already exist for role: " + request.getRoleName() + 
+                    ". Use PUT endpoint to update instead.");
         }
 
         List<DeliveryRoleExpectation> expectations = new ArrayList<>();
 
-        for (DeliveryRoleExpectationRequest.ExpectationDetail detail : request.getExpectations()) {
-            validateExpectationDetail(detail, request.getRoleName());
+        for (DeliveryRoleExpectationRequest.SkillExpectation skillDto : request.getSkills()) {
+            saveSkillLevel(role, skillDto, expectations);
             
-            Skill skill = getAndValidateSkill(detail.getSkillId());
-            ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(detail.getProficiencyId());
-            SubSkill subSkill = detail.getSubSkillId() != null ? 
-                getAndValidateSubSkill(detail.getSubSkillId(), skill) : null;
-
-            DeliveryRoleExpectation expectation = DeliveryRoleExpectation.builder()
-                    .role(role)
-                    .skill(skill)
-                    .subSkill(subSkill)
-                    .proficiencyLevel(proficiencyLevel)
-                    .mandatoryFlag(detail.getMandatoryFlag())
-                    .status("ACTIVE")
-                    .build();
-
-            expectations.add(expectation);
+            if (skillDto.getSubSkills() != null && !skillDto.getSubSkills().isEmpty()) {
+                for (DeliveryRoleExpectationRequest.SubSkillExpectation subDto : skillDto.getSubSkills()) {
+                    saveSubSkillLevel(role, skillDto, subDto, expectations);
+                }
+            }
         }
 
         expectationRepository.saveAll(expectations);
 
-        log.info("{} {} expectations for roleName: {}", 
-            isUpdate ? "Updated" : "Created", expectations.size(), request.getRoleName());
+        return groupExpectationsBySkill(expectations);
+    }
+
+    @Override
+    @Transactional
+    public DeliveryRoleExpectationResponse updateRoleExpectations(UUID roleId, DeliveryRoleExpectationRequest request) {
+
+        validateDeliveryRoleRequest(request);
+
+        Role role = getAndValidateRole(roleId);
+        List<DeliveryRoleExpectation> existing = expectationRepository.findByRoleIdAndStatus(role.getId());
+        
+        if (existing.isEmpty()) {
+            throw new SkillValidationException(
+                    "No role expectations found for roleId: " + roleId + 
+                    ". Use POST endpoint to create instead.");
+        }
+
+        // Delete existing expectations
+        expectationRepository.deleteByRoleId(role.getId());
+
+        List<DeliveryRoleExpectation> expectations = new ArrayList<>();
+
+        for (DeliveryRoleExpectationRequest.SkillExpectation skillDto : request.getSkills()) {
+            saveSkillLevel(role, skillDto, expectations);
+            
+            if (skillDto.getSubSkills() != null && !skillDto.getSubSkills().isEmpty()) {
+                for (DeliveryRoleExpectationRequest.SubSkillExpectation subDto : skillDto.getSubSkills()) {
+                    saveSubSkillLevel(role, skillDto, subDto, expectations);
+                }
+            }
+        }
+
+        expectationRepository.saveAll(expectations);
 
         return groupExpectationsBySkill(expectations);
     }
 
     @Override
     public DeliveryRoleExpectationResponse getRoleExpectations(String roleName) {
-        log.info("Fetching expectations for role: {}", roleName);
 
         List<DeliveryRoleExpectation> expectations = expectationRepository.findByRoleNameAndStatus(roleName);
 
         if (expectations.isEmpty()) {
-            log.warn("No expectations found for role: {}", roleName);
             return new DeliveryRoleExpectationResponse();
         }
 
@@ -141,7 +155,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     @Override
     public List<DeliveryRoleExpectationResponse> getAllRoleExpectations() {
-        log.info("Fetching all role expectations");
 
         List<DeliveryRoleExpectation> allExpectations = expectationRepository.findAllActive();
 
@@ -156,7 +169,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     @Override
     public RoleListResponse getAvailableRoles() {
-        log.info("Fetching available roles");
 
         List<String> roles = expectationRepository.findDistinctRoleNames();
 
@@ -169,20 +181,16 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     @Override
     @Transactional
     public void deleteRoleExpectations(String roleName) {
-        log.info("Soft deleting expectations for role: {}", roleName);
 
         List<DeliveryRoleExpectation> expectations = expectationRepository.findByRoleNameAndStatus(roleName);
         
         if (expectations.isEmpty()) {
-            log.warn("No expectations found to delete for role: {}", roleName);
             return;
         }
 
         // Soft delete - set status to INACTIVE
         expectations.forEach(expectation -> expectation.setStatus("INACTIVE"));
         expectationRepository.saveAll(expectations);
-        
-        log.info("Successfully soft deleted {} expectations for role: {}", expectations.size(), roleName);
     }
 
     @Override
@@ -228,15 +236,23 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     }
 
     private Role getAndValidateRole(UUID roleId) {
-        log.debug("Looking for role with ID: {}", roleId);
         return roleRepository.findById(roleId)
                 .orElseThrow(() -> new SkillValidationException("Role not found with ID: " + roleId));
     }
 
-    private Role getAndValidateRoleByName(String roleName) {
-        log.debug("Looking for role with name: {}", roleName);
-        return roleRepository.findByRoleName(roleName)
-                .orElseThrow(() -> new SkillValidationException("Role not found with name: " + roleName));
+    private Role getOrCreateRoleByName(String roleName) {
+        Optional<Role> existingRole = roleRepository.findByRoleName(roleName);
+        
+        if (existingRole.isPresent()) {
+            return existingRole.get();
+        } else {
+            Role newRole = Role.builder()
+                    .roleName(roleName)
+                    .description("Role created automatically via expectations")
+                    .status("ACTIVE")
+                    .build();
+            return roleRepository.save(newRole);
+        }
     }
 
     private void validateDeliveryRoleRequest(DeliveryRoleExpectationRequest request) {
@@ -244,18 +260,65 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
             throw new SkillValidationException("Role name cannot be empty");
         }
 
-        if (request.getExpectations() == null || request.getExpectations().isEmpty()) {
-            throw new SkillValidationException("Expectations list cannot be empty");
+        if (request.getSkills() == null || request.getSkills().isEmpty()) {
+            throw new SkillValidationException("Skills list cannot be empty");
         }
 
         // Check for duplicate skill IDs in request
         Set<UUID> skillIds = new HashSet<>();
-        for (DeliveryRoleExpectationRequest.ExpectationDetail detail : request.getExpectations()) {
-            if (!skillIds.add(detail.getSkillId())) {
+        for (DeliveryRoleExpectationRequest.SkillExpectation skill : request.getSkills()) {
+            if (!skillIds.add(skill.getSkillId())) {
                 throw new DuplicateRoleExpectationException(
-                        "Duplicate skill ID found in request: " + detail.getSkillId());
+                        "Duplicate skill ID found in request: " + skill.getSkillId());
+            }
+
+            // Check for duplicate subskill IDs within each skill
+            if (skill.getSubSkills() != null) {
+                Set<UUID> subSkillIds = new HashSet<>();
+                for (DeliveryRoleExpectationRequest.SubSkillExpectation sub : skill.getSubSkills()) {
+                    if (!subSkillIds.add(sub.getSubSkillId())) {
+                        throw new DuplicateRoleExpectationException(
+                                "Duplicate subskill ID found in skill " + skill.getSkillId() + ": " + sub.getSubSkillId());
+                    }
+                }
             }
         }
+    }
+
+    private void saveSkillLevel(Role role, DeliveryRoleExpectationRequest.SkillExpectation skillDto, 
+                           List<DeliveryRoleExpectation> expectations) {
+        Skill skill = getAndValidateSkill(skillDto.getSkillId());
+        ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(skillDto.getProficiencyId());
+
+        DeliveryRoleExpectation expectation = DeliveryRoleExpectation.builder()
+                .role(role)
+                .skill(skill)
+                .subSkill(null)
+                .proficiencyLevel(proficiencyLevel)
+                .mandatoryFlag(skillDto.getMandatoryFlag())
+                .status("ACTIVE")
+                .build();
+
+        expectations.add(expectation);
+    }
+
+    private void saveSubSkillLevel(Role role, DeliveryRoleExpectationRequest.SkillExpectation skillDto,
+                                  DeliveryRoleExpectationRequest.SubSkillExpectation subDto,
+                                  List<DeliveryRoleExpectation> expectations) {
+        Skill skill = getAndValidateSkill(skillDto.getSkillId());
+        SubSkill subSkill = getAndValidateSubSkill(subDto.getSubSkillId(), skill);
+        ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(subDto.getProficiencyId());
+
+        DeliveryRoleExpectation expectation = DeliveryRoleExpectation.builder()
+                .role(role)
+                .skill(skill)
+                .subSkill(subSkill)
+                .proficiencyLevel(proficiencyLevel)
+                .mandatoryFlag(subDto.getMandatoryFlag())
+                .status("ACTIVE")
+                .build();
+
+        expectations.add(expectation);
     }
 
     private void validateRequest(RoleExpectationRequest request) {
@@ -284,37 +347,17 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         }
     }
 
-    private void validateExpectationDetail(DeliveryRoleExpectationRequest.ExpectationDetail detail, String roleName) {
-        if (detail.getSkillId() == null) {
-            throw new SkillValidationException("Skill ID is required");
-        }
-
-        if (detail.getProficiencyId() == null) {
-            throw new SkillValidationException("Proficiency ID is required");
-        }
-
-        if (detail.getMandatoryFlag() == null) {
-            throw new SkillValidationException("Each skill must be marked as Mandatory or Optional");
-        }
-
-        // For updates, we don't need to check for duplicates since we're soft deleting existing ones first
-        // The duplicate check is handled at the request level in validateRequest()
-    }
-
+    
     private Skill getAndValidateSkill(UUID skillId) {
-        log.debug("Looking for skill with ID: {}", skillId);
         Optional<Skill> skillOpt = skillRepository.findById(skillId);
         
         if (skillOpt.isEmpty()) {
-            log.error("Skill not found with ID: {}", skillId);
             throw new SkillValidationException("Skill not found with ID: " + skillId);
         }
 
         Skill skill = skillOpt.get();
-        log.debug("Found skill: {} with status: {}", skill.getName(), skill.getStatus());
         
         if (!"ACTIVE".equals(skill.getStatus())) {
-            log.error("Skill is not active: {} (status: {})", skill.getName(), skill.getStatus());
             throw new SkillValidationException("Skill is not active: " + skill.getName());
         }
 
@@ -322,26 +365,19 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     }
 
     private SubSkill getAndValidateSubSkill(UUID subSkillId, Skill expectedSkill) {
-        log.debug("Looking for subskill with ID: {}", subSkillId);
         Optional<SubSkill> subSkillOpt = subSkillRepository.findById(subSkillId);
         
         if (subSkillOpt.isEmpty()) {
-            log.error("SubSkill not found with ID: {}", subSkillId);
             throw new SkillValidationException("SubSkill not found with ID: " + subSkillId);
         }
 
         SubSkill subSkill = subSkillOpt.get();
-        log.debug("Found subskill: {} with status: {}, belongs to skill: {}", 
-                subSkill.getName(), subSkill.getStatus(), subSkill.getSkill().getName());
         
         if (!"ACTIVE".equals(subSkill.getStatus())) {
-            log.error("SubSkill is not active: {} (status: {})", subSkill.getName(), subSkill.getStatus());
             throw new SkillValidationException("SubSkill is not active: " + subSkill.getName());
         }
 
         if (!expectedSkill.getId().equals(subSkill.getSkill().getId())) {
-            log.error("SubSkill {} does not belong to skill {}. SubSkill belongs to: {}", 
-                    subSkill.getName(), expectedSkill.getName(), subSkill.getSkill().getName());
             throw new SkillValidationException(
                     "SubSkill does not belong to the specified skill. SubSkill: " + subSkill.getName() + 
                     ", Expected Skill: " + expectedSkill.getName());
@@ -351,21 +387,15 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     }
 
     private ProficiencyLevel getAndValidateProficiencyLevel(UUID proficiencyLevelId) {
-        log.debug("Looking for proficiency level with ID: {}", proficiencyLevelId);
         Optional<ProficiencyLevel> proficiencyLevelOpt = proficiencyLevelRepository.findById(proficiencyLevelId);
         
         if (proficiencyLevelOpt.isEmpty()) {
-            log.error("ProficiencyLevel not found with ID: {}", proficiencyLevelId);
             throw new SkillValidationException("ProficiencyLevel not found with ID: " + proficiencyLevelId);
         }
 
         ProficiencyLevel proficiencyLevel = proficiencyLevelOpt.get();
-        log.debug("Found proficiency level: {} with active flag: {}", 
-                proficiencyLevel.getProficiencyName(), proficiencyLevel.getActiveFlag());
         
         if (!proficiencyLevel.getActiveFlag()) {
-            log.error("ProficiencyLevel is not active: {} (active: {})", 
-                    proficiencyLevel.getProficiencyName(), proficiencyLevel.getActiveFlag());
             throw new SkillValidationException("ProficiencyLevel is not active: " + proficiencyLevel.getProficiencyName());
         }
 
@@ -416,12 +446,10 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     @Override
     public RoleExpectationWithMandatoryResponse getRoleExpectationsWithMandatory(String roleName) {
-        log.info("Fetching role expectations with mandatory/optional separation for role: {}", roleName);
 
         List<DeliveryRoleExpectation> expectations = expectationRepository.findByRoleNameAndStatus(roleName);
 
         if (expectations.isEmpty()) {
-            log.warn("No expectations found for role: {}", roleName);
             return new RoleExpectationWithMandatoryResponse();
         }
 
@@ -459,7 +487,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     @Override
     public boolean isResourceEligibleForRole(String roleName, List<UUID> resourceSkillIds) {
-        log.info("Checking resource eligibility for role: {}", roleName);
 
         List<DeliveryRoleExpectation> roleExpectations = expectationRepository.findByRoleNameAndStatus(roleName);
         
@@ -471,9 +498,6 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
         // Check if resource has all mandatory skills
         boolean hasAllMandatorySkills = resourceSkillIds.containsAll(mandatorySkillIds);
-
-        log.info("Resource eligibility for role {}: {} (Required: {}, Has: {})", 
-                roleName, hasAllMandatorySkills, mandatorySkillIds, resourceSkillIds);
 
         return hasAllMandatorySkills;
     }
