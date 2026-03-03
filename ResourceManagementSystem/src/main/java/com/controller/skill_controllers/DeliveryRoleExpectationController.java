@@ -29,15 +29,17 @@ public class DeliveryRoleExpectationController {
 
     private final DeliveryRoleExpectationService service;
 
-    @PostMapping("/role-expectations")
+    @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> saveOrUpdateRoleExpectations(
-            @Valid @RequestBody RoleExpectationRequest request) {
+    public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> createRoleExpectations(
+            @Valid @RequestBody DeliveryRoleExpectationRequest request) {
         
-        log.info("Admin request to save/update role expectations for roleId: {}", request.getRoleId());
+        log.info("Admin request to create role expectations for role: {}", request.getRoleName());
         
         try {
-            return service.saveOrUpdateRoleExpectations(request);
+            DeliveryRoleExpectationResponse response = service.createRoleExpectations(request);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("Role expectations created successfully", response));
         } catch (SkillValidationException e) {
             log.warn("Validation error for role expectations: {}", e.getMessage());
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
@@ -45,22 +47,23 @@ public class DeliveryRoleExpectationController {
             log.warn("Duplicate role expectation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            log.error("Unexpected error saving/updating role expectations", e);
+            log.error("Unexpected error creating role expectations", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Internal server error"));
         }
     }
 
-    @PostMapping
+    @PutMapping("/{roleId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> createOrUpdateRoleExpectations(
+    public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> updateRoleExpectations(
+            @PathVariable UUID roleId,
             @Valid @RequestBody DeliveryRoleExpectationRequest request) {
         
-        log.info("Admin request to create/update role expectations for role: {}", request.getRoleName());
+        log.info("Admin request to update role expectations for roleId: {}", roleId);
         
         try {
-            DeliveryRoleExpectationResponse response = service.createOrUpdateRoleExpectations(request);
-            return ResponseEntity.ok(ApiResponse.success("Role expectations created/updated successfully", response));
+            DeliveryRoleExpectationResponse response = service.updateRoleExpectations(roleId, request);
+            return ResponseEntity.ok(ApiResponse.success("Role expectations updated successfully", response));
         } catch (SkillValidationException e) {
             log.warn("Validation error for role expectations: {}", e.getMessage());
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
@@ -68,11 +71,34 @@ public class DeliveryRoleExpectationController {
             log.warn("Duplicate role expectation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
-            log.error("Unexpected error creating/updating role expectations", e);
+            log.error("Unexpected error updating role expectations", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("Internal server error"));
         }
     }
+
+//    @PostMapping
+//    @PreAuthorize("hasRole('ADMIN')")
+//    public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> createOrUpdateRoleExpectations(
+//            @Valid @RequestBody DeliveryRoleExpectationRequest request) {
+//
+//        log.info("Admin request to create/update role expectations for role: {}", request.getRoleName());
+//
+//        try {
+//            DeliveryRoleExpectationResponse response = service.createOrUpdateRoleExpectations(request);
+//            return ResponseEntity.ok(ApiResponse.success("Role expectations created/updated successfully", response));
+//        } catch (SkillValidationException e) {
+//            log.warn("Validation error for role expectations: {}", e.getMessage());
+//            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+//        } catch (DuplicateRoleExpectationException e) {
+//            log.warn("Duplicate role expectation: {}", e.getMessage());
+//            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
+//        } catch (Exception e) {
+//            log.error("Unexpected error creating/updating role expectations", e);
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(ApiResponse.error("Internal server error"));
+//        }
+//    }
 
     @GetMapping("/{roleName}")
     @PreAuthorize("hasRole('ADMIN')")
