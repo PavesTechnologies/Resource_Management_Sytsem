@@ -1,6 +1,7 @@
 package com.service_imple.demand_service_impl;
 
 import com.dto.ApiResponse;
+import com.dto.UserDTO;
 import com.dto.demand_dto.*;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -366,8 +368,59 @@ public class DemandServiceImpl implements DemandService {
 
             List<Demand> demands = demandRepository.findByProject_PmsProjectId(projectId);
 
+            List<DemandDetailResponseDTO> formattedDemands = demands.stream()
+                    .sorted((d1, d2) -> Integer.compare(
+                            calculatePriorityScore(d2),
+                            calculatePriorityScore(d1)
+                    ))
+                    .map(demand -> {
+                        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+
+                        DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
+                                .clientId(demand.getProject().getClientId())
+                                .clientName(demand.getProject().getClient() != null ?
+                                        demand.getProject().getClient().getClientName() : "Unknown Client")
+                                .projectId(demand.getProject().getPmsProjectId())
+                                .projectName(demand.getProject().getName())
+                                .demandId(demand.getDemandId())
+                                .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
+                                .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
+                                .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
+                                .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
+                                .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .priorityScore(calculatePriorityScore(demand))
+                                .build();
+
+                        if (demandSLAOpt.isPresent()) {
+                            DemandSLA demandSLA = demandSLAOpt.get();
+                            LocalDate today = LocalDate.now();
+
+                            demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
+                            demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
+                            demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
+                            demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
+                            demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
+                            demandInfo.setSlaDueAt(demandSLA.getDueAt());
+
+                            if (demandSLA.getDueAt() != null) {
+                                if (today.isAfter(demandSLA.getDueAt())) {
+                                    demandInfo.setSlaBreached(true);
+                                    demandInfo.setOverdueDays(ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                                    demandInfo.setRemainingDays(0);
+                                } else {
+                                    demandInfo.setSlaBreached(false);
+                                    demandInfo.setRemainingDays(ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                                    demandInfo.setOverdueDays(0);
+                                }
+                            }
+                        }
+
+                        return demandInfo;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
             return new ResponseEntity<>(
-                    ApiResponse.success("Demands retrieved successfully", demands),
+                    ApiResponse.success("Demands retrieved successfully", formattedDemands),
                     HttpStatus.OK
             );
 
@@ -383,6 +436,10 @@ public class DemandServiceImpl implements DemandService {
             );
         }
     }
+
+
+
+
 
     @Override
     public ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId) {
@@ -522,6 +579,123 @@ public class DemandServiceImpl implements DemandService {
 
             // Fetch demands by resource manager ID (through project relationship)
             List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
+
+            List<DemandDetailResponseDTO> formattedDemands = demands.stream()
+
+                    // 🔥 STORY 3 – SORT BY DERIVED PRIORITY SCORE (DESC)
+                    .sorted((d1, d2) -> Integer.compare(
+                            calculatePriorityScore(d2),
+                            calculatePriorityScore(d1)
+                    ))
+
+                    .map(demand -> {
+                        // Get SLA details for the demand
+                        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                        
+                        DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
+                                .clientId(demand.getProject().getClientId())
+                                .clientName(demand.getProject().getClient() != null ? 
+                                    demand.getProject().getClient().getClientName() : "Unknown Client")
+                                .projectId(demand.getProject().getPmsProjectId())
+                                .projectName(demand.getProject().getName())
+                                .demandId(demand.getDemandId())
+                                .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
+                                .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
+                                .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
+                                .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
+                                .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .priorityScore(calculatePriorityScore(demand))
+                                .build();
+
+                        // Add SLA details if present
+                        if (demandSLAOpt.isPresent()) {
+                            DemandSLA demandSLA = demandSLAOpt.get();
+                            LocalDate today = LocalDate.now();
+                            
+                            demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
+                            demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
+                            demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
+                            demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
+                            demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
+                            demandInfo.setSlaDueAt(demandSLA.getDueAt());
+                            
+                            // Calculate SLA status
+                            if (demandSLA.getDueAt() != null) {
+                                if (today.isAfter(demandSLA.getDueAt())) {
+                                    demandInfo.setSlaBreached(true);
+                                    demandInfo.setOverdueDays(java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                                    demandInfo.setRemainingDays(0);
+                                } else {
+                                    demandInfo.setSlaBreached(false);
+                                    demandInfo.setRemainingDays(java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                                    demandInfo.setOverdueDays(0);
+                                }
+                            }
+                        }
+
+                        return demandInfo;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
+            ApiResponse response = ApiResponse.success(
+                    "Demands retrieved successfully",
+                    formattedDemands
+            );
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
+
+        } catch (ProjectExceptionHandler e) {
+            // Business validation failure
+            ApiResponse response = ApiResponse.error(
+                    e.getMessage()
+            );
+            return new ResponseEntity<>(response, e.getStatus());
+
+        } catch (Exception e) {
+            // Unexpected failure
+            ApiResponse response = ApiResponse.error(
+                    "Failed to retrieve demands: " + e.getMessage()
+            );
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getDemandsByCreatedBy(Long createdBy) {
+        return getDemandsByCreatedByAndProjectId(createdBy, null);
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long createdBy, Long projectId) {
+        try {
+            // Validate created by ID
+            if (createdBy == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "CREATED_BY_ID_REQUIRED",
+                        "Created By ID is required"
+                );
+            }
+
+            if (projectId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PROJECT_ID_REQUIRED",
+                        "Project ID is required"
+                );
+            }
+
+            // Fetch demands by created by ID and optionally by project ID
+            List<Demand> demands;
+            demands = demandRepository.findByCreatedByAndProjectId(createdBy, projectId);
+
+            if (demands == null || demands.isEmpty()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.NOT_FOUND,
+                        "NO_DEMANDS_FOUND",
+                        "No demands found for this project"
+                );
+            }
 
             List<DemandDetailResponseDTO> formattedDemands = demands.stream()
 
@@ -1283,84 +1457,162 @@ public class DemandServiceImpl implements DemandService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resourceManagerId) {
-        try {
-            if (resourceManagerId == null) {
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "RESOURCE_MANAGER_ID_REQUIRED",
-                        "Resource Manager ID is required"
-                );
-            }
 
-            // Fetch demands by resource manager ID
-            List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
-            
-            // Initialize KPI counters
-            DemandKpiDTO kpi = new DemandKpiDTO();
-            kpi.setActive(0L);
-            kpi.setSoft(0L);
-            kpi.setPending(0L);
-            kpi.setApproved(0L);
-            kpi.setSlaAtRisk(0L);
-            kpi.setSlaBreached(0L);
-            
+        if (resourceManagerId == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "RESOURCE_MANAGER_ID_REQUIRED",
+                    "Resource Manager ID is required"
+            );
+        }
+
+        try {
+            List<Demand> demands =
+                    demandRepository.findByProjectResourceManagerId(resourceManagerId);
+
+            DemandKpiDTO kpi = DemandKpiDTO.builder()
+                    .active(0L)
+                    .soft(0L)
+                    .pending(0L)
+                    .approved(0L)
+                    .slaAtRisk(0L)
+                    .slaBreached(0L)
+                    .build();
             LocalDate today = LocalDate.now();
-            
+
             for (Demand demand : demands) {
-                // Count by demand status
-                if (demand.getDemandStatus() != null) {
-                    switch (demand.getDemandStatus()) {
-                        case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
-                        case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
-                        case REJECTED -> kpi.setPending(kpi.getPending() + 1);
-                        case CANCELLED -> {} // Don't count cancelled demands
-                        default -> {} // Handle other statuses if needed
-                    }
+
+                DemandStatus status = demand.getDemandStatus();
+                DemandCommitment commitment = demand.getDemandCommitment();
+
+                if (status == null) continue;
+
+                // -------- STATUS COUNTS --------
+                switch (status) {
+                    case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
+                    case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
+                    case REJECTED -> kpi.setPending(kpi.getPending() + 1);
+                    default -> { /* CANCELLED & others ignored */ }
                 }
-                
-                // Count active demands (REQUESTED or APPROVED with CONFIRMED commitment)
-                if((demand.getDemandStatus()==DemandStatus.REQUESTED || demand.getDemandStatus()==DemandStatus.APPROVED) 
-                    && demand.getDemandCommitment()==DemandCommitment.CONFIRMED) {
+
+                // -------- ACTIVE --------
+                if ((status == DemandStatus.REQUESTED || status == DemandStatus.APPROVED)
+                        && commitment == DemandCommitment.CONFIRMED) {
                     kpi.setActive(kpi.getActive() + 1);
                 }
-                
-                // Count by demand commitment for SOFT commitments
-                if (demand.getDemandCommitment() != null && demand.getDemandCommitment() == DemandCommitment.SOFT) {
+
+                // -------- SOFT --------
+                if (commitment == DemandCommitment.SOFT) {
                     kpi.setSoft(kpi.getSoft() + 1);
                 }
-                
-                // Check SLA status
-                Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
-                if (demandSLAOpt.isPresent()) {
-                    DemandSLA demandSLA = demandSLAOpt.get();
-                    if (demandSLA.getDueAt() != null) {
-                        if (today.isAfter(demandSLA.getDueAt())) {
-                            kpi.setSlaBreached(kpi.getSlaBreached() + 1);
-                        } else {
-                            // Check if SLA is at risk (within warning threshold)
-                            long daysUntilDue = java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt());
-                            if (demandSLA.getWarningThresholdDays() != null && 
-                                daysUntilDue <= demandSLA.getWarningThresholdDays()) {
-                                kpi.setSlaAtRisk(kpi.getSlaAtRisk() + 1);
+
+                // -------- SLA --------
+                demandSLARepository
+                        .findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId())
+                        .ifPresent(sla -> {
+
+                            LocalDate dueAt = sla.getDueAt();
+                            if (dueAt == null) return;
+
+                            if (today.isAfter(dueAt)) {
+                                kpi.setSlaBreached(kpi.getSlaBreached() + 1);
+                                return;
                             }
-                        }
-                    }
-                }
+
+                            Integer threshold = sla.getWarningThresholdDays();
+                            if (threshold != null) {
+                                long daysRemaining =
+                                        ChronoUnit.DAYS.between(today, dueAt);
+
+                                if (daysRemaining <= threshold) {
+                                    kpi.setSlaAtRisk(kpi.getSlaAtRisk() + 1);
+                                }
+                            }
+                        });
             }
 
-            return new ResponseEntity<>(
-                    ApiResponse.success("Demand KPI retrieved successfully", kpi),
-                    HttpStatus.OK
+            return ResponseEntity.ok(
+                    ApiResponse.success("Demand KPI retrieved successfully", kpi)
             );
 
         } catch (ProjectExceptionHandler e) {
-            return new ResponseEntity<>(
-                    ApiResponse.error(e.getMessage()),
-                    e.getStatus()
-            );
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
             return new ResponseEntity<>(
                     ApiResponse.error("Failed to retrieve demand KPI: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getDashboardKpi(UserDTO userDTO) {
+
+        if (userDTO == null || userDTO.getId() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "USER_REQUIRED",
+                    "User information is required"
+            );
+        }
+
+        try {
+            List<Demand> demands =
+                    demandRepository.findByProjectManagerIdOrCreatedBy(userDTO.getId());
+
+            DashboardKpiDTO kpi = DashboardKpiDTO.builder()
+                    .total(0L)
+                    .active(0L)
+                    .fulfilled(0L)
+                    .soft(0L)
+                    .pending(0L)
+                    .approved(0L)
+                    .build();
+
+            for (Demand demand : demands) {
+
+                DemandStatus status = demand.getDemandStatus();
+                DemandCommitment commitment = demand.getDemandCommitment();
+
+                if (status == null) continue;
+
+                // Total (exclude cancelled & rejected if needed)
+                if (status != DemandStatus.CANCELLED) {
+                    kpi.setTotal(kpi.getTotal() + 1);
+                }
+
+                // Soft commitment
+                if (commitment == DemandCommitment.SOFT) {
+                    kpi.setSoft(kpi.getSoft() + 1);
+                    continue; // soft should not be counted as active
+                }
+
+                switch (status) {
+                    case REQUESTED -> {
+                        kpi.setPending(kpi.getPending() + 1);
+                        kpi.setActive(kpi.getActive() + 1);
+                    }
+                    case APPROVED -> {
+                        kpi.setApproved(kpi.getApproved() + 1);
+                        kpi.setActive(kpi.getActive() + 1);
+                    }
+                    case FULFILLED ->
+                            kpi.setFulfilled(kpi.getFulfilled() + 1);
+                    default -> {
+                        // DRAFT, REJECTED, CANCELLED ignored
+                    }
+                }
+            }
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Dashboard KPI retrieved successfully", kpi)
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve dashboard KPI: " + e.getMessage()),
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
         }
