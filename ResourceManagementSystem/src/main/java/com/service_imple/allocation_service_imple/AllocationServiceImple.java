@@ -82,6 +82,8 @@ public class AllocationServiceImple implements AllocationService {
                     );
                 }
             }
+            // 🔹 Validate overlapping allocation capacity
+            validateResourceCapacity(allocationRequest);
 
             // Create allocation entity
             ResourceAllocation allocation = new ResourceAllocation();
@@ -155,6 +157,7 @@ public class AllocationServiceImple implements AllocationService {
             allocation.setAllocationEndDate(allocationRequest.getAllocationEndDate());
             allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
             allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
+            validateResourceCapacityForUpdate(allocationId, allocationRequest);
 
             ResourceAllocation updatedAllocation = allocationRepository.save(allocation);
             
@@ -720,6 +723,60 @@ public class AllocationServiceImple implements AllocationService {
         }
 
         return RiskEvaluator.aggregateRisk(mandatoryGapRisk, partialRisk, recencyRisk);
+    }
+
+    private void validateResourceCapacity(AllocationRequestDTO request) {
+
+        List<ResourceAllocation> conflictingAllocations =
+                allocationRepository.findConflictingAllocations(
+                        request.getResourceId(),
+                        request.getAllocationStartDate(),
+                        request.getAllocationEndDate()
+                );
+
+        int existingAllocation = conflictingAllocations.stream()
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+
+        int newAllocation = request.getAllocationPercentage();
+
+        int total = existingAllocation + newAllocation;
+
+        if (total > 100) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVER_ALLOCATION",
+                    "Allocation exceeds resource capacity. Existing: "
+                            + existingAllocation + "% , Requested: "
+                            + newAllocation + "% , Total: " + total + "%"
+            );
+        }
+    }
+
+    private void validateResourceCapacityForUpdate(UUID allocationId, AllocationRequestDTO request) {
+
+        List<ResourceAllocation> conflictingAllocations =
+                allocationRepository.findConflictingAllocations(
+                        request.getResourceId(),
+                        request.getAllocationStartDate(),
+                        request.getAllocationEndDate()
+                );
+
+        int existingAllocation = conflictingAllocations.stream()
+                .filter(a -> !a.getAllocationId().equals(allocationId))
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+
+        int newAllocation = request.getAllocationPercentage();
+
+        if (existingAllocation + newAllocation > 100) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVER_ALLOCATION",
+                    "Updating allocation exceeds resource capacity"
+            );
+        }
     }
 
     /**
