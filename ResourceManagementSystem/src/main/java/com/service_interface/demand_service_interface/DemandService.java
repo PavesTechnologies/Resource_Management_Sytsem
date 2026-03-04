@@ -22,6 +22,8 @@ public interface DemandService {
     ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerId(Long resourceManagerId);
     ResponseEntity<ApiResponse<?>> getDemandsByCreatedBy(Long createdBy);
     ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long createdBy, Long projectId);
+
+    ResponseEntity<ApiResponse<?>> deleteDemand(UUID demandId, UserDTO userDTO);
     
     // Conflict resolution method
     ResponseEntity<ApiResponse<?>> resolveDemandConflicts(Long projectId);
