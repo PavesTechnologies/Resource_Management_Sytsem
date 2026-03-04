@@ -41,9 +41,17 @@ public class DemandController {
     }
 
     @PutMapping("/update")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody UpdateDemandDTO dto) {
         return demandService.updateDemand(dto);
+    }
+
+    @DeleteMapping("/delete/{demandId}")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> deleteDemand(
+            @PathVariable UUID demandId,
+            @CurrentUser UserDTO userDTO) {
+        return demandService.deleteDemand(demandId, userDTO);
     }
 
 
