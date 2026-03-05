@@ -11,4 +11,5 @@ public interface ResourceService {
     ResponseEntity<ApiResponse<?>> updateResource(Resource resource);
     ResponseEntity<ApiResponse<?>> deleteResource(Long resourceId);
     ResponseEntity<?> getAllResources();
+    ResponseEntity<?> getResources();
 }

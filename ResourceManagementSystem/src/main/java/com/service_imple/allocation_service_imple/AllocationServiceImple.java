@@ -1,5 +1,6 @@
 package com.service_imple.allocation_service_imple;
 
+import com.dto.allocation_dto.AllocationFailure;
 import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.allocation_dto.AllocationResponseDTO;
 import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
@@ -12,6 +13,8 @@ import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.allocation_entities.AllocationConflict;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
+import com.entity.project_entities.Project;
+import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.*;
 import com.entity.client_entities.Client;
 import com.entity.resource_entities.Resource;
@@ -19,6 +22,7 @@ import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.ClientTier;
 import com.entity_enums.demand_enums.DemandCommitment;
+import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationConflictRepository;
 import com.repo.allocation_repo.AllocationRepository;
@@ -125,14 +129,16 @@ public class AllocationServiceImple implements AllocationService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> assignAllocation(AllocationRequestDTO allocationRequest) {
-        try {
-            // Validate resource exists
-            if (!resourceRepository.existsById(allocationRequest.getResourceId())) {
-                return ResponseEntity.badRequest().body(
-                    new ApiResponse<>(false, "Resource not found with ID: " + allocationRequest.getResourceId(), null)
-                );
-            }
 
+        List<ResourceAllocation> validAllocations = new ArrayList<>();
+        List<AllocationFailure> failures = new ArrayList<>();
+
+        try {
+
+            Demand demand = null;
+            Project project = null;
+
+            // Validate Demand / Project once
             // Step 2: Detect priority conflicts BEFORE creating allocation
             ConflictDetectionResult conflictResult = detectPriorityConflicts(allocationRequest);
 
@@ -155,28 +161,111 @@ public class AllocationServiceImple implements AllocationService {
 
             // Step 4: Validate demand or project exists
             if (allocationRequest.getDemandId() != null) {
-                Demand demand =demandRepository.findById(allocationRequest.getDemandId()).get();
-                if ( demand == null) {
+
+                Optional<Demand> demandOpt = demandRepository.findById(allocationRequest.getDemandId());
+
+                if (demandOpt.isEmpty()) {
                     return ResponseEntity.badRequest().body(
-                        new ApiResponse<>(false, "Demand not found with ID: " + allocationRequest.getDemandId(), null)
+                            new ApiResponse<>(false, "Demand not found", null)
                     );
                 }
-                if(demand.getDemandCommitment().equals(DemandCommitment.SOFT))
-                {
+
+                demand = demandOpt.get();
+
+                if (demand.getDemandCommitment().equals(DemandCommitment.SOFT)) {
                     return ResponseEntity.badRequest().body(
-                        new ApiResponse<>(false, "Demand Commitment is Soft allocation not allowed", null)
+                            new ApiResponse<>(false, "Demand Commitment is SOFT. Allocation not allowed.", null)
                     );
                 }
+                if(demand.getDemandStatus()!= DemandStatus.APPROVED) {
+                    return ResponseEntity.badRequest().body(
+                            new ApiResponse<>(false, "Demand Status is not APPROVED. Allocation not allowed.", null)
+                    );
+                }
+
             } else if (allocationRequest.getProjectId() != null) {
-                if (!projectRepository.existsById(allocationRequest.getProjectId())) {
+
+                Optional<Project> projectOpt = projectRepository.findById(allocationRequest.getProjectId());
+
+                if (projectOpt.isEmpty()) {
                     return ResponseEntity.badRequest().body(
-                        new ApiResponse<>(false, "Project not found with ID: " + allocationRequest.getProjectId(), null)
+                            new ApiResponse<>(false, "Project not found", null)
                     );
                 }
+
+                project = projectOpt.get();
             }
             // 🔹 Validate overlapping allocation capacity
             validateResourceCapacity(allocationRequest);
 
+            // 🔹 Process each resource
+            for (Long resourceId : allocationRequest.getResourceId()) {
+
+                try {
+
+                    Optional<Resource> resourceOpt = resourceRepository.findById(resourceId);
+
+                    if (resourceOpt.isEmpty()) {
+                        failures.add(new AllocationFailure(resourceId, "Resource not found"));
+                        continue;
+                    }
+
+                    Resource resource = resourceOpt.get();
+
+                    // Validate skills if demand exists
+                    if (demand != null) {
+                        validateAllocationRequirements(resourceId, demand);
+                    }
+
+                    ResourceAllocation allocation = new ResourceAllocation();
+
+                    allocation.setAllocationId(UUID.randomUUID());
+                    allocation.setResource(resource);
+                    allocation.setDemand(demand);
+                    allocation.setProject(project);
+                    allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
+                    allocation.setAllocationEndDate(allocationRequest.getAllocationEndDate());
+                    allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
+                    allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
+                    allocation.setCreatedBy(allocationRequest.getCreatedBy());
+                    allocation.setCreatedAt(LocalDateTime.now());
+
+                    validAllocations.add(allocation);
+
+                } catch (Exception e) {
+
+                    failures.add(new AllocationFailure(resourceId, e.getMessage()));
+                }
+            }
+
+            // 🔹 Save valid allocations
+            List<ResourceAllocation> savedAllocations = allocationRepository.saveAll(validAllocations);
+
+            for (ResourceAllocation allocation : savedAllocations) {
+                updateAvailabilityLedgerForAllocation(allocation);
+            }
+
+            int successCount = savedAllocations.size();
+            int failureCount = failures.size();
+
+            String message;
+
+            if (failureCount == 0) {
+                message = "Allocation Successful";
+            } else if (successCount == 0) {
+                message = "Allocation Failed";
+            } else {
+                message = "Allocation Partially Successful";
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("successCount", successCount);
+            response.put("failureCount", failureCount);
+            response.put("savedAllocations", savedAllocations);
+            response.put("failedResources", failures);
+
+            return ResponseEntity.ok(
+                    new ApiResponse<>(true, message, response)
             // Step 5: Create allocation entity
             ResourceAllocation allocation = new ResourceAllocation();
             allocation.setAllocationId(UUID.randomUUID());
@@ -217,8 +306,9 @@ public class AllocationServiceImple implements AllocationService {
             );
 
         } catch (Exception e) {
-                        return ResponseEntity.internalServerError().body(
-                new ApiResponse<>(false, "Error creating allocation: " + e.getMessage(), null)
+
+            return ResponseEntity.internalServerError().body(
+                    new ApiResponse<>(false, "Error creating allocation: " + e.getMessage(), null)
             );
         }
     }

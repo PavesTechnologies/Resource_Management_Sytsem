@@ -17,20 +17,18 @@ public class AllocationService {
     @Transactional
     public String allocate(AllocationRequestDTO dto) {
 
-        // 🔴 FINAL GOVERNANCE GATE
-        AllocationValidationRequestDTO validationDto = mapToValidationRequest(dto);
-        ruleEngine.validateAllocation(validationDto);
+        // 🔴 FINAL GOVERNANCE GATE - Validate all resources
+        for (Long resourceId : dto.getResourceId()) {
+            AllocationValidationRequestDTO validationDto = new AllocationValidationRequestDTO(
+                resourceId,
+                null, // skillRequirements - needs to be populated based on demand/project
+                null  // requiredCertificationSkillIds - needs to be populated based on demand/project
+            );
+            ruleEngine.validateAllocation(validationDto);
+        }
 
         allocationRepository.save(new ResourceAllocation());
 
         return "Allocation successful";
-    }
-
-    private AllocationValidationRequestDTO mapToValidationRequest(AllocationRequestDTO dto) {
-        return new AllocationValidationRequestDTO(
-            dto.getResourceId(),
-            null, // skillRequirements - needs to be populated based on demand/project
-            null  // requiredCertificationSkillIds - needs to be populated based on demand/project
-        );
     }
 }
