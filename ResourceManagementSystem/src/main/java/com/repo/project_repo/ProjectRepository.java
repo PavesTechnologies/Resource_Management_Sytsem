@@ -103,4 +103,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 
     @Query("SELECT DISTINCT p.primaryLocation FROM Project p WHERE p.projectStatus = :status")
     List<String> findDistinctPrimaryLocationByStatus(@Param("status") ProjectStatus status);
+
+    // Delivery Manager related queries
+    List<Project> findByDeliveryOwnerId(Long deliveryOwnerId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.deliveryOwnerId = :deliveryOwnerId")
+    Long countProjectsByDeliveryOwnerId(@Param("deliveryOwnerId") Long deliveryOwnerId);
 }
