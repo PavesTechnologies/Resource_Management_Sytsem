@@ -2,6 +2,7 @@ package com.service_imple.resource_service_impl;
 
 import com.dto.ApiResponse;
 import com.dto.resource.ResourceFiltersDTO;
+import com.dto.resource.ResourceNameDTO;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.project_enums.ProjectStatus;
@@ -24,6 +25,7 @@ import java.time.Year;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class ResourceServiceImpl implements ResourceService {
@@ -300,5 +302,13 @@ public class ResourceServiceImpl implements ResourceService {
         List<String> projectNames = projectRepo.findProjectNamesExceptStatus(ProjectStatus.COMPLETED);
         ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, workforceCategories, uniqueDesignations, maxExperience, projectNames);
         return ResponseEntity.ok(new ApiResponse<>(true, "Resource Filters retrieved successfully", dto));
+    }
+
+    @Override
+    public ResponseEntity<?> getResources() {
+        List<ResourceNameDTO> resources = resourceRepository.findAll().stream()
+                .map(resource -> new ResourceNameDTO(resource.getFullName(), resource.getResourceId(), resource.getDesignation()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrieved successfully", resources));
     }
 }

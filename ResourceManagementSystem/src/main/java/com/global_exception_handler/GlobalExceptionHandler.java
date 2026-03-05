@@ -160,4 +160,13 @@ public class GlobalExceptionHandler{
         return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
     }
 
+    @ExceptionHandler(AllocationExceptionHandler.class)
+    public ResponseEntity<ApiResponse> handleResourceAllocationException(AllocationExceptionHandler e) {
+        ApiResponse apiResponse = new ApiResponse();
+        apiResponse.setSuccess(false);
+        apiResponse.setMessage(e.getMessage());
+        apiResponse.setData(null);
+        return ResponseEntity.badRequest().body(apiResponse);
+    }
+
 }

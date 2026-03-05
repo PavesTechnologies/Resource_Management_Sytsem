@@ -52,4 +52,10 @@ public class ResourceController {
     public ResponseEntity<?> getAllResourcesFilters() {
         return resourceService.getAllResources();
     }
+
+    @GetMapping("/get-all-resources")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN', 'PROJECT-MANAGER','HR-MANAGER')")
+    public ResponseEntity<?> getAllResources() {
+        return resourceService.getResources();
+    }
 }

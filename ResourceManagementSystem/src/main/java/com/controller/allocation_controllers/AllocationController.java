@@ -2,6 +2,8 @@ package com.controller.allocation_controllers;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.ApiResponse;
+import com.dto.UserDTO;
+import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.AllocationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,9 +25,9 @@ public class AllocationController {
     @PostMapping("/assign")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<?>> assignAllocation(
-            @Valid @RequestBody AllocationRequestDTO allocationRequest) {
+            @Valid @RequestBody AllocationRequestDTO allocationRequest, @CurrentUser UserDTO user) {
         
-                
+                allocationRequest.setCreatedBy(user.getName());
         return allocationService.assignAllocation(allocationRequest);
     }
 
