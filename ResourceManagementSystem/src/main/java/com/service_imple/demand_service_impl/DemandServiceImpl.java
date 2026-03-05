@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.entity_enums.demand_enums.DemandCommitment.SOFT;
 
@@ -1730,5 +1731,214 @@ public class DemandServiceImpl implements DemandService {
                     HttpStatus.INTERNAL_SERVER_ERROR
             );
         }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<DemandKpiDTO>> getDeliveryManagerKpi(UserDTO userDTO) {
+        try {
+            if (userDTO == null || userDTO.getId() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "USER_REQUIRED",
+                        "User information is required from authentication token"
+                );
+            }
+
+            Long deliveryManagerId = userDTO.getId();
+
+            // Get all projects for the delivery manager
+            List<Project> projects = projectRepository.findByDeliveryOwnerId(deliveryManagerId);
+
+            // Get all demands for these projects
+            List<Demand> allDemands = new ArrayList<>();
+            for (Project project : projects) {
+                List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(project.getPmsProjectId());
+                allDemands.addAll(projectDemands);
+            }
+
+            // Calculate KPI
+            DemandKpiDTO kpi = calculateDemandKpi(allDemands);
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Delivery Manager KPI retrieved successfully", kpi)
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve delivery manager KPI: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(UserDTO userDTO) {
+        try {
+            if (userDTO == null || userDTO.getId() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "USER_REQUIRED",
+                        "User information is required from authentication token"
+                );
+            }
+
+            Long deliveryManagerId = userDTO.getId();
+
+            // Get all projects for the delivery manager
+            List<Project> projects = projectRepository.findByDeliveryOwnerId(deliveryManagerId);
+            
+            if (projects.isEmpty()) {
+                return ResponseEntity.ok(
+                        ApiResponse.success("No projects found for this delivery manager", new ArrayList<>())
+                );
+            }
+
+            // Build flat list of all demands across all projects
+            List<DeliveryManagerDemandDTO> allDemands = new ArrayList<>();
+            LocalDate today = LocalDate.now();
+            
+            for (Project project : projects) {
+                List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(project.getPmsProjectId());
+                
+                for (Demand demand : projectDemands) {
+                    Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                    
+                    DeliveryManagerDemandDTO.DeliveryManagerDemandDTOBuilder demandBuilder = 
+                            DeliveryManagerDemandDTO.builder()
+                                    .clientId(project.getClientId())
+                                    .clientName(project.getClient() != null ? project.getClient().getClientName() : "Unknown Client")
+                                    .projectId(project.getPmsProjectId())
+                                    .projectName(project.getName())
+                                    .demandId(demand.getDemandId())
+                                    .demandName(demand.getDemandName())
+                                    .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
+                                    .priorityScore(calculatePriorityScore(demand))
+                                    .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
+                                    .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
+                                    .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN");
+                    
+                    // Add SLA details if present
+                    if (demandSLAOpt.isPresent()) {
+                        DemandSLA demandSLA = demandSLAOpt.get();
+                        
+                        demandBuilder
+                                .demandSlaId(demandSLA.getDemandSlaId())
+                                .slaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN")
+                                .slaDurationDays(demandSLA.getSlaDurationDays())
+                                .warningThresholdDays(demandSLA.getWarningThresholdDays())
+                                .slaCreatedAt(demandSLA.getCreatedAt())
+                                .slaDueAt(demandSLA.getDueAt())
+                                .slaBreached(false)
+                                .remainingDays(0)
+                                .overdueDays(0);
+                        
+                        // Calculate SLA status
+                        if (demandSLA.getDueAt() != null) {
+                            if (today.isAfter(demandSLA.getDueAt())) {
+                                demandBuilder
+                                        .slaBreached(true)
+                                        .overdueDays((int) ChronoUnit.DAYS.between(demandSLA.getDueAt(), today))
+                                        .remainingDays(0);
+                            } else {
+                                demandBuilder
+                                        .slaBreached(false)
+                                        .remainingDays((int) ChronoUnit.DAYS.between(today, demandSLA.getDueAt()))
+                                        .overdueDays(0);
+                            }
+                        }
+                    } else {
+                        // No SLA - set default values
+                        demandBuilder
+                                .demandSlaId(null)
+                                .slaType(null)
+                                .slaDurationDays(null)
+                                .warningThresholdDays(null)
+                                .slaCreatedAt(null)
+                                .slaDueAt(null)
+                                .slaBreached(false)
+                                .remainingDays(0)
+                                .overdueDays(0);
+                    }
+                    
+                    allDemands.add(demandBuilder.build());
+                }
+            }
+
+            return ResponseEntity.ok(
+                    ApiResponse.success("Demands retrieved successfully", allDemands)
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve delivery manager demand details: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+
+    private DemandKpiDTO calculateDemandKpi(List<Demand> demands) {
+        DemandKpiDTO kpi = DemandKpiDTO.builder()
+                .active(0L)
+                .soft(0L)
+                .pending(0L)
+                .approved(0L)
+                .slaAtRisk(0L)
+                .slaBreached(0L)
+                .build();
+
+        LocalDate today = LocalDate.now();
+
+        for (Demand demand : demands) {
+            DemandStatus status = demand.getDemandStatus();
+            DemandCommitment commitment = demand.getDemandCommitment();
+
+            if (status == null) continue;
+
+            // Status counts
+            switch (status) {
+                case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
+                case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
+                case REJECTED -> kpi.setPending(kpi.getPending() + 1);
+                default -> { /* CANCELLED & others ignored */ }
+            }
+
+            // Active demands
+            if ((status == DemandStatus.REQUESTED || status == DemandStatus.APPROVED)
+                    && commitment == DemandCommitment.CONFIRMED) {
+                kpi.setActive(kpi.getActive() + 1);
+            }
+
+            // Soft commitments
+            if (commitment == DemandCommitment.SOFT) {
+                kpi.setSoft(kpi.getSoft() + 1);
+            }
+
+            // SLA calculations
+            demandSLARepository
+                    .findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId())
+                    .ifPresent(sla -> {
+                        LocalDate dueAt = sla.getDueAt();
+                        if (dueAt == null) return;
+
+                        if (today.isAfter(dueAt)) {
+                            kpi.setSlaBreached(kpi.getSlaBreached() + 1);
+                            return;
+                        }
+
+                        Integer threshold = sla.getWarningThresholdDays();
+                        if (threshold != null) {
+                            long daysRemaining = ChronoUnit.DAYS.between(today, dueAt);
+                            if (daysRemaining <= threshold) {
+                                kpi.setSlaAtRisk(kpi.getSlaAtRisk() + 1);
+                            }
+                        }
+                    });
+        }
+
+        return kpi;
     }
 }
