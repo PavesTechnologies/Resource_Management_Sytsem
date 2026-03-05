@@ -128,6 +128,7 @@ public class AllocationServiceImple implements AllocationService {
                 }
 
                 demand = demandOpt.get();
+                project = demand.getProject();
 
                 if (demand.getDemandCommitment().equals(DemandCommitment.SOFT)) {
                     return ResponseEntity.badRequest().body(
@@ -151,9 +152,10 @@ public class AllocationServiceImple implements AllocationService {
                 }
 
                 project = projectOpt.get();
-            } else if (allocationRequest.getProjectId() == null) {
-                project = demand.getProject();
             }
+
+
+
 
             // 🔹 Process each resource
             for (Long resourceId : allocationRequest.getResourceId()) {
@@ -857,21 +859,23 @@ public class AllocationServiceImple implements AllocationService {
         dto.setAllocationId(allocation.getAllocationId());
 
         if (allocation.getResource() != null) {
-            dto.setResourceId(allocation.getResource().getResourceId());
+            dto.setFullName(allocation.getResource().getFullName());
+            dto.setEmail(allocation.getResource().getEmail());
         }
 
         if (allocation.getDemand() != null) {
-            dto.setDemandId(allocation.getDemand().getDemandId());
+            dto.setDemandName(allocation.getDemand().getDemandName());
         }
 
-        if (allocation.getProject() != null) {
-            dto.setProjectId(allocation.getProject().getPmsProjectId());
-        }
+//        if (allocation.getProject() != null) {
+//            dto.setProjectId(allocation.getProject().getPmsProjectId());
+//        }
 
         dto.setAllocationStartDate(allocation.getAllocationStartDate());
         dto.setAllocationEndDate(allocation.getAllocationEndDate());
         dto.setAllocationPercentage(allocation.getAllocationPercentage());
         dto.setAllocationStatus(allocation.getAllocationStatus().name());
+        dto.setCreatedBy(allocation.getCreatedBy());
 
         return dto;
     }
