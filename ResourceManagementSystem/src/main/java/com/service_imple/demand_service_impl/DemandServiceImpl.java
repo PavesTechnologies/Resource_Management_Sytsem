@@ -197,6 +197,82 @@ public class DemandServiceImpl implements DemandService {
             );
         }
     }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> deleteDemand(UUID demandId, UserDTO userDTO) {
+        try {
+            if (demandId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DEMAND_ID_REQUIRED",
+                        "Demand ID is required"
+                );
+            }
+
+            if (userDTO == null || userDTO.getId() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "USER_REQUIRED",
+                        "User information is required"
+                );
+            }
+
+            Demand demand = demandRepository.findById(demandId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "DEMAND_NOT_FOUND",
+                            "Demand not found"
+                    ));
+
+            if (demand.getProject() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PROJECT_REQUIRED",
+                        "Demand project information is missing"
+                );
+            }
+
+            Long projectManagerId = demand.getProject().getProjectManagerId();
+            if (projectManagerId == null || !projectManagerId.equals(userDTO.getId())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.FORBIDDEN,
+                        "ACCESS_DENIED",
+                        "Only the Project Manager of this project can delete this demand"
+                );
+            }
+
+            if (demand.getDemandStatus() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Demand status is missing"
+                );
+            }
+
+            if (demand.getDemandStatus() != DemandStatus.DRAFT &&
+                    demand.getDemandStatus() != DemandStatus.REQUESTED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Only DRAFT or REQUESTED demands can be deleted"
+                );
+            }
+
+            demandSLARepository.deactivateByDemandId(demandId);
+            demandRepository.delete(demand);
+
+            return ResponseEntity.ok(ApiResponse.success("Demand deleted successfully", demandId));
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to delete demand: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
     
     private String formatConflictDetails(List<DemandConflictValidationDTO.ConflictDetail> conflicts) {
         StringBuilder sb = new StringBuilder();
@@ -229,6 +305,15 @@ public class DemandServiceImpl implements DemandService {
                 ));
 
         DemandType old = existing.getDemandType();
+
+        // 🚫 Hard restriction: approved demands cannot be modified
+        if (existing.getDemandStatus() == DemandStatus.APPROVED) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Approved demands cannot be modified"
+            );
+        }
 
 
         // Date validation
@@ -307,6 +392,11 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDeliveryModel() != null)
             existing.setDeliveryModel(dto.getDeliveryModel());
 
+        // Demand type update (if provided)
+        if (dto.getDemandType() != null && !dto.getDemandType().equals(existing.getDemandType())) {
+            existing.setDemandType(dto.getDemandType());
+        }
+
         // 🔥 GOVERNANCE RULE
         if (criticalChanged &&
                 existing.getDemandStatus() == DemandStatus.APPROVED) {
@@ -330,7 +420,31 @@ public class DemandServiceImpl implements DemandService {
             }
         }
 
-        if (!old.equals(dto.getDemandType())) {
+        // Validate resulting dates are within project date range (final state validation)
+        Project project = existing.getProject();
+        if (project != null && project.getStartDate() != null && project.getEndDate() != null) {
+            LocalDate projectStart = project.getStartDate().toLocalDate();
+            LocalDate projectEnd = project.getEndDate().toLocalDate();
+            if (existing.getDemandStartDate() != null && existing.getDemandStartDate().isBefore(projectStart)) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_DATE_RANGE",
+                        "Demand start date must be within project date range"
+                );
+            }
+            if (existing.getDemandEndDate() != null && existing.getDemandEndDate().isAfter(projectEnd)) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_DATE_RANGE",
+                        "Demand end date must be within project date range"
+                );
+            }
+        }
+
+        // Validate demand type rules based on resulting entity state
+        validateDemandTypeRules(existing);
+
+        if (dto.getDemandType() != null && !old.equals(dto.getDemandType())) {
             remapSla(existing);
         }
 
