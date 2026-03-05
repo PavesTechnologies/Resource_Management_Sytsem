@@ -1,6 +1,7 @@
 package com.service_imple.allocation_service_imple;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
+import com.dto.allocation_dto.AllocationResponseDTO;
 import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
 import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.dto.ApiResponse;
@@ -109,10 +110,12 @@ public class AllocationServiceImple implements AllocationService {
             
             // Update availability ledger for the allocation period
             updateAvailabilityLedgerForAllocation(savedAllocation);
-            
-            
+
+
+            AllocationResponseDTO response = mapToResponseDTO(savedAllocation);
+
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation created successfully", savedAllocation)
+                    new ApiResponse<>(true, "Allocation created successfully", response)
             );
 
         } catch (Exception e) {
@@ -126,10 +129,10 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationById(UUID allocationId) {
         try {
             Optional<ResourceAllocation> allocation = allocationRepository.findById(allocationId);
-            
+            AllocationResponseDTO response = mapToResponseDTO(allocation.get());
             if (allocation.isPresent()) {
                 return ResponseEntity.ok(
-                    new ApiResponse<>(true, "Allocation found", allocation.get())
+                        new ApiResponse<>(true, "Allocation found", response)
                 );
             } else {
                 return ResponseEntity.notFound().build();
@@ -163,10 +166,10 @@ public class AllocationServiceImple implements AllocationService {
             
             // Update availability ledger for the modified allocation period
             updateAvailabilityLedgerForAllocation(updatedAllocation);
-            
-            
+
+            AllocationResponseDTO response = mapToResponseDTO(updatedAllocation);
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation updated successfully", updatedAllocation)
+                    new ApiResponse<>(true, "Allocation updated successfully", response)
             );
 
         } catch (Exception e) {
@@ -192,10 +195,10 @@ public class AllocationServiceImple implements AllocationService {
             
             // Update availability ledger to reflect cancellation
             updateAvailabilityLedgerForAllocation(cancelledAllocation);
-            
-            
+
+            AllocationResponseDTO response = mapToResponseDTO(cancelledAllocation);
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation cancelled successfully", cancelledAllocation)
+                    new ApiResponse<>(true, "Allocation cancelled successfully", response)
             );
 
         } catch (Exception e) {
@@ -209,9 +212,11 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationsByResource(Long resourceId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByResource_ResourceId(resourceId);
-            
+            List<AllocationResponseDTO> response = allocations.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocations retrieved successfully", allocations)
+                new ApiResponse<>(true, "Allocations retrieved successfully", response)
             );
 
         } catch (Exception e) {
@@ -225,9 +230,11 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demandId);
-            
+            List<AllocationResponseDTO> response = allocations.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocations retrieved successfully", allocations)
+                new ApiResponse<>(true, "Allocations retrieved successfully", response)
             );
 
         } catch (Exception e) {
@@ -241,9 +248,11 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByProject_PmsProjectId(projectId);
-            
+            List<AllocationResponseDTO> response = allocations.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocations retrieved successfully", allocations)
+                new ApiResponse<>(true, "Allocations retrieved successfully", response)
             );
 
         } catch (Exception e) {
@@ -777,6 +786,31 @@ public class AllocationServiceImple implements AllocationService {
                     "Updating allocation exceeds resource capacity"
             );
         }
+    }
+    private AllocationResponseDTO mapToResponseDTO(ResourceAllocation allocation) {
+
+        AllocationResponseDTO dto = new AllocationResponseDTO();
+
+        dto.setAllocationId(allocation.getAllocationId());
+
+        if (allocation.getResource() != null) {
+            dto.setResourceId(allocation.getResource().getResourceId());
+        }
+
+        if (allocation.getDemand() != null) {
+            dto.setDemandId(allocation.getDemand().getDemandId());
+        }
+
+        if (allocation.getProject() != null) {
+            dto.setProjectId(allocation.getProject().getPmsProjectId());
+        }
+
+        dto.setAllocationStartDate(allocation.getAllocationStartDate());
+        dto.setAllocationEndDate(allocation.getAllocationEndDate());
+        dto.setAllocationPercentage(allocation.getAllocationPercentage());
+        dto.setAllocationStatus(allocation.getAllocationStatus().name());
+
+        return dto;
     }
 
     /**
