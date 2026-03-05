@@ -5,6 +5,7 @@ import com.entity_enums.resource_enums.EmploymentType;
 import com.entity_enums.resource_enums.WorkforceCategory;
 import com.entity_enums.resource_enums.WorkingMode;
 import com.security.CurrentUser;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "resource")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class Resource {
 
     @Id
