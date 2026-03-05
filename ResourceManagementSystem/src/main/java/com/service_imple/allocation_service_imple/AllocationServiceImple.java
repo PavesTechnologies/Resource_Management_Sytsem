@@ -69,65 +69,43 @@ public class AllocationServiceImple implements AllocationService {
     private final AllocationConflictRepository conflictRepository;
     private final ClientRepo clientRepo;
 
-    /**
-     * Validates allocation capacity to prevent over-allocation (>100%)
-     * Triggers high-severity alert if over-allocation is detected
-     */
-    private void validateAllocationCapacity(Long resourceId, LocalDate startDate, LocalDate endDate, Integer newAllocationPercentage) {
-        // Check each day in the allocation period for over-allocation
-        LocalDate currentDate = startDate;
-        while (!currentDate.isAfter(endDate)) {
-            List<ResourceAllocation> activeAllocations = allocationRepository
-                .findActiveAllocationsForResourceOnDate(resourceId, currentDate);
+    private void validateResourceCapacity(AllocationRequestDTO request) {
+        validateResourceCapacityInternal(null, request);
+    }
 
-            // Calculate current total allocation for this date
-            int currentTotalAllocation = activeAllocations.stream()
+    private void validateResourceCapacityForUpdate(UUID allocationId, AllocationRequestDTO request) {
+        validateResourceCapacityInternal(allocationId, request);
+    }
+
+    private void validateResourceCapacityInternal(UUID excludeAllocationId, AllocationRequestDTO request) {
+        List<ResourceAllocation> conflictingAllocations =
+                allocationRepository.findConflictingAllocationsForResources(
+                        request.getResourceId(),
+                        request.getAllocationStartDate(),
+                        request.getAllocationEndDate()
+                );
+
+        int existingAllocation = conflictingAllocations.stream()
+                .filter(a -> excludeAllocationId == null || !a.getAllocationId().equals(excludeAllocationId))
                 .mapToInt(ResourceAllocation::getAllocationPercentage)
                 .sum();
 
-            // Add the new allocation to check if it would exceed 100%
-            int projectedTotalAllocation = currentTotalAllocation + newAllocationPercentage;
+        int newAllocation = request.getAllocationPercentage();
+        int total = existingAllocation + newAllocation;
 
-            if (projectedTotalAllocation > 100) {
-                // Trigger high-severity alert for over-allocation
-                triggerOverAllocationAlert(resourceId, currentDate, currentTotalAllocation,
-                                         newAllocationPercentage, projectedTotalAllocation);
-
-                throw new ProjectExceptionHandler(
+        if (total > 100) {
+            throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
-                    "OVER_ALLOCATION_DETECTED",
-                    String.format("Over-allocation detected for resource %d on %s. " +
-                                "Current allocation: %d%%, New allocation: %d%%, " +
-                                "Projected total: %d%% (exceeds 100%% capacity)",
-                                resourceId, currentDate, currentTotalAllocation,
-                                newAllocationPercentage, projectedTotalAllocation)
-                );
-            }
-            currentDate = currentDate.plusDays(1);
+                    "OVER_ALLOCATION",
+                    (excludeAllocationId == null)
+                            ? ("Allocation exceeds resource capacity. Existing: "
+                            + existingAllocation + "% , Requested: "
+                            + newAllocation + "% , Total: " + total + "%")
+                            : "Updating allocation exceeds resource capacity"
+            );
         }
     }
 
-    /**
-     * Triggers high-severity alert for over-allocation attempts
-     */
-    private void triggerOverAllocationAlert(Long resourceId, LocalDate date, int currentAllocation,
-                                          int newAllocation, int projectedTotal) {
-        log.error("HIGH-SEVERITY ALERT: Over-allocation attempt detected - Resource ID: {}, " +
-                 "Date: {}, Current: {}%%, New: {}%%, Projected Total: {}%%",
-                 resourceId, date, currentAllocation, newAllocation, projectedTotal);
-
-        // Additional alert mechanisms can be added here:
-        // - Email notifications
-        // - SMS alerts
-        // - Dashboard notifications
-        // - Audit logging
-
-        // Log to audit trail for compliance
-        log.warn("AUDIT: Over-allocation prevented - Resource: {}, Date: {}, Attempted allocation: {}%%",
-                resourceId, date, projectedTotal);
-    }
-
-    @Override
     public ResponseEntity<ApiResponse<?>> assignAllocation(AllocationRequestDTO allocationRequest) {
 
         List<ResourceAllocation> validAllocations = new ArrayList<>();
@@ -139,27 +117,6 @@ public class AllocationServiceImple implements AllocationService {
             Project project = null;
 
             // Validate Demand / Project once
-            // Step 2: Detect priority conflicts BEFORE creating allocation
-            ConflictDetectionResult conflictResult = detectPriorityConflicts(allocationRequest);
-
-            if (conflictResult.isHasConflicts()) {
-                log.warn("Priority conflict detected for resource {}: {}",
-                        allocationRequest.getResourceId(), conflictResult.getMessage());
-
-                // Return structured conflict response
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(new ApiResponse<>(false, "Priority conflict detected", conflictResult));
-            }
-
-            // Step 3: Validate allocation capacity to prevent over-allocation
-            validateAllocationCapacity(
-                allocationRequest.getResourceId(),
-                allocationRequest.getAllocationStartDate(),
-                allocationRequest.getAllocationEndDate(),
-                allocationRequest.getAllocationPercentage()
-            );
-
-            // Step 4: Validate demand or project exists
             if (allocationRequest.getDemandId() != null) {
 
                 Optional<Demand> demandOpt = demandRepository.findById(allocationRequest.getDemandId());
@@ -195,13 +152,20 @@ public class AllocationServiceImple implements AllocationService {
 
                 project = projectOpt.get();
             }
-            // 🔹 Validate overlapping allocation capacity
-            validateResourceCapacity(allocationRequest);
 
             // 🔹 Process each resource
             for (Long resourceId : allocationRequest.getResourceId()) {
 
                 try {
+
+                    // Step 2: Detect priority conflicts BEFORE creating allocation
+                    ConflictDetectionResult conflictResult = detectPriorityConflicts(allocationRequest, resourceId);
+
+                    if (conflictResult.isHasConflicts()) {
+
+                        failures.add(new AllocationFailure(resourceId, "Priority conflict detected: " + conflictResult.getMessage()));
+                        continue;
+                    }
 
                     Optional<Resource> resourceOpt = resourceRepository.findById(resourceId);
 
@@ -266,43 +230,6 @@ public class AllocationServiceImple implements AllocationService {
 
             return ResponseEntity.ok(
                     new ApiResponse<>(true, message, response)
-            // Step 5: Create allocation entity
-            ResourceAllocation allocation = new ResourceAllocation();
-            allocation.setAllocationId(UUID.randomUUID());
-            allocation.setResource(resourceRepository.findById(allocationRequest.getResourceId()).orElse(null));
-            allocation.setDemand(allocationRequest.getDemandId() != null ? 
-                demandRepository.findById(allocationRequest.getDemandId()).orElse(null) : null);
-            allocation.setProject(allocationRequest.getProjectId() != null ? 
-                projectRepository.findById(allocationRequest.getProjectId()).orElse(null) : null);
-            allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
-            allocation.setAllocationEndDate(allocationRequest.getAllocationEndDate());
-            allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
-            allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
-            allocation.setCreatedBy(allocationRequest.getCreatedBy());
-            allocation.setCreatedAt(LocalDateTime.now());
-
-            // Step 6: Validate Skills and Certifications if demand exists
-            if (allocation.getDemand() != null) {
-                validateAllocationRequirements(allocationRequest.getResourceId(), allocation.getDemand());
-            }
-
-            ResourceAllocation savedAllocation = allocationRepository.save(allocation);
-            
-            // Step 7: Update availability ledger for the allocation period
-            updateAvailabilityLedgerForAllocation(savedAllocation);
-            
-            // Step 8: Log successful allocation creation
-            log.info("Allocation created successfully: Resource {}, Client {}, Status {}",
-                    allocationRequest.getResourceId(),
-                    getClientNameForAllocation(allocationRequest),
-                    allocationRequest.getAllocationStatus());
-
-
-
-            AllocationResponseDTO response = mapToResponseDTO(savedAllocation);
-
-            return ResponseEntity.ok(
-                    new ApiResponse<>(true, "Allocation created successfully", response)
             );
 
         } catch (Exception e) {
@@ -342,14 +269,6 @@ public class AllocationServiceImple implements AllocationService {
             }
 
             ResourceAllocation allocation = existingAllocation.get();
-            
-            // Validate allocation capacity to prevent over-allocation
-            validateAllocationCapacity(
-                allocation.getResource().getResourceId(),
-                allocationRequest.getAllocationStartDate(),
-                allocationRequest.getAllocationEndDate(),
-                allocationRequest.getAllocationPercentage()
-            );
 
             // Update fields
             allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
@@ -929,60 +848,6 @@ public class AllocationServiceImple implements AllocationService {
 
         return RiskEvaluator.aggregateRisk(mandatoryGapRisk, partialRisk, recencyRisk);
     }
-
-    private void validateResourceCapacity(AllocationRequestDTO request) {
-
-        List<ResourceAllocation> conflictingAllocations =
-                allocationRepository.findConflictingAllocations(
-                        request.getResourceId(),
-                        request.getAllocationStartDate(),
-                        request.getAllocationEndDate()
-                );
-
-        int existingAllocation = conflictingAllocations.stream()
-                .mapToInt(ResourceAllocation::getAllocationPercentage)
-                .sum();
-
-        int newAllocation = request.getAllocationPercentage();
-
-        int total = existingAllocation + newAllocation;
-
-        if (total > 100) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "OVER_ALLOCATION",
-                    "Allocation exceeds resource capacity. Existing: "
-                            + existingAllocation + "% , Requested: "
-                            + newAllocation + "% , Total: " + total + "%"
-            );
-        }
-    }
-
-    private void validateResourceCapacityForUpdate(UUID allocationId, AllocationRequestDTO request) {
-
-        List<ResourceAllocation> conflictingAllocations =
-                allocationRepository.findConflictingAllocations(
-                        request.getResourceId(),
-                        request.getAllocationStartDate(),
-                        request.getAllocationEndDate()
-                );
-
-        int existingAllocation = conflictingAllocations.stream()
-                .filter(a -> !a.getAllocationId().equals(allocationId))
-                .mapToInt(ResourceAllocation::getAllocationPercentage)
-                .sum();
-
-        int newAllocation = request.getAllocationPercentage();
-
-        if (existingAllocation + newAllocation > 100) {
-
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "OVER_ALLOCATION",
-                    "Updating allocation exceeds resource capacity"
-            );
-        }
-    }
     private AllocationResponseDTO mapToResponseDTO(ResourceAllocation allocation) {
 
         AllocationResponseDTO dto = new AllocationResponseDTO();
@@ -1049,6 +914,101 @@ public class AllocationServiceImple implements AllocationService {
         // Cache cleared - next call will reload from database
     }
 
+    @Override
+    public ConflictDetectionResult detectPriorityConflicts(AllocationRequestDTO allocationRequest) {
+        try {
+            List<ConflictDetectionResult.PriorityConflictDetail> allConflicts = new ArrayList<>();
+            List<String> processedResources = new ArrayList<>();
+            List<String> failedResources = new ArrayList<>();
+            
+            // Process each resource in the request
+            for (Long resourceId : allocationRequest.getResourceId()) {
+                try {
+                    // Check if resource exists
+                    if (!resourceRepository.existsById(resourceId)) {
+                        failedResources.add("Resource " + resourceId + " not found");
+                        continue;
+                    }
+                    
+                    // Detect conflicts for this specific resource
+                    ConflictDetectionResult resourceConflictResult = detectPriorityConflicts(allocationRequest, resourceId);
+                    
+                    if (resourceConflictResult.isHasConflicts()) {
+                        allConflicts.addAll(resourceConflictResult.getConflicts());
+                    }
+                    
+                    processedResources.add("Resource " + resourceId + " processed");
+                    
+                } catch (Exception e) {
+                    failedResources.add("Resource " + resourceId + " error: " + e.getMessage());
+                }
+            }
+            
+            // Determine overall result
+            boolean hasConflicts = !allConflicts.isEmpty();
+            boolean hasFailures = !failedResources.isEmpty();
+            
+            // Build comprehensive response
+            ConflictDetectionResult.ConflictDetectionResultBuilder resultBuilder = ConflictDetectionResult.builder()
+                    .hasConflicts(hasConflicts)
+                    .processedResources(processedResources)
+                    .failedResources(failedResources);
+            
+            // Set conflict details if any
+            if (hasConflicts) {
+                resultBuilder
+                    .conflictType("PRIORITY_CONFLICT")
+                    .severity("HIGH")
+                    .conflicts(allConflicts)
+                    .message("Priority conflicts detected for " + allConflicts.size() + " resource(s)");
+            }
+            
+            // Set failure details if any
+            if (hasFailures) {
+                String failureMessage = "Processing failed for " + failedResources.size() + " resource(s)";
+                if (hasConflicts) {
+                    resultBuilder.message(resultBuilder.build().getMessage() + "; " + failureMessage);
+                } else {
+                    resultBuilder
+                        .conflictType("PROCESSING_ERROR")
+                        .severity("MEDIUM")
+                        .message(failureMessage);
+                }
+            }
+            
+            // Success case
+            if (!hasConflicts && !hasFailures) {
+                resultBuilder
+                    .message("All resources processed successfully - no conflicts detected")
+                    .summary("Successfully validated " + processedResources.size() + " resource(s)");
+            }
+            
+            return resultBuilder.build();
+            
+        } catch (Exception e) {
+            // Edge case: Complete system failure
+            return ConflictDetectionResult.builder()
+                    .hasConflicts(true)
+                    .conflictType("SYSTEM_ERROR")
+                    .severity("CRITICAL")
+                    .message("System error during conflict detection: " + e.getMessage())
+                    .conflicts(java.util.List.of(
+                        ConflictDetectionResult.PriorityConflictDetail.builder()
+                            .conflictId(java.util.UUID.randomUUID())
+                            .conflictType("SYSTEM_ERROR")
+                            .severity("CRITICAL")
+                            .message("Unable to process allocation request due to system error")
+                            .recommendedActions(java.util.List.of(
+                                "Please try again later",
+                                "Contact system administrator if problem persists",
+                                "Verify request format and try again"
+                            ))
+                            .build()
+                    ))
+                    .build();
+        }
+    }
+
     /**
      * Clear all skill-related caches
      * Call this when any skill reference data is updated
@@ -1066,40 +1026,15 @@ public class AllocationServiceImple implements AllocationService {
         return resourceSubSkill.getActiveFlag();
     }
 
-    /**
-     * Helper method to get client name from allocation request
-     */
-    private String getClientNameForAllocation(AllocationRequestDTO allocationRequest) {
-        try {
-            if (allocationRequest.getDemandId() != null) {
-                // Fetch demand and get client name
-                Demand demand = demandRepository.findById(allocationRequest.getDemandId()).orElse(null);
-                if (demand != null && demand.getProject() != null) {
-                    return demand.getProject().getClient().getClientName();
-                }
-            } else if (allocationRequest.getProjectId() != null) {
-                // Fetch project and get client name
-                com.entity.project_entities.Project project = projectRepository.findById(allocationRequest.getProjectId()).orElse(null);
-                if (project != null) {
-                    return project.getClient().getClientName();
-                }
-            }
-            return "Unknown Client";
-        } catch (Exception e) {
-            log.warn("Could not get client name for allocation request: {}", e.getMessage());
-            return "Unknown Client";
-        }
-    }
-
     // ==================== CONFLICT DETECTION METHODS ====================
 
     /**
      * Detects priority conflicts for a new allocation request
      */
-    public ConflictDetectionResult detectPriorityConflicts(AllocationRequestDTO allocationRequest) {
+    public ConflictDetectionResult detectPriorityConflicts(AllocationRequestDTO allocationRequest, Long resourceId) {
         try {
-            // Fetch existing allocations for the same resource
-            List<ResourceAllocation> existingAllocations = allocationRepository.findByResource_ResourceId(allocationRequest.getResourceId());
+            // Fetch existing allocations for the specified resource
+            List<ResourceAllocation> existingAllocations = allocationRepository.findByResource_ResourceId(resourceId);
 
             // Filter out ended and cancelled allocations
             List<ResourceAllocation> activeAllocations = existingAllocations.stream()
@@ -1107,28 +1042,79 @@ public class AllocationServiceImple implements AllocationService {
                                        alloc.getAllocationStatus() != AllocationStatus.CANCELLED)
                     .toList();
 
-            // Check for priority conflicts
-            List<ConflictDetectionResult.PriorityConflictDetail> conflicts = new ArrayList<>();
-
+            // Check for priority conflicts - since we process one resource at a time,
+            // we only need to find the FIRST conflict (no need to collect all)
             for (ResourceAllocation existingAlloc : activeAllocations) {
                 if (hasDateOverlap(allocationRequest, existingAlloc)) {
-                    ConflictDetectionResult.PriorityConflictDetail conflict = checkPriorityConflict(allocationRequest, existingAlloc);
-                    if (conflict != null) {
-                        conflicts.add(conflict);
+                    // Inline the checkPriorityConflict logic since we only handle one resource
+                    PriorityLevel newClientPriority = getClientPriority(allocationRequest);
+                    PriorityLevel existingClientPriority = getClientPriority(existingAlloc);
+                    
+                    AllocationStatus newStatus = allocationRequest.getAllocationStatus();
+                    AllocationStatus existingStatus = existingAlloc.getAllocationStatus();
+                    
+                    ClientTier newTier = mapPriorityLevelToClientTier(newClientPriority);
+                    ClientTier existingTier = mapPriorityLevelToClientTier(existingClientPriority);
+                    DemandCommitment newCommitment = mapAllocationStatusToDemandCommitment(newStatus);
+                    DemandCommitment existingCommitment = mapAllocationStatusToDemandCommitment(existingStatus);
+                    
+                    if (isPriorityMismatch(existingTier, existingCommitment, newTier, newCommitment)) {
+                        // Create conflict detail inline
+                        ConflictDetectionResult.AllocationRequestSummary requestSummary =
+                            ConflictDetectionResult.AllocationRequestSummary.builder()
+                                .demandId(allocationRequest.getDemandId())
+                                .projectId(allocationRequest.getProjectId())
+                                .resourceId(allocationRequest.getResourceId().get(0))
+                                .allocationStatus(newStatus.name())
+                                .allocationStartDate(allocationRequest.getAllocationStartDate())
+                                .allocationEndDate(allocationRequest.getAllocationEndDate())
+                                .allocationPercentage(allocationRequest.getAllocationPercentage())
+                                .build();
+                        
+                        ConflictDetectionResult.PriorityConflictDetail conflict = 
+                            ConflictDetectionResult.PriorityConflictDetail.builder()
+                                .conflictId(java.util.UUID.randomUUID())
+                                .resourceId(allocationRequest.getResourceId().get(0))
+                                .resourceName(getResourceName(allocationRequest.getResourceId().get(0)))
+                                .existingAllocationId(existingAlloc.getAllocationId())
+                                .newAllocationRequest(requestSummary)
+                                .conflictType("PRIORITY_CONFLICT")
+                                .severity("HIGH")
+                                .message(String.format(
+                                        "Priority conflict detected: Higher priority client (%s - Tier %s) requesting PLANNED allocation " +
+                                        "while lower priority client (%s - Tier %s) has ACTIVE allocation for resource %s",
+                                        getClientName(allocationRequest), newClientPriority.getDisplayName(),
+                                        getClientName(existingAlloc), existingClientPriority.getDisplayName(),
+                                        getResourceName(allocationRequest.getResourceId().get(0)))
+                                )
+                                .existingClientName(getClientName(existingAlloc))
+                                .existingClientTier(existingClientPriority.getDisplayName())
+                                .existingAllocationType(existingStatus.name())
+                                .newClientName(getClientName(allocationRequest))
+                                .newClientTier(newClientPriority.getDisplayName())
+                                .newAllocationType(newStatus.name())
+                                .recommendedActions(getRecommendedActions())
+                                .build();
+                        
+                        // Return immediately with single conflict since we process one resource at a time
+                        return ConflictDetectionResult.builder()
+                                .hasConflicts(true)
+                                .conflictType("PRIORITY_CONFLICT")
+                                .severity("HIGH")
+                                .conflicts(java.util.List.of(conflict))
+                                .build();
                     }
                 }
             }
 
+            // No conflicts found
             return ConflictDetectionResult.builder()
-                    .hasConflicts(!conflicts.isEmpty())
-                    .conflictType(conflicts.isEmpty() ? null : "PRIORITY_CONFLICT")
-                    .severity(conflicts.isEmpty() ? null : "HIGH")
-                    .conflicts(conflicts)
+                    .hasConflicts(false)
                     .build();
 
         } catch (Exception e) {
             log.error("Error detecting priority conflicts for resource {}: {}",
-                    allocationRequest.getResourceId(), e.getMessage(), e);
+                    resourceId, e.getMessage(), e);
             return ConflictDetectionResult.builder()
                     .hasConflicts(true)
                     .conflictType("DETECTION_ERROR")
@@ -1138,71 +1124,7 @@ public class AllocationServiceImple implements AllocationService {
         }
     }
 
-    /**
-     * Checks if there's a priority conflict between new allocation and existing allocation
-     */
-    private ConflictDetectionResult.PriorityConflictDetail checkPriorityConflict(AllocationRequestDTO newAllocation, ResourceAllocation existingAllocation) {
-        try {
-            // Get client priorities
-            PriorityLevel newClientPriority = getClientPriority(newAllocation);
-            PriorityLevel existingClientPriority = getClientPriority(existingAllocation);
-
-            // Get allocation statuses
-            AllocationStatus newStatus = newAllocation.getAllocationStatus();
-            AllocationStatus existingStatus = existingAllocation.getAllocationStatus();
-
-            // Detect priority conflict:
-            // Existing allocation = ACTIVE (hard allocation) to lower priority client
-            // New allocation = PLANNED (soft allocation) to higher priority client
-            if (existingStatus == AllocationStatus.ACTIVE &&
-                newStatus == AllocationStatus.PLANNED &&
-                newClientPriority.getLevel() < existingClientPriority.getLevel()) {
-
-                // Create AllocationRequestSummary
-                ConflictDetectionResult.AllocationRequestSummary requestSummary =
-                    ConflictDetectionResult.AllocationRequestSummary.builder()
-                        .demandId(newAllocation.getDemandId())
-                        .projectId(newAllocation.getProjectId())
-                        .resourceId(newAllocation.getResourceId())
-                        .allocationStatus(newStatus.name())
-                        .allocationStartDate(newAllocation.getAllocationStartDate())
-                        .allocationEndDate(newAllocation.getAllocationEndDate())
-                        .allocationPercentage(newAllocation.getAllocationPercentage())
-                        .build();
-
-                return ConflictDetectionResult.PriorityConflictDetail.builder()
-                        .conflictId(java.util.UUID.randomUUID())
-                        .resourceId(newAllocation.getResourceId())
-                        .resourceName(getResourceName(newAllocation.getResourceId()))
-                        .existingAllocationId(existingAllocation.getAllocationId())
-                        .newAllocationRequest(requestSummary)
-                        .conflictType("PRIORITY_CONFLICT")
-                        .severity("HIGH")
-                        .message(String.format(
-                                "Priority conflict detected: Higher priority client (%s - Tier %s) requesting PLANNED allocation " +
-                                "while lower priority client (%s - Tier %s) has ACTIVE allocation for resource %s",
-                                getClientName(newAllocation), newClientPriority.getDisplayName(),
-                                getClientName(existingAllocation), existingClientPriority.getDisplayName(),
-                                getResourceName(newAllocation.getResourceId())
-                        ))
-                        .existingClientName(getClientName(existingAllocation))
-                        .existingClientTier(existingClientPriority.getDisplayName())
-                        .existingAllocationType(existingStatus.name())
-                        .newClientName(getClientName(newAllocation))
-                        .newClientTier(newClientPriority.getDisplayName())
-                        .newAllocationType(newStatus.name())
-                        .recommendedActions(getRecommendedActions())
-                        .build();
-            }
-
-            return null; // No conflict
-
-        } catch (Exception e) {
-            log.error("Error checking priority conflict: {}", e.getMessage(), e);
-            return null;
-        }
-    }
-
+    
     /**
      * Checks if new allocation overlaps with existing allocation dates
      */
@@ -1212,7 +1134,7 @@ public class AllocationServiceImple implements AllocationService {
         LocalDate existingStart = existingAllocation.getAllocationStartDate();
         LocalDate existingEnd = existingAllocation.getAllocationEndDate();
 
-        return !newEnd.isBefore(existingStart) && !newStart.isAfter(existingEnd);
+        return overlaps(newStart, newEnd, existingStart, existingEnd);
     }
 
     /**
@@ -1273,6 +1195,41 @@ public class AllocationServiceImple implements AllocationService {
                 "Downgrade or cancel lower-priority ACTIVE allocation",
                 "Override and keep existing allocation"
         );
+    }
+
+    private boolean overlaps(LocalDate start1, LocalDate end1, LocalDate start2, LocalDate end2) {
+        return !end1.isBefore(start2) && !start1.isAfter(end2);
+    }
+
+    private DemandCommitment mapAllocationStatusToDemandCommitment(AllocationStatus status) {
+        if (status == null) {
+            return DemandCommitment.SOFT;
+        }
+        switch (status) {
+            case ACTIVE:
+                return DemandCommitment.CONFIRMED;
+            case PLANNED:
+                return DemandCommitment.SOFT;
+            default:
+                return DemandCommitment.CONFIRMED;
+        }
+    }
+
+    private ClientTier mapPriorityLevelToClientTier(PriorityLevel priorityLevel) {
+        switch (priorityLevel) {
+            case CRITICAL: return ClientTier.TIER_1_PLATINUM;
+            case HIGH: return ClientTier.TIER_2_GOLD;
+            case MEDIUM: return ClientTier.TIER_3_SILVER;
+            case LOW: return ClientTier.TIER_4_BRONZE;
+            default: return ClientTier.TIER_4_BRONZE;
+        }
+    }
+
+    private boolean isPriorityMismatch(ClientTier lowerTier, DemandCommitment lowerCommitment,
+                                       ClientTier higherTier, DemandCommitment higherCommitment) {
+        return lowerTier.isLowerPriorityThan(higherTier)
+                && lowerCommitment == DemandCommitment.CONFIRMED
+                && higherCommitment == DemandCommitment.SOFT;
     }
 
     // ==================== ALLOCATION CONFLICT METHODS ====================
@@ -1372,9 +1329,9 @@ public class AllocationServiceImple implements AllocationService {
         DemandCommitment commitment2 = getDemandCommitment(alloc2);
 
         // Check for priority mismatch: lower priority client with hard allocation vs higher priority client with soft allocation
-        if (tier1.isLowerPriorityThan(tier2) && commitment1 == DemandCommitment.CONFIRMED && commitment2 == DemandCommitment.SOFT) {
+        if (isPriorityMismatch(tier1, commitment1, tier2, commitment2)) {
             return createConflict(alloc1, alloc2, tier1, tier2, commitment1, commitment2);
-        } else if (tier2.isLowerPriorityThan(tier1) && commitment2 == DemandCommitment.CONFIRMED && commitment1 == DemandCommitment.SOFT) {
+        } else if (isPriorityMismatch(tier2, commitment2, tier1, commitment1)) {
             return createConflict(alloc2, alloc1, tier2, tier1, commitment2, commitment1);
         }
 
@@ -1462,25 +1419,18 @@ public class AllocationServiceImple implements AllocationService {
      * Helper methods for allocation conflicts
      */
     private boolean hasDateOverlap(ResourceAllocation alloc1, ResourceAllocation alloc2) {
-        return !alloc1.getAllocationEndDate().isBefore(alloc2.getAllocationStartDate()) &&
-               !alloc2.getAllocationEndDate().isBefore(alloc1.getAllocationStartDate());
+        return overlaps(
+                alloc1.getAllocationStartDate(),
+                alloc1.getAllocationEndDate(),
+                alloc2.getAllocationStartDate(),
+                alloc2.getAllocationEndDate()
+        );
     }
 
     private ClientTier getClientTier(ResourceAllocation allocation) {
         Client client = getClientFromAllocation(allocation);
         // For now, map existing PriorityLevel to ClientTier
         return mapPriorityLevelToClientTier(client.getPriorityLevel());
-    }
-
-    private ClientTier mapPriorityLevelToClientTier(PriorityLevel priorityLevel) {
-        // This is a temporary mapping - in production, Client should have ClientTier field
-        switch (priorityLevel) {
-            case CRITICAL: return ClientTier.TIER_1_PLATINUM;
-            case HIGH: return ClientTier.TIER_2_GOLD;
-            case MEDIUM: return ClientTier.TIER_3_SILVER;
-            case LOW: return ClientTier.TIER_4_BRONZE;
-            default: return ClientTier.TIER_4_BRONZE;
-        }
     }
 
     private ClientTier stringToClientTier(String clientTierStr) {
