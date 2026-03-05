@@ -19,7 +19,10 @@ public class ConflictDetectionResult {
     private String conflictType; // "PRIORITY_CONFLICT", "CAPACITY_CONFLICT", "DETECTION_ERROR"
     private String severity; // "HIGH", "MEDIUM", "LOW"
     private String message;
+    private String summary;
     private List<PriorityConflictDetail> conflicts;
+    private List<String> processedResources;
+    private List<String> failedResources;
     
     @Data
     @NoArgsConstructor
