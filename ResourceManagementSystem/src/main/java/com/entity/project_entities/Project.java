@@ -135,4 +135,8 @@ public class Project {
         this.hasOverlap = hasOverlap;
     }
 
+    public Long getId() {
+        return this.pmsProjectId;
+    }
+
 }

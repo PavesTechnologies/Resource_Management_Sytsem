@@ -1141,9 +1141,29 @@ public class AllocationServiceImple implements AllocationService {
      * Helper methods for conflict detection
      */
     private PriorityLevel getClientPriority(AllocationRequestDTO allocation) {
-        // This would need to be implemented based on your DTO structure
-        // For now, return a default
-        return PriorityLevel.MEDIUM;
+
+        if(allocation.getDemandId()!=null){
+
+            Demand demand = demandRepository
+                    .findById(allocation.getDemandId())
+                    .orElseThrow(() -> new RuntimeException("Demand not found"));
+
+            return demand.getProject()
+                    .getClient()
+                    .getPriorityLevel();
+        }
+
+        if(allocation.getProjectId()!=null){
+
+            Project project = projectRepository
+                    .findById(allocation.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found"));
+
+            return project.getClient()
+                    .getPriorityLevel();
+        }
+
+        return PriorityLevel.LOW;
     }
 
     private PriorityLevel getClientPriority(ResourceAllocation allocation) {

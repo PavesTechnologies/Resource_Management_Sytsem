@@ -1,5 +1,6 @@
 package com.service_imple.allocation_service_imple;
 
+import com.dto.ApiResponse;
 import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.dto.demand_dto.CreateDemandDTO;
 import com.entity.allocation_entities.RoleOffEvent;
@@ -19,6 +20,7 @@ import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -72,9 +74,16 @@ public class RoleOffServiceImpl {
 
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
 
+            if (event.getReplacementStatus() == ReplacementStatus.AUTO_CREATED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "REPLACEMENT_ALREADY_CREATED",
+                        "Replacement demand already exists for this role-off event"
+                );
+            }
+
             createReplacementDemand(event, userId);
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
-
         } else {
 
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
@@ -96,7 +105,7 @@ public class RoleOffServiceImpl {
 
         CreateDemandDTO dto = new CreateDemandDTO();
 
-        dto.setProjectId(event.getProject().getPmsProjectId());
+        dto.setProjectId(event.getProject().getId());
         dto.setDeliveryRole(event.getRole().getId());
         dto.setDemandName("Replacement for " + event.getResource().getFullName());
         dto.setDemandType(DemandType.REPLACEMENT);
@@ -110,7 +119,15 @@ public class RoleOffServiceImpl {
         dto.setMinExp(event.getResource().getExperiance() != null ? event.getResource().getExperiance().intValue() : 0.0);
         dto.setOutgoingResourceId(event.getResource().getResourceId());
 
-        demandService.createDemand(dto, userId);
+        ResponseEntity<ApiResponse<?>> response = demandService.createDemand(dto, userId);
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "REPLACEMENT_DEMAND_FAILED",
+                    "Replacement demand creation failed: " + response.getBody().getMessage()
+            );
+        }
     }
     @Transactional
     public void manualReplacement(Long roleOffEventId, Long userId) {
@@ -118,8 +135,14 @@ public class RoleOffServiceImpl {
         RoleOffEvent event = roleOffRepo.findById(roleOffEventId)
                 .orElseThrow(() -> new RuntimeException("RoleOff not found"));
 
-        if (event.getReplacementStatus() == ReplacementStatus.AUTO_CREATED) {
-            throw new RuntimeException("Replacement already created.");
+        if (event.getReplacementStatus() == ReplacementStatus.AUTO_CREATED ||
+                event.getReplacementStatus() == ReplacementStatus.MANUAL_CREATED_LATER) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "REPLACEMENT_ALREADY_EXISTS",
+                    "Replacement demand already created for this role-off event"
+            );
         }
 
         createReplacementDemand(event, userId);
