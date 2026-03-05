@@ -27,6 +27,15 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("resourceId") Long resourceId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds " +
+           "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
+           "AND ra.allocationStartDate <= :endDate " +
+           "AND ra.allocationEndDate >= :startDate")
+    List<ResourceAllocation> findConflictingAllocationsForResources(
+            @Param("resourceIds") List<Long> resourceIds,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
     
     @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +

@@ -59,6 +59,14 @@ public class RoleOffServiceImpl {
         event.setResource(resource);
         event.setRole(role);
         event.setRoleOffDate(dto.getRoleOffDate());
+        if (project.getEndDate() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "PROJECT_END_DATE_MISSING",
+                    "Project end date must be defined before role off"
+            );
+        }
+
         event.setProjectEndDate(project.getEndDate().toLocalDate());
         event.setCreatedBy(userId);
 
