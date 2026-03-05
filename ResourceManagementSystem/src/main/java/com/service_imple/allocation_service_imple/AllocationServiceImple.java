@@ -1,6 +1,7 @@
 package com.service_imple.allocation_service_imple;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
+import com.dto.allocation_dto.AllocationResponseDTO;
 import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
 import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.dto.allocation_dto.ConflictDetectionResult;
@@ -19,17 +20,15 @@ import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.ClientTier;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.global_exception_handler.ProjectExceptionHandler;
-import com.repo.allocation_repo.AllocationRepository;
 import com.repo.allocation_repo.AllocationConflictRepository;
+import com.repo.allocation_repo.AllocationRepository;
+import com.repo.client_repo.ClientRepo;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.repo.skill_repo.*;
-import com.repo.client_repo.ClientRepo;
 import com.service_interface.allocation_service_interface.AllocationService;
-import com.service_imple.allocation_service_imple.ProficiencyComparator;
-import com.service_imple.allocation_service_imple.RiskEvaluator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -76,51 +75,51 @@ public class AllocationServiceImple implements AllocationService {
         while (!currentDate.isAfter(endDate)) {
             List<ResourceAllocation> activeAllocations = allocationRepository
                 .findActiveAllocationsForResourceOnDate(resourceId, currentDate);
-            
+
             // Calculate current total allocation for this date
             int currentTotalAllocation = activeAllocations.stream()
                 .mapToInt(ResourceAllocation::getAllocationPercentage)
                 .sum();
-            
+
             // Add the new allocation to check if it would exceed 100%
             int projectedTotalAllocation = currentTotalAllocation + newAllocationPercentage;
-            
+
             if (projectedTotalAllocation > 100) {
                 // Trigger high-severity alert for over-allocation
-                triggerOverAllocationAlert(resourceId, currentDate, currentTotalAllocation, 
+                triggerOverAllocationAlert(resourceId, currentDate, currentTotalAllocation,
                                          newAllocationPercentage, projectedTotalAllocation);
-                
+
                 throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "OVER_ALLOCATION_DETECTED",
                     String.format("Over-allocation detected for resource %d on %s. " +
                                 "Current allocation: %d%%, New allocation: %d%%, " +
                                 "Projected total: %d%% (exceeds 100%% capacity)",
-                                resourceId, currentDate, currentTotalAllocation, 
+                                resourceId, currentDate, currentTotalAllocation,
                                 newAllocationPercentage, projectedTotalAllocation)
                 );
             }
             currentDate = currentDate.plusDays(1);
         }
     }
-    
+
     /**
      * Triggers high-severity alert for over-allocation attempts
      */
-    private void triggerOverAllocationAlert(Long resourceId, LocalDate date, int currentAllocation, 
+    private void triggerOverAllocationAlert(Long resourceId, LocalDate date, int currentAllocation,
                                           int newAllocation, int projectedTotal) {
         log.error("HIGH-SEVERITY ALERT: Over-allocation attempt detected - Resource ID: {}, " +
-                 "Date: {}, Current: {}%%, New: {}%%, Projected Total: {}%%", 
+                 "Date: {}, Current: {}%%, New: {}%%, Projected Total: {}%%",
                  resourceId, date, currentAllocation, newAllocation, projectedTotal);
-        
+
         // Additional alert mechanisms can be added here:
         // - Email notifications
-        // - SMS alerts  
+        // - SMS alerts
         // - Dashboard notifications
         // - Audit logging
-        
+
         // Log to audit trail for compliance
-        log.warn("AUDIT: Over-allocation prevented - Resource: {}, Date: {}, Attempted allocation: {}%%", 
+        log.warn("AUDIT: Over-allocation prevented - Resource: {}, Date: {}, Attempted allocation: {}%%",
                 resourceId, date, projectedTotal);
     }
 
@@ -136,11 +135,11 @@ public class AllocationServiceImple implements AllocationService {
 
             // Step 2: Detect priority conflicts BEFORE creating allocation
             ConflictDetectionResult conflictResult = detectPriorityConflicts(allocationRequest);
-            
+
             if (conflictResult.isHasConflicts()) {
-                log.warn("Priority conflict detected for resource {}: {}", 
+                log.warn("Priority conflict detected for resource {}: {}",
                         allocationRequest.getResourceId(), conflictResult.getMessage());
-                
+
                 // Return structured conflict response
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new ApiResponse<>(false, "Priority conflict detected", conflictResult));
@@ -175,6 +174,8 @@ public class AllocationServiceImple implements AllocationService {
                     );
                 }
             }
+            // 🔹 Validate overlapping allocation capacity
+            validateResourceCapacity(allocationRequest);
 
             // Step 5: Create allocation entity
             ResourceAllocation allocation = new ResourceAllocation();
@@ -202,13 +203,17 @@ public class AllocationServiceImple implements AllocationService {
             updateAvailabilityLedgerForAllocation(savedAllocation);
             
             // Step 8: Log successful allocation creation
-            log.info("Allocation created successfully: Resource {}, Client {}, Status {}", 
-                    allocationRequest.getResourceId(), 
+            log.info("Allocation created successfully: Resource {}, Client {}, Status {}",
+                    allocationRequest.getResourceId(),
                     getClientNameForAllocation(allocationRequest),
                     allocationRequest.getAllocationStatus());
-            
+
+
+
+            AllocationResponseDTO response = mapToResponseDTO(savedAllocation);
+
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation created successfully", savedAllocation)
+                    new ApiResponse<>(true, "Allocation created successfully", response)
             );
 
         } catch (Exception e) {
@@ -222,10 +227,10 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationById(UUID allocationId) {
         try {
             Optional<ResourceAllocation> allocation = allocationRepository.findById(allocationId);
-            
+            AllocationResponseDTO response = mapToResponseDTO(allocation.get());
             if (allocation.isPresent()) {
                 return ResponseEntity.ok(
-                    new ApiResponse<>(true, "Allocation found", allocation.get())
+                        new ApiResponse<>(true, "Allocation found", response)
                 );
             } else {
                 return ResponseEntity.notFound().build();
@@ -255,21 +260,22 @@ public class AllocationServiceImple implements AllocationService {
                 allocationRequest.getAllocationEndDate(),
                 allocationRequest.getAllocationPercentage()
             );
-            
+
             // Update fields
             allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
             allocation.setAllocationEndDate(allocationRequest.getAllocationEndDate());
             allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
             allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
+            validateResourceCapacityForUpdate(allocationId, allocationRequest);
 
             ResourceAllocation updatedAllocation = allocationRepository.save(allocation);
             
             // Update availability ledger for the modified allocation period
             updateAvailabilityLedgerForAllocation(updatedAllocation);
-            
-            
+
+            AllocationResponseDTO response = mapToResponseDTO(updatedAllocation);
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation updated successfully", updatedAllocation)
+                    new ApiResponse<>(true, "Allocation updated successfully", response)
             );
 
         } catch (Exception e) {
@@ -295,10 +301,10 @@ public class AllocationServiceImple implements AllocationService {
             
             // Update availability ledger to reflect cancellation
             updateAvailabilityLedgerForAllocation(cancelledAllocation);
-            
-            
+
+            AllocationResponseDTO response = mapToResponseDTO(cancelledAllocation);
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation cancelled successfully", cancelledAllocation)
+                    new ApiResponse<>(true, "Allocation cancelled successfully", response)
             );
 
         } catch (Exception e) {
@@ -312,9 +318,11 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationsByResource(Long resourceId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByResource_ResourceId(resourceId);
-            
+            List<AllocationResponseDTO> response = allocations.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocations retrieved successfully", allocations)
+                new ApiResponse<>(true, "Allocations retrieved successfully", response)
             );
 
         } catch (Exception e) {
@@ -328,9 +336,11 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demandId);
-            
+            List<AllocationResponseDTO> response = allocations.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocations retrieved successfully", allocations)
+                new ApiResponse<>(true, "Allocations retrieved successfully", response)
             );
 
         } catch (Exception e) {
@@ -344,9 +354,11 @@ public class AllocationServiceImple implements AllocationService {
     public ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByProject_PmsProjectId(projectId);
-            
+            List<AllocationResponseDTO> response = allocations.stream()
+                    .map(this::mapToResponseDTO)
+                    .collect(Collectors.toList());
             return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocations retrieved successfully", allocations)
+                new ApiResponse<>(true, "Allocations retrieved successfully", response)
             );
 
         } catch (Exception e) {
@@ -828,6 +840,85 @@ public class AllocationServiceImple implements AllocationService {
         return RiskEvaluator.aggregateRisk(mandatoryGapRisk, partialRisk, recencyRisk);
     }
 
+    private void validateResourceCapacity(AllocationRequestDTO request) {
+
+        List<ResourceAllocation> conflictingAllocations =
+                allocationRepository.findConflictingAllocations(
+                        request.getResourceId(),
+                        request.getAllocationStartDate(),
+                        request.getAllocationEndDate()
+                );
+
+        int existingAllocation = conflictingAllocations.stream()
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+
+        int newAllocation = request.getAllocationPercentage();
+
+        int total = existingAllocation + newAllocation;
+
+        if (total > 100) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVER_ALLOCATION",
+                    "Allocation exceeds resource capacity. Existing: "
+                            + existingAllocation + "% , Requested: "
+                            + newAllocation + "% , Total: " + total + "%"
+            );
+        }
+    }
+
+    private void validateResourceCapacityForUpdate(UUID allocationId, AllocationRequestDTO request) {
+
+        List<ResourceAllocation> conflictingAllocations =
+                allocationRepository.findConflictingAllocations(
+                        request.getResourceId(),
+                        request.getAllocationStartDate(),
+                        request.getAllocationEndDate()
+                );
+
+        int existingAllocation = conflictingAllocations.stream()
+                .filter(a -> !a.getAllocationId().equals(allocationId))
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+
+        int newAllocation = request.getAllocationPercentage();
+
+        if (existingAllocation + newAllocation > 100) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVER_ALLOCATION",
+                    "Updating allocation exceeds resource capacity"
+            );
+        }
+    }
+    private AllocationResponseDTO mapToResponseDTO(ResourceAllocation allocation) {
+
+        AllocationResponseDTO dto = new AllocationResponseDTO();
+
+        dto.setAllocationId(allocation.getAllocationId());
+
+        if (allocation.getResource() != null) {
+            dto.setResourceId(allocation.getResource().getResourceId());
+        }
+
+        if (allocation.getDemand() != null) {
+            dto.setDemandId(allocation.getDemand().getDemandId());
+        }
+
+        if (allocation.getProject() != null) {
+            dto.setProjectId(allocation.getProject().getPmsProjectId());
+        }
+
+        dto.setAllocationStartDate(allocation.getAllocationStartDate());
+        dto.setAllocationEndDate(allocation.getAllocationEndDate());
+        dto.setAllocationPercentage(allocation.getAllocationPercentage());
+        dto.setAllocationStatus(allocation.getAllocationStatus().name());
+
+        return dto;
+    }
+
     /**
      * Helper methods
      */
@@ -919,16 +1010,16 @@ public class AllocationServiceImple implements AllocationService {
         try {
             // Fetch existing allocations for the same resource
             List<ResourceAllocation> existingAllocations = allocationRepository.findByResource_ResourceId(allocationRequest.getResourceId());
-            
+
             // Filter out ended and cancelled allocations
             List<ResourceAllocation> activeAllocations = existingAllocations.stream()
-                    .filter(alloc -> alloc.getAllocationStatus() != AllocationStatus.ENDED && 
+                    .filter(alloc -> alloc.getAllocationStatus() != AllocationStatus.ENDED &&
                                        alloc.getAllocationStatus() != AllocationStatus.CANCELLED)
                     .toList();
 
             // Check for priority conflicts
             List<ConflictDetectionResult.PriorityConflictDetail> conflicts = new ArrayList<>();
-            
+
             for (ResourceAllocation existingAlloc : activeAllocations) {
                 if (hasDateOverlap(allocationRequest, existingAlloc)) {
                     ConflictDetectionResult.PriorityConflictDetail conflict = checkPriorityConflict(allocationRequest, existingAlloc);
@@ -946,7 +1037,7 @@ public class AllocationServiceImple implements AllocationService {
                     .build();
 
         } catch (Exception e) {
-            log.error("Error detecting priority conflicts for resource {}: {}", 
+            log.error("Error detecting priority conflicts for resource {}: {}",
                     allocationRequest.getResourceId(), e.getMessage(), e);
             return ConflictDetectionResult.builder()
                     .hasConflicts(true)
@@ -973,12 +1064,12 @@ public class AllocationServiceImple implements AllocationService {
             // Detect priority conflict:
             // Existing allocation = ACTIVE (hard allocation) to lower priority client
             // New allocation = PLANNED (soft allocation) to higher priority client
-            if (existingStatus == AllocationStatus.ACTIVE && 
+            if (existingStatus == AllocationStatus.ACTIVE &&
                 newStatus == AllocationStatus.PLANNED &&
                 newClientPriority.getLevel() < existingClientPriority.getLevel()) {
-                
+
                 // Create AllocationRequestSummary
-                ConflictDetectionResult.AllocationRequestSummary requestSummary = 
+                ConflictDetectionResult.AllocationRequestSummary requestSummary =
                     ConflictDetectionResult.AllocationRequestSummary.builder()
                         .demandId(newAllocation.getDemandId())
                         .projectId(newAllocation.getProjectId())
@@ -988,7 +1079,7 @@ public class AllocationServiceImple implements AllocationService {
                         .allocationEndDate(newAllocation.getAllocationEndDate())
                         .allocationPercentage(newAllocation.getAllocationPercentage())
                         .build();
-                
+
                 return ConflictDetectionResult.PriorityConflictDetail.builder()
                         .conflictId(java.util.UUID.randomUUID())
                         .resourceId(newAllocation.getResourceId())
@@ -1048,7 +1139,7 @@ public class AllocationServiceImple implements AllocationService {
             Client client = getClientFromAllocation(allocation);
             return client.getPriorityLevel();
         } catch (Exception e) {
-            log.warn("Could not get client priority for allocation {}: {}", 
+            log.warn("Could not get client priority for allocation {}: {}",
                     allocation.getAllocationId(), e.getMessage());
             return PriorityLevel.LOW; // Default to lowest priority
         }
@@ -1089,7 +1180,7 @@ public class AllocationServiceImple implements AllocationService {
     private List<String> getRecommendedActions() {
         return List.of(
                 "Upgrade higher-priority allocation from PLANNED → ACTIVE",
-                "Downgrade or cancel lower-priority ACTIVE allocation", 
+                "Downgrade or cancel lower-priority ACTIVE allocation",
                 "Override and keep existing allocation"
         );
     }
@@ -1149,7 +1240,7 @@ public class AllocationServiceImple implements AllocationService {
 
             conflictRepository.save(conflict);
 
-            log.info("Conflict resolved: {} - Action: {} - By: {}", 
+            log.info("Conflict resolved: {} - Action: {} - By: {}",
                     conflictId, resolution.getResolutionAction(), resolution.getResolvedBy());
 
             return ResponseEntity.ok(new ApiResponse<>(true, "Conflict resolved successfully", null));
@@ -1206,7 +1297,7 @@ public class AllocationServiceImple implements AllocationService {
     private AllocationConflict createConflict(ResourceAllocation lowerPriorityAlloc, ResourceAllocation higherPriorityAlloc,
                                             ClientTier lowerTier, ClientTier higherTier,
                                             DemandCommitment lowerCommitment, DemandCommitment higherCommitment) {
-        
+
         String severity = determineConflictSeverity(lowerTier, higherTier);
         String recommendation = generateRecommendation(lowerTier, higherTier, lowerCommitment, higherCommitment);
 
@@ -1255,12 +1346,12 @@ public class AllocationServiceImple implements AllocationService {
     private void upgradeAllocation(UUID allocationId) {
         ResourceAllocation allocation = allocationRepository.findById(allocationId)
                 .orElseThrow(() -> new RuntimeException("Allocation not found: " + allocationId));
-        
+
         // Update demand commitment to CONFIRMED if this is a demand-based allocation
         if (allocation.getDemand() != null) {
             allocation.getDemand().setDemandCommitment(DemandCommitment.CONFIRMED);
         }
-        
+
         allocationRepository.save(allocation);
         log.info("Upgraded allocation to confirmed: {}", allocationId);
     }
@@ -1271,7 +1362,7 @@ public class AllocationServiceImple implements AllocationService {
     private void displaceAllocation(UUID allocationId) {
         ResourceAllocation allocation = allocationRepository.findById(allocationId)
                 .orElseThrow(() -> new RuntimeException("Allocation not found: " + allocationId));
-        
+
         allocation.setAllocationStatus(AllocationStatus.CANCELLED);
         allocationRepository.save(allocation);
         log.info("Displaced lower priority allocation: {}", allocationId);
@@ -1332,7 +1423,7 @@ public class AllocationServiceImple implements AllocationService {
         }
     }
 
-    private String generateRecommendation(ClientTier lowerTier, ClientTier higherTier, 
+    private String generateRecommendation(ClientTier lowerTier, ClientTier higherTier,
                                        DemandCommitment lowerCommitment, DemandCommitment higherCommitment) {
         return String.format("Consider upgrading the %s client's %s allocation or adjusting the %s client's %s allocation.",
                 higherTier.getDisplayName(), higherCommitment.name(),
@@ -1346,8 +1437,8 @@ public class AllocationServiceImple implements AllocationService {
                 .conflictId(conflict.getConflictId())
                 .resourceId(conflict.getResource().getResourceId())
                 .resourceName(conflict.getResource().getFullName())
-                .lowerPriorityAllocation(buildAllocationDetails(conflict.getLowerPriorityAllocationId(), 
-                        conflict.getLowerPriorityClientName(), conflict.getLowerPriorityClientTier(), 
+                .lowerPriorityAllocation(buildAllocationDetails(conflict.getLowerPriorityAllocationId(),
+                        conflict.getLowerPriorityClientName(), conflict.getLowerPriorityClientTier(),
                         conflict.getLowerPriorityAllocationType()))
                 .higherPriorityAllocation(buildAllocationDetails(conflict.getHigherPriorityAllocationId(),
                         conflict.getHigherPriorityClientName(), conflict.getHigherPriorityClientTier(),
@@ -1364,7 +1455,7 @@ public class AllocationServiceImple implements AllocationService {
                 .build();
     }
 
-    private AllocationConflictDTO.AllocationDetails buildAllocationDetails(UUID allocationId, String clientName, 
+    private AllocationConflictDTO.AllocationDetails buildAllocationDetails(UUID allocationId, String clientName,
                                                                          String clientTier, String allocationType) {
         ResourceAllocation allocation = allocationRepository.findById(allocationId).orElse(null);
         if (allocation == null) {
