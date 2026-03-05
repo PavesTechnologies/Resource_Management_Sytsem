@@ -9,6 +9,7 @@ import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.StaffingReadinessStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -20,6 +21,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "project")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class Project {
 
 

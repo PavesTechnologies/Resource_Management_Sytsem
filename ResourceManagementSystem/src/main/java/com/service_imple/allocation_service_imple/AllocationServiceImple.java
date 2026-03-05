@@ -101,6 +101,8 @@ public class AllocationServiceImple implements AllocationService {
                 }
 
                 project = projectOpt.get();
+            } else if (allocationRequest.getProjectId() == null) {
+                project = demand.getProject();
             }
 
             // 🔹 Process each resource
