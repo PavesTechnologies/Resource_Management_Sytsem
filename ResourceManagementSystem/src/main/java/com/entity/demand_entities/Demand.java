@@ -116,4 +116,7 @@ public class Demand {
     @Enumerated(EnumType.STRING)
     @Column(name = "demand_commitment", length = 500,nullable = false)
     private DemandCommitment demandCommitment;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
 }
