@@ -1359,6 +1359,13 @@ public class DemandServiceImpl implements DemandService {
         demand.setResourcesRequired(dto.getResourcesRequired());
         demand.setDemandCommitment(dto.getDemandCommitment());
         demand.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval());
+        if (dto.getDemandType() == DemandType.REPLACEMENT && dto.getOutgoingResourceId() != null) {
+            Resource resource = resourceRepository
+                    .findById(dto.getOutgoingResourceId())
+                    .orElse(null);
+
+            demand.setOutgoingResource(resource);
+        }
         return demand;
     }
     
