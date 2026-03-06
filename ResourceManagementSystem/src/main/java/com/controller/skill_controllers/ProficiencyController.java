@@ -30,7 +30,7 @@ public class ProficiencyController {
     }
 
     @GetMapping("/get-all-proficiency-levels")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'MANAGER')")
     public ResponseEntity<?> getAllProficiencyLevels() {
         return proficiencyService.getAllProficiencyLevels();
     }
