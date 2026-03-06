@@ -97,4 +97,13 @@ public class DemandController {
 
         return demandService.processDemandDecision(dto);
     }
+
+    @PutMapping("/rm/decision")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
+            @RequestBody DemandDecisionDTO dto,
+            @CurrentUser UserDTO userDTO) {
+
+        return demandService.processResourceManagerDecision(dto, userDTO);
+    }
 }

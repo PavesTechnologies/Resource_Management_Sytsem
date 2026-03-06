@@ -1853,6 +1853,84 @@ public class DemandServiceImpl implements DemandService {
     }
 
     @Override
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
+            DemandDecisionDTO dto,
+            UserDTO userDTO) {
+
+        if (dto.getDemandId() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "DEMAND_ID_REQUIRED",
+                    "Demand ID is required"
+            );
+        }
+
+        Demand demand = demandRepository.findById(dto.getDemandId())
+                .orElseThrow(() -> new ProjectExceptionHandler(
+                        HttpStatus.NOT_FOUND,
+                        "DEMAND_NOT_FOUND",
+                        "Demand not found"
+                ));
+
+        DemandStatus decision = dto.getDecision();
+
+        if (decision == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "DECISION_REQUIRED",
+                    "Decision is required"
+            );
+        }
+
+        // RM can only act on APPROVED demands
+        if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Only APPROVED demands can be fulfilled or rejected by Resource Manager"
+            );
+        }
+
+        // -------- FULFILLED --------
+        if (decision == DemandStatus.FULFILLED) {
+
+            demand.setDemandStatus(DemandStatus.FULFILLED);
+            demand.setRejectionReason(null);
+
+        }
+
+        // -------- REJECTED --------
+        else if (decision == DemandStatus.REJECTED) {
+
+            if (dto.getRejectionReason() == null || dto.getRejectionReason().isBlank()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "REJECTION_REASON_REQUIRED",
+                        "Rejection reason is mandatory"
+                );
+            }
+
+            demand.setDemandStatus(DemandStatus.REJECTED);
+            demand.setRejectionReason(dto.getRejectionReason());
+        }
+
+        else {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_DECISION",
+                    "Resource Manager can only mark demand as FULFILLED or REJECTED"
+            );
+        }
+
+        demandRepository.save(demand);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Demand status updated successfully", demand.getDemandId())
+        );
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(UserDTO userDTO) {
         try {
             if (userDTO == null || userDTO.getId() == null) {
