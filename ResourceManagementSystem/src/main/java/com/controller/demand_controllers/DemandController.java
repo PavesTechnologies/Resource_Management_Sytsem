@@ -6,9 +6,7 @@ import com.dto.demand_dto.CreateDemandDTO;
 import com.dto.demand_dto.DemandConflictValidationDTO;
 import com.dto.demand_dto.DemandKpiDTO;
 import com.dto.demand_dto.DeliveryManagerDemandDTO;
-import com.dto.demand_dto.DeliveryManagerKpiDemandDTO;
 import com.dto.demand_dto.UpdateDemandDTO;
-import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +26,7 @@ public class DemandController {
     private DemandService demandService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> createDemand(
             @RequestBody CreateDemandDTO dto,
             @CurrentUser UserDTO userDTO) {
@@ -36,16 +34,8 @@ public class DemandController {
         return demandService.createDemand(dto, userDTO.getId());
     }
 
-
-    @PostMapping("/validate-conflicts")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandConflicts(
-            @RequestBody CreateDemandDTO dto) {
-        return demandService.validateDemandConflicts(dto);
-    }
-
     @PutMapping("/update")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody UpdateDemandDTO dto) {
         return demandService.updateDemand(dto);
     }
@@ -60,7 +50,7 @@ public class DemandController {
 
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getDemandByProjectId(@PathVariable Long projectId) {
         return demandService.getDemandByProjectId(projectId);
     }
@@ -87,13 +77,6 @@ public class DemandController {
     @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getDashboardKpi(@CurrentUser UserDTO userDTO) {
         return demandService.getDashboardKpi(userDTO);
-    }
-
-    // Conflict resolution endpoint
-    @PostMapping("/resolve-conflicts/{projectId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
-    public ResponseEntity<ApiResponse<?>> resolveDemandConflicts(@PathVariable Long projectId) {
-        return demandService.resolveDemandConflicts(projectId);
     }
 
     // Delivery Manager KPI endpoint (uses token-based authentication)

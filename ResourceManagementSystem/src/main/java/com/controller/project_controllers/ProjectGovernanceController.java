@@ -33,7 +33,7 @@ public class ProjectGovernanceController {
 
     // 🔹 STORY 9 — Task 2: Detect overlapping project timelines
     @GetMapping("/{projectId}/overlaps")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<List<ProjectOverlapDTO>>> getProjectOverlaps(
             @PathVariable Long projectId) {
 
@@ -44,7 +44,7 @@ public class ProjectGovernanceController {
 
     // 🔹 STORY 9 — Task 3: Validate demand dates against project timeline
     @PostMapping("/{projectId}/validate-demand-dates")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<DateValidationResponse>> validateDemandDates(
             @PathVariable Long projectId,
             @Valid @RequestBody DemandDateValidationRequest request) {
@@ -56,7 +56,7 @@ public class ProjectGovernanceController {
 
     // 🔹 STORY 10 — Task 1: Get only eligible projects for demand creation
     @GetMapping("/eligible-for-demand")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<List<ProjectListDTO>>> getEligibleProjects() {
 
         return ResponseEntity.ok(
@@ -66,7 +66,7 @@ public class ProjectGovernanceController {
 
     // 🔹 STORY 10 — Task 3: Get all projects with visibility + eligibility flags
     @GetMapping
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<List<ProjectListDTO>>> getAllProjectsWithVisibility() {
 
         return ResponseEntity.ok(
@@ -87,7 +87,7 @@ public class ProjectGovernanceController {
     }
 
     @GetMapping("get-projects")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<Page<ProjectsListDTO>>> getProjectsByManagerId(
             @CurrentUser UserDTO userDTO,
             @RequestParam(defaultValue = "0") int page,
@@ -113,13 +113,13 @@ public class ProjectGovernanceController {
     }
 
     @GetMapping("/get-project-by-id/{id}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getProjectById(@PathVariable Long id) {
         return projectGovernanceService.getProjectById(id);
     }
 
     @GetMapping("/check-demand-creation/{pmsProjectId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> checkDemandCreation(@PathVariable Long pmsProjectId) {
         return projectGovernanceService.checkDemandCreation(pmsProjectId);
     }
