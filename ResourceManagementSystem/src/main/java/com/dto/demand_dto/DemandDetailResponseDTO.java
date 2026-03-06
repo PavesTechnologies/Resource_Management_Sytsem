@@ -1,5 +1,6 @@
 package com.dto.demand_dto;
 
+import com.entity.skill_entities.DeliveryRoleExpectation;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -24,8 +25,13 @@ public class DemandDetailResponseDTO {
     private UUID demandId;
     private String demandName;
     private String demandPriority;
+    private String deliveryRole;
     private Integer priorityScore;
     private String demandStatus;
+    private Double minExp;
+    private Integer resourceRequired;
+    private Integer allocation;
+    private String demandJustification;
     private String demandType;
     private String deliveryModel;
     

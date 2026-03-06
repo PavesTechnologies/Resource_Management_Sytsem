@@ -78,23 +78,23 @@ public class DemandServiceImpl implements DemandService {
         try {
 
             // 🔥 PRE-SUBMISSION VALIDATION - Early conflict detection
-            ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse = validateDemandConflicts(dto);
-            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody().getData() != null) {
-                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
-                
-                // Block submission if there are error-level conflicts
-                if (!validation.isCanSubmit()) {
-                    return ResponseEntity.badRequest().body(ApiResponse.error(
-                        "Demand submission blocked due to unresolved conflicts. Please resolve the following issues:\n" + 
-                        formatConflictDetails(validation.getConflicts())
-                    ));
-                }
-                
-                // Log warnings but allow submission
-                if (validation.isHasConflicts()) {
-                    System.out.println("WARNING: Demand submitted with conflicts: " + validation.getValidationMessage());
-                }
-            }
+//            ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse = validateDemandConflicts(dto);
+//            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody().getData() != null) {
+//                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
+//
+//                // Block submission if there are error-level conflicts
+//                if (!validation.isCanSubmit()) {
+//                    return ResponseEntity.badRequest().body(ApiResponse.error(
+//                        "Demand submission blocked due to unresolved conflicts. Please resolve the following issues:\n" +
+//                        formatConflictDetails(validation.getConflicts())
+//                    ));
+//                }
+//
+//                // Log warnings but allow submission
+//                if (validation.isHasConflicts()) {
+//                    System.out.println("WARNING: Demand submitted with conflicts: " + validation.getValidationMessage());
+//                }
+//            }
 
             // 🔐 Validate project eligibility
 //            projectDemandValidationService.validateProjectForStaffing(dto.getProjectId());
@@ -497,6 +497,11 @@ public class DemandServiceImpl implements DemandService {
                                         demand.getProject().getClient().getClientName() : "Unknown Client")
                                 .projectId(demand.getProject().getPmsProjectId())
                                 .projectName(demand.getProject().getName())
+                                .deliveryRole(demand.getRole().toString())
+                                .demandJustification(demand.getDemandJustification())
+                                .minExp(demand.getMinExp())
+                                .resourceRequired(demand.getResourcesRequired())
+                                .allocation(demand.getAllocationPercentage())
                                 .demandId(demand.getDemandId())
                                 .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
                                 .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
@@ -713,6 +718,11 @@ public class DemandServiceImpl implements DemandService {
                                     demand.getProject().getClient().getClientName() : "Unknown Client")
                                 .projectId(demand.getProject().getPmsProjectId())
                                 .projectName(demand.getProject().getName())
+                                .deliveryRole(demand.getRole().getRole().getRoleName())
+                                .demandJustification(demand.getDemandJustification())
+                                .minExp(demand.getMinExp())
+                                .resourceRequired(demand.getResourcesRequired())
+                                .allocation(demand.getAllocationPercentage())
                                 .demandId(demand.getDemandId())
                                 .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
                                 .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
