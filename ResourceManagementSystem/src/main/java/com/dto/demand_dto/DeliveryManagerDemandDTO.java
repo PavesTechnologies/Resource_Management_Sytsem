@@ -13,32 +13,37 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class DeliveryManagerDemandDTO {
-    
-    // Client Information
+
+    // Client details
     private UUID clientId;
     private String clientName;
-    
-    // Project Information
+
+    // Project details
     private Long projectId;
     private String projectName;
-    
-    // Demand Information
+
+    // Demand details
     private UUID demandId;
     private String demandName;
     private String demandPriority;
+    private String deliveryRole;
     private Integer priorityScore;
     private String demandStatus;
+    private Double minExp;
+    private Integer resourceRequired;
+    private Integer allocation;
+    private String demandJustification;
     private String demandType;
     private String deliveryModel;
-    
-    // SLA Information
+
+    // SLA details
     private UUID demandSlaId;
     private String slaType;
     private Integer slaDurationDays;
     private Integer warningThresholdDays;
     private LocalDate slaCreatedAt;
     private LocalDate slaDueAt;
-    private Boolean slaBreached;
-    private Integer remainingDays;
-    private Integer overdueDays;
+    private boolean slaBreached;
+    private long remainingDays;
+    private long overdueDays;
 }
