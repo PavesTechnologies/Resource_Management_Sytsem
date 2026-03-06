@@ -37,4 +37,5 @@ public interface DemandService {
     // Delivery Manager demand details endpoint (using token-based user ID)
     ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(@CurrentUser UserDTO userDTO);
     ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dto);
+    ResponseEntity<ApiResponse<?>> processResourceManagerDecision(DemandDecisionDTO dto, UserDTO userDTO);
 }
