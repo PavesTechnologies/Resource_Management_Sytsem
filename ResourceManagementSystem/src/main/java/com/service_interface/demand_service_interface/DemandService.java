@@ -2,12 +2,7 @@ package com.service_interface.demand_service_interface;
 
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
-import com.dto.demand_dto.CreateDemandDTO;
-import com.dto.demand_dto.DemandConflictValidationDTO;
-import com.dto.demand_dto.DemandKpiDTO;
-import com.dto.demand_dto.DeliveryManagerDemandDTO;
-import com.dto.demand_dto.DeliveryManagerKpiDemandDTO;
-import com.dto.demand_dto.UpdateDemandDTO;
+import com.dto.demand_dto.*;
 import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import org.springframework.http.ResponseEntity;
@@ -41,4 +36,5 @@ public interface DemandService {
     
     // Delivery Manager demand details endpoint (using token-based user ID)
     ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(@CurrentUser UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dto);
 }

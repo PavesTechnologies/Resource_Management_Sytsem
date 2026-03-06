@@ -2,11 +2,7 @@ package com.controller.demand_controllers;
 
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
-import com.dto.demand_dto.CreateDemandDTO;
-import com.dto.demand_dto.DemandConflictValidationDTO;
-import com.dto.demand_dto.DemandKpiDTO;
-import com.dto.demand_dto.DeliveryManagerDemandDTO;
-import com.dto.demand_dto.UpdateDemandDTO;
+import com.dto.demand_dto.*;
 import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,15 +30,15 @@ public class DemandController {
         return demandService.createDemand(dto, userDTO.getId());
     }
 
-    @PutMapping("/update")
+    @PutMapping("/update/pm")
     @PreAuthorize("hasRole('PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse<?>> updateDemand(@RequestBody UpdateDemandDTO dto) {
+    public ResponseEntity<ApiResponse<?>> updateDemandByPM(@RequestBody UpdateDemandDTO dto) {
         return demandService.updateDemand(dto);
     }
 
-    @DeleteMapping("/delete/{demandId}")
+    @DeleteMapping("/delete/pm/{demandId}")
     @PreAuthorize("hasRole('PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse<?>> deleteDemand(
+    public ResponseEntity<ApiResponse<?>> deleteDemandByPM(
             @PathVariable UUID demandId,
             @CurrentUser UserDTO userDTO) {
         return demandService.deleteDemand(demandId, userDTO);
@@ -91,5 +87,14 @@ public class DemandController {
     @PreAuthorize("hasRole('DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(@CurrentUser UserDTO userDTO) {
         return demandService.getDeliveryManagerDemandDetails(userDTO);
+    }
+
+    @PutMapping("/dm/decision")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> processDemandDecision(
+            @RequestBody DemandDecisionDTO dto,
+            @CurrentUser UserDTO userDTO) {
+
+        return demandService.processDemandDecision(dto);
     }
 }

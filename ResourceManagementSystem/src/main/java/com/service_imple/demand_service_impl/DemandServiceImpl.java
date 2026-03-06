@@ -252,11 +252,14 @@ public class DemandServiceImpl implements DemandService {
             }
 
             if (demand.getDemandStatus() != DemandStatus.DRAFT &&
-                    demand.getDemandStatus() != DemandStatus.REQUESTED) {
+                    demand.getDemandStatus() != DemandStatus.REQUESTED &&
+                    demand.getDemandStatus() != DemandStatus.CANCELLED &&
+                    demand.getDemandCommitment() != DemandCommitment.SOFT) {
+
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_STATE",
-                        "Only DRAFT or REQUESTED demands can be deleted"
+                        "PM can delete only DRAFT, REQUESTED, CANCELLED or SOFT commitment demands"
                 );
             }
 
@@ -307,35 +310,16 @@ public class DemandServiceImpl implements DemandService {
 
         DemandType old = existing.getDemandType();
 
-        // 🚫 Hard restriction: approved demands cannot be modified
-        if (existing.getDemandStatus() == DemandStatus.APPROVED) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "INVALID_STATE",
-                    "Approved demands cannot be modified"
-            );
-        }
-
-
-        // Date validation
-        if (dto.getDemandStartDate() != null &&
-                dto.getDemandEndDate() != null &&
-                dto.getDemandEndDate().isBefore(dto.getDemandStartDate())) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "INVALID_DATE_RANGE",
-                    "End date cannot be before start date"
-            );
-        }
-
-        // 🚫 Hard restriction
-        if (existing.getDemandStatus() == DemandStatus.CANCELLED ||
-                existing.getDemandStatus() == DemandStatus.REJECTED) {
+        // 🚫 Hard restriction:  demands cannot be modified
+        if (existing.getDemandStatus() == DemandStatus.APPROVED ||
+                existing.getDemandStatus() == DemandStatus.REJECTED ||
+                existing.getDemandStatus() == DemandStatus.CANCELLED ||
+                existing.getDemandStatus() == DemandStatus.FULFILLED) {
 
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_STATE",
-                    "Cancelled or Rejected demands cannot be modified"
+                    "Approved, Rejected, Cancelled or Fulfilled demands cannot be modified"
             );
         }
 
@@ -481,7 +465,11 @@ public class DemandServiceImpl implements DemandService {
 
             projectDemandValidationService.validateProjectForStaffing(projectId);
 
-            List<Demand> demands = demandRepository.findByProject_PmsProjectId(projectId);
+            List<Demand> demands = demandRepository
+                    .findByProject_PmsProjectId(projectId)
+                    .stream()
+                    .filter(d -> d.getDemandStatus() != DemandStatus.CANCELLED)
+                    .collect(Collectors.toList());
 
             List<DemandDetailResponseDTO> formattedDemands = demands.stream()
                     .sorted((d1, d2) -> Integer.compare(
@@ -1619,12 +1607,17 @@ public class DemandServiceImpl implements DemandService {
 
                 if (status == null) continue;
 
+                if (status == DemandStatus.DRAFT ||
+                        status == DemandStatus.REJECTED ||
+                        status == DemandStatus.CANCELLED ||
+                        status == DemandStatus.FULFILLED) {
+                    continue;
+                }
+
                 // -------- STATUS COUNTS --------
                 switch (status) {
                     case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
                     case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
-                    case REJECTED -> kpi.setPending(kpi.getPending() + 1);
-                    default -> { /* CANCELLED & others ignored */ }
                 }
 
                 // -------- ACTIVE --------
@@ -1751,6 +1744,72 @@ public class DemandServiceImpl implements DemandService {
     }
 
     @Override
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dto) {
+
+        if (dto.getDemandId() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "DEMAND_ID_REQUIRED",
+                    "Demand ID is required"
+            );
+        }
+
+        Demand demand = demandRepository.findById(dto.getDemandId())
+                .orElseThrow(() -> new ProjectExceptionHandler(
+                        HttpStatus.NOT_FOUND,
+                        "DEMAND_NOT_FOUND",
+                        "Demand not found"
+                ));
+
+        // Only REQUESTED demands can be approved/rejected
+        if (demand.getDemandStatus() != DemandStatus.REQUESTED) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Only REQUESTED demands can be approved or rejected"
+            );
+        }
+
+        // APPROVE
+        if (dto.getDecision() == DemandStatus.APPROVED) {
+
+            demand.setDemandStatus(DemandStatus.APPROVED);
+            demand.setRejectionReason(null);
+
+        }
+
+        // REJECT
+        else if (dto.getDecision() == DemandStatus.REJECTED) {
+
+            if (dto.getRejectionReason() == null || dto.getRejectionReason().isBlank()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "REJECTION_REASON_REQUIRED",
+                        "Rejection reason is mandatory"
+                );
+            }
+
+            demand.setDemandStatus(DemandStatus.REJECTED);
+            demand.setRejectionReason(dto.getRejectionReason());
+        }
+
+        else {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_DECISION",
+                    "Decision must be APPROVED or REJECTED"
+            );
+        }
+
+        demandRepository.save(demand);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Demand decision processed successfully", demand.getDemandId())
+        );
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<DemandKpiDTO>> getDeliveryManagerKpi(UserDTO userDTO) {
         try {
             if (userDTO == null || userDTO.getId() == null) {
@@ -1770,7 +1829,10 @@ public class DemandServiceImpl implements DemandService {
             List<Demand> allDemands = new ArrayList<>();
             for (Project project : projects) {
                 List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(project.getPmsProjectId());
-                allDemands.addAll(projectDemands);
+                projectDemands.stream()
+                        .filter(d -> d.getDemandStatus() != DemandStatus.DRAFT)
+                        .filter(d -> d.getDemandStatus() != DemandStatus.CANCELLED)
+                        .forEach(allDemands::add);
             }
 
             // Calculate KPI
@@ -1915,12 +1977,18 @@ public class DemandServiceImpl implements DemandService {
 
             if (status == null) continue;
 
+            if (status == DemandStatus.DRAFT ||
+                    status == DemandStatus.REJECTED ||
+                    status == DemandStatus.CANCELLED ||
+                    status == DemandStatus.FULFILLED) {
+                continue;
+            }
+
+
             // Status counts
             switch (status) {
                 case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
                 case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
-                case REJECTED -> kpi.setPending(kpi.getPending() + 1);
-                default -> { /* CANCELLED & others ignored */ }
             }
 
             // Active demands
