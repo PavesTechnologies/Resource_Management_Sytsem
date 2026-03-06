@@ -158,8 +158,8 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
             dto.setRiskLevel(project.getRiskLevel());
             dto.setProjectPriorityLevel(project.getPriorityLevel());
             dto.setProjectBudget(project.getProjectBudget());
-            dto.setClientName(project.getClient().getClientName());
-            dto.setClientPriorityLevel(project.getClient().getPriorityLevel());
+            dto.setClientName(project.getClient() != null ? project.getClient().getClientName() : "Unknown Client");
+            dto.setClientPriorityLevel(project.getClient() != null ? project.getClient().getPriorityLevel() : null);
             dto.setReadinessStatus(project.getStaffingReadinessStatus());
             dto.setReason(project.getStaffingReadinessReason());
             dto.setHasOverlap(overlap);
@@ -220,8 +220,8 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         Project project = projectRepository.findById(projectId).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not found!"));
         CheckDemandCreationDTO response = new CheckDemandCreationDTO();
         response.setCreate(false);
-        if (project.getClient().getStatus() != RecordStatus.ACTIVE) {
-            response.setReason("Client is not Active.");
+        if (project.getClient() == null || project.getClient().getStatus() != RecordStatus.ACTIVE) {
+            response.setReason(project.getClient() == null ? "Client information not available." : "Client is not Active.");
             return ResponseEntity.ok(new ApiResponse<>(true, "Check completed", response));
         }
         if (project.getProjectStatus() != ProjectStatus.ACTIVE
