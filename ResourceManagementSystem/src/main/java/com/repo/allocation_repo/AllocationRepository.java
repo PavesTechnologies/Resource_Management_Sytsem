@@ -18,7 +18,8 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findByDemand_DemandId(UUID demandId);
     
     List<ResourceAllocation> findByProject_PmsProjectId(Long projectId);
-    
+
+
     @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
            "AND ra.allocationStartDate <= :endDate " +
@@ -27,7 +28,14 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("resourceId") Long resourceId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
-
+    
+    /**
+     * Optimized batch query to fetch conflicting allocations for multiple resources
+     * This query loads all overlapping allocations for the requested resources in a single 
+     * round-trip to prevent N+1 queries and reduce allocation validation latency.
+     * SQL logic filters overlapping allocations using:
+     * existing.start_date <= request.end_date AND existing.end_date >= request.start_date
+     */
     @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
            "AND ra.allocationStartDate <= :endDate " +

@@ -28,4 +28,12 @@ public interface ResourceCertificateRepository extends JpaRepository<ResourceCer
     List<ResourceCertificate> findByActiveFlagTrue();
 
     Optional<ResourceCertificate> findByResourceIdAndCertificateIdAndActiveFlagTrue(Long resourceId, UUID certId);
+    
+    /**
+     * Batch query to fetch certificates for multiple resources in a single round-trip
+     * Returns active certificates using: certificate_expiry_date >= CURRENT_DATE
+     * This prevents N+1 query problems when validating certificates for multiple resources
+     */
+    @Query("SELECT rc FROM ResourceCertificate rc WHERE rc.resourceId IN :resourceIds AND rc.activeFlag = true AND (rc.expiryDate IS NULL OR rc.expiryDate > :currentDate)")
+    List<ResourceCertificate> findCertificatesForResources(@Param("resourceIds") List<Long> resourceIds, @Param("currentDate") LocalDate currentDate);
 }

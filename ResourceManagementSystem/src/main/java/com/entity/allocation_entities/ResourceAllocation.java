@@ -17,7 +17,19 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "resource_allocation")
+@Table(
+        name = "resource_allocation",
+        indexes = {
+                @Index(
+                        name = "idx_resource_allocation_dates",
+                        columnList = "resource_id, allocation_start_date, allocation_end_date"
+                ),
+                @Index(
+                        name = "idx_allocation_status",
+                        columnList = "allocation_status"
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
