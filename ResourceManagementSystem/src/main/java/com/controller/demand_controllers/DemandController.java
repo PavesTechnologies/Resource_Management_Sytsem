@@ -46,7 +46,7 @@ public class DemandController {
 
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'MANAGER')")
     public ResponseEntity<ApiResponse<?>> getDemandByProjectId(@PathVariable Long projectId) {
         return demandService.getDemandByProjectId(projectId);
     }
@@ -70,7 +70,7 @@ public class DemandController {
     }
 
     @GetMapping("/pm/kpi")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'MANAGER')")
     public ResponseEntity<ApiResponse<?>> getDashboardKpi(@CurrentUser UserDTO userDTO) {
         return demandService.getDashboardKpi(userDTO);
     }
