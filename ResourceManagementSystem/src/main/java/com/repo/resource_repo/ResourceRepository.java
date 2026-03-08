@@ -22,4 +22,10 @@ public interface ResourceRepository extends JpaRepository<Resource, Long> {
 
     @Query("SELECT MAX(r.experiance) FROM Resource r")
     Long findMaxExperience();
+    
+    /**
+     * Batch query to fetch multiple resources in a single round-trip
+     * This prevents N+1 query problems when validating multiple resources
+     */
+    List<Resource> findAllByResourceIdIn(List<Long> resourceIds);
 }

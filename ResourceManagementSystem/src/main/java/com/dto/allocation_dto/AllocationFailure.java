@@ -7,6 +7,6 @@ import lombok.Data;
 @AllArgsConstructor
 public class AllocationFailure {
     private Long resourceId;
-//    private String resourceName;
+    private String resourceName;
     private String reason;
 }

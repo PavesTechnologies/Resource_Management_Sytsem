@@ -1,5 +1,7 @@
 package com.dto.allocation_dto;
 
+
+import com.entity_enums.centralised_enums.PriorityLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -44,6 +46,9 @@ public class ConflictDetectionResult {
         private String newClientTier;
         private String newAllocationType;
         private List<String> recommendedActions;
+        private PriorityLevel existingPriority;
+        private PriorityLevel requestedPriority;
+        private String conflictReason;
     }
     
     @Data
