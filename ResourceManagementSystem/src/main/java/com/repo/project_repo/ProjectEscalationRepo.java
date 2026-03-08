@@ -3,6 +3,8 @@ package com.repo.project_repo;
 import com.entity.project_entities.ProjectEscalation;
 import com.entity_enums.project_enums.EscalationLevel;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
@@ -19,4 +21,16 @@ public interface ProjectEscalationRepo extends JpaRepository<ProjectEscalation, 
             UUID contactId
     );
 
+    // Enhanced statistics queries for escalations
+    @Query("SELECT COUNT(pe) FROM ProjectEscalation pe JOIN pe.project p WHERE p.clientId = :clientId AND pe.activeFlag = true")
+    Long countActiveEscalationsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(pe) FROM ProjectEscalation pe JOIN pe.project p WHERE p.clientId = :clientId AND pe.activeFlag = true AND pe.escalationLevel = 'EXECUTIVE'")
+    Long countHighPriorityEscalationsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(pe) FROM ProjectEscalation pe JOIN pe.project p WHERE p.clientId = :clientId AND pe.activeFlag = true AND pe.escalationLevel = 'LEVEL_2'")
+    Long countMediumPriorityEscalationsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(pe) FROM ProjectEscalation pe JOIN pe.project p WHERE p.clientId = :clientId AND pe.activeFlag = true AND pe.escalationLevel = 'LEVEL_1'")
+    Long countLowPriorityEscalationsByClientId(@Param("clientId") UUID clientId);
 }

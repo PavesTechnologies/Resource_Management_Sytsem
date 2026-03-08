@@ -41,6 +41,9 @@ public class ClientServiceImple implements ClientService {
     @Autowired
     ProjectRepository projectRepository;
 
+    @Autowired
+    com.repo.project_repo.ProjectEscalationRepo projectEscalationRepo;
+
     private final ClientMapper clientMapper;
 
     public ClientServiceImple(ClientMapper clientMapper) {
@@ -335,20 +338,26 @@ public class ClientServiceImple implements ClientService {
             Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new ClientExceptionHandler("Client not found"));
             
-            // Get total projects for the client
+            // Get basic project statistics
             Long totalProjects = projectRepository.countTotalProjectsByClientId(clientId);
-            
-            // Get active projects for the client
             Long activeProjects = projectRepository.countProjectsByClientIdAndStatus(clientId, ProjectStatus.ACTIVE);
-            
-            // Get total spend (sum of project budgets) for the client
             BigDecimal totalSpend = projectRepository.sumProjectBudgetByClientId(clientId);
             
-            // Create and populate the DTO
+            // Calculate enhanced metrics
+            ClientProjectStatisticsDTO.HealthMetrics healthMetrics = calculateHealthMetrics(clientId, totalProjects, activeProjects);
+            Double satisfactionScore = calculateSatisfactionScore(healthMetrics);
+            String overallHealth = determineOverallHealth(satisfactionScore);
+            Long pendingIssues = projectEscalationRepo.countActiveEscalationsByClientId(clientId);
+            
+            // Create and populate the enhanced DTO
             ClientProjectStatisticsDTO statistics = new ClientProjectStatisticsDTO();
             statistics.setTotalProjects(totalProjects);
             statistics.setActiveProjects(activeProjects);
             statistics.setTotalSpend(totalSpend);
+            statistics.setSatisfactionScore(satisfactionScore);
+            statistics.setPendingIssues(pendingIssues);
+            statistics.setOverallHealth(overallHealth);
+            statistics.setHealthMetrics(healthMetrics);
             
             return ResponseEntity.ok(ApiResponse.<ClientProjectStatisticsDTO>success("Client project statistics fetched successfully", statistics));
             
@@ -370,5 +379,85 @@ public class ClientServiceImple implements ClientService {
         client.setUpdatedAt(LocalDateTime.now());
         clientRepo.save(client);
         return ResponseEntity.ok(ApiResponse.success("Client Deleted Successfully!", null));
+    }
+
+    /**
+     * Calculate detailed health metrics for a client
+     */
+    private ClientProjectStatisticsDTO.HealthMetrics calculateHealthMetrics(UUID clientId, Long totalProjects, Long activeProjects) {
+        ClientProjectStatisticsDTO.HealthMetrics metrics = new ClientProjectStatisticsDTO.HealthMetrics();
+        
+        if (totalProjects == null || totalProjects == 0) {
+            // Return zero metrics if no projects
+            metrics.setOnTimeDeliveryRate(0.0);
+            metrics.setBudgetPerformance(0.0);
+            metrics.setResourceReadiness(0.0);
+            metrics.setRiskManagement(0.0);
+            metrics.setHighPriorityEscalations(0L);
+            metrics.setDelayedProjects(0L);
+            metrics.setHighRiskProjects(0L);
+            return metrics;
+        }
+
+        // On-time delivery rate
+        Long onTimeCompleted = projectRepository.countOnTimeCompletedProjectsByClientId(clientId);
+        Long completed = projectRepository.countCompletedProjectsByClientId(clientId);
+        metrics.setOnTimeDeliveryRate(completed > 0 ? (double) onTimeCompleted / completed * 100 : 0.0);
+
+        // Budget performance (assuming all projects are within budget for now - can be enhanced with actual cost tracking)
+        metrics.setBudgetPerformance(85.0); // Default assumption - can be enhanced with real budget variance data
+
+        // Resource readiness
+        Long readyProjects = projectRepository.countReadyProjectsByClientId(clientId);
+        metrics.setResourceReadiness(activeProjects > 0 ? (double) readyProjects / activeProjects * 100 : 0.0);
+
+        // Risk management (percentage of projects with low/medium risk)
+        Long lowMediumRiskProjects = projectRepository.countLowMediumRiskProjectsByClientId(clientId);
+        metrics.setRiskManagement(totalProjects > 0 ? (double) lowMediumRiskProjects / totalProjects * 100 : 0.0);
+
+        // Issue counts
+        metrics.setHighPriorityEscalations(projectEscalationRepo.countHighPriorityEscalationsByClientId(clientId));
+        metrics.setDelayedProjects(projectRepository.countDelayedProjectsByClientId(clientId));
+        metrics.setHighRiskProjects(projectRepository.countHighRiskProjectsByClientId(clientId));
+
+        return metrics;
+    }
+
+    /**
+     * Calculate overall satisfaction score based on health metrics
+     */
+    private Double calculateSatisfactionScore(ClientProjectStatisticsDTO.HealthMetrics metrics) {
+        if (metrics == null) {
+            return 0.0;
+        }
+
+        // Weighted calculation: On-time delivery (40%) + Budget performance (40%) + Low escalation rate (20%)
+        double onTimeScore = metrics.getOnTimeDeliveryRate() != null ? metrics.getOnTimeDeliveryRate() : 0.0;
+        double budgetScore = metrics.getBudgetPerformance() != null ? metrics.getBudgetPerformance() : 0.0;
+        
+        // Escalation penalty: reduce score based on high priority escalations
+        double escalationPenalty = Math.min(20.0, metrics.getHighPriorityEscalations() * 5.0);
+        double escalationScore = Math.max(0.0, 20.0 - escalationPenalty);
+
+        return Math.round((onTimeScore * 0.4 + budgetScore * 0.4 + escalationScore) * 100.0) / 100.0;
+    }
+
+    /**
+     * Determine overall health category based on satisfaction score
+     */
+    private String determineOverallHealth(Double satisfactionScore) {
+        if (satisfactionScore == null) {
+            return "POOR";
+        }
+        
+        if (satisfactionScore >= 90) {
+            return "EXCELLENT";
+        } else if (satisfactionScore >= 75) {
+            return "GOOD";
+        } else if (satisfactionScore >= 60) {
+            return "FAIR";
+        } else {
+            return "POOR";
+        }
     }
 }

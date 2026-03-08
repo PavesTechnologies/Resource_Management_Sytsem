@@ -3,12 +3,14 @@ package com.dto.project_dto;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;
+import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.StaffingReadinessStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -25,4 +27,7 @@ public class ProjectsListDTO {
     private String reason;
     private BigDecimal projectBudget;
     private boolean hasOverlap;
+    private LocalDateTime startDate;
+    private LocalDateTime endDate;
+    private ProjectStage lifecycleStage;
 }
