@@ -27,6 +27,8 @@ public interface AllocationService {
     ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId);
     
     ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId);
+
+    ResponseEntity<?> getProjectResources(Long projectId);
     
     /**
      * Performs comprehensive skill gap analysis between demand and resource

@@ -1,6 +1,7 @@
 package com.repo.allocation_repo;
 
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.resource_entities.Resource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +19,9 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findByDemand_DemandId(UUID demandId);
     
     List<ResourceAllocation> findByProject_PmsProjectId(Long projectId);
+
+    @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId")
+    List<Resource> findResourcesByProjectId(@Param("projectId") Long projectId);
 
 
     @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId " +

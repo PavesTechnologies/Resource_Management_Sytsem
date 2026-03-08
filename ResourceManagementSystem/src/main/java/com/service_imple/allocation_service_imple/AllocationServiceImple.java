@@ -9,6 +9,7 @@ import com.dto.allocation_dto.ConflictDetectionResult;
 import com.dto.allocation_dto.AllocationConflictDTO;
 import com.dto.allocation_dto.ConflictResolutionDTO;
 import com.dto.ApiResponse;
+import com.dto.resource.ResourceNameDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.allocation_entities.AllocationConflict;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
@@ -1804,6 +1805,12 @@ public class AllocationServiceImple implements AllocationService {
                     "Missing required certifications: " + String.join(", ", missingCertificateNames)
             );
         }
+    }
+
+    @Override
+    public ResponseEntity<?> getProjectResources(Long projectId) {
+        List<ResourceNameDTO> resources = allocationRepository.findResourcesByProjectId(projectId).stream().map(resource -> new ResourceNameDTO(resource.getFullName(), resource.getResourceId(), resource.getDesignation())).collect(Collectors.toList());
+        return ResponseEntity.ok(new ApiResponse<>(true, "Resources by Project Id", resources));
     }
     
                     
