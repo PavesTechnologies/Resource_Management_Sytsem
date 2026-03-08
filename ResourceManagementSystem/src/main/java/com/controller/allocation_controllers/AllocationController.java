@@ -66,7 +66,7 @@ public class AllocationController {
     }
 
     @GetMapping("/demand/{demandId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(
             @PathVariable UUID demandId) {
         
