@@ -163,6 +163,9 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
             dto.setReadinessStatus(project.getStaffingReadinessStatus());
             dto.setReason(project.getStaffingReadinessReason());
             dto.setHasOverlap(overlap);
+            dto.setStartDate(project.getStartDate());
+            dto.setEndDate(project.getEndDate());
+            dto.setLifecycleStage(project.getLifecycleStage());
 
 
             return dto;

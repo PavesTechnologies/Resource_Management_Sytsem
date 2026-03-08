@@ -2,6 +2,7 @@ package com.repo.project_repo;
 
 
 import com.entity.project_entities.Project;
+import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
@@ -109,4 +110,30 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.deliveryOwnerId = :deliveryOwnerId")
     Long countProjectsByDeliveryOwnerId(@Param("deliveryOwnerId") Long deliveryOwnerId);
+
+    // Enhanced statistics queries
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.endDate <= CURRENT_TIMESTAMP AND p.projectStatus = 'COMPLETED'")
+    Long countOnTimeCompletedProjectsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.endDate < CURRENT_TIMESTAMP AND p.projectStatus = 'ACTIVE'")
+    Long countDelayedProjectsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.riskLevel IN ('HIGH', 'CRITICAL')")
+    Long countHighRiskProjectsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.staffingReadinessStatus = 'READY'")
+    Long countReadyProjectsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.projectStatus = 'COMPLETED'")
+    Long countCompletedProjectsByClientId(@Param("clientId") UUID clientId);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.riskLevel IN ('LOW', 'MEDIUM')")
+    Long countLowMediumRiskProjectsByClientId(@Param("clientId") UUID clientId);
+
+    // KPI related queries
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.projectStatus = :status")
+    Long countByProjectStatus(@Param("status") ProjectStatus status);
+
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.riskLevel = :riskLevel")
+    Long countByRiskLevel(@Param("riskLevel") RiskLevel riskLevel);
 }

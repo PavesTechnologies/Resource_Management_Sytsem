@@ -1,6 +1,7 @@
 package com.controller.project_controllers;
 
 import com.dto.ApiResponse;
+import com.dto.ProjectKpiDTO;
 import com.dto.UserDTO;
 import com.dto.project_dto.*;
 import com.entity.project_entities.Project;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.security.CurrentUser;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
+import com.repo.project_repo.ProjectRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -30,6 +32,9 @@ public class ProjectGovernanceController {
 
     @Autowired
     private ProjectGovernanceService projectGovernanceService;
+
+    @Autowired
+    private ProjectRepository projectRepository;
 
     // 🔹 STORY 9 — Task 2: Detect overlapping project timelines
     @GetMapping("/{projectId}/overlaps")
@@ -158,6 +163,46 @@ public class ProjectGovernanceController {
     @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<?> getLocations() {
         return projectGovernanceService.getLocationsByStatus();
+    }
+
+    // Project KPI endpoint
+    @GetMapping("/kpi")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
+        try {
+            // Total Projects count
+            Long totalProjects = projectRepository.count();
+
+            // Active Projects count
+            Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
+
+            // High Risk Projects count
+            Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
+
+            // Calculate Average Resource Utilization
+            // For now, we'll calculate this as (Active Projects / Total Projects) * 100
+            // This can be enhanced later with actual resource allocation data
+            Double avgResourceUtil = 0.0;
+            if (totalProjects != null && totalProjects > 0) {
+                avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
+            }
+
+            ProjectKpiDTO kpiDTO = new ProjectKpiDTO(
+                totalProjects != null ? totalProjects : 0L,
+                activeProjects != null ? activeProjects : 0L,
+                highRiskProjects != null ? highRiskProjects : 0L,
+                avgResourceUtil
+            );
+
+            return ResponseEntity.ok(
+                new ApiResponse<>(true, "Project KPI data retrieved successfully", kpiDTO)
+            );
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                new ApiResponse<>(false, "Failed to retrieve project KPI data: " + e.getMessage(), null)
+            );
+        }
     }
 
 }

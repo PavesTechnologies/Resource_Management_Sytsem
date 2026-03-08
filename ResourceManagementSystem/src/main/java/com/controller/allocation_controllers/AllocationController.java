@@ -80,4 +80,10 @@ public class AllocationController {
         
                 return allocationService.getAllocationsByProject(projectId);
     }
+
+    @GetMapping("/get-all-resources/{projectId}")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN', 'PROJECT-MANAGER','HR-MANAGER')")
+    public ResponseEntity<?> getAllResources(@PathVariable Long projectId) {
+        return allocationService.getProjectResources(projectId);
+    }
 }
