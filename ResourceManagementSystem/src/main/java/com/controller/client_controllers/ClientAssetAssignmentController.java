@@ -74,7 +74,7 @@ public class ClientAssetAssignmentController {
     }
 
     @GetMapping("/kpi/{assetId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<AssetAssignmentKPIDTo>> getKPI(@PathVariable UUID assetId) {
         return service.getKPI(assetId);
     }
