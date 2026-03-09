@@ -485,7 +485,7 @@ public class DemandServiceImpl implements DemandService {
                                         demand.getProject().getClient().getClientName() : "Unknown Client")
                                 .projectId(demand.getProject().getPmsProjectId())
                                 .projectName(demand.getProject().getName())
-                                .deliveryRole(demand.getRole().toString())
+                                .deliveryRole(demand.getRole().getRole().getRoleName())
                                 .demandJustification(demand.getDemandJustification())
                                 .minExp(demand.getMinExp())
                                 .resourceRequired(demand.getResourcesRequired())
