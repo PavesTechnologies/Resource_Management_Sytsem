@@ -73,7 +73,7 @@ public class AllocationController {
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN', 'DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByProject(
             @PathVariable Long projectId) {
         
