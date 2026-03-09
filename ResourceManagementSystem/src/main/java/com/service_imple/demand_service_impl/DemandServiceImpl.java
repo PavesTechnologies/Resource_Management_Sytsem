@@ -500,6 +500,7 @@ public class DemandServiceImpl implements DemandService {
                                 .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
                                 .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
+                                .rejectionReason(demand.getRejectionReason())
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
                                 .demandStartDate(demand.getDemandStartDate())
