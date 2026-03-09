@@ -47,6 +47,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.TreeSet;
@@ -71,6 +72,227 @@ public class AllocationServiceImple implements AllocationService {
     private final MeterRegistry meterRegistry;
     private final AllocationConflictRepository conflictRepository;
     private final AvailabilityLedgerAsyncService ledgerAsyncService;
+
+    // ==================== DATE VALIDATION METHODS ====================
+    
+    /**
+     * Validates allocation dates against demand timeline constraints
+     * @param allocationRequest the allocation request to validate
+     * @param demand the demand entity to validate against
+     * @throws ProjectExceptionHandler if dates violate constraints
+     */
+    private void validateAllocationDatesAgainstDemand(AllocationRequestDTO allocationRequest, Demand demand) {
+        log.debug("Validating allocation dates against demand timeline");
+        
+        LocalDate allocationStartDate = allocationRequest.getAllocationStartDate();
+        LocalDate allocationEndDate = allocationRequest.getAllocationEndDate();
+        LocalDate demandStartDate = demand.getDemandStartDate();
+        LocalDate demandEndDate = demand.getDemandEndDate();
+        
+        // Validate allocation start date is not before demand start date
+        if (allocationStartDate.isBefore(demandStartDate)) {
+            String message = String.format(
+                "Allocation start date (%s) cannot be earlier than demand start date (%s). " +
+                "Resources cannot be allocated before the demand period begins.",
+                allocationStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                demandStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ALLOCATION_START_BEFORE_DEMAND_START",
+                    message
+            );
+        }
+        
+        // Validate allocation end date is not after demand end date
+        if (allocationEndDate.isAfter(demandEndDate)) {
+            String message = String.format(
+                "Allocation end date (%s) cannot be later than demand end date (%s). " +
+                "Resources cannot be allocated beyond the demand period.",
+                allocationEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                demandEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ALLOCATION_END_AFTER_DEMAND_END",
+                    message
+            );
+        }
+        
+        log.debug("Allocation dates successfully validated against demand timeline");
+    }
+    
+    /**
+     * Validates allocation dates against project timeline constraints
+     * @param allocationRequest the allocation request to validate
+     * @param project the project entity to validate against
+     * @throws ProjectExceptionHandler if dates violate constraints
+     */
+    private void validateAllocationDatesAgainstProject(AllocationRequestDTO allocationRequest, Project project) {
+        log.debug("Validating allocation dates against project timeline");
+        
+        LocalDate allocationStartDate = allocationRequest.getAllocationStartDate();
+        LocalDate allocationEndDate = allocationRequest.getAllocationEndDate();
+        
+        // Project dates are LocalDateTime, convert to LocalDate for comparison
+        LocalDate projectStartDate = project.getStartDate() != null ? 
+            project.getStartDate().toLocalDate() : null;
+        LocalDate projectEndDate = project.getEndDate() != null ? 
+            project.getEndDate().toLocalDate() : null;
+        
+        // Validate against project start date if available
+        if (projectStartDate != null && allocationStartDate.isBefore(projectStartDate)) {
+            String message = String.format(
+                "Allocation start date (%s) cannot be earlier than project start date (%s). " +
+                "Resources cannot be allocated before the project begins.",
+                allocationStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                projectStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ALLOCATION_START_BEFORE_PROJECT_START",
+                    message
+            );
+        }
+        
+        // Validate against project end date if available
+        if (projectEndDate != null && allocationEndDate.isAfter(projectEndDate)) {
+            String message = String.format(
+                "Allocation end date (%s) cannot be later than project end date (%s). " +
+                "Resources cannot be allocated beyond the project completion date.",
+                allocationEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                projectEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ALLOCATION_END_AFTER_PROJECT_END",
+                    message
+            );
+        }
+        
+        log.debug("Allocation dates successfully validated against project timeline");
+    }
+    
+    /**
+     * Validates basic allocation date logic
+     * @param allocationRequest the allocation request to validate
+     * @throws ProjectExceptionHandler if basic date logic is violated
+     */
+    private void validateBasicAllocationDateLogic(AllocationRequestDTO allocationRequest) {
+        log.debug("Validating basic allocation date logic");
+        
+        LocalDate allocationStartDate = allocationRequest.getAllocationStartDate();
+        LocalDate allocationEndDate = allocationRequest.getAllocationEndDate();
+        
+        // Validate that start date is not after end date
+        if (allocationStartDate.isAfter(allocationEndDate)) {
+            String message = String.format(
+                "Allocation start date (%s) cannot be later than allocation end date (%s). " +
+                "Start date must be on or before end date.",
+                allocationStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                allocationEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_DATE_RANGE",
+                    message
+            );
+        }
+        
+        // Validate that dates are not in the past (basic business rule)
+        LocalDate today = LocalDate.now();
+        if (allocationStartDate.isBefore(today)) {
+            String message = String.format(
+                "Allocation start date (%s) cannot be in the past. " +
+                "Current date is %s. Allocations must start today or in the future.",
+                allocationStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "PAST_ALLOCATION_DATE",
+                    message
+            );
+        }
+        
+        log.debug("Basic allocation date logic validation passed");
+    }
+    
+    /**
+     * Performs comprehensive allocation date validation
+     * @param allocationRequest the allocation request to validate
+     * @param demand the demand entity (can be null for project-only allocations)
+     * @param project the project entity (can be null for demand-only allocations)
+     * @throws ProjectExceptionHandler if any date constraints are violated
+     */
+    private void validateAllocationDates(AllocationRequestDTO allocationRequest, Demand demand, Project project) {
+        log.debug("Performing comprehensive allocation date validation");
+        
+        // Always validate basic date logic first
+        validateBasicAllocationDateLogic(allocationRequest);
+        
+        // Validate against demand if provided
+        if (demand != null) {
+            validateAllocationDatesAgainstDemand(allocationRequest, demand);
+        }
+        
+        // Validate against project if provided
+        if (project != null) {
+            validateAllocationDatesAgainstProject(allocationRequest, project);
+        }
+        
+        // If both demand and project are provided, ensure consistency
+        if (demand != null && project != null) {
+            validateDemandProjectConsistency(demand, project);
+        }
+        
+        log.debug("Comprehensive allocation date validation completed successfully");
+    }
+    
+    /**
+     * Validates that demand dates are consistent with project dates
+     * @param demand the demand entity
+     * @param project the project entity
+     * @throws ProjectExceptionHandler if demand dates are outside project timeline
+     */
+    private void validateDemandProjectConsistency(Demand demand, Project project) {
+        LocalDate demandStartDate = demand.getDemandStartDate();
+        LocalDate demandEndDate = demand.getDemandEndDate();
+        
+        LocalDate projectStartDate = project.getStartDate() != null ? 
+            project.getStartDate().toLocalDate() : null;
+        LocalDate projectEndDate = project.getEndDate() != null ? 
+            project.getEndDate().toLocalDate() : null;
+        
+        // Check if demand dates are within project timeline
+        if (projectStartDate != null && demandStartDate.isBefore(projectStartDate)) {
+            String message = String.format(
+                "Demand start date (%s) is earlier than project start date (%s). " +
+                "This indicates inconsistent project planning data.",
+                demandStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                projectStartDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "DEMAND_PROJECT_INCONSISTENCY",
+                    message
+            );
+        }
+        
+        if (projectEndDate != null && demandEndDate.isAfter(projectEndDate)) {
+            String message = String.format(
+                "Demand end date (%s) is later than project end date (%s). " +
+                "This indicates inconsistent project planning data.",
+                demandEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                projectEndDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+            );
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "DEMAND_PROJECT_INCONSISTENCY",
+                    message
+            );
+        }
+    }
 
 
     private void validateResourceCapacityForUpdate(UUID allocationId, AllocationRequestDTO request) {
@@ -165,6 +387,16 @@ public class AllocationServiceImple implements AllocationService {
                 }
 
                 project = projectOpt.get();
+            }
+            
+            // ==================== DATE VALIDATION ====================
+            // Validate allocation dates against demand and project timelines
+            try {
+                validateAllocationDates(allocationRequest, demand, project);
+            } catch (ProjectExceptionHandler e) {
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false, e.getMessage(), null)
+                );
             }
 
             // PERFORMANCE OPTIMIZATION: Batch load all required data before parallel validation
@@ -347,6 +579,16 @@ public class AllocationServiceImple implements AllocationService {
             }
 
             ResourceAllocation allocation = existingAllocation.get();
+
+            // ==================== DATE VALIDATION FOR UPDATE ====================
+            // Validate allocation dates against demand and project timelines
+            try {
+                validateAllocationDates(allocationRequest, allocation.getDemand(), allocation.getProject());
+            } catch (ProjectExceptionHandler e) {
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false, e.getMessage(), null)
+                );
+            }
 
             // Update fields
             allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
