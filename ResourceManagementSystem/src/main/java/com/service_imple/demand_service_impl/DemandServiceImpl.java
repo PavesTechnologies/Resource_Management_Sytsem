@@ -485,7 +485,7 @@ public class DemandServiceImpl implements DemandService {
                                         demand.getProject().getClient().getClientName() : "Unknown Client")
                                 .projectId(demand.getProject().getPmsProjectId())
                                 .projectName(demand.getProject().getName())
-                                .deliveryRole(demand.getRole().toString())
+                                .deliveryRole(demand.getRole().getRole().getRoleName())
                                 .demandJustification(demand.getDemandJustification())
                                 .minExp(demand.getMinExp())
                                 .resourceRequired(demand.getResourcesRequired())
@@ -494,8 +494,11 @@ public class DemandServiceImpl implements DemandService {
                                 .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
                                 .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
+                                .rejectionReason(demand.getRejectionReason())
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .demandStartDate(demand.getDemandStartDate())
+                                .demandEndDate(demand.getDemandEndDate())
                                 .priorityScore(calculatePriorityScore(demand))
                                 .build();
 
@@ -717,6 +720,8 @@ public class DemandServiceImpl implements DemandService {
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .demandStartDate(demand.getDemandStartDate())
+                                .demandEndDate(demand.getDemandEndDate())
                                 .priorityScore(calculatePriorityScore(demand))
                                 .build();
 
@@ -828,12 +833,19 @@ public class DemandServiceImpl implements DemandService {
                                     demand.getProject().getClient().getClientName() : "Unknown Client")
                                 .projectId(demand.getProject().getPmsProjectId())
                                 .projectName(demand.getProject().getName())
+                                .deliveryRole(demand.getRole().getRole().getRoleName())
+                                .demandJustification(demand.getDemandJustification())
+                                .minExp(demand.getMinExp())
+                                .resourceRequired(demand.getResourcesRequired())
+                                .allocation(demand.getAllocationPercentage())
                                 .demandId(demand.getDemandId())
                                 .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
                                 .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .demandStartDate(demand.getDemandStartDate())
+                                .demandEndDate(demand.getDemandEndDate())
                                 .priorityScore(calculatePriorityScore(demand))
                                 .build();
 
@@ -1979,7 +1991,9 @@ public class DemandServiceImpl implements DemandService {
                                     .priorityScore(calculatePriorityScore(demand))
                                     .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
                                     .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
-                                    .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN");
+                                    .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                    .demandStartDate(demand.getDemandStartDate())
+                                    .demandEndDate(demand.getDemandEndDate());
                     
                     // Add SLA details if present
                     if (demandSLAOpt.isPresent()) {

@@ -41,7 +41,7 @@ public class ProjectComplianceController {
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('PROJECT_MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'ADMIN', 'RESOURCE-MANAGER', 'MANAGER')")
     public ResponseEntity<ApiResponse<List<ProjectComplianceResponseDTO>>> getProjectCompliances(@PathVariable Long projectId) {
         return projectComplianceService.getProjectComplianceByProjectId(projectId);
     }

@@ -36,7 +36,7 @@ public class ClientComplianceController {
     }
 
     @GetMapping("/clientCompliance/{clientId}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getClientCompliance(@PathVariable UUID clientId) {
         return clientComplianceService.getClientCompliance(clientId);
     }
