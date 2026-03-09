@@ -36,7 +36,7 @@ public class ClientAsset {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Client client;
 
-    @Column(nullable = false)
+    @Column(name = "asset_name", nullable = false)
     @NotBlank(message = "Asset name is required")
     @Size(min = 3, max = 100, message = "Asset name must be between 3 and 100 characters")
     @Pattern(
