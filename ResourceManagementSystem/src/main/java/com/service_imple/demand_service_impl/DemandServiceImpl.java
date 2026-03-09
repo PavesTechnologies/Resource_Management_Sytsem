@@ -3,6 +3,7 @@ package com.service_imple.demand_service_impl;
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
 import com.dto.demand_dto.*;
+import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
 import com.entity.project_entities.Project;
@@ -10,6 +11,7 @@ import com.entity.project_entities.ProjectCompliance;
 import com.entity.project_entities.ProjectSLA;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.client_enums.RequirementType;
 //import com.entity_enums.skill_enums.DemandStatus;
@@ -18,6 +20,7 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
+import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.demand_repo.DemandSLARepository;
 import com.repo.project_repo.ProjectComplianceRepo;
@@ -51,6 +54,9 @@ public class DemandServiceImpl implements DemandService {
 
     @Autowired
     private DemandRepository demandRepository;
+
+    @Autowired
+    private AllocationRepository allocationRepository;
 
     @Autowired
     private ProjectDemandValidationService projectDemandValidationService;
@@ -1905,6 +1911,50 @@ public class DemandServiceImpl implements DemandService {
 
         // -------- FULFILLED --------
         if (decision == DemandStatus.FULFILLED) {
+
+            // Validate that demand has proper allocations before marking as FULFILLED
+            List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demand.getDemandId());
+            
+            // Count only active/planned allocations (exclude ended and cancelled)
+            long activeAllocations = allocations.stream()
+                .filter(alloc -> alloc.getAllocationStatus() != AllocationStatus.ENDED && 
+                               alloc.getAllocationStatus() != AllocationStatus.CANCELLED)
+                .count();
+            
+            // Check if required number of resources are allocated
+            if (activeAllocations < demand.getResourcesRequired()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INSUFFICIENT_ALLOCATIONS",
+                    String.format("Cannot mark demand as FULFILLED. Demand '%s' requires %d resources but only %d are allocated", 
+                                 demand.getDemandName(), demand.getResourcesRequired(), activeAllocations)
+                );
+            }
+            
+            // Check if over-allocated
+            if (activeAllocations > demand.getResourcesRequired()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVER_ALLOCATION",
+                    String.format("Cannot mark demand as FULFILLED. Demand '%s' requires %d resources but %d are allocated", 
+                                 demand.getDemandName(), demand.getResourcesRequired(), activeAllocations)
+                );
+            }
+            
+            // Check if allocations are in proper status
+            boolean hasInvalidStatus = allocations.stream()
+                .filter(alloc -> alloc.getAllocationStatus() != AllocationStatus.ENDED && 
+                               alloc.getAllocationStatus() != AllocationStatus.CANCELLED)
+                .anyMatch(alloc -> alloc.getAllocationStatus() != AllocationStatus.ACTIVE && 
+                                  alloc.getAllocationStatus() != AllocationStatus.PLANNED);
+            
+            if (hasInvalidStatus) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_ALLOCATION_STATUS",
+                    "Cannot mark demand as FULFILLED. All allocations must be in ACTIVE or PLANNED status"
+                );
+            }
 
             demand.setDemandStatus(DemandStatus.FULFILLED);
             demand.setRejectionReason(null);

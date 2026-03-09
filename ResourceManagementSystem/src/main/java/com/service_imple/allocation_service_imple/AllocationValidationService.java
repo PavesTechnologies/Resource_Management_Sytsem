@@ -228,7 +228,7 @@ public class AllocationValidationService {
                 // Validate resource existence and eligibility
                 Resource resource = validateResource(resourceId, preloadedData.getResourceMap());
                 if (resource == null) {
-                    failures.add(new AllocationFailure(resourceId, "Unknown", "Resource not found"));
+                    failures.add(new AllocationFailure(resourceId, getResourceName(resourceId, preloadedData.getResourceMap()), "Resource not found"));
                     return;
                 }
                 
@@ -264,11 +264,19 @@ public class AllocationValidationService {
                 validAllocations.add(allocation);
                 
             } catch (Exception e) {
-                failures.add(new AllocationFailure(resourceId, "Unknown", e.getMessage()));
+                failures.add(new AllocationFailure(resourceId, getResourceName(resourceId, preloadedData.getResourceMap()), e.getMessage()));
             }
         });
         
         return new AllocationValidationResult(validAllocations, failures);
+    }
+
+    /**
+     * Gets resource name from preloaded data map
+     */
+    private String getResourceName(Long resourceId, Map<Long, Resource> resourceMap) {
+        Resource resource = resourceMap.get(resourceId);
+        return resource != null ? resource.getFullName() : "Resource " + resourceId;
     }
 
     /**
