@@ -14,17 +14,48 @@ import java.util.UUID;
 @Repository
 public interface AllocationRepository extends JpaRepository<ResourceAllocation, UUID> {
 
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.resource.resourceId = :resourceId")
     List<ResourceAllocation> findByResource_ResourceId(Long resourceId);
     
-    List<ResourceAllocation> findByDemand_DemandId(UUID demandId);
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.demand.demandId = :demandId")
+    List<ResourceAllocation> findByDemand_DemandId(@Param("demandId") UUID demandId);
     
-    List<ResourceAllocation> findByProject_PmsProjectId(Long projectId);
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.project.pmsProjectId = :projectId")
+    List<ResourceAllocation> findByProject_PmsProjectId(@Param("projectId") Long projectId);
 
     @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId")
     List<Resource> findResourcesByProjectId(@Param("projectId") Long projectId);
 
 
-    @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId " +
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
            "AND ra.allocationStartDate <= :endDate " +
            "AND ra.allocationEndDate >= :startDate")
@@ -40,7 +71,14 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
      * SQL logic filters overlapping allocations using:
      * existing.start_date <= request.end_date AND existing.end_date >= request.start_date
      */
-    @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds " +
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.resource.resourceId IN :resourceIds " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
            "AND ra.allocationStartDate <= :endDate " +
            "AND ra.allocationEndDate >= :startDate")
@@ -49,7 +87,14 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
     
-    @Query("SELECT ra FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId " +
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
            "AND ra.allocationStartDate <= :date " +
            "AND ra.allocationEndDate >= :date")

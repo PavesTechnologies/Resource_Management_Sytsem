@@ -19,14 +19,18 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
 
     Optional<ResourceSkill>findByResourceIdAndSkillIdAndActiveFlagTrue(Long resourceId, UUID certSkillId);
 
-    @Query("SELECT rs FROM ResourceSkill rs WHERE rs.resourceId = :resourceId AND rs.activeFlag = true")
+    @Query("SELECT rs FROM ResourceSkill rs " +
+           "LEFT JOIN FETCH rs.skill " +
+           "WHERE rs.resourceId = :resourceId AND rs.activeFlag = true")
     List<ResourceSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") Long resourceId);
 
     /**
      * Batch query to fetch skills for multiple resources in a single round-trip
      * This prevents N+1 query problems when validating skills for multiple resources
      */
-    @Query("SELECT rs FROM ResourceSkill rs WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
+    @Query("SELECT rs FROM ResourceSkill rs " +
+           "LEFT JOIN FETCH rs.skill " +
+           "WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
     List<ResourceSkill> findByResourceIdInAndActiveFlagTrue(@Param("resourceIds") List<Long> resourceIds);
 
     @Query("SELECT rs.resourceId, s.name FROM ResourceSkill rs JOIN rs.skill s WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
