@@ -86,4 +86,10 @@ public class AllocationController {
     public ResponseEntity<?> getAllResources(@PathVariable Long projectId) {
         return allocationService.getProjectResources(projectId);
     }
+
+    @GetMapping("/overrides")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
+        return allocationService.getOverrideAllocations();
+    }
 }

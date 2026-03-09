@@ -102,4 +102,16 @@ public class ResourceAllocation {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "override_flag")
+    private Boolean overrideFlag = false;
+
+    @Column(name = "override_justification", length = 500)
+    private String overrideJustification;
+
+    @Column(name = "override_by")
+    private String overrideBy;
+
+    @Column(name = "override_at")
+    private LocalDateTime overrideAt;
 }

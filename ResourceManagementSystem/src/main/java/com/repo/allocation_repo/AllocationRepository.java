@@ -56,4 +56,6 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findActiveAllocationsForResourceOnDate(
             @Param("resourceId") Long resourceId,
             @Param("date") LocalDate date);
+
+    List<ResourceAllocation> findByOverrideFlagTrue();
 }

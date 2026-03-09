@@ -24,6 +24,7 @@ import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.ClientTier;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
+import com.entity_enums.demand_enums.DemandType;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationConflictRepository;
 import com.repo.allocation_repo.AllocationRepository;
@@ -251,10 +252,51 @@ public class AllocationServiceImple implements AllocationService {
                             allocationRequest.getAllocationEndDate(),
                             allocationRequest.getAllocationPercentage()
                     );
-                    
+
                     if (!capacityValid) {
-                        failures.add(new AllocationFailure(resourceId, resource.getFullName(), "Resource capacity exceeded in overlapping timeline segment"));
-                        return;
+
+                        int totalAllocation = existingAllocations.stream()
+                                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                                .sum() + allocationRequest.getAllocationPercentage();
+
+                        // BLOCK if above hard threshold
+                        if (totalAllocation > 130) {
+                            failures.add(new AllocationFailure(
+                                    resourceId,
+                                    resource.getFullName(),
+                                    "Allocation exceeds maximum limit of 130%"
+                            ));
+                            return;
+                        }
+
+                        // Override allowed only for EMERGENCY or CRITICAL
+                        if (finalDemand != null) {
+
+                            boolean overrideAllowed =
+                                    finalDemand.getDemandType() == DemandType.EMERGENCY ||
+                                            finalDemand.getDemandPriority() == PriorityLevel.CRITICAL ||
+                                            finalDemand.getDemandPriority() == PriorityLevel.HIGH;
+
+                            if (!overrideAllowed) {
+                                failures.add(new AllocationFailure(
+                                        resourceId,
+                                        resource.getFullName(),
+                                        "Override allowed only for EMERGENCY or CRITICAL demands"
+                                ));
+                                return;
+                            }
+
+                            if (allocationRequest.getOverrideJustification() == null ||
+                                    allocationRequest.getOverrideJustification().isBlank()) {
+
+                                failures.add(new AllocationFailure(
+                                        resourceId,
+                                        resource.getFullName(),
+                                        "Override justification required for overallocation"
+                                ));
+                                return;
+                            }
+                        }
                     }
                     
                     // Create allocation object if all validations pass
@@ -269,6 +311,16 @@ public class AllocationServiceImple implements AllocationService {
                     allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
                     allocation.setCreatedBy(allocationRequest.getCreatedBy());
                     allocation.setCreatedAt(LocalDateTime.now());
+                    int totalAllocation = existingAllocations.stream()
+                            .mapToInt(ResourceAllocation::getAllocationPercentage)
+                            .sum() + allocationRequest.getAllocationPercentage();
+
+                    if (totalAllocation > 100) {
+                        allocation.setOverrideFlag(true);
+                        allocation.setOverrideJustification(allocationRequest.getOverrideJustification());
+                        allocation.setOverrideBy(allocationRequest.getCreatedBy());
+                        allocation.setOverrideAt(LocalDateTime.now());
+                    }
                     
                     validAllocations.add(allocation);
 
@@ -335,6 +387,16 @@ public class AllocationServiceImple implements AllocationService {
                 new ApiResponse<>(false, "Error retrieving allocation: " + e.getMessage(), null)
             );
         }
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
+
+        List<ResourceAllocation> overrides = allocationRepository.findByOverrideFlagTrue();
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Override allocations retrieved", overrides)
+        );
     }
 
     @Override

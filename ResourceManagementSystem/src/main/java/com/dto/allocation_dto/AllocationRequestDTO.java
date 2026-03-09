@@ -31,8 +31,10 @@ public class AllocationRequestDTO {
 
     @NotNull(message = "Allocation percentage is required")
     @Min(value = 1, message = "Allocation percentage must be at least 1")
-    @Max(value = 100, message = "Allocation percentage cannot exceed 100")
+    @Max(value = 130, message = "Allocation percentage cannot exceed 130")
     private Integer allocationPercentage;
+
+    private String overrideJustification;
 
     @NotNull(message = "Allocation status is required")
     private AllocationStatus allocationStatus;
