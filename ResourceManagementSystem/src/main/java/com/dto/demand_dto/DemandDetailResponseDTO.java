@@ -37,6 +37,8 @@ public class DemandDetailResponseDTO {
     private LocalDate demandStartDate;
     private LocalDate demandEndDate;
     private String rejectionReason;
+    private String rmRejectionReason;
+    private String dmRejectionReason;
     
     // SLA details
     private UUID demandSlaId;

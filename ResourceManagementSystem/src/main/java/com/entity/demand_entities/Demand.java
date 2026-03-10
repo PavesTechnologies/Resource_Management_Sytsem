@@ -117,6 +117,9 @@ public class Demand {
     @Column(name = "demand_commitment", length = 500,nullable = false)
     private DemandCommitment demandCommitment;
 
-    @Column(name = "rejection_reason", length = 500)
-    private String rejectionReason;
+    @Column(name = "rm_rejection_reason", length = 500)
+    private String rmRejectionReason;
+
+    @Column(name = "dm_rejection_reason", length = 500)
+    private String dmRejectionReason;
 }
