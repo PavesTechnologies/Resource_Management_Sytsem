@@ -6,11 +6,13 @@ import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.ResourceCertificate;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.Skill;
+import com.entity.resource_entities.Resource;
 import com.entity_enums.skill_enums.CertificateStatus;
 import com.global_exception_handler.CertificationComplianceException;
 import com.repo.skill_repo.CertificateRepository;
 import com.repo.skill_repo.ResourceCertificateRepository;
 import com.repo.skill_repo.SkillRepository;
+import com.repo.resource_repo.ResourceRepository;
 import com.service_interface.skill_service_interface.ResourceCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,10 +28,13 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     private final ResourceCertificateRepository resourceCertificateRepository;
     private final CertificateRepository certificateRepository;
     private final SkillRepository skillRepository;
+    private final ResourceRepository resourceRepository;
 
     @Override
     @Transactional
     public String assignCertificate(ResourceCertificateRequestDTO dto) {
+        // Validate resource exists and is active before proceeding
+        validateResourceExistsAndActive(dto.getResourceId());
 
         Certificate master = certificateRepository.findById(dto.getCertificateId())
                 .orElseThrow(() ->
@@ -123,6 +128,22 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     public ResourceCertificate getCertificateById(UUID id) {
         return resourceCertificateRepository.findById(id)
                 .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
+    }
+
+    /**
+     * Validates that a resource exists and is active before allowing certificate assignments
+     * @param resourceId The resource ID to validate
+     * @throws CertificationComplianceException if resource doesn't exist or is not active
+     */
+    private void validateResourceExistsAndActive(Long resourceId) {
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new CertificationComplianceException(
+                        "Resource not found with ID: " + resourceId));
+        
+        if (!Boolean.TRUE.equals(resource.getActiveFlag())) {
+            throw new CertificationComplianceException(
+                    "Resource is not active: " + resource.getFullName() + " (ID: " + resourceId + ")");
+        }
     }
 
 }

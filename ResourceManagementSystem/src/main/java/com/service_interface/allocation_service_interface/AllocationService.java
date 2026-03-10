@@ -29,6 +29,8 @@ public interface AllocationService {
     ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId);
 
     ResponseEntity<?> getProjectResources(Long projectId);
+
+    ResponseEntity<ApiResponse<?>> getOverrideAllocations();
     
     /**
      * Performs comprehensive skill gap analysis between demand and resource

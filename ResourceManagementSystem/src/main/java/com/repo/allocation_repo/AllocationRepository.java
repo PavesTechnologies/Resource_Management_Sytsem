@@ -101,7 +101,9 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findActiveAllocationsForResourceOnDate(
             @Param("resourceId") Long resourceId,
             @Param("date") LocalDate date);
-    
+
+    List<ResourceAllocation> findByOverrideFlagTrue();
+
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "LEFT JOIN FETCH ra.resource " +
            "LEFT JOIN FETCH ra.demand d " +
