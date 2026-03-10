@@ -333,7 +333,15 @@ public class AllocationServiceImple implements AllocationService {
      * Persists valid allocations to database
      */
     private List<ResourceAllocation> persistAllocations(List<ResourceAllocation> validAllocations) {
-        return allocationRepository.saveAll(validAllocations);
+        List<ResourceAllocation> savedAllocations = allocationRepository.saveAll(validAllocations);
+        
+        // Update the input allocations with the saved IDs and return them
+        // This preserves the fully loaded resource data from preloading
+        for (int i = 0; i < savedAllocations.size(); i++) {
+            validAllocations.get(i).setAllocationId(savedAllocations.get(i).getAllocationId());
+        }
+        
+        return validAllocations;
     }
 
     /**
@@ -364,10 +372,19 @@ public class AllocationServiceImple implements AllocationService {
             message = "Allocation Partially Successful";
         }
 
+        // Fetch saved allocations with relationships to avoid lazy loading issues
+        List<UUID> allocationIds = savedAllocations.stream()
+                .map(ResourceAllocation::getAllocationId)
+                .collect(Collectors.toList());
+        
+        List<ResourceAllocation> allocationsWithRelations = allocationRepository.findByAllocationIdIn(allocationIds);
+
         Map<String, Object> response = new HashMap<>();
         response.put("successCount", successCount);
         response.put("failureCount", failureCount);
-        response.put("savedAllocations", savedAllocations);
+        response.put("savedAllocations", allocationsWithRelations.stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList()));
         response.put("failedResources", failures);
 
         return ResponseEntity.ok(
@@ -478,10 +495,15 @@ public class AllocationServiceImple implements AllocationService {
         if (allocation.getResource() != null) {
             dto.setFullName(allocation.getResource().getFullName());
             dto.setEmail(allocation.getResource().getEmail());
+        } else {
+            dto.setFullName("Unknown Resource");
+            dto.setEmail("unknown@example.com");
         }
 
         if (allocation.getDemand() != null) {
             dto.setDemandName(allocation.getDemand().getDemandName());
+        } else {
+            dto.setDemandName("Unknown Demand");
         }
 
         dto.setAllocationStartDate(allocation.getAllocationStartDate());
