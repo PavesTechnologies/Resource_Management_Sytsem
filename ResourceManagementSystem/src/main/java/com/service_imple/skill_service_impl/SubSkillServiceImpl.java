@@ -1,5 +1,6 @@
 package com.service_imple.skill_service_impl;
 
+import com.dto.skill_dto.SubSkillItemDTO;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
 import com.global_exception_handler.SkillTaxonomyExceptionHandler;
@@ -9,6 +10,7 @@ import com.service_interface.skill_service_interface.SubSkillService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,7 +38,50 @@ public class SubSkillServiceImpl implements SubSkillService {
         subSkill.setDescription(description);
         subSkill.setSkill(skill);
 
-        return subSkillRepository.save(subSkill);
+        SubSkill saved = subSkillRepository.save(subSkill);
+        skill.addSubSkill(saved);
+        
+        return saved;
+    }
+
+    @Override
+    public List<SubSkill> createMultiple(UUID skillId, List<SubSkillItemDTO> subSkillItems) {
+        Skill skill = skillRepository.findById(skillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Parent skill not found"));
+
+        List<SubSkill> createdSubSkills = new ArrayList<>();
+        List<String> existingNames = new ArrayList<>();
+
+        for (SubSkillItemDTO item : subSkillItems) {
+            String normalized = item.getName().trim();
+            
+            if (subSkillRepository.existsByNameIgnoreCaseAndSkill_Id(normalized, skillId)) {
+                existingNames.add(normalized);
+                continue;
+            }
+
+            SubSkill subSkill = new SubSkill();
+            subSkill.setName(normalized);
+            subSkill.setDescription(item.getDescription());
+            subSkill.setSkill(skill);
+            
+            // Set status based on isActive flag
+            if (item.getIsActive() != null && !item.getIsActive()) {
+                subSkill.setStatus("INACTIVE");
+            } else {
+                subSkill.setStatus("ACTIVE");
+            }
+
+            SubSkill saved = subSkillRepository.save(subSkill);
+            skill.addSubSkill(saved);
+            createdSubSkills.add(saved);
+        }
+
+        if (!existingNames.isEmpty()) {
+            throw new SkillTaxonomyExceptionHandler("Some sub-skills already exist: " + String.join(", ", existingNames));
+        }
+
+        return createdSubSkills;
     }
 
     @Override

@@ -48,6 +48,7 @@ public class Skill {
     @JoinColumn(name = "category_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_skill_category"))
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skills"})
+    @JsonIgnore
     private SkillCategory category;
 
     @Column(nullable = false, updatable = false)
@@ -56,12 +57,22 @@ public class Skill {
     @Column(nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "skill", cascade = CascadeType.ALL, orphanRemoval = false)
-    @JsonIgnore
+    @OneToMany(mappedBy = "skill", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skill.category"})
     private List<SubSkill> subSkills = new ArrayList<>();
 
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void addSubSkill(SubSkill subSkill) {
+        subSkills.add(subSkill);
+        subSkill.setSkill(this);
+    }
+
+    public void removeSubSkill(SubSkill subSkill) {
+        subSkills.remove(subSkill);
+        subSkill.setSkill(null);
     }
 }

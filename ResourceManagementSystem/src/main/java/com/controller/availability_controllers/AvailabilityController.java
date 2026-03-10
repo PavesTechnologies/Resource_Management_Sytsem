@@ -87,7 +87,6 @@ public class AvailabilityController {
 
     @GetMapping("/timeline/window")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
-
     public ResponseEntity<ResourceTimelineApiResponse> getResourceTimelineWindow(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             

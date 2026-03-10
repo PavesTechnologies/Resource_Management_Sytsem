@@ -83,7 +83,7 @@ public class AllocationValidationService {
             );
         }
         
-        if (request.getAllocationPercentage() <= 0 || request.getAllocationPercentage() > 100) {
+        if (request.getAllocationPercentage() <= 0 || request.getAllocationPercentage() > 130) {
             throw new ProjectExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_PERCENTAGE",
@@ -228,7 +228,7 @@ public class AllocationValidationService {
                 // Validate resource existence and eligibility
                 Resource resource = validateResource(resourceId, preloadedData.getResourceMap());
                 if (resource == null) {
-                    failures.add(new AllocationFailure(resourceId, "Unknown", "Resource not found"));
+                    failures.add(new AllocationFailure(resourceId, getResourceName(resourceId, preloadedData.getResourceMap()), "Resource not found"));
                     return;
                 }
                 
@@ -236,6 +236,8 @@ public class AllocationValidationService {
                 validateDemandRules(request, finalDemand, finalProject, resourceId, preloadedData);
                 
                 // Conditional advanced validations based on allocation status
+                boolean override = false;
+                
                 if (request.getAllocationStatus() == AllocationStatus.ACTIVE || 
                     request.getAllocationStatus() == AllocationStatus.PLANNED) {
                     
@@ -244,7 +246,7 @@ public class AllocationValidationService {
                     
                     // Validate capacity (only for ACTIVE allocations)
                     if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
-                        validateCapacity(resourceId, request, preloadedData);
+                        override = validateCapacity(resourceId, request, preloadedData);
                     }
                 }
                 
@@ -260,15 +262,32 @@ public class AllocationValidationService {
                 allocation.setAllocationStatus(request.getAllocationStatus());
                 allocation.setCreatedBy(request.getCreatedBy());
                 allocation.setCreatedAt(LocalDateTime.now());
+                allocation.setOverrideFlag(override);
+
+                if (override) {
+
+                    allocation.setOverrideJustification(request.getOverrideJustification());
+                    allocation.setOverrideBy(request.getCreatedBy());
+                    allocation.setOverrideAt(LocalDateTime.now());
+
+                }
                 
                 validAllocations.add(allocation);
                 
             } catch (Exception e) {
-                failures.add(new AllocationFailure(resourceId, "Unknown", e.getMessage()));
+                failures.add(new AllocationFailure(resourceId, getResourceName(resourceId, preloadedData.getResourceMap()), e.getMessage()));
             }
         });
         
         return new AllocationValidationResult(validAllocations, failures);
+    }
+
+    /**
+     * Gets resource name from preloaded data map
+     */
+    private String getResourceName(Long resourceId, Map<Long, Resource> resourceMap) {
+        Resource resource = resourceMap.get(resourceId);
+        return resource != null ? resource.getFullName() : "Resource " + resourceId;
     }
 
     /**
@@ -372,22 +391,43 @@ public class AllocationValidationService {
     /**
      * Validates capacity using timeline segmentation algorithm
      */
-    private void validateCapacity(Long resourceId, AllocationRequestDTO request, AllocationPreloadedData preloadedData) {
-        List<ResourceAllocation> existingAllocations = preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
-        
+    private boolean validateCapacity(Long resourceId, AllocationRequestDTO request, AllocationPreloadedData preloadedData) {
+
+        List<ResourceAllocation> existingAllocations =
+                preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
+
         boolean capacityValid = capacityService.validateTimelineCapacity(
                 existingAllocations,
                 request.getAllocationStartDate(),
                 request.getAllocationEndDate(),
                 request.getAllocationPercentage()
         );
-        
-        if (!capacityValid) {
+
+        // NORMAL CASE
+        if (capacityValid) {
+            return false; // no override
+        }
+
+        // OVERRIDE CASE
+        if (request.getOverrideJustification() == null ||
+                request.getOverrideJustification().isBlank()) {
+
             throw new ProjectExceptionHandler(
-                HttpStatus.BAD_REQUEST,
-                "CAPACITY_EXCEEDED",
-                "Resource capacity exceeded in overlapping timeline segment"
+                    HttpStatus.BAD_REQUEST,
+                    "OVERRIDE_REQUIRED",
+                    "Allocation exceeds 100%. Override justification required."
             );
         }
+
+        if (request.getAllocationPercentage() > 130) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "MAX_OVERRIDE_EXCEEDED",
+                    "Maximum override allowed is 130%"
+            );
+        }
+
+        return true; // override allowed
     }
 }

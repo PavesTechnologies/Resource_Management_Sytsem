@@ -19,7 +19,7 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     List<Skill> findByCategory_IdAndStatusIgnoreCase(UUID categoryId, String status);
 
-    @Query("SELECT s FROM Skill s WHERE s.status = 'ACTIVE' ORDER BY s.name")
+    @Query("SELECT s FROM Skill s JOIN FETCH s.category WHERE s.status = 'ACTIVE' ORDER BY s.name")
     List<Skill> findActiveSkills();
 
     @Query("SELECT COUNT(ss) FROM SubSkill ss WHERE ss.skill.id = :skillId AND ss.status = 'ACTIVE'")
@@ -30,7 +30,7 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
     @Query("UPDATE Skill s SET s.status = 'INACTIVE' WHERE s.id = :skillId")
     int deactivateSkill(@Param("skillId") UUID skillId);
 
-    @Query("SELECT s FROM Skill s WHERE s.category.id = :categoryId AND s.status = 'ACTIVE' ORDER BY s.name")
+    @Query("SELECT s FROM Skill s JOIN FETCH s.category WHERE s.category.id = :categoryId AND s.status = 'ACTIVE' ORDER BY s.name")
     List<Skill> findActiveSkillsByCategoryId(@Param("categoryId") UUID categoryId);
 
     /**

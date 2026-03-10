@@ -13,11 +13,13 @@ import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.ResourceSubSkill;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
+import com.entity.resource_entities.Resource;
 import com.repo.skill_repo.ProficiencyLevelRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
+import com.repo.resource_repo.ResourceRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,10 +39,14 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     private final SkillRepository skillRepository;
     private final SubSkillRepository subSkillRepository;
     private final ProficiencyLevelRepository proficiencyLevelRepository;
+    private final ResourceRepository resourceRepository;
 
     @Override
     @Transactional
     public String addSkillsToResource(ResourceSkillBulkRequestDTO dto) {
+        // Validate resource exists and is active before proceeding
+        validateResourceExistsAndActive(dto.getResourceId());
+        
         // Validate all skills before saving (atomic validation)
         validateAllSkills(dto);
         
@@ -228,6 +234,9 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Override
     @Transactional
     public String addSingleSkillToResource(ResourceSkillRequestDTO dto) {
+        // Validate resource exists and is active before proceeding
+        validateResourceExistsAndActive(dto.getResourceId());
+        
         // Validate skill exists and is ACTIVE
         Skill skill = skillRepository.findById(dto.getSkillId())
                 .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
@@ -274,6 +283,9 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Override
     @Transactional
     public String addSingleSubSkillToResource(ResourceSubSkillRequestDTO dto) {
+        // Validate resource exists and is active before proceeding
+        validateResourceExistsAndActive(dto.getResourceId());
+        
         // Validate sub-skill exists and is ACTIVE
         SubSkill subSkill = subSkillRepository.findById(dto.getSubSkillId())
                 .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
@@ -315,6 +327,22 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         
         resourceSubSkillRepository.save(resourceSubSkill);
         return "SubSkill successfully added to resource";
+    }
+
+    /**
+     * Validates that a resource exists and is active before allowing skill assignments
+     * @param resourceId The resource ID to validate
+     * @throws SkillTaxonomyExceptionHandler if resource doesn't exist or is not active
+     */
+    private void validateResourceExistsAndActive(Long resourceId) {
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Resource not found with ID: " + resourceId));
+        
+        if (!Boolean.TRUE.equals(resource.getActiveFlag())) {
+            throw new SkillTaxonomyExceptionHandler(
+                    "Resource is not active: " + resource.getFullName() + " (ID: " + resourceId + ")");
+        }
     }
 
 }

@@ -20,7 +20,7 @@ import java.util.UUID;
 )
 @Getter
 @Setter
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skill.category"})
 public class SubSkill {
 
     @Id
@@ -40,7 +40,7 @@ public class SubSkill {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "skill_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_subskill_skill"))
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "subSkills"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "subSkills", "category"})
     private Skill skill;
 
     @Column(nullable = false, updatable = false)
