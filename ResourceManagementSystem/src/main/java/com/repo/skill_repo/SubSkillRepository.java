@@ -26,10 +26,10 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
     @Query("UPDATE SubSkill ss SET ss.status = 'INACTIVE' WHERE ss.id = :subSkillId")
     int deactivateSubSkill(@Param("subSkillId") UUID subSkillId);
 
-    @Query("SELECT ss FROM SubSkill ss WHERE ss.skill.id = :skillId AND ss.status = 'ACTIVE' ORDER BY ss.name")
+    @Query("SELECT ss FROM SubSkill ss JOIN FETCH ss.skill WHERE ss.skill.id = :skillId AND ss.status = 'ACTIVE' ORDER BY ss.name")
     List<SubSkill> findActiveSubSkillsBySkillId(@Param("skillId") UUID skillId);
 
-    @Query("SELECT ss FROM SubSkill ss WHERE ss.skill.id IN :skillIds AND ss.status = 'ACTIVE' ORDER BY ss.skill.name, ss.name")
+    @Query("SELECT ss FROM SubSkill ss JOIN FETCH ss.skill WHERE ss.skill.id IN :skillIds AND ss.status = 'ACTIVE' ORDER BY ss.skill.name, ss.name")
     List<SubSkill> findActiveSubSkillsBySkillIds(@Param("skillIds") List<UUID> skillIds);
 }
 

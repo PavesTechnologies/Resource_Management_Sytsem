@@ -21,16 +21,15 @@ public class SubSkillController {
     private final SubSkillService service;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<SubSkill>> create(@Valid @RequestBody SubSkillCreateDTO subSkillCreateDTO) {
+    public ResponseEntity<ApiResponse<List<SubSkill>>> create(@Valid @RequestBody SubSkillCreateDTO subSkillCreateDTO) {
 
-        SubSkill created = service.create(
+        List<SubSkill> created = service.createMultiple(
                 subSkillCreateDTO.getSkillId(),
-                subSkillCreateDTO.getName(),
-                subSkillCreateDTO.getDescription()
+                subSkillCreateDTO.getSubSkills()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Sub-skill created successfully", created));
+                .body(ApiResponse.success(created.size() + " sub-skills created successfully", created));
     }
 
     @GetMapping("/active")
