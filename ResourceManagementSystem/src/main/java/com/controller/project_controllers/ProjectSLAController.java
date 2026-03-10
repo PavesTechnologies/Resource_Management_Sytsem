@@ -21,13 +21,13 @@ public class ProjectSLAController {
     private ProjectSLAService projectSLAService;
 
     @PostMapping("/save")
-    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> saveProjectSLA(@RequestBody ProjectSLA projectSLA) {
         return projectSLAService.createOrUpdateProjectSLA(projectSLA);
     }
 
     @PutMapping("/{projectSlaId}")
-    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> updateProjectSLA(
             @PathVariable UUID projectSlaId, 
             @RequestBody ProjectSLA projectSLA) {
@@ -35,19 +35,19 @@ public class ProjectSLAController {
     }
 
     @DeleteMapping("/{projectSlaId}")
-    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<Void>> deleteProjectSLA(@PathVariable UUID projectSlaId) {
         return projectSLAService.deleteProjectSLA(projectSlaId);
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'ADMIN', 'RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAs(@PathVariable Long projectId) {
         return projectSLAService.getProjectSLAByProjectId(projectId);
     }
 
     @GetMapping("/project/{projectId}/type/{slaType}")
-    @PreAuthorize("hasAnyRole('PROJECT_MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'ADMIN', 'RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> getProjectSLAByType(
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
@@ -55,7 +55,7 @@ public class ProjectSLAController {
     }
 
     @PostMapping("/inherit/{projectId}/type/{slaType}")
-    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProjectSLAResponseDTO>> inheritClientSLA(
             @PathVariable Long projectId,
             @PathVariable SLAType slaType) {
@@ -63,7 +63,7 @@ public class ProjectSLAController {
     }
 
     @PostMapping("/save-all")
-    @PreAuthorize("hasRole('PROJECT_MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> saveAllProjectSLAs(
             @RequestBody List<ProjectSLA> projectSLAs) {
         return projectSLAService.saveAll(projectSLAs);
