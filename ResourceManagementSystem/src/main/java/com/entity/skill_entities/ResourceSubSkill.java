@@ -31,7 +31,7 @@ public class ResourceSubSkill {
 //    private UUID subSkillId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sub_skill_id", referencedColumnName = "sub_skill_id", insertable = false, updatable = false)
+    @JoinColumn(name = "sub_skill_id", referencedColumnName = "sub_skill_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private SubSkill subSkill;
 
