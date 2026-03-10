@@ -500,7 +500,8 @@ public class DemandServiceImpl implements DemandService {
                                 .demandName(demand.getDemandName() != null ? demand.getDemandName() : "Unnamed Demand")
                                 .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : "UNKNOWN")
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
-                                .rejectionReason(demand.getRejectionReason())
+                                .rmRejectionReason(demand.getRmRejectionReason())
+                                .dmRejectionReason(demand.getDmRejectionReason())
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
                                 .demandStartDate(demand.getDemandStartDate())
@@ -1689,19 +1690,17 @@ public class DemandServiceImpl implements DemandService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<?>> getDashboardKpi(UserDTO userDTO) {
-
-        if (userDTO == null || userDTO.getId() == null) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "USER_REQUIRED",
-                    "User information is required"
-            );
-        }
+    public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
 
         try {
-            List<Demand> demands =
-                    demandRepository.findByProjectManagerIdOrCreatedBy(userDTO.getId());
+            List<Demand> demands;
+            
+            // Filter by projectId if provided, otherwise get all demands
+            if (projectId != null) {
+                demands = demandRepository.findByProjectId(projectId);
+            } else {
+                demands = demandRepository.findAll();
+            }
 
             DashboardKpiDTO kpi = DashboardKpiDTO.builder()
                     .total(0L)
@@ -1793,7 +1792,7 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDecision() == DemandStatus.APPROVED) {
 
             demand.setDemandStatus(DemandStatus.APPROVED);
-            demand.setRejectionReason(null);
+            demand.setDmRejectionReason(null);
 
         }
 
@@ -1809,7 +1808,7 @@ public class DemandServiceImpl implements DemandService {
             }
 
             demand.setDemandStatus(DemandStatus.REJECTED);
-            demand.setRejectionReason(dto.getRejectionReason());
+            demand.setDmRejectionReason(dto.getRejectionReason());
         }
 
         else {
@@ -1958,7 +1957,7 @@ public class DemandServiceImpl implements DemandService {
             }
 
             demand.setDemandStatus(DemandStatus.FULFILLED);
-            demand.setRejectionReason(null);
+            demand.setRmRejectionReason(null);
 
         }
 
@@ -1974,7 +1973,7 @@ public class DemandServiceImpl implements DemandService {
             }
 
             demand.setDemandStatus(DemandStatus.REJECTED);
-            demand.setRejectionReason(dto.getRejectionReason());
+            demand.setRmRejectionReason(dto.getRejectionReason());
         }
 
         else {

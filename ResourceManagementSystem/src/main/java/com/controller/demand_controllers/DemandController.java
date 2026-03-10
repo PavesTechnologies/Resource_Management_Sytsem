@@ -71,8 +71,9 @@ public class DemandController {
 
     @GetMapping("/pm/kpi")
     @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'MANAGER')")
-    public ResponseEntity<ApiResponse<?>> getDashboardKpi(@CurrentUser UserDTO userDTO) {
-        return demandService.getDashboardKpi(userDTO);
+    public ResponseEntity<ApiResponse<?>> getDashboardKpi(
+            @RequestParam(required = false) Long projectId) {
+        return demandService.getDashboardKpi(projectId);
     }
 
     // Delivery Manager KPI endpoint (uses token-based authentication)

@@ -32,6 +32,9 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
     @Query("SELECT d FROM Demand d WHERE d.project.projectManagerId = :projectManagerId OR d.createdBy = :projectManagerId")
     List<Demand> findByProjectManagerIdOrCreatedBy(@Param("projectManagerId") Long projectManagerId);
 
+    @Query("SELECT d FROM Demand d WHERE d.project.pmsProjectId = :projectId AND (d.project.projectManagerId = :projectManagerId OR d.createdBy = :projectManagerId)")
+    List<Demand> findByProjectIdAndProjectManagerIdOrCreatedBy(@Param("projectId") Long projectId, @Param("projectManagerId") Long projectManagerId);
+
     @Query("SELECT d FROM Demand d WHERE d.project.pmsProjectId = :projectId")
     List<Demand> findByProjectId(@Param("projectId") Long projectId);
     
