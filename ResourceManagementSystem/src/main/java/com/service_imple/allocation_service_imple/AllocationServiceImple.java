@@ -210,6 +210,16 @@ public class AllocationServiceImple implements AllocationService {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
+
+        List<ResourceAllocation> overrides = allocationRepository.findByOverrideFlagTrue();
+
+        return ResponseEntity.ok(
+                ApiResponse.success("Override allocations retrieved", overrides)
+        );
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId) {
         try {
             List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demandId);

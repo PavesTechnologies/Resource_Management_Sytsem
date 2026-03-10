@@ -130,7 +130,7 @@ public class ProjectGovernanceController {
     }
 
     @PutMapping("/readiness-status-update")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<?>> changeReadinessStatus(@RequestBody String requestBody) {
         try {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
