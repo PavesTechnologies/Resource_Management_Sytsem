@@ -2,6 +2,7 @@ package com.service_imple.allocation_service_imple;
 
 
 import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
+import com.dto.allocation_dto.AllocationRequestDTO;
 import com.entity.demand_entities.Demand;
 import com.entity.skill_entities.*;
 import com.global_exception_handler.ProjectExceptionHandler;
@@ -147,8 +148,25 @@ public class SkillGapAnalysisService {
 
     /**
      * Validates that the resource has all required skills and certificates for the demand
+     * Also validates allocation percentage matches demand requirement
      */
-    public void validateAllocationRequirements(Long resourceId, Demand demand) {
+    public void validateAllocationRequirements(Long resourceId, Demand demand, AllocationRequestDTO request) {
+        // 🔹 Validate Allocation Percentage Match
+        if (request != null && demand != null) {
+            Integer requestPercentage = request.getAllocationPercentage();
+            Integer demandPercentage = demand.getAllocationPercentage();
+            
+            if (requestPercentage != null && demandPercentage != null && 
+                !requestPercentage.equals(demandPercentage)) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "ALLOCATION_PERCENTAGE_MISMATCH",
+                        String.format("Allocation percentage (%d%%) must match demand requirement (%d%%)", 
+                                     requestPercentage, demandPercentage)
+                );
+            }
+        }
+        
         LocalDate currentDate = LocalDate.now();
         
         // 🔹 Validate Skills
