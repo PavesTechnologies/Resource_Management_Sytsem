@@ -242,7 +242,7 @@ public class AllocationValidationService {
                     request.getAllocationStatus() == AllocationStatus.PLANNED) {
                     
                     // Validate skill compliance (applies to both ACTIVE and PLANNED)
-                    validateSkillCompliance(resourceId, finalDemand);
+                    validateSkillCompliance(resourceId, finalDemand, request);
                     
                     // Validate capacity (only for ACTIVE allocations)
                     if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
@@ -356,7 +356,7 @@ public class AllocationValidationService {
     /**
      * Validates skill compliance using existing methods
      */
-    private void validateSkillCompliance(Long resourceId, Demand demand) {
+    private void validateSkillCompliance(Long resourceId, Demand demand, AllocationRequestDTO request) {
         if (demand == null) {
             return; // Skip skill validation for project allocations
         }
@@ -385,7 +385,7 @@ public class AllocationValidationService {
         }
         
         // Reuse existing allocation requirements validation as additional safety check
-        skillGapService.validateAllocationRequirements(resourceId, demand);
+        skillGapService.validateAllocationRequirements(resourceId, demand, request);
     }
 
     /**
