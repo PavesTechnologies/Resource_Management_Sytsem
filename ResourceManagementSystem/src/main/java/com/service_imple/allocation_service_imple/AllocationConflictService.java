@@ -44,6 +44,7 @@ public class AllocationConflictService {
     /**
      * Detects priority conflicts for a new allocation request
      */
+    @Transactional(readOnly = true)
     public ConflictDetectionResult detectPriorityConflicts(AllocationRequestDTO allocationRequest, Long resourceId) {
         try {
             // Fetch existing allocations for the specified resource
@@ -101,6 +102,7 @@ public class AllocationConflictService {
     /**
      * Optimized priority conflict detection using preloaded allocations
      */
+    @Transactional(readOnly = true)
     public ConflictDetectionResult detectPriorityConflictsOptimized(
             AllocationRequestDTO allocationRequest, 
             Long resourceId, 

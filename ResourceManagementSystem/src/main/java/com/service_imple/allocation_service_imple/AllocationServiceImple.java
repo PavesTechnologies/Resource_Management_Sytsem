@@ -17,6 +17,7 @@ import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.resource_repo.ResourceRepository;
@@ -89,6 +90,11 @@ public class AllocationServiceImple implements AllocationService {
             // SECTION 5 — Persist Valid Allocations
             List<ResourceAllocation> savedAllocations = persistAllocations(validationResult.getValidAllocations());
 
+            // SECTION 5.1 — Check Demand Fulfillment
+            if (allocationRequest.getDemandId() != null) {
+                checkAndUpdateDemandFulfillment(allocationRequest.getDemandId());
+            }
+
             // SECTION 6 — Async Ledger Updates
             triggerAsyncLedgerUpdate(savedAllocations);
 
@@ -150,6 +156,11 @@ public class AllocationServiceImple implements AllocationService {
             // Update availability ledger for the modified allocation period
             updateAvailabilityLedgerForAllocation(updatedAllocation);
 
+            // Check demand fulfillment if allocation is associated with a demand
+            if (updatedAllocation.getDemand() != null) {
+                checkAndUpdateDemandFulfillment(updatedAllocation.getDemand().getDemandId());
+            }
+
             AllocationResponseDTO response = mapToResponseDTO(updatedAllocation);
             return ResponseEntity.ok(
                     new ApiResponse<>(true, "Allocation updated successfully", response)
@@ -178,6 +189,12 @@ public class AllocationServiceImple implements AllocationService {
             
             // Update availability ledger to reflect cancellation
             updateAvailabilityLedgerForAllocation(cancelledAllocation);
+
+            // Check demand fulfillment if allocation is associated with a demand
+            // (might need to revert FULFILLED status if no longer fully allocated)
+            if (cancelledAllocation.getDemand() != null) {
+                checkAndUpdateDemandFulfillment(cancelledAllocation.getDemand().getDemandId());
+            }
 
             AllocationResponseDTO response = mapToResponseDTO(cancelledAllocation);
             return ResponseEntity.ok(
@@ -489,6 +506,49 @@ public class AllocationServiceImple implements AllocationService {
             
             ledgerRepository.save(ledger);
             
+        } catch (Exception e) {
+            // Error handling without logs
+        }
+    }
+
+    /**
+     * Checks if demand is fully allocated and updates status to FULFILLED if true
+     * Reverts to APPROVED if no longer fully allocated
+     * Validates both resource count and percentage matching
+     */
+    private void checkAndUpdateDemandFulfillment(UUID demandId) {
+        try {
+            Demand demand = demandRepository.findById(demandId).orElse(null);
+            if (demand == null) {
+                return;
+            }
+
+            // Count active allocations for this demand
+            List<ResourceAllocation> activeAllocations = allocationRepository.findByDemand_DemandId(demandId)
+                    .stream()
+                    .filter(alloc -> alloc.getAllocationStatus() == AllocationStatus.ACTIVE)
+                    .toList();
+
+            int allocatedResources = activeAllocations.size();
+            
+            // Check if allocated resources match required resources
+            if (allocatedResources >= demand.getResourcesRequired()) {
+                // Additional validation: Check if all allocations match demand percentage
+                boolean allPercentagesMatch = activeAllocations.stream()
+                        .allMatch(alloc -> alloc.getAllocationPercentage().equals(demand.getAllocationPercentage()));
+                
+                // Update to FULFILLED if not already FULFILLED and percentages match
+                if (demand.getDemandStatus() != DemandStatus.FULFILLED && allPercentagesMatch) {
+                    demand.setDemandStatus(DemandStatus.FULFILLED);
+                    demandRepository.save(demand);
+                }
+            } else {
+                // Revert to APPROVED if currently FULFILLED but no longer fully allocated
+                if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
+                    demand.setDemandStatus(DemandStatus.APPROVED);
+                    demandRepository.save(demand);
+                }
+            }
         } catch (Exception e) {
             // Error handling without logs
         }
