@@ -33,7 +33,7 @@ public class ProjectEscalationController {
         return projectEscalationService.getEscalationContacts(projectId);
     }
     @PutMapping("/update-escalation/{projectEscalationId}")
-    public ResponseEntity<ApiResponse<?>> updateProjectContact(@PathVariable UUID projectEscalationId, @RequestBody ProjectEscalation escalation) {
+    public ResponseEntity<ApiResponse<?>> updateProjectContact(@PathVariable UUID projectEscalationId, @Valid @RequestBody ProjectEscalation escalation) {
         return projectEscalationService.updateProjectContact(projectEscalationId, escalation);
     }
 

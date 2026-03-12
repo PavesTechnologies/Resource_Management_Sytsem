@@ -194,6 +194,21 @@ public class ClientAssetServiceImpl implements ClientAssetService {
                 );
             }
 
+            // Check if asset has serial numbers uploaded from Excel
+            long serialCount = assetSerialRepository.countByAsset_AssetId(assetId);
+            
+            if (serialCount > 0) {
+                // Asset has serial numbers - quantity must match exactly
+                if (asset.getQuantity() != serialCount) {
+                    return new ApiResponse<>(
+                            false,
+                            "Cannot change quantity. Asset has " + serialCount + 
+                                    " serial numbers from Excel upload. Quantity must remain " + serialCount + ".",
+                            null
+                    );
+                }
+            }
+
             existing.setAssetName(asset.getAssetName());
             existing.setAssetCategory(asset.getAssetCategory());
             existing.setAssetType(asset.getAssetType());

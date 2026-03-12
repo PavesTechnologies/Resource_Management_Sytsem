@@ -1,16 +1,6 @@
 package com.service_imple.allocation_service_imple;
 
-import com.dto.allocation_dto.AllocationRequestDTO;
-import com.dto.allocation_dto.AllocationResponseDTO;
-import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
-import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
-import com.dto.allocation_dto.ConflictDetectionResult;
-import com.dto.allocation_dto.AllocationConflictDTO;
-import com.dto.allocation_dto.ConflictResolutionDTO;
-import com.dto.allocation_dto.DemandProjectData;
-import com.dto.allocation_dto.AllocationPreloadedData;
-import com.dto.allocation_dto.AllocationValidationResult;
-import com.dto.allocation_dto.AllocationFailure;
+import com.dto.allocation_dto.*;
 import com.dto.ApiResponse;
 import com.dto.resource.ResourceNameDTO;
 import com.entity.allocation_entities.ResourceAllocation;
@@ -143,6 +133,14 @@ public class AllocationServiceImple implements AllocationService {
             }
 
             ResourceAllocation allocation = existingAllocation.get();
+            if (allocation.getAllocationStatus() == AllocationStatus.ENDED ||
+                    allocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
+
+                return ResponseEntity.badRequest().body(
+                        new ApiResponse<>(false,
+                                "Closed or cancelled allocations cannot be modified", null)
+                );
+            }
 
             // Update fields
             allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
@@ -449,10 +447,47 @@ public class AllocationServiceImple implements AllocationService {
         }
     }
 
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> closeAllocation(UUID allocationId, CloseAllocationDTO request) {
+
+        Optional<ResourceAllocation> allocationOpt = allocationRepository.findById(allocationId);
+
+        if (allocationOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        ResourceAllocation allocation = allocationOpt.get();
+
+        if (allocation.getAllocationStatus() == AllocationStatus.ENDED) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false, "Allocation already ended", null)
+            );
+        }
+
+        LocalDate closureDate = request.getClosureDate();
+
+        if (closureDate.isBefore(allocation.getAllocationStartDate())) {
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false, "Closure date cannot be before start date", null)
+            );
+        }
+
+        allocation.setAllocationEndDate(closureDate);
+        allocation.setAllocationStatus(AllocationStatus.ENDED);
+
+        ResourceAllocation saved = allocationRepository.save(allocation);
+
+        updateAvailabilityLedgerForAllocation(saved);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Allocation closed successfully", mapToResponseDTO(saved))
+        );
+    }
+
     /**
      * Updates the ResourceAvailabilityLedger for the given allocation
      */
-    private void updateAvailabilityLedgerForAllocation(ResourceAllocation allocation) {
+    public void updateAvailabilityLedgerForAllocation(ResourceAllocation allocation) {
         try {
             Long resourceId = allocation.getResource().getResourceId();
             LocalDate startDate = allocation.getAllocationStartDate();

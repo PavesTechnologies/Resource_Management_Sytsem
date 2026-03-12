@@ -3,8 +3,10 @@ package com.controller.allocation_controllers;
 import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.ApiResponse;
 import com.dto.UserDTO;
+import com.dto.allocation_dto.CloseAllocationDTO;
 import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.AllocationService;
+import com.service_imple.allocation_service_imple.AllocationClosureScheduler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,8 @@ public class AllocationController {
 
     @Autowired
     AllocationService allocationService;
+
+    private final AllocationClosureScheduler allocationClosureScheduler;
 
     @PostMapping("/assign")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
@@ -90,5 +94,14 @@ public class AllocationController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
         return allocationService.getOverrideAllocations();
+    }
+
+    @PostMapping("/{allocationId}/close")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> closeAllocation(
+            @PathVariable UUID allocationId,
+            @RequestBody CloseAllocationDTO request) {
+
+        return allocationService.closeAllocation(allocationId, request);
     }
 }
