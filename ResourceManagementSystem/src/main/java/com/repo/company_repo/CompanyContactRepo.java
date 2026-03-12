@@ -24,4 +24,30 @@ public interface CompanyContactRepo extends JpaRepository<CompanyEscalationConta
            END
        """)
     List<CompanyEscalationContact> findContactsByCompanyOrdered(@Param("companyId") UUID companyId);
+
+    boolean existsByEmailAndCompany_CompanyId(String email, UUID companyId);
+
+    boolean existsByContactNameAndCompany_CompanyId(String contactName, UUID companyId);
+
+    @Query("""
+       SELECT c FROM CompanyEscalationContact c
+       WHERE c.company.companyId = :companyId
+       AND c.email = :email
+       AND c.contactId != :excludeId
+       """)
+    Optional<CompanyEscalationContact> findByEmailAndCompanyIdExcludingId(
+            @Param("email") String email, 
+            @Param("companyId") UUID companyId,
+            @Param("excludeId") UUID excludeId);
+
+    @Query("""
+       SELECT c FROM CompanyEscalationContact c
+       WHERE c.company.companyId = :companyId
+       AND c.contactName = :contactName
+       AND c.contactId != :excludeId
+       """)
+    Optional<CompanyEscalationContact> findByContactNameAndCompanyIdExcludingId(
+            @Param("contactName") String contactName, 
+            @Param("companyId") UUID companyId,
+            @Param("excludeId") UUID excludeId);
 }
