@@ -8,13 +8,20 @@ import com.entity_enums.project_enums.EscalationTriggerType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "project_escalation")
+@Table(name = "project_escalation", 
+       uniqueConstraints = {
+           @UniqueConstraint(columnNames = {"project_id", "email"}, 
+                           name = "uk_project_escalation_email")
+       })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,21 +44,27 @@ public class ProjectEscalation {
     @JsonIgnore
     private ClientEscalationContact contact;
 
+    @NotBlank(message = "Escalation level is required")
     @Column(nullable = false)
     private String escalationLevel;
 
+    @NotBlank(message = "Contact name is required")
     @Column(nullable = false)
     private String contactName;
 
+    @NotNull(message = "Contact role is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ContactRole contactRole;
 
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
     @Column(nullable = false)
     private String email;
 
     private String phone;
 
+    @NotNull(message = "Active flag is required")
     @Column(nullable = false)
     private Boolean activeFlag;
 
@@ -61,6 +74,7 @@ public class ProjectEscalation {
 //    @Column(name = "trigger_type")
 //    private Set<EscalationTriggerType> triggers;
 
+    @NotNull(message = "Escalation source is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EscalationSource source;

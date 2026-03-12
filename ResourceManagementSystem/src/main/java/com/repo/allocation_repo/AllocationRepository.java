@@ -122,6 +122,11 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE ra.allocationId IN :allocationIds")
     List<ResourceAllocation> findByAllocationIdIn(@Param("allocationIds") List<UUID> allocationIds);
 
+    @Query("SELECT COUNT(ra) > 0 FROM ResourceAllocation ra " +
+           "WHERE (ra.demand.project.client.clientId = :clientId OR ra.project.client.clientId = :clientId) " +
+           "AND ra.allocationStatus IN ('ACTIVE', 'PLANNED')")
+    boolean existsByClientIdAndActiveAllocation(@Param("clientId") UUID clientId);
+
     Optional<ResourceAllocation>
     findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
             Long projectId,
