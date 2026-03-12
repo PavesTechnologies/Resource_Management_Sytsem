@@ -3,12 +3,14 @@ package com.controller.client_controllers;
 import com.dto.ApiResponse;
 import com.entity.client_entities.ClientEscalationContact;
 import com.service_interface.client_service_interface.ClientContactService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+
 
 @RestController
 @RequestMapping("/api/client-contact")
@@ -18,13 +20,13 @@ public class ClientContactController {
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> createClientContact(@RequestBody ClientEscalationContact clientContact) {
+    public ResponseEntity<ApiResponse<?>> createClientContact(@Valid @RequestBody ClientEscalationContact clientContact) {
         return clientContactService.createClientContact(clientContact);
     }
 
     @PutMapping("/update")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> updateClientContact(@RequestBody ClientEscalationContact clientContact) {
+    public ResponseEntity<ApiResponse<?>> updateClientContact(@Valid @RequestBody ClientEscalationContact clientContact) {
         return clientContactService.updateClientContact(clientContact);
     }
 
