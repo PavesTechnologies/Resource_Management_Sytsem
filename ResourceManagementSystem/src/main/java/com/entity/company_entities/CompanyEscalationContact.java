@@ -5,13 +5,20 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "company_escalation_contact")
+@Table(name = "company_escalation_contact", 
+       uniqueConstraints = {
+           @UniqueConstraint(columnNames = {"company_id", "email"}, 
+                           name = "uk_company_contact_email")
+       })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -31,15 +38,18 @@ public class CompanyEscalationContact {
     @JsonProperty("company")
     private Company company;
 
-    @Column(nullable = false)
+    @NotBlank(message = "Contact name is required")
     @JsonProperty("contactName")
     private String contactName;
 
+    @NotNull(message = "Contact role is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @JsonProperty("contactRole")
     private ContactRole contactRole;
 
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
     @Column(nullable = false)
     @JsonProperty("email")
     private String email;
@@ -47,10 +57,12 @@ public class CompanyEscalationContact {
     @JsonProperty("phone")
     private String phone;
 
+    @NotNull(message = "Active flag is required")
     @Column(nullable = false)
     @JsonProperty("activeFlag")
     private Boolean activeFlag;
 
+    @NotBlank(message = "Escalation level is required")
     @Column(nullable = false)
     @JsonProperty("escalationLevel")
     private String escalationLevel;

@@ -23,7 +23,7 @@ public class ClientAssetController {
         this.service = service;
     }
 
-    @PostMapping
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<String>> createClientAsset(
             @RequestBody ClientAsset asset) {
 
@@ -67,7 +67,7 @@ public class ClientAssetController {
                 .body(response);
     }
 
-    @PutMapping("/{assetId}")
+    @PutMapping(value = "/{assetId}", consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<String>> update(
             @PathVariable UUID assetId,
             @RequestBody ClientAsset asset) {

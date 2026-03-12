@@ -96,6 +96,26 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
             throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "400", "Contact details are required for manual escalation");
         }
 
+        // Check for duplicate email within the project
+        if (dto.getEmail() != null && 
+            projectEscalationRepo.existsByEmailAndProject_PmsProjectId(dto.getEmail(), project.getPmsProjectId())) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_EMAIL",
+                "Email already exists for this project"
+            );
+        }
+        
+        // Check for duplicate contact name within the project
+        if (dto.getContactName() != null && 
+            projectEscalationRepo.existsByContactNameAndProject_PmsProjectId(dto.getContactName(), project.getPmsProjectId())) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_CONTACT_NAME", 
+                "Contact name already exists for this project"
+            );
+        }
+
         ProjectEscalation escalation = ProjectEscalation.builder()
                 .project(project)
                 .escalationLevel(dto.getEscalationLevel())
@@ -122,6 +142,40 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                         "404",
                         "Project Escalation Not Found!"
                 ));
+
+        // Check for duplicate email (excluding current escalation)
+        if (updatedData.getEmail() != null && existingEscalation.getProject() != null) {
+            var existingEmailEscalation = projectEscalationRepo.findByEmailAndProjectIdExcludingId(
+                updatedData.getEmail(), 
+                existingEscalation.getProject().getPmsProjectId(),
+                projectEscalationId
+            );
+            
+            if (existingEmailEscalation.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_EMAIL",
+                    "Email already exists for this project"
+                );
+            }
+        }
+        
+        // Check for duplicate contact name (excluding current escalation)
+        if (updatedData.getContactName() != null && existingEscalation.getProject() != null) {
+            var existingNameEscalation = projectEscalationRepo.findByContactNameAndProjectIdExcludingId(
+                updatedData.getContactName(), 
+                existingEscalation.getProject().getPmsProjectId(),
+                projectEscalationId
+            );
+            
+            if (existingNameEscalation.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_CONTACT_NAME",
+                    "Contact name already exists for this project"
+                );
+            }
+        }
 
         // Update ONLY editable fields
         existingEscalation.setEscalationLevel(updatedData.getEscalationLevel());

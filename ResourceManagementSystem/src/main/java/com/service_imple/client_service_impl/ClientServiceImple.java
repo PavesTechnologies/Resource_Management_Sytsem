@@ -9,6 +9,7 @@ import com.entity_enums.centralised_enums.RecordStatus;
 import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.client_repo.ClientRepo;
+import com.repo.allocation_repo.AllocationRepository;
 import com.service_interface.client_service_interface.ClientMapper;
 import com.service_interface.client_service_interface.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,9 @@ public class ClientServiceImple implements ClientService {
 
     @Autowired
     ProjectRepository projectRepository;
+
+    @Autowired
+    AllocationRepository allocationRepository;
 
     @Autowired
     com.repo.project_repo.ProjectEscalationRepo projectEscalationRepo;
@@ -228,6 +232,19 @@ public class ClientServiceImple implements ClientService {
     }
 
     @Override
+    public ResponseEntity<ApiResponse<List<ClientDTO>>> getActiveClients() {
+        try {
+            List<Client> activeClients = clientRepo.findByStatus(RecordStatus.ACTIVE);
+            List<ClientDTO> clientDTOs = activeClients.stream()
+                    .map(clientMapper::toDto)
+                    .toList();
+            return ResponseEntity.ok(ApiResponse.success("Active clients fetched successfully", clientDTOs));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Error fetching active clients: " + e.getMessage()));
+        }
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI() {
         try {
             // Get current year and previous year
@@ -320,7 +337,26 @@ public class ClientServiceImple implements ClientService {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Client name must be between 3 and 100 characters"));
             }
             
-            Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
+            Client clientDetails = clientRepo.findById(client.getClientId())
+                .orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
+            
+            // Check if status is being changed
+            if (client.getStatus() != null && !client.getStatus().equals(clientDetails.getStatus())) {
+                // Check for active projects when trying to change to INACTIVE or ON_HOLD
+                if (client.getStatus() == RecordStatus.INACTIVE || client.getStatus() == RecordStatus.ON_HOLD) {
+                    boolean hasActiveProjects = projectRepository.existsByClientIdAndProjectStatus(client.getClientId(), ProjectStatus.ACTIVE);
+                    boolean hasActiveAllocations = allocationRepository.existsByClientIdAndActiveAllocation(client.getClientId());
+                    
+                    if (hasActiveProjects && hasActiveAllocations) {
+                        return ResponseEntity.badRequest().body(ApiResponse.error("Cannot change client status to " + client.getStatus() + ". Client has active projects and active resource allocations. Please complete or reassign all projects and allocations before changing status."));
+                    } else if (hasActiveProjects) {
+                        return ResponseEntity.badRequest().body(ApiResponse.error("Cannot change client status to " + client.getStatus() + ". Client has active projects. Please complete or reassign all projects before changing status."));
+                    } else if (hasActiveAllocations) {
+                        return ResponseEntity.badRequest().body(ApiResponse.error("Cannot change client status to " + client.getStatus() + ". Client has active resource allocations. Please reassign or release all allocations before changing status."));
+                    }
+                }
+            }
+            
             client.setCreatedAt(clientDetails.getCreatedAt());
             client.setUpdatedAt(LocalDateTime.now());
             Client updatedDetails = clientRepo.save(client);
@@ -372,13 +408,24 @@ public class ClientServiceImple implements ClientService {
     public ResponseEntity<ApiResponse<Void>> deleteClient(UUID id) {
         Client client = clientRepo.findById(id).orElseThrow(() -> new ClientExceptionHandler("Client Not Found!"));
 
-        if(projectRepository.existsByClientIdAndProjectStatus(id, ProjectStatus.ACTIVE)){
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Cannot De-active Client. Client has Active Projects", null));
+        // Check for active projects
+        boolean hasActiveProjects = projectRepository.existsByClientIdAndProjectStatus(id, ProjectStatus.ACTIVE);
+        
+        // Check for active allocations
+        boolean hasActiveAllocations = allocationRepository.existsByClientIdAndActiveAllocation(id);
+        
+        if (hasActiveProjects && hasActiveAllocations) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Cannot deactivate client. Client has active projects and active resource allocations. Please complete or reassign all projects and allocations before deactivation.", null));
+        } else if (hasActiveProjects) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Cannot deactivate client. Client has active projects. Please complete or reassign all projects before deactivation.", null));
+        } else if (hasActiveAllocations) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Cannot deactivate client. Client has active resource allocations. Please reassign or release all allocations before deactivation.", null));
         }
+        
         client.setStatus(RecordStatus.INACTIVE);
         client.setUpdatedAt(LocalDateTime.now());
         clientRepo.save(client);
-        return ResponseEntity.ok(ApiResponse.success("Client Deleted Successfully!", null));
+        return ResponseEntity.ok(ApiResponse.success("Client deactivated successfully!", null));
     }
 
     /**

@@ -4,10 +4,12 @@ import com.dto.ApiResponse;
 import com.entity.company_entities.Company;
 import com.entity.company_entities.CompanyEscalationContact;
 import com.global_exception_handler.CompanyExceptionHandler;
+import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.company_repo.CompanyContactRepo;
 import com.repo.company_repo.CompanyRepo;
 import com.service_interface.company_service_interface.CompanyContactService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +29,39 @@ public class CompanyContactServiceImple implements CompanyContactService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> createCompanyContact(CompanyEscalationContact companyContact) {
+        // Validate required fields
+        if (companyContact.getCompany() == null || companyContact.getCompany().getCompanyId() == null) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_COMPANY",
+                "Company is required"
+            );
+        }
+        
+        // Check for duplicate email
+        if (companyContact.getEmail() != null && 
+            companyContactRepo.existsByEmailAndCompany_CompanyId(
+                companyContact.getEmail(), 
+                companyContact.getCompany().getCompanyId())) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_EMAIL",
+                "Email already exists for this company"
+            );
+        }
+        
+        // Check for duplicate contact name
+        if (companyContact.getContactName() != null && 
+            companyContactRepo.existsByContactNameAndCompany_CompanyId(
+                companyContact.getContactName(), 
+                companyContact.getCompany().getCompanyId())) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_CONTACT_NAME",
+                "Contact name already exists for this company"
+            );
+        }
+        
         // Handle the company entity - fetch by companyId if provided, create default if not
         Company company = companyContact.getCompany();
         
@@ -123,8 +158,43 @@ public class CompanyContactServiceImple implements CompanyContactService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> updateCompanyContact(UUID contactId, CompanyEscalationContact companyContact) {
+        // Validate contact exists
         CompanyEscalationContact existingContact = companyContactRepo.findById(contactId)
                 .orElseThrow(() -> new CompanyExceptionHandler("Company Contact not found"));
+
+        // Check for duplicate email (excluding current contact)
+        if (companyContact.getEmail() != null && existingContact.getCompany() != null) {
+            var existingEmailContact = companyContactRepo.findByEmailAndCompanyIdExcludingId(
+                companyContact.getEmail(), 
+                existingContact.getCompany().getCompanyId(),
+                contactId
+            );
+            
+            if (existingEmailContact.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_EMAIL",
+                    "Email already exists for this company"
+                );
+            }
+        }
+        
+        // Check for duplicate contact name (excluding current contact)
+        if (companyContact.getContactName() != null && existingContact.getCompany() != null) {
+            var existingNameContact = companyContactRepo.findByContactNameAndCompanyIdExcludingId(
+                companyContact.getContactName(), 
+                existingContact.getCompany().getCompanyId(),
+                contactId
+            );
+            
+            if (existingNameContact.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_CONTACT_NAME",
+                    "Contact name already exists for this company"
+                );
+            }
+        }
 
         // Update all fields from the request
         if (companyContact.getContactName() != null) {

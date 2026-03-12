@@ -24,4 +24,30 @@ public interface ClientContactRepo extends JpaRepository<ClientEscalationContact
            END
        """)
     List<ClientEscalationContact> findContactsByClientOrdered(@Param("clientId") UUID clientId);
+
+    boolean existsByEmailAndClient_ClientId(String email, UUID clientId);
+
+    boolean existsByContactNameAndClient_ClientId(String contactName, UUID clientId);
+
+    @Query("""
+       SELECT c FROM ClientEscalationContact c
+       WHERE c.client.clientId = :clientId
+       AND c.email = :email
+       AND c.contactId != :excludeId
+       """)
+    Optional<ClientEscalationContact> findByEmailAndClientIdExcludingId(
+            @Param("email") String email, 
+            @Param("clientId") UUID clientId,
+            @Param("excludeId") UUID excludeId);
+
+    @Query("""
+       SELECT c FROM ClientEscalationContact c
+       WHERE c.client.clientId = :clientId
+       AND c.contactName = :contactName
+       AND c.contactId != :excludeId
+       """)
+    Optional<ClientEscalationContact> findByContactNameAndClientIdExcludingId(
+            @Param("contactName") String contactName, 
+            @Param("clientId") UUID clientId,
+            @Param("excludeId") UUID excludeId);
 }

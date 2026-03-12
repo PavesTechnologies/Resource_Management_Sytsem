@@ -49,6 +49,12 @@ public class ClientController {
         return clientService.clientDetails();
     }
 
+    @GetMapping("/active-clients")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER','PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<List<ClientDTO>>> getActiveClients() {
+        return clientService.getActiveClients();
+    }
+
     @GetMapping("/get-admin-kpi")
     @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPIDetials() {
