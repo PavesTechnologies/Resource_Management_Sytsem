@@ -68,10 +68,21 @@ public class HolidayApiServiceImpl implements HolidayApiService {
 
     @Override
     public boolean isApiHealthy() {
-        // No health check endpoint available - assume healthy if token service is working
+        // Test health by calling actual holiday endpoint
         try {
-            String token = tokenService.getAccessToken();
-            return token != null && !token.isEmpty();
+            // Try to get holidays for current year to test API connectivity
+            String currentYear = String.valueOf(java.time.Year.now().getValue());
+            String url = holidayApiBaseUrl + "/api/holidays/year/" + currentYear;
+            
+            HttpEntity<Void> entity = new HttpEntity<>(new HttpHeaders());
+            ResponseEntity<String> response = restTemplate.exchange(
+                url, 
+                HttpMethod.GET, 
+                entity, 
+                String.class
+            );
+            
+            return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
             return false;
         }

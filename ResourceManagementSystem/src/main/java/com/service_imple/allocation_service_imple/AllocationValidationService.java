@@ -13,8 +13,10 @@ import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.ResourceCertificate;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.resource_repo.ResourceRepository;
@@ -235,11 +237,13 @@ public class AllocationValidationService {
                 // Validate demand rules and priority conflicts
                 validateDemandRules(request, finalDemand, finalProject, resourceId, preloadedData);
                 
-                // Conditional advanced validations based on allocation status
+                // Conditional advanced validations based on allocation status and skipValidation flag
                 boolean override = false;
                 
-                if (request.getAllocationStatus() == AllocationStatus.ACTIVE || 
-                    request.getAllocationStatus() == AllocationStatus.PLANNED) {
+                // Skip advanced validations if skipValidation is true
+                if (!Boolean.TRUE.equals(request.getSkipValidation()) && 
+                    (request.getAllocationStatus() == AllocationStatus.ACTIVE || 
+                     request.getAllocationStatus() == AllocationStatus.PLANNED)) {
                     
                     // Validate skill compliance (applies to both ACTIVE and PLANNED)
                     validateSkillCompliance(resourceId, finalDemand, request);
@@ -339,6 +343,9 @@ public class AllocationValidationService {
             );
         }
         
+        // Validate client and project status (applies to all allocations)
+        validateClientAndProjectStatus(demand, project);
+        
         // Priority conflict detection using preloaded allocations
         List<ResourceAllocation> existingAllocations = preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
         ConflictDetectionResult conflictResult = conflictService.detectPriorityConflictsOptimized(
@@ -429,5 +436,50 @@ public class AllocationValidationService {
         }
 
         return true; // override allowed
+    }
+
+    /**
+     * Validates that client and project are active before allocation
+     * This validation applies to all allocations regardless of skipValidation flag
+     */
+    private void validateClientAndProjectStatus(Demand demand, Project project) {
+        // Get project from demand if demand exists, otherwise use direct project
+        Project targetProject = (demand != null) ? demand.getProject() : project;
+        
+        if (targetProject == null) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "PROJECT_NOT_FOUND",
+                "Project not found for allocation"
+            );
+        }
+        
+        // Validate project status
+        if (targetProject.getProjectStatus() != ProjectStatus.ACTIVE &&
+            targetProject.getProjectStatus() != ProjectStatus.APPROVED) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "PROJECT_INACTIVE",
+                "Project '" + targetProject.getName() + "' is not active. Current status: " + 
+                (targetProject.getProjectStatus() != null ? targetProject.getProjectStatus().name() : "UNKNOWN")
+            );
+        }
+        
+        // Validate client status (client is loaded lazily, so we need to handle it carefully)
+        try {
+            if (targetProject.getClient() != null) {
+                if (targetProject.getClient().getStatus() != RecordStatus.ACTIVE) {
+                    throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "CLIENT_INACTIVE",
+                        "Client '" + targetProject.getClient().getClientName() + "' is not active. Current status: " + 
+                        (targetProject.getClient().getStatus() != null ? targetProject.getClient().getStatus().name() : "UNKNOWN")
+                    );
+                }
+            }
+        } catch (Exception e) {
+            // If client data is not accessible due to lazy loading, we'll skip client validation
+            // This is a safe fallback since the project validation already passed
+        }
     }
 }

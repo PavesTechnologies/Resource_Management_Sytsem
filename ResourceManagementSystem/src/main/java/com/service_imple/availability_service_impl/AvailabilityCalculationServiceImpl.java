@@ -99,9 +99,25 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
 
     @Override
     public boolean isCalculationTrustworthy(MonthCalculationContext context) {
-        // Consider calculation trustworthy if resource is active, even if APIs are down
-        // This ensures ledger entries are created even when external services are unavailable
-        return context.isActiveResource();
+        // Consider calculation trustworthy only if all required inputs are available
+        // This ensures ledger entries are reliable for decision making
+        
+        // Must have active resource
+        if (!context.isActiveResource()) {
+            return false;
+        }
+        
+        // Must have access to external APIs for complete data
+        if (!context.isApisHealthy()) {
+            return false;
+        }
+        
+        // Must have valid employment status and dates
+        if (context.getDateOfJoining() == null) {
+            return false;
+        }
+        
+        return true;
     }
 
     @Override
@@ -117,28 +133,39 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
         Set<LocalDate> holidays = Collections.emptySet();
         Set<LocalDate> leaveDates = Collections.emptySet();
         
-        // Try Holiday API
+        // Try Holiday API - MUST be called for complete availability calculation
         try {
             holidayApiHealthy = holidayApiService.isApiHealthy();
             if (holidayApiHealthy) {
                 holidays = getHolidaysForMonth(yearMonth.getYear());
-                            }
+            } else {
+                // Log warning and continue with empty holidays
+                System.err.println("WARNING: Holiday API is unhealthy - availability calculations will be incomplete");
+            }
         } catch (Exception e) {
-                    }
+            holidayApiHealthy = false;
+            System.err.println("ERROR: Failed to access Holiday API - availability calculations will be incomplete: " + e.getMessage());
+        }
         
-        // Try Leave API
+        // Try Leave API - MUST be called for complete availability calculation
         try {
             leaveApiHealthy = leaveApiService.isApiHealthy();
             if (leaveApiHealthy) {
                 leaveDates = getLeaveDatesForEmployee(resource.getResourceId(), yearMonth.getYear(), yearMonth);
-                            }
+            } else {
+                // Log warning and continue with empty leave dates
+                System.err.println("WARNING: Leave API is unhealthy - availability calculations will be incomplete");
+            }
         } catch (Exception e) {
-                    }
+            leaveApiHealthy = false;
+            System.err.println("ERROR: Failed to access Leave API - availability calculations will be incomplete: " + e.getMessage());
+        }
         
         apisHealthy = holidayApiHealthy && leaveApiHealthy;
         
         if (!apisHealthy) {
-                    }
+            System.err.println("CRITICAL: External APIs are unavailable - availability data may be unreliable");
+        }
         
         return MonthCalculationContext.builder()
                 .resourceId(resource.getResourceId())
@@ -260,7 +287,13 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
     }
 
     private Set<LocalDate> getHolidaysForMonth(int year) throws HolidayApiService.ExternalApiException {
+        // MUST call external API for complete availability calculation
         List<HolidayDto> allHolidays = holidayApiService.getHolidaysForYear(year);
+        
+        if (allHolidays == null) {
+            System.err.println("WARNING: Holiday API returned null data - proceeding with no holidays");
+            return Collections.emptySet();
+        }
         
         return allHolidays.stream()
                 .filter(HolidayDto::getIsActive)
@@ -270,16 +303,20 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
     }
 
     private Set<LocalDate> getLeaveDatesForEmployee(Long resourceId, int year, YearMonth targetMonth) throws LeaveApiService.ExternalApiException {
+        // MUST call external API for complete availability calculation
         LeaveApiResponse response = leaveApiService.getApprovedLeaveForEmployee(resourceId, year);
         
-        if (response.getData() == null || response.getData().getApprovedLeaveDates() == null) {
+        LeaveApiResponse.EmployeeLeaveData employeeData = (LeaveApiResponse.EmployeeLeaveData) response.getData();
+        
+        if (response == null || response.getData() == null || employeeData.getApprovedLeaveDates() == null) {
+            System.err.println("WARNING: Leave API returned no data for employee " + resourceId + " - proceeding with no leaves");
             return Collections.emptySet();
         }
         
         LocalDate monthStart = targetMonth.atDay(1);
         LocalDate monthEnd = targetMonth.atEndOfMonth();
         
-        return response.getData().getApprovedLeaveDates().stream()
+        return employeeData.getApprovedLeaveDates().stream()
                 .map(LocalDate::parse)
                 .filter(date -> !isWeekend(date)) // Ignore weekend leaves
                 .filter(date -> !date.isBefore(monthStart) && !date.isAfter(monthEnd)) // Filter to target month only
