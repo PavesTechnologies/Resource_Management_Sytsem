@@ -1,11 +1,6 @@
 package com.service_interface.allocation_service_interface;
 
-import com.dto.allocation_dto.AllocationRequestDTO;
-import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
-import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
-import com.dto.allocation_dto.ConflictDetectionResult;
-import com.dto.allocation_dto.AllocationConflictDTO;
-import com.dto.allocation_dto.ConflictResolutionDTO;
+import com.dto.allocation_dto.*;
 import com.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 
@@ -31,6 +26,8 @@ public interface AllocationService {
     ResponseEntity<?> getProjectResources(Long projectId);
 
     ResponseEntity<ApiResponse<?>> getOverrideAllocations();
+
+    ResponseEntity<ApiResponse<?>> closeAllocation(UUID allocationId, CloseAllocationDTO request);
     
     /**
      * Performs comprehensive skill gap analysis between demand and resource

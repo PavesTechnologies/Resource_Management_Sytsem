@@ -8,11 +8,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/role-off")
 @RequiredArgsConstructor
 public class RoleOffController {
     private final RoleOffServiceImpl roleOffService;
+
     @PostMapping
     public ResponseEntity<?> roleOff(
             @RequestBody RoleOffRequestDTO dto,
@@ -24,7 +27,7 @@ public class RoleOffController {
 
     @PostMapping("/{id}/manual-replacement")
     public ResponseEntity<?> manualReplacement(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
 
         roleOffService.manualReplacement(id, userDTO.getId());
