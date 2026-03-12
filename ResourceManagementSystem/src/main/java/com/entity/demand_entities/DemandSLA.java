@@ -40,5 +40,7 @@ public class DemandSLA {
     private LocalDate createdAt;
     private LocalDate dueAt;
 
+    private LocalDate fulfillDate;
+
     private Boolean activeFlag;
 }
