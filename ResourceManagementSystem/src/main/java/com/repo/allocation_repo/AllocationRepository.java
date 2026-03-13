@@ -2,6 +2,7 @@ package com.repo.allocation_repo;
 
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.resource_entities.Resource;
+import com.entity_enums.allocation_enums.AllocationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -105,6 +107,12 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findByOverrideFlagTrue();
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
+            "WHERE ra.allocationStatus = 'ACTIVE' " +
+            "AND ra.allocationEndDate < :today")
+    List<ResourceAllocation> findExpiredAllocations(@Param("today") LocalDate today);
+
+
+    @Query("SELECT ra FROM ResourceAllocation ra " +
            "LEFT JOIN FETCH ra.resource " +
            "LEFT JOIN FETCH ra.demand d " +
            "LEFT JOIN FETCH d.project p " +
@@ -118,4 +126,11 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE (ra.demand.project.client.clientId = :clientId OR ra.project.client.clientId = :clientId) " +
            "AND ra.allocationStatus IN ('ACTIVE', 'PLANNED')")
     boolean existsByClientIdAndActiveAllocation(@Param("clientId") UUID clientId);
+
+    Optional<ResourceAllocation>
+    findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+            Long projectId,
+            Long resourceId,
+            AllocationStatus status
+    );
 }
