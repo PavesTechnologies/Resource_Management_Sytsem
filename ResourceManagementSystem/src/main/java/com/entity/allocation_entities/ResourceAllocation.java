@@ -3,6 +3,7 @@ package com.entity.allocation_entities;
 import com.entity.demand_entities.Demand;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -114,4 +115,11 @@ public class ResourceAllocation {
 
     @Column(name = "override_at")
     private LocalDateTime overrideAt;
+
+    @Column(name = "role_off_date")
+    private LocalDate roleOffDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role_off_reason")
+    private RoleOffReason roleOffReason;
 }

@@ -11,6 +11,7 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.ReplacementStatus;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.RoleOffEventRepository;
 import com.repo.project_repo.ProjectRepository;
@@ -23,6 +24,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class RoleOffServiceImpl {
@@ -32,8 +40,19 @@ public class RoleOffServiceImpl {
     private final DeliveryRoleExpectationRepository roleRepo;
     private final DemandService demandService;
 
+    // Standardized role-off reasons with descriptions
+    private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
+            RoleOffReason.PROJECT_END, "Resource role-off due to project completion or termination",
+            RoleOffReason.PERFORMANCE, "Resource role-off due to performance issues",
+            RoleOffReason.ATTRITION, "Resource role-off due to employee attrition/resignation",
+            RoleOffReason.CLIENT_REQUEST, "Resource role-off due to client request or dissatisfaction"
+    );
+
     @Transactional
     public void roleOff(RoleOffRequestDTO dto, Long userId) {
+
+        // Validate mandatory role-off reason classification using governance method
+        validateRoleOffReason(dto.getRoleOffReason());
 
         Project project = projectRepo.findById(dto.getProjectId())
                 .orElseThrow(() -> new ProjectExceptionHandler(
@@ -71,6 +90,7 @@ public class RoleOffServiceImpl {
 
         event.setProjectEndDate(project.getEndDate().toLocalDate());
         event.setCreatedBy(userId);
+        event.setRoleOffReason(dto.getRoleOffReason());
 
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
 
@@ -149,5 +169,105 @@ public class RoleOffServiceImpl {
 
         event.setReplacementStatus(ReplacementStatus.MANUAL_CREATED_LATER);
         roleOffRepo.save(event);
+    }
+
+    // ========== GOVERNANCE METHODS ==========
+
+    /**
+     * Validates that the provided role-off reason is valid and not null
+     */
+    public void validateRoleOffReason(RoleOffReason reason) {
+        if (reason == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ROLE_OFF_REASON_REQUIRED",
+                    "Role-off reason classification is mandatory. Must be one of: " + getValidReasonsString()
+            );
+        }
+
+        // Additional validation can be added here based on business rules
+        validateBusinessRules(reason);
+    }
+
+    /**
+     * Gets all valid role-off reasons for dropdown selections
+     */
+    public List<RoleOffReason> getValidRoleOffReasons() {
+        return Arrays.asList(RoleOffReason.values());
+    }
+
+    /**
+     * Gets description for a specific role-off reason
+     */
+    public String getReasonDescription(RoleOffReason reason) {
+        return REASON_DESCRIPTIONS.get(reason);
+    }
+
+    /**
+     * Validates role-off event data for governance compliance
+     */
+    public void validateRoleOffEvent(RoleOffEvent event) {
+        if (event.getRoleOffReason() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ROLE_OFF_REASON_REQUIRED",
+                    "Role-off event must have a classified reason"
+            );
+        }
+
+        // Additional governance validations can be added here
+        validateBusinessRules(event.getRoleOffReason());
+    }
+
+    /**
+     * Gets statistics for role-off reasons reporting
+     */
+    public Map<RoleOffReason, Long> getRoleOffReasonStatistics() {
+        return roleOffRepo.findAll().stream()
+                .filter(event -> event.getRoleOffReason() != null)
+                .collect(Collectors.groupingBy(
+                        RoleOffEvent::getRoleOffReason,
+                        Collectors.counting()
+                ));
+    }
+
+    /**
+     * Checks if a role-off reason is valid
+     */
+    public boolean isValidRoleOffReason(RoleOffReason reason) {
+        return reason != null && Arrays.asList(RoleOffReason.values()).contains(reason);
+    }
+
+    /**
+     * Business rules validation for specific reasons
+     */
+    private void validateBusinessRules(RoleOffReason reason) {
+        switch (reason) {
+            case PERFORMANCE:
+                // Performance reasons might require additional documentation
+                // This can be extended based on business requirements
+                break;
+            case CLIENT_REQUEST:
+                // Client requests might need client approval references
+                // This can be extended based on business requirements
+                break;
+            case PROJECT_END:
+                // Project end might require project closure validation
+                // This can be extended based on business requirements
+                break;
+            case ATTRITION:
+                // Attrition might require HR process validation
+                // This can be extended based on business requirements
+                break;
+        }
+    }
+
+    /**
+     * Gets comma-separated string of valid reasons for error messages
+     */
+    private String getValidReasonsString() {
+        return Arrays.stream(RoleOffReason.values())
+                .map(Enum::name)
+                .collect(Collectors.joining(", "));
     }
 }

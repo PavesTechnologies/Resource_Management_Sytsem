@@ -4,6 +4,7 @@ import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.demand_enums.ReplacementStatus;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -39,6 +40,10 @@ public class RoleOffEvent {
     private ReplacementStatus replacementStatus;
 
     private String skipReason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role_off_reason")
+    private RoleOffReason roleOffReason;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
