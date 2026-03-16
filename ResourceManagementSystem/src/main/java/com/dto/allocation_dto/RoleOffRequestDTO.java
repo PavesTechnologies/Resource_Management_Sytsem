@@ -18,4 +18,5 @@ public class RoleOffRequestDTO {
     private String skipReason;
     private RoleOffReason roleOffReason;
     private String emergencyReason;
+    private Boolean confirmed; // Added for delivery impact confirmation
 }

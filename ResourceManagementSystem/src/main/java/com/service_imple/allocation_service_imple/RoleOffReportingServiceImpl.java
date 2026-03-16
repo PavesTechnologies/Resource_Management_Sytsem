@@ -154,6 +154,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
         return getProjectRiskAnalysis(startDate, endDate).stream()
             .filter(project -> "HIGH".equals(project.getRiskLevel()))
             .limit(10)
+            .map(this::convertProjectRiskToMap)
             .collect(Collectors.toList());
     }
 
@@ -220,8 +221,34 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
             ));
     }
 
+    private Double calculateRiskTrend(LocalDate startDate, LocalDate endDate) {
+        // Simple implementation: compare role-offs in current period vs previous period
+        LocalDate previousStart = startDate.minusMonths(1);
+        LocalDate previousEnd = endDate.minusMonths(1);
+        
+        long currentPeriodCount = roleOffRepo.countRoleOffsByDateRange(startDate, endDate);
+        long previousPeriodCount = roleOffRepo.countRoleOffsByDateRange(previousStart, previousEnd);
+        
+        if (previousPeriodCount == 0) {
+            return currentPeriodCount > 0 ? 100.0 : 0.0;
+        }
+        
+        return ((double)(currentPeriodCount - previousPeriodCount) / previousPeriodCount) * 100.0;
+    }
+
     private List<Map<String, Object>> getRiskTrends(LocalDate startDate, LocalDate endDate) {
         // Implement risk trend calculation
         return Collections.emptyList(); // Placeholder
+    }
+
+    private Map<String, Object> convertProjectRiskToMap(ProjectRiskAnalysisDTO project) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("projectName", project.getProjectName());
+        map.put("projectId", project.getProjectId());
+        map.put("reason", project.getReason());
+        map.put("count", project.getCount());
+        map.put("riskScore", project.getRiskScore());
+        map.put("riskLevel", project.getRiskLevel());
+        return map;
     }
 }

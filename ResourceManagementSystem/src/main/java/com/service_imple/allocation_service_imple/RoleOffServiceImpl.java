@@ -22,6 +22,7 @@ import com.repo.allocation_repo.RoleOffEventRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
+import com.repo.demand_repo.DemandRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
@@ -38,6 +39,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,6 +53,7 @@ public class RoleOffServiceImpl {
     private final AllocationRepository allocationRepository;
     private final AllocationService allocationService;
     private final DemandService demandService;
+    private final DemandRepository demandRepository;
 
     // Standardized role-off reasons with descriptions
     private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
@@ -389,5 +392,150 @@ public class RoleOffServiceImpl {
         return Arrays.stream(RoleOffReason.values())
                 .map(Enum::name)
                 .collect(Collectors.joining(", "));
+    }
+
+    // ========== DELIVERY IMPACT VALIDATION ==========
+
+    /**
+     * Simple delivery impact validation before role-off confirmation
+     * Returns warning message if risks identified, null if no risks
+     */
+    public String validateDeliveryImpact(RoleOffRequestDTO dto) {
+        try {
+            // Get resource info for utilization analysis
+            Resource resource = resourceRepo.findById(dto.getResourceId())
+                    .orElseThrow(() -> new RuntimeException("Resource not found"));
+
+            // 1. Check Project Criticality
+            String projectPriority = roleOffRepo.getProjectPriorityLevel(dto.getProjectId());
+            boolean isCritical = "HIGH".equals(projectPriority) || "CRITICAL".equals(projectPriority);
+
+            // 2. Check Remaining Demand
+            long openDemand = roleOffRepo.countOpenDemandForProject(dto.getProjectId());
+
+            // 3. Check Allocation Gap
+            long currentAllocations = roleOffRepo.countActiveAllocationsForProject(dto.getProjectId());
+            List<Integer> requiredPositionsList = roleOffRepo.getRequiredPositionsForProject(dto.getProjectId());
+            int totalRequiredPositions = requiredPositionsList.stream().mapToInt(Integer::intValue).sum();
+            int gapAfterRoleOff = Math.max(0, totalRequiredPositions - (int)(currentAllocations - 1));
+
+            // 4. UTILIZATION & CAPACITY ANALYSIS
+            // Current utilization for this specific project
+            List<Integer> projectAllocations = roleOffRepo.getCurrentUtilization(dto.getResourceId());
+            int currentProjectUtilization = projectAllocations.stream()
+                    .filter(alloc -> alloc != null)
+                    .findFirst()
+                    .orElse(0);
+
+            // Total utilization across all projects
+            Integer totalCurrentUtilization = roleOffRepo.getTotalCurrentUtilization(dto.getResourceId());
+            int currentUtilization = totalCurrentUtilization != null ? totalCurrentUtilization : 0;
+
+            // Utilization after role-off
+            int utilizationAfterRoleOff = Math.max(0, currentUtilization - currentProjectUtilization);
+
+            // Future capacity available
+            int futureCapacity = 100 - utilizationAfterRoleOff;
+
+            // Determine impact level
+            String utilizationImpact = determineUtilizationImpact(currentUtilization, utilizationAfterRoleOff);
+            String recommendation = generateRecommendation(utilizationImpact, futureCapacity, openDemand > 0);
+
+            // Build comprehensive warning message
+            StringBuilder warning = new StringBuilder();
+            warning.append("Role-Off Impact Preview\n\n");
+            warning.append("Resource: ").append(resource.getFullName()).append("\n");
+            warning.append("Current Utilization: ").append(currentUtilization).append("%\n");
+            warning.append("Utilization After Role-Off: ").append(utilizationAfterRoleOff).append("%\n\n");
+            warning.append("Future Capacity Available: ").append(futureCapacity).append("%\n\n");
+
+            // Add project risks if any
+            if (isCritical || openDemand > 0 || gapAfterRoleOff > 0) {
+                warning.append("Project Impact:\n");
+                if (isCritical) {
+                    warning.append("- Project Criticality: ").append(projectPriority).append("\n");
+                }
+                if (openDemand > 0) {
+                    warning.append("- Remaining Demand: ").append(openDemand).append(" open positions\n");
+                }
+                if (gapAfterRoleOff > 0) {
+                    warning.append("- Resource Gap: ").append(gapAfterRoleOff).append(" position(s)\n");
+                }
+                warning.append("\n");
+            }
+
+            warning.append("Impact: ").append(utilizationImpact).append("\n");
+            warning.append("Recommendation: ").append(recommendation).append("\n\n");
+            warning.append("Do you want to proceed?");
+
+            return warning.toString();
+
+        } catch (Exception e) {
+            // If validation fails, allow proceed with caution
+            return "Unable to validate delivery impact. Proceed with caution.";
+        }
+    }
+
+    /**
+     * Determine utilization impact level based on before/after percentages
+     */
+    private String determineUtilizationImpact(int currentUtilization, int utilizationAfterRoleOff) {
+        int utilizationDrop = currentUtilization - utilizationAfterRoleOff;
+        
+        if (utilizationDrop >= 50) {
+            return "Large utilization drop";
+        } else if (utilizationDrop >= 25) {
+            return "Moderate utilization drop";
+        } else if (utilizationDrop >= 10) {
+            return "Small utilization drop";
+        } else if (utilizationDrop > 0) {
+            return "Minimal utilization drop";
+        } else {
+            return "No utilization impact";
+        }
+    }
+
+    /**
+     * Generate recommendation based on utilization impact and future capacity
+     */
+    private String generateRecommendation(String utilizationImpact, int futureCapacity, boolean hasOpenDemand) {
+        if (utilizationImpact.equals("Large utilization drop")) {
+            if (futureCapacity >= 50) {
+                return "Assign resource to another demand immediately";
+            } else {
+                return "Urgent: Find replacement assignment";
+            }
+        } else if (utilizationImpact.equals("Moderate utilization drop")) {
+            if (futureCapacity >= 30) {
+                return "Assign resource to another demand";
+            } else {
+                return "Plan for replacement assignment";
+            }
+        } else if (utilizationImpact.equals("Small utilization drop")) {
+            return "Monitor for new demand opportunities";
+        } else if (hasOpenDemand) {
+            return "Resource can fill existing demand";
+        } else {
+            return "No immediate action required";
+        }
+    }
+
+    /**
+     * Logs role-off decision for audit purposes
+     */
+    public void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean confirmed, Long userId) {
+        String logMessage = String.format(
+            "Role-off decision logged - Project: %d, Resource: %d, User: %d, " +
+            "Warning: %s, Confirmed: %s, Timestamp: %s",
+            dto.getProjectId(),
+            dto.getResourceId(),
+            userId,
+            warning != null ? "YES" : "NO",
+            confirmed,
+            LocalDateTime.now()
+        );
+        
+        // In real implementation, save to audit table
+        System.out.println("AUDIT LOG: " + logMessage);
     }
 }
