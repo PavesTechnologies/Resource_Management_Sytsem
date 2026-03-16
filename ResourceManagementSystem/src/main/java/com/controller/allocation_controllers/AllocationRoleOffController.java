@@ -13,7 +13,7 @@ import java.util.UUID;
 
 // Force IDE refresh by adding this comment
 @RestController
-@RequestMapping("/role-off")
+@RequestMapping("/allocation/role-off")
 @RequiredArgsConstructor
 public class AllocationRoleOffController {
     private final RoleOffServiceImpl roleOffService;
