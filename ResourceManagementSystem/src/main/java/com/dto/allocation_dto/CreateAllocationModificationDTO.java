@@ -24,4 +24,6 @@ public class CreateAllocationModificationDTO {
     
     @NotNull(message = "Reason for modification is required")
     private String reason;
+    
+    private String overrideJustification;
 }

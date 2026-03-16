@@ -19,6 +19,7 @@ import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.project_repo.ProjectRepository;
@@ -43,6 +44,7 @@ import java.util.stream.Collectors;
 public class AllocationValidationService {
 
     private final AllocationRepository allocationRepository;
+    private final AllocationModificationRepository allocationModificationRepository;
     private final ResourceRepository resourceRepository;
     private final DemandRepository demandRepository;
     private final ProjectRepository projectRepository;
@@ -269,16 +271,6 @@ public class AllocationValidationService {
                 allocation.setAllocationStatus(request.getAllocationStatus());
                 allocation.setCreatedBy(request.getCreatedBy());
                 allocation.setCreatedAt(LocalDateTime.now());
-                allocation.setOverrideFlag(override);
-
-                if (override) {
-                    allocation.setOverrideFlag(true);
-
-                    allocation.setOverrideJustification(request.getOverrideJustification());
-                    allocation.setOverrideBy(request.getCreatedBy());
-                    allocation.setOverrideAt(LocalDateTime.now());
-
-                }
                 
                 validAllocations.add(allocation);
                 
@@ -409,7 +401,7 @@ public class AllocationValidationService {
     /**
      * Validates capacity using timeline segmentation algorithm
      */
-    private boolean validateCapacity(Long resourceId,
+    public boolean validateCapacity(Long resourceId,
                                      AllocationRequestDTO request,
                                      AllocationPreloadedData preloadedData) {
 
@@ -431,7 +423,7 @@ public class AllocationValidationService {
                 .withDayOfMonth(startDate.lengthOfMonth())
                 .atTime(23, 59, 59);
 
-        long monthlyOverrides = allocationRepository.countMonthlyOverrides(
+        long monthlyOverrides = allocationModificationRepository.countMonthlyOverrides(
                 resourceId,
                 startOfMonth,
                 endOfMonth

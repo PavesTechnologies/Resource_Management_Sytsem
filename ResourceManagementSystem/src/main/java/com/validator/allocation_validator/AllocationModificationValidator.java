@@ -25,7 +25,8 @@ public class AllocationModificationValidator {
     @Autowired
     private AllocationModificationRepository modificationRepository;
 
-    public void validateModificationRequest(UUID allocationId, Integer requestedPercentage, LocalDate effectiveDate) {
+    public void validateModificationRequest(UUID allocationId, Integer requestedPercentage, 
+                                       LocalDate effectiveDate, String overrideJustification) {
         validateAllocationExists(allocationId);
         ResourceAllocation allocation = allocationRepository.findById(allocationId).orElse(null);
         validateAllocationStatus(allocation);
@@ -34,7 +35,12 @@ public class AllocationModificationValidator {
         validateEffectiveDateRange(effectiveDate, allocation);
         validateEffectiveDateNotPast(effectiveDate);
         validateNoDuplicateModification(allocationId, effectiveDate);
-        validateResourceUtilization(allocation, requestedPercentage, effectiveDate);
+        
+        // Check if override is needed and validate justification if provided
+        boolean overrideRequired = checkIfOverrideRequired(allocation, requestedPercentage, effectiveDate);
+        if (overrideRequired && (overrideJustification == null || overrideJustification.trim().isEmpty())) {
+            throw ProjectExceptionHandler.badRequest("OVERRIDE_JUSTIFICATION_REQUIRED");
+        }
     }
 
     public void validateModificationDecision(AllocationModification modification, String decision, String rejectionReason) {
@@ -109,6 +115,11 @@ public class AllocationModificationValidator {
     }
 
     private void validateResourceUtilization(ResourceAllocation allocation, Integer requestedPercentage, LocalDate effectiveDate) {
+        // This validation is now handled in checkIfOverrideRequired method
+        // No need to duplicate here
+    }
+    
+    public boolean checkIfOverrideRequired(ResourceAllocation allocation, Integer requestedPercentage, LocalDate effectiveDate) {
         // Get all allocations for the same resource that overlap with the effective date
         List<ResourceAllocation> overlappingAllocations = allocationRepository
                 .findByResource_ResourceIdAndAllocationStartDateLessThanEqualAndAllocationEndDateGreaterThanEqual(
@@ -120,9 +131,8 @@ public class AllocationModificationValidator {
                 .mapToInt(ResourceAllocation::getAllocationPercentage)
                 .sum();
 
-        if ((totalUtilization + requestedPercentage) > 100) {
-            throw ProjectExceptionHandler.badRequest("RESOURCE_UTILIZATION_EXCEEDED");
-        }
+        // Return true if override is needed (utilization would exceed 100%)
+        return (totalUtilization + requestedPercentage) > 100;
     }
 
     private void validateModificationState(AllocationModification modification) {
@@ -177,4 +187,5 @@ public class AllocationModificationValidator {
             throw ProjectExceptionHandler.badRequest("USER_CANNOT_CANCEL_MODIFICATION");
         }
     }
+
 }

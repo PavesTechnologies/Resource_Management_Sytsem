@@ -66,4 +66,16 @@ public class AllocationModification {
     private String rejectReason;
 
     private String rejectedBy;
+
+    @Column(name = "override_flag")
+    private Boolean overrideFlag = false;
+
+    @Column(name = "override_justification", length = 500)
+    private String overrideJustification;
+
+    @Column(name = "override_by")
+    private String overrideBy;
+
+    @Column(name = "override_at")
+    private LocalDateTime overrideAt;
 }

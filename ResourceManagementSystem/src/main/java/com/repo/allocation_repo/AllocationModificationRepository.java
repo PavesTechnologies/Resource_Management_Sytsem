@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,4 +53,21 @@ public interface AllocationModificationRepository extends JpaRepository<Allocati
     
     @Query("SELECT am FROM AllocationModification am WHERE am.allocation.demand.demandId = :demandId AND am.status = :status")
     List<AllocationModification> findByDemandIdAndStatus(@Param("demandId") UUID demandId, @Param("status") AllocationModificationStatus status);
+    
+    // Override-related methods
+    List<AllocationModification> findByOverrideFlagTrue();
+    
+    @Query("""
+            SELECT COUNT(am)
+            FROM AllocationModification am
+            WHERE am.allocation.resource.resourceId = :resourceId
+            AND am.overrideFlag = true
+            AND am.overrideAt >= :startOfMonth
+            AND am.overrideAt <= :endOfMonth
+            """)
+    long countMonthlyOverrides(
+            @Param("resourceId") Long resourceId,
+            @Param("startOfMonth") LocalDateTime startOfMonth,
+            @Param("endOfMonth") LocalDateTime endOfMonth
+    );
 }

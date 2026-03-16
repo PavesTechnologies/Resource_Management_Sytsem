@@ -23,4 +23,8 @@ public class AllocationModificationResponseDTO {
     private String reason;
     private String rejectReason;
     private String rejectedBy;
+    private Boolean overrideFlag;
+    private String overrideJustification;
+    private String overrideBy;
+    private LocalDateTime overrideAt;
 }

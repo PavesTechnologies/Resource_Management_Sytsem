@@ -2,6 +2,7 @@ package com.service_interface.allocation_service_interface;
 
 import com.dto.allocation_dto.*;
 import com.dto.ApiResponse;
+import com.entity.allocation_entities.ResourceAllocation;
 import org.springframework.http.ResponseEntity;
 
 import java.util.UUID;
@@ -73,4 +74,9 @@ public interface AllocationService {
      * Gets all pending conflicts
      */
     List<AllocationConflictDTO> getAllPendingConflicts();
+    
+    /**
+     * Updates the ResourceAvailabilityLedger for the given allocation
+     */
+    void updateAvailabilityLedgerForAllocation(ResourceAllocation allocation);
 }

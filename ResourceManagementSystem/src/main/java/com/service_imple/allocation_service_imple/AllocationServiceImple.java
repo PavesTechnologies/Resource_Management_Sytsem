@@ -3,6 +3,7 @@ package com.service_imple.allocation_service_imple;
 import com.dto.allocation_dto.*;
 import com.dto.ApiResponse;
 import com.dto.resource.ResourceNameDTO;
+import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
@@ -10,6 +11,7 @@ import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
 public class AllocationServiceImple implements AllocationService {
 
     private final AllocationRepository allocationRepository;
+    private final AllocationModificationRepository allocationModificationRepository;
     private final ResourceRepository resourceRepository;
     private final DemandRepository demandRepository;
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
@@ -239,7 +242,7 @@ public class AllocationServiceImple implements AllocationService {
     @Override
     public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
 
-        List<ResourceAllocation> overrides = allocationRepository.findByOverrideFlagTrue();
+        List<AllocationModification> overrides = allocationModificationRepository.findByOverrideFlagTrue();
 
         return ResponseEntity.ok(
                 ApiResponse.success("Override allocations retrieved", overrides)

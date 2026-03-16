@@ -7,17 +7,13 @@ import com.dto.allocation_dto.AllocationModificationResponseDTO;
 import com.dto.allocation_dto.CreateAllocationModificationDTO;
 import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.project_entities.Project;
-import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationModificationStatus;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.allocation_repo.AllocationRepository;
-import com.repo.project_repo.ProjectRepository;
-import com.repo.resource_repo.ResourceRepository;
-import com.service_imple.allocation_service_imple.AllocationServiceImple;
 import com.service_interface.allocation_service_interface.AllocationModificationService;
+import com.service_interface.allocation_service_interface.AllocationService;
 import com.validator.allocation_validator.AllocationModificationValidator;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,15 +25,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class AllocationModificationServiceImpl implements AllocationModificationService {
-
-    @Autowired
-    private AllocationServiceImple allocationService;
 
     @Autowired
     private AllocationModificationRepository modificationRepository;
@@ -46,13 +38,10 @@ public class AllocationModificationServiceImpl implements AllocationModification
     private AllocationRepository allocationRepository;
 
     @Autowired
-    private ResourceRepository resourceRepository;
-
-    @Autowired
-    private ProjectRepository projectRepository;
-
-    @Autowired
     private AllocationModificationValidator validator;
+
+    @Autowired
+    private AllocationService allocationService;
 
     
     @Override
@@ -64,16 +53,20 @@ public class AllocationModificationServiceImpl implements AllocationModification
                 return triggerRoleOffProcess(dto, userDTO);
             }
 
-            // Comprehensive validation
+            // Unified validation for both modification and override
             validator.validateModificationRequest(
                     dto.getAllocationId(), 
                     dto.getRequestedAllocationPercentage(), 
-                    dto.getEffectiveDate()
+                    dto.getEffectiveDate(),
+                    dto.getOverrideJustification()
             );
 
             // Get allocation for modification creation
             ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
                     .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+
+            // Check if override is needed
+            boolean isOverride = checkIfOverrideRequired(allocation.getResource().getResourceId(), dto);
 
             // Create modification request
             AllocationModification modification = new AllocationModification();
@@ -84,6 +77,14 @@ public class AllocationModificationServiceImpl implements AllocationModification
             modification.setReason(dto.getReason());
             modification.setStatus(AllocationModificationStatus.REQUESTED);
             modification.setRequestedBy(userDTO.getName());
+            
+            // Set override fields if needed
+            if (isOverride) {
+                modification.setOverrideFlag(true);
+                modification.setOverrideJustification(dto.getOverrideJustification());
+                modification.setOverrideBy(userDTO.getName());
+                modification.setOverrideAt(LocalDateTime.now());
+            }
 
             AllocationModification savedModification = modificationRepository.save(modification);
 
@@ -299,6 +300,10 @@ public class AllocationModificationServiceImpl implements AllocationModification
         dto.setReason(modification.getReason());
         dto.setRejectReason(modification.getRejectReason());
         dto.setRejectedBy(modification.getRejectedBy());
+        dto.setOverrideFlag(modification.getOverrideFlag());
+        dto.setOverrideJustification(modification.getOverrideJustification());
+        dto.setOverrideBy(modification.getOverrideBy());
+        dto.setOverrideAt(modification.getOverrideAt());
         return dto;
     }
 
@@ -411,10 +416,6 @@ public class AllocationModificationServiceImpl implements AllocationModification
         newAllocation.setAllocationPercentage(newPercentage);
         newAllocation.setAllocationStatus(AllocationStatus.ACTIVE);
         newAllocation.setCreatedBy(original.getCreatedBy());
-        newAllocation.setOverrideFlag(original.getOverrideFlag());
-        newAllocation.setOverrideJustification(original.getOverrideJustification());
-        newAllocation.setOverrideBy(original.getOverrideBy());
-        newAllocation.setOverrideAt(original.getOverrideAt());
         
         return newAllocation;
     }
@@ -484,5 +485,15 @@ public class AllocationModificationServiceImpl implements AllocationModification
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Error deleting modification: " + e.getMessage(), null));
         }
+    }
+
+
+    private boolean checkIfOverrideRequired(Long resourceId, CreateAllocationModificationDTO dto) {
+        // Get the current allocation to determine the date range
+        ResourceAllocation currentAllocation = allocationRepository.findById(dto.getAllocationId())
+                .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+        
+        // Use validator's checkIfOverrideRequired method to avoid duplication
+        return validator.checkIfOverrideRequired(currentAllocation, dto.getRequestedAllocationPercentage(), dto.getEffectiveDate());
     }
 }
