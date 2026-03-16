@@ -1,6 +1,7 @@
 package com.service_imple.allocation_service_imple;
 
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity_enums.allocation_enums.AllocationStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -111,5 +112,55 @@ public class AllocationCapacityService {
         
         // Check overlap: allocation starts before segment ends AND allocation ends after segment starts
         return !allocStart.isAfter(segmentEnd) && !allocEnd.isBefore(segmentStart);
+    }
+
+    public int calculateMaxTimelineAllocation(
+            List<ResourceAllocation> existingAllocations,
+            LocalDate requestStart,
+            LocalDate requestEnd,
+            int requestPercentage) {
+
+        TreeSet<LocalDate> boundaries = new TreeSet<>();
+
+        boundaries.add(requestStart);
+        boundaries.add(requestEnd.plusDays(1));
+
+        for (ResourceAllocation allocation : existingAllocations) {
+            boundaries.add(allocation.getAllocationStartDate());
+            boundaries.add(allocation.getAllocationEndDate().plusDays(1));
+        }
+
+        List<LocalDate> sortedBoundaries = new ArrayList<>(boundaries);
+
+        int maxAllocation = 0;
+
+        for (int i = 0; i < sortedBoundaries.size() - 1; i++) {
+
+            LocalDate segmentStart = sortedBoundaries.get(i);
+            LocalDate segmentEnd = sortedBoundaries.get(i + 1).minusDays(1);
+
+            if (segmentEnd.isBefore(requestStart) || segmentStart.isAfter(requestEnd)) {
+                continue;
+            }
+
+            int segmentAllocation = requestPercentage;
+
+            for (ResourceAllocation allocation : existingAllocations) {
+
+                if (!allocation.getAllocationStartDate().isAfter(segmentEnd) &&
+                        !allocation.getAllocationEndDate().isBefore(segmentStart)) {
+
+                    if (allocation.getAllocationStatus() == AllocationStatus.ACTIVE ||
+                            allocation.getAllocationStatus() == AllocationStatus.PLANNED) {
+
+                        segmentAllocation += allocation.getAllocationPercentage();
+                    }
+                }
+            }
+
+            maxAllocation = Math.max(maxAllocation, segmentAllocation);
+        }
+
+        return maxAllocation;
     }
 }
