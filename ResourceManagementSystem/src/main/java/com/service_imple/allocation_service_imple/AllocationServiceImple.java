@@ -6,10 +6,12 @@ import com.dto.resource.ResourceNameDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
+import com.entity.demand_entities.DemandSLA;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.demand_repo.DemandSLARepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
@@ -48,7 +50,7 @@ public class AllocationServiceImple implements AllocationService {
     private final AllocationConflictService conflictService;
     private final SkillGapAnalysisService skillGapService;
     private final AvailabilityLedgerAsyncService ledgerAsyncService;
-
+    private final DemandSLARepository demandSLARepository;
     /**
      * Main allocation method following clean architecture
      * 
@@ -569,6 +571,7 @@ public class AllocationServiceImple implements AllocationService {
             if (demand == null) {
                 return;
             }
+            DemandSLA demandSLA = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId).orElse(null);
 
             // Count active allocations for this demand
             List<ResourceAllocation> activeAllocations = allocationRepository.findByDemand_DemandId(demandId)
@@ -594,6 +597,11 @@ public class AllocationServiceImple implements AllocationService {
                 if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
                     demand.setDemandStatus(DemandStatus.APPROVED);
                     demandRepository.save(demand);
+                    if (demandSLA != null) {
+                        demandSLA.setActiveFlag(false);
+                        demandSLA.setFulfillDate(LocalDate.now());
+                        demandSLARepository.save(demandSLA);
+                    }
                 }
             }
         } catch (Exception e) {
