@@ -47,6 +47,7 @@ public class RoleOffEvent {
 
 //    private LocalDate projectEndDate;
 
+    @Column(name = "role_off_reason_text")
     private String roleOffReason;
 
     @Enumerated(EnumType.STRING)
