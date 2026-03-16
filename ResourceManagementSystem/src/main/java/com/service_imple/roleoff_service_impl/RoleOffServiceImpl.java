@@ -1,8 +1,9 @@
-package com.service_imple.allocation_service_imple;
+package com.service_imple.roleoff_service_impl;
 
 import com.dto.ApiResponse;
+import com.dto.UserDTO;
 import com.dto.allocation_dto.CloseAllocationDTO;
-import com.dto.allocation_dto.RoleOffRequestDTO;
+import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.demand_dto.CreateDemandDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.allocation_entities.RoleOffEvent;
@@ -10,19 +11,22 @@ import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.RoleOffStatus;
 import com.entity_enums.allocation_enums.RoleOffType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.ReplacementStatus;
+import com.global_exception_handler.AllocationExceptionHandler;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
-import com.repo.allocation_repo.RoleOffEventRepository;
+import com.repo.roleoff_repo.RoleOffEventRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
+import com.service_interface.roleoff_service_interface.RoleOffService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,12 +34,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.chrono.ChronoLocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class RoleOffServiceImpl {
+public class RoleOffServiceImpl implements RoleOffService {
     private final RoleOffEventRepository roleOffRepo;
     private final ProjectRepository projectRepo;
     private final ResourceRepository resourceRepo;
@@ -45,7 +50,7 @@ public class RoleOffServiceImpl {
     private final DemandService demandService;
 
     @Transactional
-    public void roleOff(RoleOffRequestDTO dto, Long userId) {
+    public void roleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId) {
 
         // 1️⃣ Validate Project
         Project project = projectRepo.findById(dto.getProjectId())
@@ -92,19 +97,19 @@ public class RoleOffServiceImpl {
 
         event.setProject(project);
         event.setResource(resource);
-        event.setRole(role);
+//        event.setRole(role);
         event.setRoleOffType(dto.getRoleOffType());
         event.setCreatedBy(userId);
 
         // ✅ FIX 1 — Set project end date (required for replacement demand)
-        if (project.getEndDate() != null) {
-            event.setProjectEndDate(project.getEndDate().toLocalDate());
-        } else {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "PROJECT_END_DATE_MISSING",
-                    "Project end date must be defined before role-off");
-        }
+//        if (project.getEndDate() != null) {
+//            event.setProjectEndDate(project.getEndDate().toLocalDate());
+//        } else {
+//            throw new ProjectExceptionHandler(
+//                    HttpStatus.BAD_REQUEST,
+//                    "PROJECT_END_DATE_MISSING",
+//                    "Project end date must be defined before role-off");
+//        }
 
         // 7️⃣ Emergency Role-Off
         if (dto.getRoleOffType() == RoleOffType.EMERGENCY) {
@@ -118,10 +123,10 @@ public class RoleOffServiceImpl {
                         "Emergency role-off requires a reason with minimum 10 characters");
             }
 
-            event.setEmergencyReason(dto.getEmergencyReason());
+            event.setRejectionReason(dto.getEmergencyReason());
 
             // Immediate impact
-            event.setRoleOffDate(LocalDate.now());
+            event.setEffectiveRoleOffDate(dto.getRoleOffDate());
 
             // Close active allocation (updates availability ledger)
             closeResourceAllocation(event);
@@ -144,11 +149,11 @@ public class RoleOffServiceImpl {
                         "Role-off date cannot be in the past");
             }
 
-            event.setRoleOffDate(dto.getRoleOffDate());
+            event.setEffectiveRoleOffDate(dto.getRoleOffDate());
         }
 
         // ✅ FIX 2 — Ensure project end date is after role-off date
-        if (event.getProjectEndDate().isBefore(event.getRoleOffDate())) {
+        if (event.getProject().getEndDate().isBefore(ChronoLocalDateTime.from(event.getEffectiveRoleOffDate()))) {
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_PROJECT_TIMELINE",
@@ -200,7 +205,7 @@ public class RoleOffServiceImpl {
         ResourceAllocation allocation = allocationOpt.get();
 
         CloseAllocationDTO closeDTO = new CloseAllocationDTO();
-        closeDTO.setClosureDate(event.getRoleOffDate());
+        closeDTO.setClosureDate(event.getEffectiveRoleOffDate());
 
         allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
     }
@@ -210,15 +215,15 @@ public class RoleOffServiceImpl {
         CreateDemandDTO dto = new CreateDemandDTO();
 
         dto.setProjectId(event.getProject().getId());
-        dto.setDeliveryRole(event.getRole().getId());
+//        dto.setDeliveryRole(event.getRole().getId());
 
         dto.setDemandName("Replacement for " + event.getResource().getFullName());
 
         dto.setDemandType(DemandType.REPLACEMENT);
 
-        dto.setDemandStartDate(event.getRoleOffDate().plusDays(1));
+        dto.setDemandStartDate(event.getEffectiveRoleOffDate().plusDays(1));
 
-        dto.setDemandEndDate(event.getProjectEndDate());
+        dto.setDemandEndDate(LocalDate.from(event.getProject().getEndDate()));
 
         dto.setAllocationPercentage(100);
 
@@ -267,5 +272,119 @@ public class RoleOffServiceImpl {
 
         event.setReplacementStatus(ReplacementStatus.MANUAL_CREATED_LATER);
         roleOffRepo.save(event);
+    }
+
+    @Override
+    public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO) {
+
+        Project project = projectRepo.findById(roleOff.getProjectId())
+                .orElseThrow(() -> ProjectExceptionHandler.badRequest("Project not found!"));
+
+        if (roleOff.getResourceIds() == null || roleOff.getResourceIds().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "At least one resource is required", null));
+        }
+
+        if (roleOff.getAllocationId() == null || roleOff.getAllocationId().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "Allocation Ids required", null));
+        }
+
+        LocalDate today = LocalDate.now();
+        if (roleOff.getEffectiveRoleOffDate().isBefore(today)) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "Effective Role Off Date should be today or future", null));
+        }
+
+        List<RoleOffEvent> successEvents = new ArrayList<>();
+        List<Map<String, Object>> failedEvents = new ArrayList<>();
+
+//        List<Resource> resources = resourceRepo.findAllById(roleOff.getResourceIds());
+        List<ResourceAllocation> allocations = allocationRepository.findAllById(roleOff.getAllocationId());
+
+//        Map<Long, Resource> resourceMap = resources.stream()
+//                .collect(Collectors.toMap(Resource::getResourceId, r -> r));
+
+        Map<UUID, ResourceAllocation> allocationMap = allocations.stream()
+                .collect(Collectors.toMap(ResourceAllocation::getAllocationId, a -> a));
+
+        for (UUID allocationId : roleOff.getAllocationId()) {
+
+            ResourceAllocation allocation = allocationMap.get(allocationId);
+
+            if (allocation == null) {
+                failedEvents.add(Map.of(
+                        "allocationId", allocationId,
+                        "reason", "Allocation not found"
+                ));
+                continue;
+            }
+
+            Resource resource = allocation.getResource();
+
+            if (allocation.getAllocationStatus() != AllocationStatus.ACTIVE) {
+                failedEvents.add(Map.of(
+                        "resourceId", resource.getResourceId(),
+                        "reason", "Allocation not active"
+                ));
+                continue;
+            }
+
+            if (!allocation.getProject().getPmsProjectId().equals(project.getPmsProjectId())) {
+                failedEvents.add(Map.of(
+                        "resourceId", resource.getResourceId(),
+                        "reason", "Project mismatch"
+                ));
+                continue;
+            }
+
+            try {
+
+                RoleOffEvent event = new RoleOffEvent();
+                event.setProject(project);
+                event.setAllocation(allocation);
+                event.setResource(resource);
+                event.setRoleOffType(roleOff.getRoleOffType());
+                event.setEffectiveRoleOffDate(roleOff.getEffectiveRoleOffDate());
+                event.setRoleOffStatus(RoleOffStatus.PENDING);
+                event.setRoleOffReason(roleOff.getRoleOffReason());
+                event.setCreatedAt(LocalDate.now());
+                event.setCreatedBy(userDTO.getId());
+                event.setRoleInitiatedBy(
+                        userDTO.getRoles().contains("RESOURCE-MANAGER")
+                                ? "RESOURCE-MANAGER"
+                                : "Unknown"
+                );
+
+                successEvents.add(event);
+
+            } catch (Exception ex) {
+
+                failedEvents.add(Map.of(
+                        "resourceId", resource.getResourceId(),
+                        "reason", ex.getMessage()
+                ));
+            }
+        }
+
+        List<RoleOffEvent> savedEvents = roleOffRepo.saveAll(successEvents);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("successCount", savedEvents.size());
+        result.put("failedCount", failedEvents.size());
+        result.put("success", savedEvents);
+        result.put("failed", failedEvents);
+
+        String message;
+
+        if (!savedEvents.isEmpty() && !failedEvents.isEmpty()) {
+            message = savedEvents.size() + " Role Off created, " + failedEvents.size() + " failed";
+        } else if (!savedEvents.isEmpty()) {
+            message = "All Role Off requests created successfully";
+        } else {
+            message = "All Role Off requests failed";
+        }
+
+        return ResponseEntity.ok().body(new ApiResponse<>(true, message, result));
     }
 }

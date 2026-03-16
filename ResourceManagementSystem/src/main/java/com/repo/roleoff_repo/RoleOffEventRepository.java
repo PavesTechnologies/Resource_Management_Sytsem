@@ -1,4 +1,4 @@
-package com.repo.allocation_repo;
+package com.repo.roleoff_repo;
 
 import com.entity.allocation_entities.RoleOffEvent;
 import org.springframework.data.jpa.repository.JpaRepository;

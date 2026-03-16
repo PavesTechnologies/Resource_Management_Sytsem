@@ -3,11 +3,13 @@ package com.entity.allocation_entities;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity_enums.allocation_enums.RoleOffStatus;
 import com.entity_enums.allocation_enums.RoleOffType;
 import com.entity_enums.demand_enums.ReplacementStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,26 +32,38 @@ public class RoleOffEvent {
     @JoinColumn(name = "resource_id", nullable = false)
     private Resource resource;
 
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "role_id")
+//    private DeliveryRoleExpectation role;
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id")
-    private DeliveryRoleExpectation role;
+    @JoinColumn(name = "allocation_id", nullable = false)
+    private ResourceAllocation allocation;
 
     @Enumerated(EnumType.STRING)
     private RoleOffType roleOffType;
 
-    private LocalDate roleOffDate;
+    private LocalDate effectiveRoleOffDate;
 
-    private LocalDate projectEndDate;
+//    private LocalDate projectEndDate;
 
-    private String emergencyReason;
+    private String roleOffReason;
+
+    @Enumerated(EnumType.STRING)
+    private RoleOffStatus roleOffStatus;
 
     @Enumerated(EnumType.STRING)
     private ReplacementStatus replacementStatus;
 
     private String skipReason;
 
+    // Autofill values on create/update
     @CreationTimestamp
-    private LocalDateTime createdAt;
-
+    private LocalDate createdAt;
+    @UpdateTimestamp
+    private LocalDate updatedAt;
     private Long createdBy;
+    private String approvedBy;
+    private String rejectedBy;
+    private String rejectionReason;
+    private String roleInitiatedBy;
 }
