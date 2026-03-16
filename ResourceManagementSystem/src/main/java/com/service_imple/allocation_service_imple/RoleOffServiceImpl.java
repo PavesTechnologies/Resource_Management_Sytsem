@@ -15,12 +15,14 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.ReplacementStatus;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.allocation_repo.RoleOffEventRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
+import com.repo.demand_repo.DemandRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
@@ -29,7 +31,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,9 +53,21 @@ public class RoleOffServiceImpl {
     private final AllocationRepository allocationRepository;
     private final AllocationService allocationService;
     private final DemandService demandService;
+    private final DemandRepository demandRepository;
+
+    // Standardized role-off reasons with descriptions
+    private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
+            RoleOffReason.PROJECT_END, "Resource role-off due to project completion or termination",
+            RoleOffReason.PERFORMANCE, "Resource role-off due to performance issues",
+            RoleOffReason.ATTRITION, "Resource role-off due to employee attrition/resignation",
+            RoleOffReason.CLIENT_REQUEST, "Resource role-off due to client request or dissatisfaction"
+    );
 
     @Transactional
     public void roleOff(RoleOffRequestDTO dto, Long userId) {
+
+        // Validate mandatory role-off reason classification using governance method
+        validateRoleOffReason(dto.getRoleOffReason());
 
         // 1️⃣ Validate Project
         Project project = projectRepo.findById(dto.getProjectId())
@@ -118,6 +140,9 @@ public class RoleOffServiceImpl {
                         "Emergency role-off requires a reason with minimum 10 characters");
             }
 
+        event.setProjectEndDate(project.getEndDate().toLocalDate());
+        event.setCreatedBy(userId);
+        event.setRoleOffReason(dto.getRoleOffReason());
             event.setEmergencyReason(dto.getEmergencyReason());
 
             // Immediate impact
@@ -267,5 +292,250 @@ public class RoleOffServiceImpl {
 
         event.setReplacementStatus(ReplacementStatus.MANUAL_CREATED_LATER);
         roleOffRepo.save(event);
+    }
+
+    // ========== GOVERNANCE METHODS ==========
+
+    /**
+     * Validates that the provided role-off reason is valid and not null
+     */
+    public void validateRoleOffReason(RoleOffReason reason) {
+        if (reason == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ROLE_OFF_REASON_REQUIRED",
+                    "Role-off reason classification is mandatory. Must be one of: " + getValidReasonsString()
+            );
+        }
+
+        // Additional validation can be added here based on business rules
+        validateBusinessRules(reason);
+    }
+
+    /**
+     * Gets all valid role-off reasons for dropdown selections
+     */
+    public List<RoleOffReason> getValidRoleOffReasons() {
+        return Arrays.asList(RoleOffReason.values());
+    }
+
+    /**
+     * Gets description for a specific role-off reason
+     */
+    public String getReasonDescription(RoleOffReason reason) {
+        return REASON_DESCRIPTIONS.get(reason);
+    }
+
+    /**
+     * Validates role-off event data for governance compliance
+     */
+    public void validateRoleOffEvent(RoleOffEvent event) {
+        if (event.getRoleOffReason() == null) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ROLE_OFF_REASON_REQUIRED",
+                    "Role-off event must have a classified reason"
+            );
+        }
+
+        // Additional governance validations can be added here
+        validateBusinessRules(event.getRoleOffReason());
+    }
+
+    /**
+     * Gets statistics for role-off reasons reporting
+     */
+    public Map<RoleOffReason, Long> getRoleOffReasonStatistics() {
+        return roleOffRepo.findAll().stream()
+                .filter(event -> event.getRoleOffReason() != null)
+                .collect(Collectors.groupingBy(
+                        RoleOffEvent::getRoleOffReason,
+                        Collectors.counting()
+                ));
+    }
+
+    /**
+     * Checks if a role-off reason is valid
+     */
+    public boolean isValidRoleOffReason(RoleOffReason reason) {
+        return reason != null && Arrays.asList(RoleOffReason.values()).contains(reason);
+    }
+
+    /**
+     * Business rules validation for specific reasons
+     */
+    private void validateBusinessRules(RoleOffReason reason) {
+        switch (reason) {
+            case PERFORMANCE:
+                // Performance reasons might require additional documentation
+                // This can be extended based on business requirements
+                break;
+            case CLIENT_REQUEST:
+                // Client requests might need client approval references
+                // This can be extended based on business requirements
+                break;
+            case PROJECT_END:
+                // Project end might require project closure validation
+                // This can be extended based on business requirements
+                break;
+            case ATTRITION:
+                // Attrition might require HR process validation
+                // This can be extended based on business requirements
+                break;
+        }
+    }
+
+    /**
+     * Gets comma-separated string of valid reasons for error messages
+     */
+    private String getValidReasonsString() {
+        return Arrays.stream(RoleOffReason.values())
+                .map(Enum::name)
+                .collect(Collectors.joining(", "));
+    }
+
+    // ========== DELIVERY IMPACT VALIDATION ==========
+
+    /**
+     * Simple delivery impact validation before role-off confirmation
+     * Returns warning message if risks identified, null if no risks
+     */
+    public String validateDeliveryImpact(RoleOffRequestDTO dto) {
+        try {
+            // Get resource info for utilization analysis
+            Resource resource = resourceRepo.findById(dto.getResourceId())
+                    .orElseThrow(() -> new RuntimeException("Resource not found"));
+
+            // 1. Check Project Criticality
+            String projectPriority = roleOffRepo.getProjectPriorityLevel(dto.getProjectId());
+            boolean isCritical = "HIGH".equals(projectPriority) || "CRITICAL".equals(projectPriority);
+
+            // 2. Check Remaining Demand
+            long openDemand = roleOffRepo.countOpenDemandForProject(dto.getProjectId());
+
+            // 3. Check Allocation Gap
+            long currentAllocations = roleOffRepo.countActiveAllocationsForProject(dto.getProjectId());
+            List<Integer> requiredPositionsList = roleOffRepo.getRequiredPositionsForProject(dto.getProjectId());
+            int totalRequiredPositions = requiredPositionsList.stream().mapToInt(Integer::intValue).sum();
+            int gapAfterRoleOff = Math.max(0, totalRequiredPositions - (int)(currentAllocations - 1));
+
+            // 4. UTILIZATION & CAPACITY ANALYSIS
+            // Current utilization for this specific project
+            List<Integer> projectAllocations = roleOffRepo.getCurrentUtilization(dto.getResourceId());
+            int currentProjectUtilization = projectAllocations.stream()
+                    .filter(alloc -> alloc != null)
+                    .findFirst()
+                    .orElse(0);
+
+            // Total utilization across all projects
+            Integer totalCurrentUtilization = roleOffRepo.getTotalCurrentUtilization(dto.getResourceId());
+            int currentUtilization = totalCurrentUtilization != null ? totalCurrentUtilization : 0;
+
+            // Utilization after role-off
+            int utilizationAfterRoleOff = Math.max(0, currentUtilization - currentProjectUtilization);
+
+            // Future capacity available
+            int futureCapacity = 100 - utilizationAfterRoleOff;
+
+            // Determine impact level
+            String utilizationImpact = determineUtilizationImpact(currentUtilization, utilizationAfterRoleOff);
+            String recommendation = generateRecommendation(utilizationImpact, futureCapacity, openDemand > 0);
+
+            // Build comprehensive warning message
+            StringBuilder warning = new StringBuilder();
+            warning.append("Role-Off Impact Preview\n\n");
+            warning.append("Resource: ").append(resource.getFullName()).append("\n");
+            warning.append("Current Utilization: ").append(currentUtilization).append("%\n");
+            warning.append("Utilization After Role-Off: ").append(utilizationAfterRoleOff).append("%\n\n");
+            warning.append("Future Capacity Available: ").append(futureCapacity).append("%\n\n");
+
+            // Add project risks if any
+            if (isCritical || openDemand > 0 || gapAfterRoleOff > 0) {
+                warning.append("Project Impact:\n");
+                if (isCritical) {
+                    warning.append("- Project Criticality: ").append(projectPriority).append("\n");
+                }
+                if (openDemand > 0) {
+                    warning.append("- Remaining Demand: ").append(openDemand).append(" open positions\n");
+                }
+                if (gapAfterRoleOff > 0) {
+                    warning.append("- Resource Gap: ").append(gapAfterRoleOff).append(" position(s)\n");
+                }
+                warning.append("\n");
+            }
+
+            warning.append("Impact: ").append(utilizationImpact).append("\n");
+            warning.append("Recommendation: ").append(recommendation).append("\n\n");
+            warning.append("Do you want to proceed?");
+
+            return warning.toString();
+
+        } catch (Exception e) {
+            // If validation fails, allow proceed with caution
+            return "Unable to validate delivery impact. Proceed with caution.";
+        }
+    }
+
+    /**
+     * Determine utilization impact level based on before/after percentages
+     */
+    private String determineUtilizationImpact(int currentUtilization, int utilizationAfterRoleOff) {
+        int utilizationDrop = currentUtilization - utilizationAfterRoleOff;
+        
+        if (utilizationDrop >= 50) {
+            return "Large utilization drop";
+        } else if (utilizationDrop >= 25) {
+            return "Moderate utilization drop";
+        } else if (utilizationDrop >= 10) {
+            return "Small utilization drop";
+        } else if (utilizationDrop > 0) {
+            return "Minimal utilization drop";
+        } else {
+            return "No utilization impact";
+        }
+    }
+
+    /**
+     * Generate recommendation based on utilization impact and future capacity
+     */
+    private String generateRecommendation(String utilizationImpact, int futureCapacity, boolean hasOpenDemand) {
+        if (utilizationImpact.equals("Large utilization drop")) {
+            if (futureCapacity >= 50) {
+                return "Assign resource to another demand immediately";
+            } else {
+                return "Urgent: Find replacement assignment";
+            }
+        } else if (utilizationImpact.equals("Moderate utilization drop")) {
+            if (futureCapacity >= 30) {
+                return "Assign resource to another demand";
+            } else {
+                return "Plan for replacement assignment";
+            }
+        } else if (utilizationImpact.equals("Small utilization drop")) {
+            return "Monitor for new demand opportunities";
+        } else if (hasOpenDemand) {
+            return "Resource can fill existing demand";
+        } else {
+            return "No immediate action required";
+        }
+    }
+
+    /**
+     * Logs role-off decision for audit purposes
+     */
+    public void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean confirmed, Long userId) {
+        String logMessage = String.format(
+            "Role-off decision logged - Project: %d, Resource: %d, User: %d, " +
+            "Warning: %s, Confirmed: %s, Timestamp: %s",
+            dto.getProjectId(),
+            dto.getResourceId(),
+            userId,
+            warning != null ? "YES" : "NO",
+            confirmed,
+            LocalDateTime.now()
+        );
+        
+        // In real implementation, save to audit table
+        System.out.println("AUDIT LOG: " + logMessage);
     }
 }
