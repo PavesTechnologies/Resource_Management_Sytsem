@@ -118,4 +118,18 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE (ra.demand.project.client.clientId = :clientId OR ra.project.client.clientId = :clientId) " +
            "AND ra.allocationStatus IN ('ACTIVE', 'PLANNED')")
     boolean existsByClientIdAndActiveAllocation(@Param("clientId") UUID clientId);
+
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.resource.resourceId = :resourceId " +
+           "AND ra.allocationStartDate <= :date " +
+           "AND ra.allocationEndDate >= :date")
+    List<ResourceAllocation> findByResource_ResourceIdAndAllocationStartDateLessThanEqualAndAllocationEndDateGreaterThanEqual(
+            @Param("resourceId") Long resourceId,
+            @Param("date") LocalDate date);
 }
