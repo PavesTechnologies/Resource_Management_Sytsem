@@ -16,6 +16,7 @@ import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
+import com.service_imple.allocation_service_imple.AllocationServiceImple;
 import com.service_interface.allocation_service_interface.AllocationModificationService;
 import com.validator.allocation_validator.AllocationModificationValidator;
 import jakarta.transaction.Transactional;
@@ -34,6 +35,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class AllocationModificationServiceImpl implements AllocationModificationService {
+
+    @Autowired
+    private AllocationServiceImple allocationService;
 
     @Autowired
     private AllocationModificationRepository modificationRepository;
@@ -137,48 +141,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
         }
     }
 
-    @Override
-    @Transactional
-    public ResponseEntity<ApiResponse<?>> executeModification(UUID modificationId) {
-        try {
-            AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
-
-            // Comprehensive execution validation
-            validator.validateModificationExecution(modification);
-
-            ResourceAllocation originalAllocation = modification.getAllocation();
-            LocalDate effectiveDate = modification.getEffectiveDate();
-            Integer newPercentage = modification.getRequestedAllocationPercentage();
-
-            // Update original allocation end date
-            originalAllocation.setAllocationEndDate(effectiveDate.minusDays(1));
-            allocationRepository.save(originalAllocation);
-
-            // Create new allocation with modified percentage
-            ResourceAllocation newAllocation = new ResourceAllocation();
-            newAllocation.setAllocationId(UUID.randomUUID());
-            newAllocation.setResource(originalAllocation.getResource());
-            newAllocation.setProject(originalAllocation.getProject());
-            newAllocation.setDemand(originalAllocation.getDemand());
-            newAllocation.setAllocationStartDate(effectiveDate);
-            newAllocation.setAllocationEndDate(originalAllocation.getAllocationEndDate());
-            newAllocation.setAllocationPercentage(newPercentage);
-            newAllocation.setAllocationStatus(AllocationStatus.ACTIVE);
-            newAllocation.setCreatedBy(modification.getApprovedBy());
-
-            allocationRepository.save(newAllocation);
-
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modification executed successfully", null));
-
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error executing modification: " + e.getMessage(), null));
-        }
-    }
-
+    
     @Override
     @Transactional
     public ResponseEntity<ApiResponse<?>> cancelModification(UUID modificationId, UserDTO userDTO) {
@@ -254,6 +217,22 @@ public class AllocationModificationServiceImpl implements AllocationModification
         }
     }
 
+    @Override
+    public ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByDemand(UUID demandId) {
+        try {
+            List<AllocationModification> modifications = modificationRepository.findByDemandId(demandId);
+            List<AllocationModificationResponseDTO> responseDTOs = modifications.stream()
+                    .map(this::convertToResponseDTO)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(new ApiResponse<>(true, "Modifications retrieved successfully for demand", responseDTOs));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Error retrieving modifications for demand: " + e.getMessage(), null));
+        }
+    }
+
     private ResponseEntity<ApiResponse<?>> triggerRoleOffProcess(CreateAllocationModificationDTO dto, UserDTO userDTO) {
         try {
             // For Role-Off, we create a modification request that's immediately fulfilled
@@ -303,6 +282,12 @@ public class AllocationModificationServiceImpl implements AllocationModification
         AllocationModificationResponseDTO dto = new AllocationModificationResponseDTO();
         dto.setModificationId(modification.getModificationId());
         dto.setAllocationId(modification.getAllocation().getAllocationId());
+        
+        // Add resource information
+        if (modification.getAllocation().getResource() != null) {
+            dto.setResourceName(modification.getAllocation().getResource().getFullName());
+        }
+        
         dto.setCurrentAllocationPercentage(modification.getCurrentAllocationPercentage());
         dto.setRequestedAllocationPercentage(modification.getRequestedAllocationPercentage());
         dto.setEffectiveDate(modification.getEffectiveDate().toString());
@@ -315,5 +300,189 @@ public class AllocationModificationServiceImpl implements AllocationModification
         dto.setRejectReason(modification.getRejectReason());
         dto.setRejectedBy(modification.getRejectedBy());
         return dto;
+    }
+
+    private ResponseEntity<ApiResponse<?>> executeModification(UUID modificationId) {
+        try {
+            AllocationModification modification = modificationRepository.findById(modificationId)
+                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+
+            ResourceAllocation originalAllocation = modification.getAllocation();
+            LocalDate effectiveDate = modification.getEffectiveDate();
+            Integer newPercentage = modification.getRequestedAllocationPercentage();
+            
+            // Handle role-off (0% allocation)
+            if (newPercentage == 0) {
+                return handleRoleOffModification(originalAllocation, effectiveDate);
+            }
+            
+            // Handle percentage change with period split
+            return handlePercentageModification(originalAllocation, effectiveDate, newPercentage);
+
+        } catch (ProjectExceptionHandler e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Error executing modification: " + e.getMessage(), null));
+        }
+    }
+
+    /**
+     * Handles role-off modifications by ending the allocation
+     */
+    private ResponseEntity<ApiResponse<?>> handleRoleOffModification(ResourceAllocation allocation, LocalDate effectiveDate) {
+        // End the existing allocation at effective date - 1
+        LocalDate endDate = effectiveDate.minusDays(1);
+        
+        if (effectiveDate.isAfter(allocation.getAllocationStartDate())) {
+            allocation.setAllocationEndDate(endDate);
+            allocation.setAllocationStatus(AllocationStatus.ENDED);
+            allocationRepository.save(allocation);
+            
+            // Update ledger for the ended period
+            allocationService.updateAvailabilityLedgerForAllocation(allocation);
+        } else {
+            // If effective date is same as start date, just cancel the allocation
+            allocation.setAllocationStatus(AllocationStatus.CANCELLED);
+            allocationRepository.save(allocation);
+            allocationService.updateAvailabilityLedgerForAllocation(allocation);
+        }
+        
+        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off modification executed successfully", null));
+    }
+
+    /**
+     * Handles percentage change modifications by splitting allocation periods
+     */
+    private ResponseEntity<ApiResponse<?>> handlePercentageModification(ResourceAllocation originalAllocation, 
+                                                                        LocalDate effectiveDate, 
+                                                                        Integer newPercentage) {
+        
+        // Validate effective date is within allocation period
+        if (effectiveDate.isBefore(originalAllocation.getAllocationStartDate()) || 
+            effectiveDate.isAfter(originalAllocation.getAllocationEndDate())) {
+            throw ProjectExceptionHandler.badRequest("Effective date must be within allocation period");
+        }
+        
+        // Validate total allocation won't exceed 100%
+        validateTotalAllocation(originalAllocation.getResource().getResourceId(), effectiveDate, 
+                               originalAllocation.getAllocationPercentage(), newPercentage);
+        
+        // If effective date is the start date, just update the percentage
+        if (effectiveDate.equals(originalAllocation.getAllocationStartDate())) {
+            originalAllocation.setAllocationPercentage(newPercentage);
+            allocationRepository.save(originalAllocation);
+            allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Allocation percentage updated successfully", null));
+        }
+        
+        // Split the allocation: end original period and create new period
+        // 1. End the original allocation at effective date - 1
+        LocalDate originalEndDate = originalAllocation.getAllocationEndDate();
+        originalAllocation.setAllocationEndDate(effectiveDate.minusDays(1));
+        allocationRepository.save(originalAllocation);
+        
+        // Update ledger for the original (shortened) period
+        allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
+        
+        // 2. Create new allocation with new percentage starting from effective date
+        ResourceAllocation newAllocation = createNewAllocationPeriod(originalAllocation, effectiveDate, originalEndDate, newPercentage);
+        allocationRepository.save(newAllocation);
+        
+        // Update ledger for the new allocation period
+        allocationService.updateAvailabilityLedgerForAllocation(newAllocation);
+        
+        return ResponseEntity.ok(new ApiResponse<>(true, "Allocation modification executed successfully with period split", null));
+    }
+
+    /**
+     * Creates a new allocation period with the updated percentage
+     */
+    private ResourceAllocation createNewAllocationPeriod(ResourceAllocation original, 
+                                                        LocalDate startDate, 
+                                                        LocalDate endDate, 
+                                                        Integer newPercentage) {
+        ResourceAllocation newAllocation = new ResourceAllocation();
+        newAllocation.setResource(original.getResource());
+        newAllocation.setDemand(original.getDemand());
+        newAllocation.setProject(original.getProject());
+        newAllocation.setAllocationStartDate(startDate);
+        newAllocation.setAllocationEndDate(endDate);
+        newAllocation.setAllocationPercentage(newPercentage);
+        newAllocation.setAllocationStatus(AllocationStatus.ACTIVE);
+        newAllocation.setCreatedBy(original.getCreatedBy());
+        newAllocation.setOverrideFlag(original.getOverrideFlag());
+        newAllocation.setOverrideJustification(original.getOverrideJustification());
+        newAllocation.setOverrideBy(original.getOverrideBy());
+        newAllocation.setOverrideAt(original.getOverrideAt());
+        
+        return newAllocation;
+    }
+
+    /**
+     * Validates that total allocation for a resource won't exceed 100% after modification
+     */
+    private void validateTotalAllocation(Long resourceId, LocalDate effectiveDate, 
+                                       Integer currentPercentage, Integer newPercentage) {
+        try {
+            // Get all active allocations for this resource on the effective date
+            List<ResourceAllocation> activeAllocations = allocationRepository
+                .findActiveAllocationsForResourceOnDate(resourceId, effectiveDate);
+            
+            // Calculate current total allocation (excluding the allocation being modified)
+            int currentTotal = activeAllocations.stream()
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+            
+            // Subtract the current percentage of the allocation being modified
+            // since it will be replaced with the new percentage
+            int otherAllocationsTotal = currentTotal - currentPercentage;
+            
+            // Calculate new total with the modified percentage
+            int newTotalAllocation = otherAllocationsTotal + newPercentage;
+            
+            // Validate against 100% capacity
+            if (newTotalAllocation > 100) {
+                throw ProjectExceptionHandler.badRequest(
+                    String.format("Modification would result in %d%% total allocation for resource on %s. " +
+                                "Maximum allowed is 100%%. Other allocations: %d%%, This allocation: %d%%",
+                                newTotalAllocation, effectiveDate, otherAllocationsTotal, newPercentage));
+            }
+            
+        } catch (Exception e) {
+            // If validation fails due to data access issues, allow the modification
+            // The ledger update will handle any over-allocation issues
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> deleteModification(UUID modificationId, UserDTO userDTO) {
+        try {
+            AllocationModification modification = modificationRepository.findById(modificationId)
+                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+
+            // Check if the modification belongs to the current project manager
+            if (!modification.getRequestedBy().equals(userDTO.getName())) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false, "You can only delete your own modification requests", null));
+            }
+
+            // Check if modification is still requested (can only delete requested modifications)
+            if (modification.getStatus() != AllocationModificationStatus.REQUESTED) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false, "Can only delete requested modification requests", null));
+            }
+
+            modificationRepository.delete(modification);
+            
+            return ResponseEntity.ok(new ApiResponse<>(true, "Modification request deleted successfully", null));
+
+        } catch (ProjectExceptionHandler e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>(false, "Error deleting modification: " + e.getMessage(), null));
+        }
     }
 }

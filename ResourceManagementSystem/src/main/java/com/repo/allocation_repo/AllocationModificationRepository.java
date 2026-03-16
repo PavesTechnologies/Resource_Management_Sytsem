@@ -46,4 +46,10 @@ public interface AllocationModificationRepository extends JpaRepository<Allocati
     @Query("SELECT am FROM AllocationModification am WHERE am.allocation.project.resourceManagerId = :resourceManagerId AND am.status IN (:statuses)")
     List<AllocationModification> findByResourceManagerIdAndStatuses(@Param("resourceManagerId") Long resourceManagerId, 
                                                                    @Param("statuses") List<AllocationModificationStatus> statuses);
+    
+    @Query("SELECT am FROM AllocationModification am WHERE am.allocation.demand.demandId = :demandId")
+    List<AllocationModification> findByDemandId(@Param("demandId") UUID demandId);
+    
+    @Query("SELECT am FROM AllocationModification am WHERE am.allocation.demand.demandId = :demandId AND am.status = :status")
+    List<AllocationModification> findByDemandIdAndStatus(@Param("demandId") UUID demandId, @Param("status") AllocationModificationStatus status);
 }

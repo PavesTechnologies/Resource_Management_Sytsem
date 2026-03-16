@@ -14,8 +14,7 @@ public interface AllocationModificationService {
     
     ResponseEntity<ApiResponse<?>> processModificationDecision(UUID modificationId, AllocationModificationDecisionDTO dto, UserDTO userDTO);
     
-    ResponseEntity<ApiResponse<?>> executeModification(UUID modificationId);
-    
+        
     ResponseEntity<ApiResponse<?>> cancelModification(UUID modificationId, UserDTO userDTO);
     
     ResponseEntity<ApiResponse<AllocationModificationResponseDTO>> getModificationById(UUID modificationId);
@@ -23,4 +22,8 @@ public interface AllocationModificationService {
     ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByProjectManager(UserDTO userDTO);
     
     ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByResourceManager(UserDTO userDTO);
+    
+    ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByDemand(UUID demandId);
+    
+    ResponseEntity<ApiResponse<?>> deleteModification(UUID modificationId, UserDTO userDTO);
 }

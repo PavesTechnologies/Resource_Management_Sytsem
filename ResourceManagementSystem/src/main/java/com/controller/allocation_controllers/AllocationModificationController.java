@@ -24,7 +24,7 @@ public class AllocationModificationController {
     private AllocationModificationService allocationModificationService;
 
     @PostMapping("/pm")
-    @PreAuthorize("hasRole('/pm/PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> createModification(
             @RequestBody CreateAllocationModificationDTO dto,
             @CurrentUser UserDTO userDTO) {
@@ -51,14 +51,6 @@ public class AllocationModificationController {
         return allocationModificationService.processModificationDecision(id, dto, userDTO);
     }
 
-    @DeleteMapping("/{id}/pm")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse<?>> cancelModification(
-            @PathVariable UUID id,
-            @CurrentUser UserDTO userDTO) {
-        return allocationModificationService.cancelModification(id, userDTO);
-    }
-
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
     public ResponseEntity<ApiResponse<AllocationModificationResponseDTO>> getModificationById(
@@ -66,17 +58,18 @@ public class AllocationModificationController {
         return allocationModificationService.getModificationById(id);
     }
 
-    @GetMapping("/pm")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByProjectManager(
-            @CurrentUser UserDTO userDTO) {
-        return allocationModificationService.getModificationsByProjectManager(userDTO);
+    @GetMapping("/demand/{demandId}")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
+    public ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByDemand(
+            @PathVariable UUID demandId) {
+        return allocationModificationService.getModificationsByDemand(demandId);
     }
 
-    @GetMapping("/rm")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByResourceManager(
+    @DeleteMapping("/{id}/pm")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> deleteModification(
+            @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
-        return allocationModificationService.getModificationsByResourceManager(userDTO);
+        return allocationModificationService.deleteModification(id, userDTO);
     }
 }

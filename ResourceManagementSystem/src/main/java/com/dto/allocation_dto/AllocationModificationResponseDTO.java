@@ -11,6 +11,7 @@ public class AllocationModificationResponseDTO {
     
     private UUID modificationId;
     private UUID allocationId;
+    private String resourceName;
     private Integer currentAllocationPercentage;
     private Integer requestedAllocationPercentage;
     private String effectiveDate;

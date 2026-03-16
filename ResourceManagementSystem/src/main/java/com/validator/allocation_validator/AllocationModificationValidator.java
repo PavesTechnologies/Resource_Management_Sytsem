@@ -29,6 +29,7 @@ public class AllocationModificationValidator {
         validateAllocationExists(allocationId);
         ResourceAllocation allocation = allocationRepository.findById(allocationId).orElse(null);
         validateAllocationStatus(allocation);
+        validateDemandBasedAllocation(allocation);
         validateAllocationPercentage(requestedPercentage);
         validateEffectiveDateRange(effectiveDate, allocation);
         validateEffectiveDateNotPast(effectiveDate);
@@ -58,6 +59,12 @@ public class AllocationModificationValidator {
     private void validateAllocationStatus(ResourceAllocation allocation) {
         if (!AllocationStatus.ACTIVE.equals(allocation.getAllocationStatus())) {
             throw ProjectExceptionHandler.badRequest("INVALID_ALLOCATION_STATUS");
+        }
+    }
+
+    private void validateDemandBasedAllocation(ResourceAllocation allocation) {
+        if (allocation.getDemand() == null) {
+            throw ProjectExceptionHandler.badRequest("MODIFICATION_ONLY_ALLOWED_FOR_DEMAND_ALLOCATIONS");
         }
     }
 

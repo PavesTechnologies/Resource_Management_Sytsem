@@ -28,6 +28,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -89,7 +92,7 @@ public class AllocationValidationService {
             throw new ProjectExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_PERCENTAGE",
-                "Allocation percentage must be between 1 and 100"
+                "Allocation percentage must be between 1 and 130"
             );
         }
     }
@@ -269,6 +272,7 @@ public class AllocationValidationService {
                 allocation.setOverrideFlag(override);
 
                 if (override) {
+                    allocation.setOverrideFlag(true);
 
                     allocation.setOverrideJustification(request.getOverrideJustification());
                     allocation.setOverrideBy(request.getCreatedBy());
@@ -350,13 +354,20 @@ public class AllocationValidationService {
         List<ResourceAllocation> existingAllocations = preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
         ConflictDetectionResult conflictResult = conflictService.detectPriorityConflictsOptimized(
                 request, resourceId, existingAllocations);
-        
+
         if (conflictResult.isHasConflicts()) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.BAD_REQUEST,
-                "PRIORITY_CONFLICT",
-                "Priority conflict detected: " + conflictResult.getMessage()
-            );
+
+            if (request.getOverrideJustification() == null ||
+                    request.getOverrideJustification().isBlank()) {
+
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PRIORITY_CONFLICT",
+                        "Priority conflict detected: " + conflictResult.getMessage()
+                );
+            }
+
+            // Allow override when justification is provided
         }
     }
 
@@ -398,24 +409,86 @@ public class AllocationValidationService {
     /**
      * Validates capacity using timeline segmentation algorithm
      */
-    private boolean validateCapacity(Long resourceId, AllocationRequestDTO request, AllocationPreloadedData preloadedData) {
+    private boolean validateCapacity(Long resourceId,
+                                     AllocationRequestDTO request,
+                                     AllocationPreloadedData preloadedData) {
 
         List<ResourceAllocation> existingAllocations =
-                preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
+                preloadedData.getAllocationsByResource()
+                        .getOrDefault(resourceId, new ArrayList<>());
 
-        boolean capacityValid = capacityService.validateTimelineCapacity(
-                existingAllocations,
-                request.getAllocationStartDate(),
-                request.getAllocationEndDate(),
-                request.getAllocationPercentage()
+    /*
+     STEP 1 — Monthly override limit
+    */
+
+        LocalDate startDate = request.getAllocationStartDate();
+
+        LocalDateTime startOfMonth = startDate
+                .withDayOfMonth(1)
+                .atStartOfDay();
+
+        LocalDateTime endOfMonth = startDate
+                .withDayOfMonth(startDate.lengthOfMonth())
+                .atTime(23, 59, 59);
+
+        long monthlyOverrides = allocationRepository.countMonthlyOverrides(
+                resourceId,
+                startOfMonth,
+                endOfMonth
         );
 
-        // NORMAL CASE
-        if (capacityValid) {
-            return false; // no override
+        if (monthlyOverrides >= 3) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVERRIDE_LIMIT_EXCEEDED",
+                    "Resource already used override 3 times this month"
+            );
         }
 
-        // OVERRIDE CASE
+    /*
+     STEP 2 — Calculate TOTAL ACTIVE allocation
+     (ignore overlaps)
+    */
+
+        int currentTotalAllocation = existingAllocations.stream()
+                .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE
+                        || a.getAllocationStatus() == AllocationStatus.PLANNED)
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+
+        int requested = request.getAllocationPercentage();
+
+        int resultingTotal = currentTotalAllocation + requested;
+
+    /*
+     STEP 3 — Max 130% rule
+    */
+
+        if (resultingTotal > 130) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "MAX_OVERRIDE_EXCEEDED",
+                    "Current allocation is " + currentTotalAllocation +
+                            "%, requested allocation is " + requested +
+                            "%, resulting total would be " + resultingTotal +
+                            "% which exceeds the maximum allowed limit of 130%"
+            );
+        }
+
+    /*
+     STEP 4 — Normal allocation
+    */
+
+        if (resultingTotal <= 100) {
+            return false;
+        }
+
+    /*
+     STEP 5 — Override validation
+    */
+
         if (request.getOverrideJustification() == null ||
                 request.getOverrideJustification().isBlank()) {
 
@@ -426,12 +499,17 @@ public class AllocationValidationService {
             );
         }
 
-        if (request.getAllocationPercentage() > 130) {
+        long overrideDays = ChronoUnit.DAYS.between(
+                request.getAllocationStartDate(),
+                request.getAllocationEndDate()
+        ) + 1;
+
+        if (overrideDays > 14) {
 
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
-                    "MAX_OVERRIDE_EXCEEDED",
-                    "Maximum override allowed is 130%"
+                    "OVERRIDE_DURATION_EXCEEDED",
+                    "Over-allocation above 100% allowed only for 14 days"
             );
         }
 
