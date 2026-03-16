@@ -46,6 +46,8 @@ public class AllocationRequestDTO {
 
     private RoleOffReason roleOffReason;
     
+    private Boolean skipValidation = false;
+    
     @AssertTrue(message = "Either demandId or projectId must be provided, but not both")
     public boolean isEitherDemandOrProjectProvided() {
         return (demandId != null && projectId == null) || (projectId != null && demandId == null);
