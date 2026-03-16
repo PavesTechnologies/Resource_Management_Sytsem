@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import java.util.UUID;
 
+@Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
     boolean existsByProject_PmsProjectIdAndResource_ResourceId(
             Long projectId,
