@@ -513,14 +513,13 @@ public class DemandServiceImpl implements DemandService {
                             DemandSLA demandSLA = demandSLAOpt.get();
                             LocalDate today = LocalDate.now();
 
-                            demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
-                            demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
-                            demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
-                            demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
-                            demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
-                            demandInfo.setSlaDueAt(demandSLA.getDueAt());
-
-                            if (demandSLA.getActiveFlag()) {
+                            if (demandSLA.getFulfillDate() == null) {
+                                demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
+                                demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
+                                demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
+                                demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
+                                demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
+                                demandInfo.setSlaDueAt(demandSLA.getDueAt());
                                 if (demandSLA.getDueAt() != null) {
                                     if (today.isAfter(demandSLA.getDueAt())) {
                                         demandInfo.setSlaBreached(true);
@@ -532,10 +531,8 @@ public class DemandServiceImpl implements DemandService {
                                         demandInfo.setOverdueDays(0);
                                     }
                                 }
-                            } else {
-                                demandInfo.setFulfilledDate(demandSLA.getFulfillDate());
-                                demandInfo.setActiveFlag(demandSLA.getActiveFlag());
                             }
+                            demandInfo.setFulfilledDate(demandSLA.getFulfillDate());
                         }
 
                         return demandInfo;
@@ -764,7 +761,7 @@ public class DemandServiceImpl implements DemandService {
                                 }
                             } else {
                                 demandInfo.setFulfilledDate(demandSLA.getFulfillDate());
-                                demandInfo.setActiveFlag(demandSLA.getActiveFlag());
+//                                demandInfo.setActiveFlag(demandSLA.getActiveFlag());
                             }
                         }
 

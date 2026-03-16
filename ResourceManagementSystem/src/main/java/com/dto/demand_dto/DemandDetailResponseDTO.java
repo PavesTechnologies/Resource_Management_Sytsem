@@ -51,5 +51,4 @@ public class DemandDetailResponseDTO {
     private long remainingDays;
     private long overdueDays;
     private LocalDate fulfilledDate;
-    private boolean activeFlag;
 }
