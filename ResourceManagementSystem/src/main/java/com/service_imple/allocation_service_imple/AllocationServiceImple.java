@@ -148,6 +148,18 @@ public class AllocationServiceImple implements AllocationService {
             allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
             allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
 
+            // If allocation is ended, enforce role-off reason
+            if (allocationRequest.getAllocationStatus() == AllocationStatus.ENDED) {
+                if (allocationRequest.getRoleOffReason() == null) {
+                    throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "ROLE_OFF_REASON_REQUIRED", "Role-off reason is required when ending an allocation.");
+                }
+                if (allocationRequest.getRoleOffDate() == null) {
+                    throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "ROLE_OFF_DATE_REQUIRED", "Role-off date is required when ending an allocation.");
+                }
+                allocation.setRoleOffReason(allocationRequest.getRoleOffReason());
+                allocation.setRoleOffDate(allocationRequest.getRoleOffDate());
+            }
+
             // Validate capacity for update
             validateResourceCapacityForUpdate(allocationId, allocationRequest);
 

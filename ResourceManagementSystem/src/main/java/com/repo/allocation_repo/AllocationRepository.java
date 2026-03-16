@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -127,10 +128,38 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStatus IN ('ACTIVE', 'PLANNED')")
     boolean existsByClientIdAndActiveAllocation(@Param("clientId") UUID clientId);
 
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "LEFT JOIN FETCH ra.resource " +
+           "LEFT JOIN FETCH ra.demand d " +
+           "LEFT JOIN FETCH d.project p " +
+           "LEFT JOIN FETCH p.client " +
+           "LEFT JOIN FETCH ra.project proj " +
+           "LEFT JOIN FETCH proj.client " +
+           "WHERE ra.resource.resourceId = :resourceId " +
+           "AND ra.allocationStartDate <= :date " +
+           "AND ra.allocationEndDate >= :date")
+    List<ResourceAllocation> findByResource_ResourceIdAndAllocationStartDateLessThanEqualAndAllocationEndDateGreaterThanEqual(
+            @Param("resourceId") Long resourceId,
+            @Param("date") LocalDate date);
+
     Optional<ResourceAllocation>
     findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
             Long projectId,
             Long resourceId,
             AllocationStatus status
+    );
+
+    @Query("""
+            SELECT COUNT(ra)
+            FROM ResourceAllocation ra
+            WHERE ra.resource.resourceId = :resourceId
+            AND ra.overrideFlag = true
+            AND ra.overrideAt >= :startOfMonth
+            AND ra.overrideAt <= :endOfMonth
+            """)
+    long countMonthlyOverrides(
+            @Param("resourceId") Long resourceId,
+            @Param("startOfMonth") LocalDateTime startOfMonth,
+            @Param("endOfMonth") LocalDateTime endOfMonth
     );
 }

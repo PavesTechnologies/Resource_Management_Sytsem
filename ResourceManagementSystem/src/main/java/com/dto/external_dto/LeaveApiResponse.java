@@ -1,12 +1,14 @@
 package com.dto.external_dto;
 
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import java.util.List;
 
 @Data
 public class LeaveApiResponse {
     private Boolean success;
     private String message;
-    private EmployeeLeaveData data;
+    private Object data; // Can be either List<EmployeeLeaveData> or EmployeeLeaveData
     
     public boolean isSuccess() {
         return success != null && success;

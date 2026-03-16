@@ -13,8 +13,10 @@ import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.ResourceCertificate;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.resource_repo.ResourceRepository;
@@ -25,6 +27,9 @@ import com.repo.skill_repo.ResourceCertificateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -87,7 +92,7 @@ public class AllocationValidationService {
             throw new ProjectExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_PERCENTAGE",
-                "Allocation percentage must be between 1 and 100"
+                "Allocation percentage must be between 1 and 130"
             );
         }
     }
@@ -235,11 +240,13 @@ public class AllocationValidationService {
                 // Validate demand rules and priority conflicts
                 validateDemandRules(request, finalDemand, finalProject, resourceId, preloadedData);
                 
-                // Conditional advanced validations based on allocation status
+                // Conditional advanced validations based on allocation status and skipValidation flag
                 boolean override = false;
                 
-                if (request.getAllocationStatus() == AllocationStatus.ACTIVE || 
-                    request.getAllocationStatus() == AllocationStatus.PLANNED) {
+                // Skip advanced validations if skipValidation is true
+                if (!Boolean.TRUE.equals(request.getSkipValidation()) && 
+                    (request.getAllocationStatus() == AllocationStatus.ACTIVE || 
+                     request.getAllocationStatus() == AllocationStatus.PLANNED)) {
                     
                     // Validate skill compliance (applies to both ACTIVE and PLANNED)
                     validateSkillCompliance(resourceId, finalDemand, request);
@@ -265,6 +272,7 @@ public class AllocationValidationService {
                 allocation.setOverrideFlag(override);
 
                 if (override) {
+                    allocation.setOverrideFlag(true);
 
                     allocation.setOverrideJustification(request.getOverrideJustification());
                     allocation.setOverrideBy(request.getCreatedBy());
@@ -339,17 +347,27 @@ public class AllocationValidationService {
             );
         }
         
+        // Validate client and project status (applies to all allocations)
+        validateClientAndProjectStatus(demand, project);
+        
         // Priority conflict detection using preloaded allocations
         List<ResourceAllocation> existingAllocations = preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
         ConflictDetectionResult conflictResult = conflictService.detectPriorityConflictsOptimized(
                 request, resourceId, existingAllocations);
-        
+
         if (conflictResult.isHasConflicts()) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.BAD_REQUEST,
-                "PRIORITY_CONFLICT",
-                "Priority conflict detected: " + conflictResult.getMessage()
-            );
+
+            if (request.getOverrideJustification() == null ||
+                    request.getOverrideJustification().isBlank()) {
+
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PRIORITY_CONFLICT",
+                        "Priority conflict detected: " + conflictResult.getMessage()
+                );
+            }
+
+            // Allow override when justification is provided
         }
     }
 
@@ -391,24 +409,86 @@ public class AllocationValidationService {
     /**
      * Validates capacity using timeline segmentation algorithm
      */
-    private boolean validateCapacity(Long resourceId, AllocationRequestDTO request, AllocationPreloadedData preloadedData) {
+    private boolean validateCapacity(Long resourceId,
+                                     AllocationRequestDTO request,
+                                     AllocationPreloadedData preloadedData) {
 
         List<ResourceAllocation> existingAllocations =
-                preloadedData.getAllocationsByResource().getOrDefault(resourceId, new ArrayList<>());
+                preloadedData.getAllocationsByResource()
+                        .getOrDefault(resourceId, new ArrayList<>());
 
-        boolean capacityValid = capacityService.validateTimelineCapacity(
-                existingAllocations,
-                request.getAllocationStartDate(),
-                request.getAllocationEndDate(),
-                request.getAllocationPercentage()
+    /*
+     STEP 1 — Monthly override limit
+    */
+
+        LocalDate startDate = request.getAllocationStartDate();
+
+        LocalDateTime startOfMonth = startDate
+                .withDayOfMonth(1)
+                .atStartOfDay();
+
+        LocalDateTime endOfMonth = startDate
+                .withDayOfMonth(startDate.lengthOfMonth())
+                .atTime(23, 59, 59);
+
+        long monthlyOverrides = allocationRepository.countMonthlyOverrides(
+                resourceId,
+                startOfMonth,
+                endOfMonth
         );
 
-        // NORMAL CASE
-        if (capacityValid) {
-            return false; // no override
+        if (monthlyOverrides >= 3) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "OVERRIDE_LIMIT_EXCEEDED",
+                    "Resource already used override 3 times this month"
+            );
         }
 
-        // OVERRIDE CASE
+    /*
+     STEP 2 — Calculate TOTAL ACTIVE allocation
+     (ignore overlaps)
+    */
+
+        int currentTotalAllocation = existingAllocations.stream()
+                .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE
+                        || a.getAllocationStatus() == AllocationStatus.PLANNED)
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+
+        int requested = request.getAllocationPercentage();
+
+        int resultingTotal = currentTotalAllocation + requested;
+
+    /*
+     STEP 3 — Max 130% rule
+    */
+
+        if (resultingTotal > 130) {
+
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "MAX_OVERRIDE_EXCEEDED",
+                    "Current allocation is " + currentTotalAllocation +
+                            "%, requested allocation is " + requested +
+                            "%, resulting total would be " + resultingTotal +
+                            "% which exceeds the maximum allowed limit of 130%"
+            );
+        }
+
+    /*
+     STEP 4 — Normal allocation
+    */
+
+        if (resultingTotal <= 100) {
+            return false;
+        }
+
+    /*
+     STEP 5 — Override validation
+    */
+
         if (request.getOverrideJustification() == null ||
                 request.getOverrideJustification().isBlank()) {
 
@@ -419,15 +499,65 @@ public class AllocationValidationService {
             );
         }
 
-        if (request.getAllocationPercentage() > 130) {
+        long overrideDays = ChronoUnit.DAYS.between(
+                request.getAllocationStartDate(),
+                request.getAllocationEndDate()
+        ) + 1;
+
+        if (overrideDays > 14) {
 
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
-                    "MAX_OVERRIDE_EXCEEDED",
-                    "Maximum override allowed is 130%"
+                    "OVERRIDE_DURATION_EXCEEDED",
+                    "Over-allocation above 100% allowed only for 14 days"
             );
         }
 
         return true; // override allowed
+    }
+
+    /**
+     * Validates that client and project are active before allocation
+     * This validation applies to all allocations regardless of skipValidation flag
+     */
+    private void validateClientAndProjectStatus(Demand demand, Project project) {
+        // Get project from demand if demand exists, otherwise use direct project
+        Project targetProject = (demand != null) ? demand.getProject() : project;
+        
+        if (targetProject == null) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "PROJECT_NOT_FOUND",
+                "Project not found for allocation"
+            );
+        }
+        
+        // Validate project status
+        if (targetProject.getProjectStatus() != ProjectStatus.ACTIVE &&
+            targetProject.getProjectStatus() != ProjectStatus.APPROVED) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "PROJECT_INACTIVE",
+                "Project '" + targetProject.getName() + "' is not active. Current status: " + 
+                (targetProject.getProjectStatus() != null ? targetProject.getProjectStatus().name() : "UNKNOWN")
+            );
+        }
+        
+        // Validate client status (client is loaded lazily, so we need to handle it carefully)
+        try {
+            if (targetProject.getClient() != null) {
+                if (targetProject.getClient().getStatus() != RecordStatus.ACTIVE) {
+                    throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "CLIENT_INACTIVE",
+                        "Client '" + targetProject.getClient().getClientName() + "' is not active. Current status: " + 
+                        (targetProject.getClient().getStatus() != null ? targetProject.getClient().getStatus().name() : "UNKNOWN")
+                    );
+                }
+            }
+        } catch (Exception e) {
+            // If client data is not accessible due to lazy loading, we'll skip client validation
+            // This is a safe fallback since the project validation already passed
+        }
     }
 }

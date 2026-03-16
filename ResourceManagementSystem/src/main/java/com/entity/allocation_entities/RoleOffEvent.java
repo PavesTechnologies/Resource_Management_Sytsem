@@ -6,6 +6,7 @@ import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.allocation_enums.RoleOffStatus;
 import com.entity_enums.allocation_enums.RoleOffType;
 import com.entity_enums.demand_enums.ReplacementStatus;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -57,6 +58,10 @@ public class RoleOffEvent {
     private String skipReason;
 
     // Autofill values on create/update
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role_off_reason")
+    private RoleOffReason roleOffReasonEnum;
+
     @CreationTimestamp
     private LocalDate createdAt;
     @UpdateTimestamp
