@@ -591,17 +591,17 @@ public class AllocationServiceImple implements AllocationService {
                 if (demand.getDemandStatus() != DemandStatus.FULFILLED && allPercentagesMatch) {
                     demand.setDemandStatus(DemandStatus.FULFILLED);
                     demandRepository.save(demand);
+                    if (demandSLA != null) {
+                        demandSLA.setActiveFlag(false);
+                        demandSLA.setFulfillDate(LocalDate.now());
+                        demandSLARepository.save(demandSLA);
+                    }
                 }
             } else {
                 // Revert to APPROVED if currently FULFILLED but no longer fully allocated
                 if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
                     demand.setDemandStatus(DemandStatus.APPROVED);
                     demandRepository.save(demand);
-                    if (demandSLA != null) {
-                        demandSLA.setActiveFlag(false);
-                        demandSLA.setFulfillDate(LocalDate.now());
-                        demandSLARepository.save(demandSLA);
-                    }
                 }
             }
         } catch (Exception e) {
