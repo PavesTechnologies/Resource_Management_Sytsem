@@ -1,6 +1,7 @@
 package com.dto.allocation_dto;
 
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -40,6 +41,10 @@ public class AllocationRequestDTO {
     private AllocationStatus allocationStatus;
 
     private String createdBy;
+
+    private LocalDate roleOffDate;
+
+    private RoleOffReason roleOffReason;
     
     private Boolean skipValidation = false;
     
