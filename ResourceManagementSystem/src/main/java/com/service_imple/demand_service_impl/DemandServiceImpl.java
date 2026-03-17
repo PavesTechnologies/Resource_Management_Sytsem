@@ -387,6 +387,7 @@ public class DemandServiceImpl implements DemandService {
         if (dto.getDemandType() != null && !dto.getDemandType().equals(existing.getDemandType())) {
             existing.setDemandType(dto.getDemandType());
         }
+        existing.setDemandStatus(dto.getDemandStatus());
 
         // 🔥 GOVERNANCE RULE
         if (criticalChanged &&
@@ -439,7 +440,7 @@ public class DemandServiceImpl implements DemandService {
             remapSla(existing);
         }
 
-        demandRepository.save(existing);
+        Demand savedDemand = demandRepository.save(existing);
 
         // Optional message change
         if (criticalChanged) {
@@ -452,7 +453,7 @@ public class DemandServiceImpl implements DemandService {
         }
 
         return ResponseEntity.ok(
-                ApiResponse.success("Demand updated successfully", existing.getDemandId())
+                ApiResponse.success("Demand updated successfully", savedDemand)
         );
     }
 
