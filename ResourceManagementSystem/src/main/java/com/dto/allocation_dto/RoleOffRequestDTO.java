@@ -11,7 +11,8 @@ import java.util.UUID;
 public class RoleOffRequestDTO {
     private Long projectId;
     private Long resourceId;
-    private UUID roleId;
+    private UUID allocationId; // Optional: Specify exact allocation when multiple exist
+    private UUID replacementRoleId; // Optional: Used when allocation doesn't have demand with role
     private RoleOffType roleOffType;
     private LocalDate roleOffDate;
     private Boolean autoReplacementRequired;

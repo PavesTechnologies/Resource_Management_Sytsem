@@ -7,6 +7,7 @@ import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
+import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
@@ -161,6 +162,11 @@ public class AllocationServiceImple implements AllocationService {
                 }
                 allocation.setRoleOffReason(allocationRequest.getRoleOffReason());
                 allocation.setRoleOffDate(allocationRequest.getRoleOffDate());
+                
+                // Add audit context for role-off closure
+                allocation.setClosedBy("USER"); // TODO: Get actual user from security context
+                allocation.setClosedAt(LocalDateTime.now());
+                allocation.setClosureReason("Role-off: " + allocationRequest.getRoleOffReason());
             }
 
             // Validate capacity for update
@@ -199,6 +205,11 @@ public class AllocationServiceImple implements AllocationService {
 
             ResourceAllocation allocation = existingAllocation.get();
             allocation.setAllocationStatus(AllocationStatus.CANCELLED);
+            
+            // Add audit context for cancellation
+            allocation.setClosedBy(cancelledBy != null ? cancelledBy : "USER");
+            allocation.setClosedAt(LocalDateTime.now());
+            allocation.setClosureReason("Allocation cancelled");
             
             ResourceAllocation cancelledAllocation = allocationRepository.save(allocation);
             
@@ -489,6 +500,11 @@ public class AllocationServiceImple implements AllocationService {
 
         allocation.setAllocationEndDate(closureDate);
         allocation.setAllocationStatus(AllocationStatus.ENDED);
+        
+        // Persist audit context
+        allocation.setClosedBy("USER"); // TODO: Get actual user from security context
+        allocation.setClosedAt(LocalDateTime.now());
+        allocation.setClosureReason(request.getReason() != null ? request.getReason() : "Manual closure");
 
         ResourceAllocation saved = allocationRepository.save(allocation);
 

@@ -33,9 +33,10 @@ public class RoleOffEvent {
     @JoinColumn(name = "resource_id", nullable = false)
     private Resource resource;
 
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "role_id")
-//    private DeliveryRoleExpectation role;
+@ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id")
+    private DeliveryRoleExpectation role;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "allocation_id", nullable = false)
     private ResourceAllocation allocation;
