@@ -157,4 +157,10 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
          */
         @Query("SELECT (100 - COALESCE(SUM(ra.allocationPercentage), 0)) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
         Integer getResourceAvailability(@Param("resourceId") Long resourceId);
+
+        /**
+         * Find role-off events with effective date today for scheduler
+         */
+        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate = :today AND roe.roleOffStatus = 'APPROVED'")
+        List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
 }

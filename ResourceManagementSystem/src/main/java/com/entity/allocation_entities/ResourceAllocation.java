@@ -122,4 +122,13 @@ public class ResourceAllocation {
     @Enumerated(EnumType.STRING)
     @Column(name = "role_off_reason")
     private RoleOffReason roleOffReason;
+
+    @Column(name = "closed_by")
+    private String closedBy;
+
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
+
+    @Column(name = "closure_reason", length = 500)
+    private String closureReason;
 }

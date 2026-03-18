@@ -56,7 +56,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final RoleOffEventRepository roleOffRepo;
     private final ProjectRepository projectRepo;
     private final ResourceRepository resourceRepo;
-    private final DeliveryRoleExpectationRepository roleRepo;
+    private final DeliveryRoleExpectationRepository roleRepository;
     private final AllocationRepository allocationRepository;
     private final AllocationService allocationService;
     private final DemandService demandService;
@@ -90,12 +90,18 @@ public class RoleOffServiceImpl implements RoleOffService {
                         "RESOURCE_NOT_FOUND",
                         "Resource not found"));
 
-        // 3️⃣ Validate Role
-        DeliveryRoleExpectation role = roleRepo.findById(dto.getRoleId())
-                .orElseThrow(() -> new ProjectExceptionHandler(
-                        HttpStatus.NOT_FOUND,
-                        "ROLE_NOT_FOUND",
-                        "Role not found"));
+        // 3️⃣ Validate Replacement Role (if auto replacement is required)
+        DeliveryRoleExpectation replacementRole = null;
+        if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
+            if (dto.getReplacementRoleId() != null) {
+                replacementRole = roleRepository.findById(dto.getReplacementRoleId())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "REPLACEMENT_ROLE_NOT_FOUND",
+                                "Replacement role not found"));
+            }
+            // If no replacementRoleId provided, we'll try to get role from allocation's demand later
+        }
 
         // 4️⃣ Prevent duplicate role-off
         if (roleOffRepo.existsByProject_PmsProjectIdAndResource_ResourceId(
@@ -121,9 +127,65 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         event.setProject(project);
         event.setResource(resource);
-//        event.setRole(role);
+        event.setRole(replacementRole);
         event.setRoleOffType(dto.getRoleOffType());
         event.setCreatedBy(userId);
+
+        // Find and set the active allocation
+        ResourceAllocation allocation;
+        
+        if (dto.getAllocationId() != null) {
+            // Use specific allocation ID if provided
+            allocation = allocationRepository.findById(dto.getAllocationId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "ALLOCATION_NOT_FOUND",
+                            "Allocation with ID " + dto.getAllocationId() + " not found"));
+            
+            // Validate that the allocation belongs to the specified project and resource
+            if (!allocation.getProject().getPmsProjectId().equals(project.getPmsProjectId()) ||
+                !allocation.getResource().getResourceId().equals(resource.getResourceId())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "ALLOCATION_MISMATCH",
+                        "Allocation does not belong to the specified project and resource");
+            }
+            
+            // Validate that allocation is active
+            if (!AllocationStatus.ACTIVE.equals(allocation.getAllocationStatus())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "ALLOCATION_NOT_ACTIVE",
+                        "Allocation is not in ACTIVE status");
+            }
+        } else {
+            // Find allocations by project and resource
+            List<ResourceAllocation> allocations =
+                    allocationRepository
+                            .findAllByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+                                    project.getPmsProjectId(),
+                                    resource.getResourceId(),
+                                    AllocationStatus.ACTIVE
+                            );
+
+            if (allocations.isEmpty()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "ACTIVE_ALLOCATION_NOT_FOUND",
+                        "No active allocation found for this resource and project");
+            }
+
+            if (allocations.size() > 1) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "MULTIPLE_ACTIVE_ALLOCATIONS_FOUND",
+                        "Multiple active allocations found for this resource and project. Please specify allocationId to select which one to role off.");
+            }
+
+            allocation = allocations.get(0);
+        }
+
+        event.setAllocation(allocation);
 
         // ✅ FIX 1 — Set project end date (required for replacement demand)
 //        if (project.getEndDate() != null) {
@@ -181,7 +243,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         }
 
         // ✅ FIX 2 — Ensure project end date is after role-off date
-        if (event.getProject().getEndDate().isBefore(ChronoLocalDateTime.from(event.getEffectiveRoleOffDate()))) {
+        if (event.getProject().getEndDate().toLocalDate().isBefore(event.getEffectiveRoleOffDate())) {
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_PROJECT_TIMELINE",
@@ -215,22 +277,7 @@ public class RoleOffServiceImpl implements RoleOffService {
 
     private void closeResourceAllocation(RoleOffEvent event) {
 
-        Optional<ResourceAllocation> allocationOpt =
-                allocationRepository
-                        .findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
-                                event.getProject().getPmsProjectId(),
-                                event.getResource().getResourceId(),
-                                AllocationStatus.ACTIVE
-                        );
-
-        if (allocationOpt.isEmpty()) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "ACTIVE_ALLOCATION_NOT_FOUND",
-                    "No active allocation found");
-        }
-
-        ResourceAllocation allocation = allocationOpt.get();
+        ResourceAllocation allocation = event.getAllocation();
 
         CloseAllocationDTO closeDTO = new CloseAllocationDTO();
         closeDTO.setClosureDate(event.getEffectiveRoleOffDate());
@@ -242,8 +289,20 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         CreateDemandDTO dto = new CreateDemandDTO();
 
-        dto.setProjectId(event.getProject().getId());
-//        dto.setDeliveryRole(event.getRole().getId());
+        dto.setProjectId(event.getProject().getPmsProjectId()); // ✅ Use pmsProjectId instead of id
+        
+        // Try to get role from allocation's demand first (demand-based allocation)
+        if (event.getAllocation() != null && event.getAllocation().getDemand() != null && event.getAllocation().getDemand().getRole() != null) {
+            dto.setDeliveryRole(event.getAllocation().getDemand().getRole().getId());
+        }
+        // Fall back to replacement role from event (project-based allocation)
+        else if (event.getRole() != null) {
+            dto.setDeliveryRole(event.getRole().getId());
+        }
+        // No role available - skip replacement demand creation
+        else {
+            return;
+        }
 
         dto.setDemandName("Replacement for " + event.getResource().getFullName());
 
@@ -251,9 +310,9 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         dto.setDemandStartDate(event.getEffectiveRoleOffDate().plusDays(1));
 
-        dto.setDemandEndDate(LocalDate.from(event.getProject().getEndDate()));
+        dto.setDemandEndDate(event.getProject().getEndDate().toLocalDate());
 
-        dto.setAllocationPercentage(100);
+        dto.setAllocationPercentage(event.getAllocation().getAllocationPercentage());
 
         dto.setDemandStatus(DemandStatus.REQUESTED);
 
@@ -266,6 +325,13 @@ public class RoleOffServiceImpl implements RoleOffService {
         Long exp = event.getResource().getExperiance();
 
         dto.setMinExp(exp != null ? (double) exp.intValue() : 0.0);
+//        dto.setMaxExp(exp != null ? (double) (exp.intValue() + 5) : 5.0); // ✅ Add maxExp
+
+        // ✅ Add missing required fields
+        dto.setDeliveryModel(com.entity_enums.centralised_enums.DeliveryModel.ONSITE); // Default to ONSITE
+        dto.setDemandJustification("Emergency replacement for " + event.getResource().getFullName() + 
+                                  " due to " + event.getRoleOffReasonEnum());
+        dto.setRequiresAdditionalApproval(false);
 
         dto.setOutgoingResourceId(event.getResource().getResourceId());
 
@@ -273,11 +339,16 @@ public class RoleOffServiceImpl implements RoleOffService {
                 demandService.createDemand(dto, userId);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
-
+            // Log the actual error details for debugging
+            String errorMessage = "Replacement demand creation failed";
+            if (response.getBody() != null && response.getBody().getMessage() != null) {
+                errorMessage = "Replacement demand creation failed: " + response.getBody().getMessage();
+            }
+            
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "REPLACEMENT_DEMAND_FAILED",
-                    "Replacement demand creation failed");
+                    errorMessage);
         }
     }
     @Transactional
