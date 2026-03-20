@@ -70,6 +70,9 @@ public class RoleOffEvent {
     private LocalDate updatedAt;
     private Long createdBy;
     private String approvedBy;
+    // NEW FIELDS
+    private Boolean dlApproved;
+    private LocalDate dlActionDate;
     private String rejectedBy;
     private String rejectionReason;
     private String roleInitiatedBy;
