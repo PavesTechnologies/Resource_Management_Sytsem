@@ -134,17 +134,6 @@ public class RoleOffServiceImpl implements RoleOffService {
             }
         }
         
-        // 4️⃣ Prevent duplicate role-off
-        if (roleOffRepo.existsByProject_PmsProjectIdAndResource_ResourceId(
-                dto.getProjectId(),
-                dto.getResourceId())) {
-
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "ROLE_OFF_ALREADY_EXISTS",
-                    "Role-off already initiated for this resource");
-        }
-
         // 5️⃣ Validate RoleOffType
         if (dto.getRoleOffType() == null) {
             throw new ProjectExceptionHandler(
@@ -160,6 +149,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         event.setResource(resource);
         event.setRole(roleToSet); // Always set the role (can be null if neither demand nor replacement role exists)
         event.setRoleOffType(dto.getRoleOffType());
+        event.setRoleInitiatedBy("PROJECT-MANAGER");
         event.setCreatedBy(userId);
 
         // 7️⃣ Find active allocation
@@ -215,25 +205,34 @@ public class RoleOffServiceImpl implements RoleOffService {
             allocation = allocations.get(0);
         }
 
+        // 4️⃣ Prevent duplicate role-off
+        // ✅ Prevent duplicate role-off ONLY for same allocation
+        if (roleOffRepo.existsByAllocation_AllocationId(allocation.getAllocationId())) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ROLE_OFF_ALREADY_EXISTS",
+                    "Role-off already initiated for this allocation");
+        }
+
         event.setAllocation(allocation);
 
         // 8️⃣ COMMON FIELDS
         event.setRoleOffReasonEnum(dto.getRoleOffReason());
-        event.setEffectiveRoleOffDate(dto.getRoleOffDate());
+        event.setEffectiveRoleOffDate(dto.getEffectiveRoleOffDate());
 
         // =========================================================
         // 🔥 EMERGENCY ROLE-OFF (IMMEDIATE EXECUTION)
         // =========================================================
         if (dto.getRoleOffType() == RoleOffType.EMERGENCY) {
 
-            if (dto.getEmergencyReason() == null ||
-                    dto.getEmergencyReason().trim().length() < 10) {
-
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "EMERGENCY_REASON_REQUIRED",
-                        "Emergency role-off requires minimum 10 characters");
-            }
+//            if (dto.getEmergencyReason() == null ||
+//                    dto.getEmergencyReason().trim().length() < 3) {
+//
+//                throw new ProjectExceptionHandler(
+//                        HttpStatus.BAD_REQUEST,
+//                        "EMERGENCY_REASON_REQUIRED",
+//                        "Emergency role-off requires minimum 3 characters");
+//            }
 
             event.setRoleOffReason(dto.getEmergencyReason());
 
@@ -256,14 +255,14 @@ public class RoleOffServiceImpl implements RoleOffService {
         // =========================================================
         if (dto.getRoleOffType() == RoleOffType.PLANNED) {
 
-            if (dto.getRoleOffDate() == null) {
+            if (dto.getEffectiveRoleOffDate() == null) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ROLE_OFF_DATE_REQUIRED",
                         "Role-off date required");
             }
 
-            if (dto.getRoleOffDate().isBefore(LocalDate.now())) {
+            if (dto.getEffectiveRoleOffDate().isBefore(LocalDate.now())) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_ROLE_OFF_DATE",

@@ -14,7 +14,7 @@ public class RoleOffRequestDTO {
     private UUID allocationId; // Optional: Specify exact allocation when multiple exist
     private UUID replacementRoleId; // Optional: Used when allocation doesn't have demand with role
     private RoleOffType roleOffType;
-    private LocalDate roleOffDate;
+    private LocalDate effectiveRoleOffDate;
     private Boolean autoReplacementRequired;
     private String skipReason;
     private RoleOffReason roleOffReason;

@@ -23,7 +23,7 @@ public class RoleOffController {
     private final RoleOffService roleOffService;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'ADMIN', 'PROJECT-MANAGER')")
     public ResponseEntity<?> roleOff(
             @RequestBody com.dto.allocation_dto.RoleOffRequestDTO dto,
             @CurrentUser UserDTO userDTO)

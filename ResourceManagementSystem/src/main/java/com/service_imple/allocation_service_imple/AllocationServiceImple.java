@@ -491,6 +491,11 @@ public class AllocationServiceImple implements AllocationService {
         }
 
         LocalDate closureDate = request.getClosureDate();
+        
+        // Use today's date if closureDate is not provided
+        if (closureDate == null) {
+            closureDate = LocalDate.now();
+        }
 
         if (closureDate.isBefore(allocation.getAllocationStartDate())) {
             return ResponseEntity.badRequest().body(
