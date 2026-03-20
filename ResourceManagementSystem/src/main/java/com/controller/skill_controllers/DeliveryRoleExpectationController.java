@@ -101,7 +101,7 @@ public class DeliveryRoleExpectationController {
 //    }
 
     @GetMapping("/{roleName}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER', 'MANAGER', 'RESOURCE-USER')")
     public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> getRoleExpectations(
             @PathVariable String roleName) {
         
