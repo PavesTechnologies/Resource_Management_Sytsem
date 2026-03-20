@@ -132,15 +132,6 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
         List<UUID> skillIds = allSkills.stream().map(Skill::getId).collect(Collectors.toList());
         List<SubSkill> allSubSkills = subSkillRepository.findActiveSubSkillsBySkillIds(skillIds);
 
-        // Debug logging
-        System.out.println("=== DEBUG: Tree Building ===");
-        System.out.println("Categories found: " + categories.size());
-        System.out.println("Skills found: " + allSkills.size());
-        System.out.println("SubSkills found: " + allSubSkills.size());
-        
-        for (SubSkill subSkill : allSubSkills) {
-            System.out.println("SubSkill: " + subSkill.getName() + " (Skill ID: " + subSkill.getSkill().getId() + ")");
-        }
 
         Map<UUID, List<Skill>> skillsByCategoryId = allSkills.stream()
                 .collect(Collectors.groupingBy(skill -> skill.getCategory().getId()));
@@ -165,8 +156,6 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                             .build();
 
                                     List<SubSkill> skillSubSkills = subSkillsBySkillId.get(skill.getId());
-                                    System.out.println("Skill: " + skill.getName() + " (ID: " + skill.getId() + ") - SubSkills found: " + 
-                                        (skillSubSkills != null ? skillSubSkills.size() : 0));
                                     
                                     if (skillSubSkills != null && !skillSubSkills.isEmpty()) {
                                         List<SkillTaxonomyTreeDto.SubSkillTreeDto> subSkillDtos = skillSubSkills.stream()

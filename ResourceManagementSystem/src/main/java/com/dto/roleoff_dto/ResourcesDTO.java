@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @AllArgsConstructor
@@ -22,6 +23,7 @@ public class ResourcesDTO {
     private String demandName;
     private List<String> skills;
     private List<String> subSkills;
+    private UUID allocationId;
     private AllocationStatus status;
     private Integer allocationPercentage;
     private LocalDate endDate;
