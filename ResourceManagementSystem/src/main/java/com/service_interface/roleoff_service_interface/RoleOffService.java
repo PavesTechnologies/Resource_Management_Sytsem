@@ -7,4 +7,5 @@ import org.springframework.http.ResponseEntity;
 public interface RoleOffService {
     public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO);
     public ResponseEntity<?> getResources(UserDTO userDTO, Long projectId);
+    public ResponseEntity<?> getRoleOffKPI(Long projectId);
 }

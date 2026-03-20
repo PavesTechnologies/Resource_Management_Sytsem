@@ -48,4 +48,9 @@ public class RoleOffController {
     public ResponseEntity<?> getResources(@CurrentUser UserDTO userDTO, @PathVariable Long projectId) {
         return roleOffService.getResources(userDTO, projectId);
     }
+
+    @GetMapping("/get-role-off-project-kpi/{projectId}")
+    public ResponseEntity<?> getRoleOffProjectKPI(@PathVariable Long projectId) {
+        return roleOffService.getRoleOffKPI(projectId);
+    }
 }
