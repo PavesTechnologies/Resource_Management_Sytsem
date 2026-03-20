@@ -169,6 +169,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         d.demandName,
         null,
         null,
+        ra.allocationId,
         ra.allocationStatus,
         ra.allocationPercentage,
         ra.allocationEndDate
