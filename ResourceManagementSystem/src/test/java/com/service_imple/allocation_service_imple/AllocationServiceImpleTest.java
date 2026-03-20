@@ -76,7 +76,7 @@ class AllocationServiceImpleTest {
         
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertTrue(response.getBody().isSuccess());
+        assertTrue(response.getBody().getSuccess());
         assertEquals("Allocation closed successfully with immediate availability update", 
                     response.getBody().getMessage());
         
@@ -127,7 +127,7 @@ class AllocationServiceImpleTest {
         
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertFalse(response.getBody().isSuccess());
+        assertFalse(response.getBody().getSuccess());
         
         // Verify availability recalculation was NOT triggered
         verify(availabilityCalculationService, never()).recalculateForResource(anyLong(), any(YearMonth.class));

@@ -1,5 +1,6 @@
 package com.repo.roleoff_repo;
 
+import com.dto.roleoff_dto.ResourcesDTO;
 import com.entity.allocation_entities.RoleOffEvent;
 import com.entity_enums.allocation_enums.RoleOffReason;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -157,6 +158,31 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
          */
         @Query("SELECT (100 - COALESCE(SUM(ra.allocationPercentage), 0)) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
         Integer getResourceAvailability(@Param("resourceId") Long resourceId);
+
+    @Query("""
+    SELECT new com.dto.roleoff_dto.ResourcesDTO(
+        r.resourceId,
+        r.fullName,
+        r.primarySkillGroup, 
+        p.name,
+        c.clientName,
+        d.demandName,
+        null,
+        null,
+        ra.allocationStatus,
+        ra.allocationPercentage,
+        ra.allocationEndDate
+    )
+    FROM ResourceAllocation ra
+    JOIN ra.resource r
+    LEFT JOIN ra.project p
+    LEFT JOIN p.client c
+    LEFT JOIN ra.demand d
+    WHERE p.pmsProjectId = :projectId
+    AND p.projectManagerId = :managerId
+    AND ra.allocationStatus = 'ACTIVE'
+""")
+    List<ResourcesDTO> findResources(Long projectId, Long managerId);
 
         /**
          * Find role-off events with effective date today for scheduler

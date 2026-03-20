@@ -9,6 +9,7 @@ import com.service_interface.skill_service_interface.ResourceSkillService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/resource-skills")
 @RequiredArgsConstructor
+@CrossOrigin
 public class ResourceSkillController {
 
     private final ResourceSkillService resourceSkillService;
@@ -40,6 +42,7 @@ public class ResourceSkillController {
     }
 
     @GetMapping("/resource/{resourceId}/profile")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<List<ResourceSkillProfileResponseDTO>>> getResourceSkillProfile(@PathVariable Long resourceId) {
         List<ResourceSkillProfileResponseDTO> profile = resourceSkillService.getResourceSkillProfile(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource skill profile retrieved successfully", profile));

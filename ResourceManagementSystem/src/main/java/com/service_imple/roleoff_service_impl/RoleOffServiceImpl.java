@@ -4,6 +4,7 @@ import com.dto.ApiResponse;
 import com.dto.UserDTO;
 import com.dto.allocation_dto.CloseAllocationDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
+import com.dto.roleoff_dto.ResourcesDTO;
 import com.dto.demand_dto.CreateDemandDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.allocation_entities.RoleOffEvent;
@@ -25,7 +26,9 @@ import com.repo.roleoff_repo.RoleOffEventRepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
+import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.demand_repo.DemandRepository;
+import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
@@ -58,6 +61,8 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final ResourceRepository resourceRepo;
     private final DeliveryRoleExpectationRepository roleRepository;
     private final AllocationRepository allocationRepository;
+    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final DemandRepository demandRepository;
@@ -730,5 +735,57 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // In real implementation, save to audit table
         System.out.println("AUDIT LOG: " + logMessage);
+    }
+//
+//    private String getDeliveryOwnerName(Long deliveryOwnerId) {
+//        if (deliveryOwnerId == null) {
+//            return "N/A";
+//        }
+//        Optional<Resource> deliveryOwner = resourceRepo.findById(deliveryOwnerId);
+//        return deliveryOwner.map(Resource::getFullName).orElse("N/A");
+//    }
+
+    @Override
+    public ResponseEntity<?> getResources(UserDTO userDTO, Long projectId) {
+
+        Long managerId = userDTO.getId();
+
+        List<ResourcesDTO> dtos = roleOffRepo.findResources(projectId, managerId);
+
+        List<Long> resourceIds = dtos.stream()
+                .map(ResourcesDTO::getResourceId)
+                .toList();
+
+        // Fetch skills
+        List<Object[]> skillsData = resourceSkillRepository.findSkillsByResourceIds(resourceIds);
+
+        Map<Long, List<String>> skillMap = new HashMap<>();
+
+        for (Object[] row : skillsData) {
+            Long resourceId = (Long) row[0];
+            String skill = (String) row[1];
+
+            skillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(skill);
+        }
+
+        // Fetch subskills
+        List<Object[]> subSkillsData = resourceSubSkillRepository.findSubSkillsByResourceIds(resourceIds);
+
+        Map<Long, List<String>> subSkillMap = new HashMap<>();
+
+        for (Object[] row : subSkillsData) {
+            Long resourceId = (Long) row[0];
+            String subSkill = (String) row[1];
+
+            subSkillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(subSkill);
+        }
+
+        // Map back to DTO
+        for (ResourcesDTO dto : dtos) {
+            dto.setSkills(skillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
+            dto.setSubSkills(subSkillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
+        }
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrived successfully!", dtos));
     }
 }

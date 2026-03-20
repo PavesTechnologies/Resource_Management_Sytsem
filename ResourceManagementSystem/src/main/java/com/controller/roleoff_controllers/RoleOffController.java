@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/role-off")
+@RequestMapping("/api/role-off")
 @RequiredArgsConstructor
 public class RoleOffController {
     private final RoleOffServiceImpl roleOffServiceImpl;
@@ -41,5 +41,11 @@ public class RoleOffController {
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> roleOffByRM(@RequestBody RoleOffRequestDTO roleOff, @CurrentUser UserDTO userDTO) {
         return roleOffService.roleOffByRM(roleOff, userDTO);
+    }
+
+    @GetMapping("/get-resources/{projectId}")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
+    public ResponseEntity<?> getResources(@CurrentUser UserDTO userDTO, @PathVariable Long projectId) {
+        return roleOffService.getResources(userDTO, projectId);
     }
 }

@@ -40,4 +40,12 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
     List<Object[]> findResourceIdAndSkillDetails(@Param("resourceIds") List<Long> resourceIds);
 
     List<ResourceSkill> findByActiveFlagTrue();
+
+    @Query("""
+    SELECT rs.resourceId, rs.skill.name
+    FROM ResourceSkill rs
+    WHERE rs.resourceId IN :resourceIds
+    AND rs.activeFlag = true
+""")
+    List<Object[]> findSkillsByResourceIds(List<Long> resourceIds);
 }

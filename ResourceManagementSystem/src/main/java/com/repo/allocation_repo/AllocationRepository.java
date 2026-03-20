@@ -169,4 +169,11 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("startOfMonth") LocalDateTime startOfMonth,
             @Param("endOfMonth") LocalDateTime endOfMonth
     );
+
+    @Query("""
+        SELECT ra FROM ResourceAllocation ra
+        WHERE ra.project.pmsProjectId = :projectId
+        AND ra.allocationStatus = :status
+    """)
+    List<ResourceAllocation> findByProjectIdAndStatus(Long projectId, AllocationStatus status);
 }
