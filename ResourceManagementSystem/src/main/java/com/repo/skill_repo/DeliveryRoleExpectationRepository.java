@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -104,4 +105,14 @@ public interface DeliveryRoleExpectationRepository extends JpaRepository<Deliver
            "LEFT JOIN FETCH dre.proficiencyLevel " +
            "WHERE dre.role.id = :roleId AND dre.status = 'ACTIVE'")
     List<DeliveryRoleExpectation> findByRoleIdWithDetails(@Param("roleId") UUID roleId);
+
+    @Query("""
+        SELECT dre
+        FROM DeliveryRoleExpectation dre
+        LEFT JOIN FETCH dre.skill
+        LEFT JOIN FETCH dre.subSkill
+        LEFT JOIN FETCH dre.proficiencyLevel
+        WHERE dre.role.id IN :roleIds AND dre.status = 'ACTIVE'
+    """)
+    List<DeliveryRoleExpectation> findByRoleIdsWithDetails(@Param("roleIds") List<UUID> roleIds);
 }

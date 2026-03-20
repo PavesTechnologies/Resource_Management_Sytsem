@@ -21,6 +21,9 @@ import java.util.UUID;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
 
+    @Query("SELECT p FROM Project p WHERE p.pmsProjectId = :projectId AND p.projectManagerId = :projectManagerId")
+    Optional<Project> findByProjectIdAndManagerId(Long projectId, Long projectManagerId);
+
     @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId")
     Long countTotalProjectsByClientId(@Param("clientId") UUID clientId);
 
