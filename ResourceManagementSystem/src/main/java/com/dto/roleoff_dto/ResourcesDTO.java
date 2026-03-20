@@ -24,6 +24,7 @@ public class ResourcesDTO {
     private List<String> skills;
     private List<String> subSkills;
     private UUID allocationId;
+    private String impact;
     private AllocationStatus status;
     private Integer allocationPercentage;
     private LocalDate endDate;

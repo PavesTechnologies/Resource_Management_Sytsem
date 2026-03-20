@@ -1,5 +1,6 @@
 package com.repo.roleoff_repo;
 
+import com.dto.roleoff_dto.ProjectRoleOffKPIDTO;
 import com.dto.roleoff_dto.ResourcesDTO;
 import com.entity.allocation_entities.RoleOffEvent;
 import com.entity_enums.allocation_enums.RoleOffReason;
@@ -167,6 +168,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         null,
         null,
         ra.allocationId,
+        null,
         ra.allocationStatus,
         ra.allocationPercentage,
         ra.allocationEndDate
@@ -181,6 +183,29 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     AND ra.allocationStatus = 'ACTIVE'
 """)
     List<ResourcesDTO> findResources(Long projectId, Long managerId);
+
+    /**
+     * Find role-off events with effective date today for scheduler
+     */
+//    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate = :today AND roe.roleOffStatus = 'APPROVED'")
+//    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
+
+    @Query("""
+    SELECT new com.dto.roleoff_dto.ProjectRoleOffKPIDTO(
+        (SELECT COUNT(ra) FROM ResourceAllocation ra 
+         WHERE ra.project.pmsProjectId = :projectId 
+         AND ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE),
+
+        (SELECT COUNT(roe) FROM RoleOffEvent roe 
+         WHERE roe.project.pmsProjectId = :projectId 
+         AND roe.roleOffStatus <> com.entity_enums.allocation_enums.RoleOffStatus.FULFILLED),
+
+        (SELECT COUNT(roe) FROM RoleOffEvent roe 
+         WHERE roe.project.pmsProjectId = :projectId 
+         AND roe.roleOffStatus = com.entity_enums.allocation_enums.RoleOffStatus.FULFILLED)
+    )
+""")
+    ProjectRoleOffKPIDTO getProjectKPI(Long projectId);
 
         /**
          * Find role-off events with effective date today for scheduler

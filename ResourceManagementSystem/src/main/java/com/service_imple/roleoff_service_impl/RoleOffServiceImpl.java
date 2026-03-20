@@ -725,6 +725,133 @@ public class RoleOffServiceImpl implements RoleOffService {
     // ========== DELIVERY IMPACT VALIDATION ==========
 
     /**
+     * Calculate simple resource impact level (LOW/MEDIUM/HIGH)
+     * Returns impact level based on utilization, project criticality, and skill factors
+     */
+    public String calculateResourceImpactLevel(Long resourceId, Long projectId) {
+        try {
+            int impactScore = 0;
+            
+            // 1. UTILIZATION IMPACT (0-40 points)
+            Integer totalUtilization = roleOffRepo.getTotalCurrentUtilization(resourceId);
+            List<Integer> projectAllocations = roleOffRepo.getCurrentUtilization(resourceId);
+            int projectUtilization = projectAllocations.stream()
+                    .filter(alloc -> alloc != null)
+                    .findFirst()
+                    .orElse(0);
+            
+            if (projectUtilization >= 80) impactScore += 40;      // High utilization
+            else if (projectUtilization >= 50) impactScore += 25; // Medium utilization
+            else if (projectUtilization >= 20) impactScore += 10; // Low utilization
+            
+            // 2. PROJECT CRITICALITY (0-30 points)
+            String projectPriority = roleOffRepo.getProjectPriorityLevel(projectId);
+            if ("CRITICAL".equals(projectPriority)) impactScore += 30;
+            else if ("HIGH".equals(projectPriority)) impactScore += 20;
+            else if ("NORMAL".equals(projectPriority)) impactScore += 5;
+            
+            // Check resource gap
+            long currentAllocations = roleOffRepo.countActiveAllocationsForProject(projectId);
+            List<Integer> requiredPositions = roleOffRepo.getRequiredPositionsForProject(projectId);
+            int totalRequired = requiredPositions.stream().mapToInt(Integer::intValue).sum();
+            int gapAfterRoleOff = Math.max(0, totalRequired - (int)(currentAllocations - 1));
+            
+            if (gapAfterRoleOff > 2) impactScore += 15;
+            else if (gapAfterRoleOff > 0) impactScore += 10;
+            
+            // 3. SKILL CRITICALITY (0-20 points)
+            Resource resource = resourceRepo.findById(resourceId)
+                    .orElseThrow(() -> new RuntimeException("Resource not found"));
+            
+            // Primary skill impact
+            String primarySkill = resource.getPrimarySkillGroup();
+            if ("TECHNICAL".equals(primarySkill) || "LEAD".equals(primarySkill)) impactScore += 15;
+            else if ("SUPPORT".equals(primarySkill) || "ANALYST".equals(primarySkill)) impactScore += 10;
+            else impactScore += 5;
+            
+            // Experience impact
+            Long experience = resource.getExperiance();
+            if (experience != null && experience >= 5) impactScore += 5;
+            else if (experience != null && experience >= 2) impactScore += 3;
+            
+            // 4. TIMELINE IMPACT (0-10 points)
+            Optional<ResourceAllocation> allocation = allocationRepository
+                    .findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+                            projectId, resourceId, AllocationStatus.ACTIVE);
+            
+            if (allocation.isPresent()) {
+                long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(
+                        java.time.LocalDate.now(), allocation.get().getAllocationEndDate());
+                
+                if (daysRemaining > 90) impactScore += 2;      // Long time remaining
+                else if (daysRemaining > 30) impactScore += 5;  // Medium time remaining
+                else if (daysRemaining > 0) impactScore += 10;  // Short time remaining - critical
+            }
+            
+            // Determine impact level based on total score
+            if (impactScore >= 70) return "HIGH";
+            else if (impactScore >= 40) return "MEDIUM";
+            else return "LOW";
+            
+        } catch (Exception e) {
+            return "MEDIUM"; // Default fallback
+        }
+    }
+
+    /**
+     * Get impact score details (for debugging or detailed view)
+     */
+    public Map<String, Object> getImpactScoreDetails(Long resourceId, Long projectId) {
+        Map<String, Object> details = new HashMap<>();
+        
+        try {
+            // Utilization details
+            Integer totalUtilization = roleOffRepo.getTotalCurrentUtilization(resourceId);
+            List<Integer> projectAllocations = roleOffRepo.getCurrentUtilization(resourceId);
+            int projectUtilization = projectAllocations.stream()
+                    .filter(alloc -> alloc != null)
+                    .findFirst()
+                    .orElse(0);
+            
+            details.put("projectUtilization", projectUtilization);
+            details.put("totalUtilization", totalUtilization);
+            
+            // Project details
+            String projectPriority = roleOffRepo.getProjectPriorityLevel(projectId);
+            long currentAllocations = roleOffRepo.countActiveAllocationsForProject(projectId);
+            List<Integer> requiredPositions = roleOffRepo.getRequiredPositionsForProject(projectId);
+            int totalRequired = requiredPositions.stream().mapToInt(Integer::intValue).sum();
+            int gapAfterRoleOff = Math.max(0, totalRequired - (int)(currentAllocations - 1));
+            
+            details.put("projectPriority", projectPriority);
+            details.put("resourceGap", gapAfterRoleOff);
+            
+            // Resource details
+            Resource resource = resourceRepo.findById(resourceId).get();
+            details.put("primarySkill", resource.getPrimarySkillGroup());
+            details.put("experience", resource.getExperiance());
+            
+            // Timeline details
+            Optional<ResourceAllocation> allocation = allocationRepository
+                    .findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+                            projectId, resourceId, AllocationStatus.ACTIVE);
+            
+            if (allocation.isPresent()) {
+                long daysRemaining = java.time.temporal.ChronoUnit.DAYS.between(
+                        java.time.LocalDate.now(), allocation.get().getAllocationEndDate());
+                details.put("daysRemaining", daysRemaining);
+            }
+            
+            details.put("impactLevel", calculateResourceImpactLevel(resourceId, projectId));
+            
+        } catch (Exception e) {
+            details.put("error", "Unable to calculate impact details");
+        }
+        
+        return details;
+    }
+
+    /**
      * Simple delivery impact validation before role-off confirmation
      * Returns warning message if risks identified, null if no risks
      */
@@ -914,8 +1041,14 @@ public class RoleOffServiceImpl implements RoleOffService {
         for (ResourcesDTO dto : dtos) {
             dto.setSkills(skillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
             dto.setSubSkills(subSkillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
+            dto.setImpact(calculateResourceImpactLevel(dto.getResourceId(), projectId));
         }
 
         return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrived successfully!", dtos));
+    }
+
+    @Override
+    public ResponseEntity<?> getRoleOffKPI(Long projectId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off KPI retrived successfully!", roleOffRepo.getProjectKPI(projectId)));
     }
 }

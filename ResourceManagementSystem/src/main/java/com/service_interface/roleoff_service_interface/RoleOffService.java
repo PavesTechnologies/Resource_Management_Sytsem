@@ -31,4 +31,5 @@ public interface RoleOffService {
      */
     RoleOffEvent getRoleOffEventById(UUID id);
     public ResponseEntity<?> getResources(UserDTO userDTO, Long projectId);
+    public ResponseEntity<?> getRoleOffKPI(Long projectId);
 }
