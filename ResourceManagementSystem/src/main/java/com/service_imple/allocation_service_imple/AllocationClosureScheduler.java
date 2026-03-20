@@ -59,26 +59,27 @@ public class AllocationClosureScheduler {
         allocationService.updateAvailabilityLedgerForAllocation(allocation);
     }
 
-    private void processRoleOffClosure(RoleOffEvent roleOffEvent, LocalDate today) {
-        // Find active allocation for this role-off
-        Optional<ResourceAllocation> activeAllocation = allocationRepository
+    private void processRoleOffClosure(RoleOffEvent event, LocalDate today) {
+
+        // 🚨 MUST CHECK DL APPROVAL
+        if (!Boolean.TRUE.equals(event.getDlApproved())) {
+            return;
+        }
+
+        Optional<ResourceAllocation> allocation = allocationRepository
                 .findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
-                        roleOffEvent.getProject().getPmsProjectId(),
-                        roleOffEvent.getResource().getResourceId(),
+                        event.getProject().getPmsProjectId(),
+                        event.getResource().getResourceId(),
                         AllocationStatus.ACTIVE
                 );
 
-        activeAllocation.ifPresent(allocation -> {
-            // Handle partial/early closure based on role-off effective date
-            String closureReason = String.format("Role-off effective: %s - %s", 
-                    roleOffEvent.getRoleOffReasonEnum(), 
-                    roleOffEvent.getRoleOffReason());
-            
-            closeAllocationWithAudit(allocation, "SYSTEM", closureReason, roleOffEvent.getEffectiveRoleOffDate());
+        allocation.ifPresent(a -> {
+            closeAllocationWithAudit(a, "SYSTEM",
+                    "Role-off: " + event.getRoleOffReason(),
+                    event.getEffectiveRoleOffDate());
         });
 
-        // Update role-off event status
-        roleOffEvent.setRoleOffStatus(RoleOffStatus.FULFILLED);
-        roleOffEventRepository.save(roleOffEvent);
+        event.setRoleOffStatus(RoleOffStatus.FULFILLED);
+        roleOffEventRepository.save(event);
     }
 }
