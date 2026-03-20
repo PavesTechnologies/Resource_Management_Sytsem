@@ -83,7 +83,7 @@ public class RoleOffController {
      * Get all role-off events with complete details
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'ADMIN', 'PROJECT-MANAGER')")
     public ResponseEntity<List<RoleOffEvent>> getAllRoleOffEvents() {
         List<RoleOffEvent> events = roleOffService.getAllRoleOffEvents();
         return ResponseEntity.ok(events);
