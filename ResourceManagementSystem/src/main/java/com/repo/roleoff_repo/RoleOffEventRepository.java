@@ -17,10 +17,7 @@ import java.util.UUID;
 
 @Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
-    boolean existsByProject_PmsProjectIdAndResource_ResourceId(
-            Long projectId,
-            Long resourceId
-    );
+    boolean existsByAllocation_AllocationId(UUID allocationId);
 
         /**
          * Find role-off events by specific reason for analysis
@@ -190,8 +187,8 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     /**
      * Find role-off events with effective date today for scheduler
      */
-    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate = :today AND roe.roleOffStatus = 'APPROVED'")
-    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
+//    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate = :today AND roe.roleOffStatus = 'APPROVED'")
+//    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
 
     @Query("""
     SELECT new com.dto.roleoff_dto.ProjectRoleOffKPIDTO(
@@ -210,4 +207,9 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
 """)
     ProjectRoleOffKPIDTO getProjectKPI(Long projectId);
 
+        /**
+         * Find role-off events with effective date today for scheduler
+         */
+        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate <= :today AND roe.roleOffStatus = 'APPROVED'")
+        List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
 }

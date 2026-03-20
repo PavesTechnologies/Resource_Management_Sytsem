@@ -78,7 +78,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     @Transactional
     public void roleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId) {
 
-        // Validate mandatory role-off reason classification using governance method
+        // Validate mandatory role-off reason classification
         validateRoleOffReason(dto.getRoleOffReason());
 
         // 1️⃣ Validate Project
@@ -95,30 +95,45 @@ public class RoleOffServiceImpl implements RoleOffService {
                         "RESOURCE_NOT_FOUND",
                         "Resource not found"));
 
-        // 3️⃣ Validate Replacement Role (if auto replacement is required)
-        DeliveryRoleExpectation replacementRole = null;
+        // 3️⃣ Get the role from allocation or replacement role
+        DeliveryRoleExpectation roleToSet = null;
+        
+        // First try to get role from the allocation's demand (demand-based allocation)
+        if (dto.getAllocationId() != null) {
+            ResourceAllocation tempAllocation = allocationRepository.findById(dto.getAllocationId()).orElse(null);
+            if (tempAllocation != null && tempAllocation.getDemand() != null) {
+                roleToSet = tempAllocation.getDemand().getRole();
+            }
+        }
+        
+        // If auto replacement is required, we must have a role
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-            if (dto.getReplacementRoleId() != null) {
-                replacementRole = roleRepository.findById(dto.getReplacementRoleId())
+            // If no role from demand, use replacement role (must be provided when auto replacement is true)
+            if (roleToSet == null) {
+                if (dto.getReplacementRoleId() != null) {
+                    roleToSet = roleRepository.findById(dto.getReplacementRoleId())
+                            .orElseThrow(() -> new ProjectExceptionHandler(
+                                    HttpStatus.NOT_FOUND,
+                                    "REPLACEMENT_ROLE_NOT_FOUND",
+                                    "Replacement role not found"));
+                } else {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "REPLACEMENT_ROLE_REQUIRED",
+                            "Replacement role ID is required when auto replacement is enabled");
+                }
+            }
+        } else {
+            // Auto replacement is false - role is optional, but use it if provided
+            if (roleToSet == null && dto.getReplacementRoleId() != null) {
+                roleToSet = roleRepository.findById(dto.getReplacementRoleId())
                         .orElseThrow(() -> new ProjectExceptionHandler(
                                 HttpStatus.NOT_FOUND,
                                 "REPLACEMENT_ROLE_NOT_FOUND",
                                 "Replacement role not found"));
             }
-            // If no replacementRoleId provided, we'll try to get role from allocation's demand later
         }
-
-        // 4️⃣ Prevent duplicate role-off
-        if (roleOffRepo.existsByProject_PmsProjectIdAndResource_ResourceId(
-                dto.getProjectId(),
-                dto.getResourceId())) {
-
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "ROLE_OFF_ALREADY_EXISTS",
-                    "Role-off already initiated for this resource");
-        }
-
+        
         // 5️⃣ Validate RoleOffType
         if (dto.getRoleOffType() == null) {
             throw new ProjectExceptionHandler(
@@ -132,39 +147,39 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         event.setProject(project);
         event.setResource(resource);
-        event.setRole(replacementRole);
+        event.setRole(roleToSet); // Always set the role (can be null if neither demand nor replacement role exists)
         event.setRoleOffType(dto.getRoleOffType());
+        event.setRoleInitiatedBy("PROJECT-MANAGER");
         event.setCreatedBy(userId);
 
-        // Find and set the active allocation
+        // 7️⃣ Find active allocation
         ResourceAllocation allocation;
-        
+
         if (dto.getAllocationId() != null) {
-            // Use specific allocation ID if provided
+
             allocation = allocationRepository.findById(dto.getAllocationId())
                     .orElseThrow(() -> new ProjectExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "ALLOCATION_NOT_FOUND",
-                            "Allocation with ID " + dto.getAllocationId() + " not found"));
-            
-            // Validate that the allocation belongs to the specified project and resource
+                            "Allocation not found"));
+
             if (!allocation.getProject().getPmsProjectId().equals(project.getPmsProjectId()) ||
-                !allocation.getResource().getResourceId().equals(resource.getResourceId())) {
+                    !allocation.getResource().getResourceId().equals(resource.getResourceId())) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ALLOCATION_MISMATCH",
-                        "Allocation does not belong to the specified project and resource");
+                        "Allocation mismatch");
             }
-            
-            // Validate that allocation is active
+
             if (!AllocationStatus.ACTIVE.equals(allocation.getAllocationStatus())) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ALLOCATION_NOT_ACTIVE",
-                        "Allocation is not in ACTIVE status");
+                        "Allocation is not active");
             }
+
         } else {
-            // Find allocations by project and resource
+
             List<ResourceAllocation> allocations =
                     allocationRepository
                             .findAllByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
@@ -177,77 +192,90 @@ public class RoleOffServiceImpl implements RoleOffService {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ACTIVE_ALLOCATION_NOT_FOUND",
-                        "No active allocation found for this resource and project");
+                        "No active allocation found");
             }
 
             if (allocations.size() > 1) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "MULTIPLE_ACTIVE_ALLOCATIONS_FOUND",
-                        "Multiple active allocations found for this resource and project. Please specify allocationId to select which one to role off.");
+                        "Multiple active allocations found. Provide allocationId.");
             }
 
             allocation = allocations.get(0);
         }
 
-        event.setAllocation(allocation);
-
-        // ✅ FIX 1 — Set project end date (required for replacement demand)
-//        if (project.getEndDate() != null) {
-//            event.setProjectEndDate(project.getEndDate().toLocalDate());
-//        } else {
-//            throw new ProjectExceptionHandler(
-//                    HttpStatus.BAD_REQUEST,
-//                    "PROJECT_END_DATE_MISSING",
-//                    "Project end date must be defined before role-off");
-//        }
-
-        // 7️⃣ Emergency Role-Off
-        if (dto.getRoleOffType() == RoleOffType.EMERGENCY) {
-
-            if (dto.getEmergencyReason() == null ||
-                    dto.getEmergencyReason().trim().length() < 10) {
-
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "EMERGENCY_REASON_REQUIRED",
-                        "Emergency role-off requires a reason with minimum 10 characters");
-            }
-
-            event.setRejectionReason(dto.getEmergencyReason());
-//        event.setProjectEndDate(project.getEndDate().toLocalDate());
-        event.setCreatedBy(userId);
-        event.setRoleOffReasonEnum(dto.getRoleOffReason());
-            event.setRoleOffReason(dto.getEmergencyReason());
-
-            // Immediate impact
-            event.setEffectiveRoleOffDate(dto.getRoleOffDate());
-
-            // Close active allocation (updates availability ledger)
-            closeResourceAllocation(event);
+        // 4️⃣ Prevent duplicate role-off
+        // ✅ Prevent duplicate role-off ONLY for same allocation
+        if (roleOffRepo.existsByAllocation_AllocationId(allocation.getAllocationId())) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "ROLE_OFF_ALREADY_EXISTS",
+                    "Role-off already initiated for this allocation");
         }
 
-        // 8️⃣ Planned Role-Off
+        event.setAllocation(allocation);
+
+        // 8️⃣ COMMON FIELDS
+        event.setRoleOffReasonEnum(dto.getRoleOffReason());
+        event.setEffectiveRoleOffDate(dto.getEffectiveRoleOffDate());
+
+        // =========================================================
+        // 🔥 EMERGENCY ROLE-OFF (IMMEDIATE EXECUTION)
+        // =========================================================
+        if (dto.getRoleOffType() == RoleOffType.EMERGENCY) {
+
+//            if (dto.getEmergencyReason() == null ||
+//                    dto.getEmergencyReason().trim().length() < 3) {
+//
+//                throw new ProjectExceptionHandler(
+//                        HttpStatus.BAD_REQUEST,
+//                        "EMERGENCY_REASON_REQUIRED",
+//                        "Emergency role-off requires minimum 3 characters");
+//            }
+
+            event.setRoleOffReason(dto.getEmergencyReason());
+
+            event.setRoleOffStatus(RoleOffStatus.APPROVED);
+            event.setApprovedBy("SYSTEM");
+
+            roleOffRepo.save(event);
+
+            // 🔥 immediate execution
+            closeResourceAllocation(event);
+
+            event.setRoleOffStatus(RoleOffStatus.FULFILLED);
+            roleOffRepo.save(event);
+
+            return;
+        }
+
+        // =========================================================
+        // 🔥 PLANNED ROLE-OFF (APPROVAL FLOW)
+        // =========================================================
         if (dto.getRoleOffType() == RoleOffType.PLANNED) {
 
-            if (dto.getRoleOffDate() == null) {
+            if (dto.getEffectiveRoleOffDate() == null) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ROLE_OFF_DATE_REQUIRED",
-                        "Role-off date required for planned role-off");
+                        "Role-off date required");
             }
 
-            if (dto.getRoleOffDate().isBefore(LocalDate.now())) {
+            if (dto.getEffectiveRoleOffDate().isBefore(LocalDate.now())) {
                 throw new ProjectExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_ROLE_OFF_DATE",
-                        "Role-off date cannot be in the past");
+                        "Role-off date cannot be in past");
             }
 
-            event.setEffectiveRoleOffDate(dto.getRoleOffDate());
+            event.setRoleOffReason(dto.getRoleOffReason().name());
+
+            // 🚨 KEY CHANGE → NO DIRECT EXECUTION
+            event.setRoleOffStatus(RoleOffStatus.PENDING);
         }
 
-        // ✅ FIX 2 — Ensure project end date is after role-off date
+        // 9️⃣ Project timeline validation
         if (event.getProject().getEndDate().toLocalDate().isBefore(event.getEffectiveRoleOffDate())) {
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
@@ -255,11 +283,10 @@ public class RoleOffServiceImpl implements RoleOffService {
                     "Project end date cannot be before role-off date");
         }
 
-        // 9️⃣ Replacement Logic
+        // 🔟 Replacement logic (UNCHANGED ✅)
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
 
             createReplacementDemand(event, userId);
-
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
 
         } else {
@@ -276,7 +303,7 @@ public class RoleOffServiceImpl implements RoleOffService {
             event.setSkipReason(dto.getSkipReason());
         }
 
-        // 🔟 Save event
+        // ✅ FINAL SAVE
         roleOffRepo.save(event);
     }
 
@@ -376,6 +403,86 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         event.setReplacementStatus(ReplacementStatus.MANUAL_CREATED_LATER);
         roleOffRepo.save(event);
+    }
+
+    @Transactional
+    public ResponseEntity<?> rmAction(UUID id, boolean approve, String comments, UserDTO user) {
+
+        RoleOffEvent event = roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("RoleOff not found"));
+
+        if (event.getRoleOffStatus() != RoleOffStatus.PENDING) {
+            throw new RuntimeException("Already processed");
+        }
+
+        if (!approve) {
+            event.setRoleOffStatus(RoleOffStatus.REJECTED);
+            event.setRejectedBy("RESOURCE-MANAGER");
+            event.setRejectionReason(comments);
+
+            roleOffRepo.save(event);
+            return ResponseEntity.ok("Rejected by RM");
+        }
+
+        event.setApprovedBy("RESOURCE-MANAGER");
+        event.setRoleOffStatus(RoleOffStatus.APPROVED);
+
+        roleOffRepo.save(event);
+
+        return ResponseEntity.ok("Approved by RM → Waiting for DL");
+    }
+
+    @Transactional
+    public ResponseEntity<?> dlAction(UUID id, RoleOffStatus action, String comments, UserDTO user) {
+
+        RoleOffEvent event = roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("RoleOff not found"));
+
+        // RM must approve first
+        if (!"RESOURCE-MANAGER".equals(event.getApprovedBy())) {
+            throw new RuntimeException("RM approval required first");
+        }
+
+        if (event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
+            throw new RuntimeException("Invalid state");
+        }
+
+        // ❌ REJECT
+        if (action == RoleOffStatus.REJECTED) {
+
+            event.setRoleOffStatus(RoleOffStatus.REJECTED);
+            event.setRejectedBy("DELIVERY-MANAGER");
+            event.setRejectionReason(comments);
+
+            roleOffRepo.save(event);
+
+            return ResponseEntity.ok("Rejected by DL");
+        }
+
+        // ✅ FULFILL
+        if (action == RoleOffStatus.FULFILLED) {
+
+            event.setDlApproved(true);
+            event.setDlActionDate(LocalDate.now());
+
+            // 🔥 IF DATE PASSED → EXECUTE IMMEDIATELY
+            if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
+
+                closeResourceAllocation(event);
+
+                event.setRoleOffStatus(RoleOffStatus.FULFILLED);
+                roleOffRepo.save(event);
+
+                return ResponseEntity.ok("Executed immediately");
+            }
+
+            // Wait for scheduler
+            roleOffRepo.save(event);
+
+            return ResponseEntity.ok("Approved → waiting for scheduler");
+        }
+
+        throw new RuntimeException("Invalid action. Use REJECTED or FULFILLED");
     }
 
     @Override
@@ -490,6 +597,29 @@ public class RoleOffServiceImpl implements RoleOffService {
         }
 
         return ResponseEntity.ok().body(new ApiResponse<>(true, message, result));
+    }
+
+    // ========== GET METHODS FOR ROLE-OFF DETAILS ==========
+
+    @Override
+    public List<RoleOffEvent> getAllRoleOffEvents() {
+        return roleOffRepo.findAll();
+    }
+
+    @Override
+    public List<RoleOffEvent> getRoleOffEventsByProject(Long projectId) {
+        return roleOffRepo.findByProject_PmsProjectId(projectId);
+    }
+
+    @Override
+    public List<RoleOffEvent> getRoleOffEventsByResource(Long resourceId) {
+        return roleOffRepo.findByResource_ResourceId(resourceId);
+    }
+
+    @Override
+    public RoleOffEvent getRoleOffEventById(UUID id) {
+        return roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Role-off event not found with ID: " + id));
     }
 
     // ========== GOVERNANCE METHODS ==========
