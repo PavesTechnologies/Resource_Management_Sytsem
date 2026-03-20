@@ -34,7 +34,7 @@ public class RoleOffEvent {
     private Resource resource;
 
 @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id")
+    @JoinColumn(name = "role_id", nullable = true)
     private DeliveryRoleExpectation role;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -70,6 +70,9 @@ public class RoleOffEvent {
     private LocalDate updatedAt;
     private Long createdBy;
     private String approvedBy;
+    // NEW FIELDS
+    private Boolean dlApproved;
+    private LocalDate dlActionDate;
     private String rejectedBy;
     private String rejectionReason;
     private String roleInitiatedBy;
