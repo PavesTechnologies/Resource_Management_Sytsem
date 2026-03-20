@@ -2,6 +2,7 @@ package com.service_imple.allocation_service_imple;
 
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
+import com.entity.resource_entities.Resource;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.repo.resource_repo.ResourceRepository;

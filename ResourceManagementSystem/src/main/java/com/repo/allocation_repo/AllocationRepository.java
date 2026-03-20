@@ -142,6 +142,13 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("resourceId") Long resourceId,
             @Param("date") LocalDate date);
 
+    List<ResourceAllocation>
+    findAllByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+            Long projectId,
+            Long resourceId,
+            AllocationStatus status
+    );
+
     Optional<ResourceAllocation>
     findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
             Long projectId,

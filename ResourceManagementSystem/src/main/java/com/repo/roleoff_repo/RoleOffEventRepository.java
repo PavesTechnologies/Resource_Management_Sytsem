@@ -183,4 +183,10 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     AND ra.allocationStatus = 'ACTIVE'
 """)
     List<ResourcesDTO> findResources(Long projectId, Long managerId);
+
+        /**
+         * Find role-off events with effective date today for scheduler
+         */
+        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate = :today AND roe.roleOffStatus = 'APPROVED'")
+        List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
 }
