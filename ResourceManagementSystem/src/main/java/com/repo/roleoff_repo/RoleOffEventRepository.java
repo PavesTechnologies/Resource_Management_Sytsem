@@ -173,7 +173,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         ra.allocationPercentage,
         ra.allocationEndDate
     )
-    FROM ResourceAllocation ra
+    FROM ResourceAllocation ra  
     JOIN ra.resource r
     LEFT JOIN ra.project p
     LEFT JOIN p.client c

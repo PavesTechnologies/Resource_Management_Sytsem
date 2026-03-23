@@ -284,7 +284,7 @@ public class RoleOffServiceImpl implements RoleOffService {
             return ResponseEntity.ok("Rejected by RM");
         }
 
-        event.setApprovedBy("RESOURCE-MANAGER");
+        event.setRmApproved(true);
         event.setRoleOffStatus(RoleOffStatus.APPROVED);
 
         roleOffRepo.save(event);
@@ -299,7 +299,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                 .orElseThrow(() -> new RuntimeException("RoleOff not found"));
 
         // RM must approve first
-        if (!"RESOURCE-MANAGER".equals(event.getApprovedBy())) {
+        if (!"RESOURCE-MANAGER".equals(event.getRmApproved())) {
             throw new RuntimeException("RM approval required first");
         }
 
@@ -1051,11 +1051,31 @@ public class RoleOffServiceImpl implements RoleOffService {
         if (dto.getRoleOffType() == RoleOffType.EMERGENCY) {
 
             event.setRoleOffReason(dto.getEmergencyReason());
-
             event.setRoleOffStatus(RoleOffStatus.APPROVED);
-            event.setApprovedBy("SYSTEM");
+//            event.setApprovedBy("SYSTEM");
 
-            roleOffRepo.save(event);
+            roleOffRepo.save(event); // ✅ FIRST SAVE
+
+            // 🔥 REPLACEMENT LOGIC
+            if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
+
+                createReplacementDemand(event, userId);
+                event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
+
+            } else {
+
+                if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "SKIP_REASON_REQUIRED",
+                            "Skip reason required when replacement is disabled");
+                }
+
+                event.setReplacementStatus(ReplacementStatus.SKIPPED);
+                event.setSkipReason(dto.getSkipReason());
+            }
+
+            roleOffRepo.save(event); // ✅ UPDATE AFTER DEMAND
 
             // 🔥 immediate execution
             closeResourceAllocation(event);
@@ -1087,6 +1107,29 @@ public class RoleOffServiceImpl implements RoleOffService {
 
             event.setRoleOffReason(dto.getRoleOffReason().name());
             event.setRoleOffStatus(RoleOffStatus.PENDING);
+
+            roleOffRepo.save(event); // ✅ SAVE FIRST
+
+            // 🔥 REPLACEMENT LOGIC
+            if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
+
+                createReplacementDemand(event, userId);
+                event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
+
+            } else {
+
+                if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "SKIP_REASON_REQUIRED",
+                            "Skip reason required when replacement is disabled");
+                }
+
+                event.setReplacementStatus(ReplacementStatus.SKIPPED);
+                event.setSkipReason(dto.getSkipReason());
+            }
+
+            roleOffRepo.save(event); // ✅ UPDATE AFTER DEMAND
         }
 
         // Project timeline validation
