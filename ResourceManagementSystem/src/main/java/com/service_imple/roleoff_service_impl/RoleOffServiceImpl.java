@@ -949,6 +949,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     : Collections.emptyList();
 
             return new ResourcesDTO(
+                    r.getId(),
                     r.getResource().getResourceId(),
                     r.getResource().getFullName(),
                     r.getResource().getDesignation(),
@@ -1210,6 +1211,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     : Collections.emptyList();
 
             return new ResourcesDTO(
+                    r.getId(),
                     r.getResource().getResourceId(),
                     r.getResource().getFullName(),
                     r.getResource().getDesignation(),
