@@ -163,7 +163,7 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // 6️⃣ PROCESS ROLE-OFF (confirmed)
         processRoleOff(dto, userId, resource, project, allocation);
-        
+
         return ResponseEntity.ok("Processed successfully");
     }
 
@@ -863,11 +863,9 @@ public class RoleOffServiceImpl implements RoleOffService {
 //    }
 
     @Override
-    public ResponseEntity<?> getResources(UserDTO userDTO, Long projectId) {
+    public ResponseEntity<?> getResources(Long pmId, Long projectId) {
 
-        Long managerId = userDTO.getId();
-
-        List<ResourcesDTO> dtos = roleOffRepo.findResources(projectId, managerId);
+        List<ResourcesDTO> dtos = roleOffRepo.findResources(projectId, pmId);
 
         List<Long> resourceIds = dtos.stream()
                 .map(ResourcesDTO::getResourceId)
@@ -912,25 +910,76 @@ public class RoleOffServiceImpl implements RoleOffService {
         return ResponseEntity.ok(new ApiResponse<>(true, "Role-off KPI retrived successfully!", roleOffRepo.getProjectKPI(projectId)));
     }
 
+    @Override
+    public ResponseEntity<?> getRMRoleOffEvents(Long rmId) {
+        List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffs(rmId, RoleOffStatus.PENDING);
+        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
+
+            var allocation = r.getAllocation();
+            var demand = allocation != null ? allocation.getDemand() : null;
+            var role = demand != null ? demand.getRole() : null;
+
+            // ✅ Skills List
+            List<String> skills = role != null && role.getSkill() != null
+                    ? List.of(role.getSkill().getName())
+                    : Collections.emptyList();
+
+            // ✅ SubSkills List
+            List<String> subSkills = role != null && role.getSubSkill() != null
+                    ? List.of(role.getSubSkill().getName())
+                    : Collections.emptyList();
+
+            return new ResourcesDTO(
+                    r.getResource().getResourceId(),
+                    r.getResource().getFullName(),
+                    r.getResource().getDesignation(),
+                    r.getProject().getName(),
+                    r.getProject().getClient().getClientName(),
+
+                    demand != null ? demand.getDemandName() : null,
+
+                    // 🔥 FIXED HERE
+                    skills,
+                    subSkills,
+
+                    allocation != null ? allocation.getAllocationId() : null,
+
+                    calculateResourceImpactLevel(
+                            r.getResource().getResourceId(),
+                            r.getProject().getPmsProjectId()
+                    ),
+
+                    allocation != null ? allocation.getAllocationStatus() : null,
+                    r.getRoleOffStatus(),
+                    allocation != null ? allocation.getAllocationPercentage() : null,
+                    r.getProject().getEndDate(),
+                    r.getEffectiveRoleOffDate()
+            );
+
+        }).toList();
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", dtos));
+    }
+
     /**
      * Generate impact preview for role-off confirmation
      */
-    private ResponseEntity<?> generateImpactPreview(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId, 
+    private ResponseEntity<?> generateImpactPreview(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
                                                    Resource resource, Project project, ResourceAllocation allocation) {
-        
+
         // Calculate impact details
         String impactLevel = calculateResourceImpactLevel(resource.getResourceId(), project.getPmsProjectId());
         Map<String, Object> impactDetails = getImpactScoreDetails(resource.getResourceId(), project.getPmsProjectId());
-        
+
         // Get utilization details
         Integer currentUtilization = allocation.getAllocationPercentage();
         Integer utilizationAfterRoleOff = 0;
         Integer futureCapacityAvailable = 100 - currentUtilization;
-        
+
         // Get project details
         String projectCriticality = (String) impactDetails.get("projectPriority");
         Integer resourceGap = (Integer) impactDetails.get("resourceGap");
-        
+
         // Build warning message
         StringBuilder warning = new StringBuilder();
         warning.append("Role-Off Impact Preview\n\n");
@@ -938,12 +987,12 @@ public class RoleOffServiceImpl implements RoleOffService {
         warning.append("Current Utilization: ").append(currentUtilization).append("%\n");
         warning.append("Utilization After Role-Off: ").append(utilizationAfterRoleOff).append("%\n\n");
         warning.append("Future Capacity Available: ").append(futureCapacityAvailable).append("%\n\n");
-        
+
         warning.append("Project Impact:\n");
         warning.append("- Project Criticality: ").append(projectCriticality != null ? projectCriticality : "NORMAL").append("\n");
         warning.append("- Remaining Demand: ").append(resourceGap != null ? resourceGap : 0).append(" open positions\n");
         warning.append("- Resource Gap: ").append(resourceGap != null && resourceGap > 0 ? resourceGap + " position(s)" : "0 position(s)").append("\n\n");
-        
+
         warning.append("Impact: ");
         if (currentUtilization >= 80) {
             warning.append("Large utilization drop\n");
@@ -952,7 +1001,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         } else {
             warning.append("Small utilization drop\n");
         }
-        
+
         warning.append("Recommendation: ");
         if ("HIGH".equals(impactLevel)) {
             warning.append("Urgent: Find replacement assignment\n");
@@ -961,9 +1010,9 @@ public class RoleOffServiceImpl implements RoleOffService {
         } else {
             warning.append("Optional: Monitor project impact\n");
         }
-        
+
         warning.append("\n\nDo you want to proceed?");
-        
+
         // Build response
         Map<String, Object> response = new HashMap<>();
         response.put("requiresConfirmation", true);
@@ -973,16 +1022,16 @@ public class RoleOffServiceImpl implements RoleOffService {
         response.put("resourceId", resource.getResourceId());
         response.put("projectId", project.getPmsProjectId());
         response.put("allocationId", allocation.getAllocationId());
-        
+
         return ResponseEntity.ok(response);
     }
 
     /**
      * Process the actual role-off after confirmation
      */
-    private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId, 
+    private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
                                Resource resource, Project project, ResourceAllocation allocation) {
-        
+
         // Validate RoleOffType
         if (dto.getRoleOffType() == null) {
             throw new ProjectExceptionHandler(
@@ -993,7 +1042,7 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // Get the role from allocation or replacement role
         DeliveryRoleExpectation roleToSet = null;
-        
+
         // First try to get role from the allocation's demand (demand-based allocation)
         if (dto.getAllocationId() != null) {
             ResourceAllocation tempAllocation = allocationRepository.findById(dto.getAllocationId()).orElse(null);
@@ -1001,7 +1050,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                 roleToSet = tempAllocation.getDemand().getRole();
             }
         }
-        
+
         // If auto replacement is required, we must have a role
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
             // If no role from demand, use replacement role (must be provided when auto replacement is true)
