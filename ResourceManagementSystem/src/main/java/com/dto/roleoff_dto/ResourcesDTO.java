@@ -1,12 +1,16 @@
 package com.dto.roleoff_dto;
 
+import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.SubSkill;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.RoleOffStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +30,8 @@ public class ResourcesDTO {
     private UUID allocationId;
     private String impact;
     private AllocationStatus status;
+    private RoleOffStatus roleOffStatus;
     private Integer allocationPercentage;
-    private LocalDate endDate;
+    private LocalDateTime endDate;
+    private LocalDate effectiveDate;
 }

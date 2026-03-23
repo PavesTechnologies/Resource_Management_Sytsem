@@ -8,6 +8,7 @@ import com.security.CurrentUser;
 import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;
 import com.service_interface.roleoff_service_interface.RoleOffService;
 import lombok.RequiredArgsConstructor;
+import org.apache.catalina.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -74,7 +75,7 @@ public class RoleOffController {
     @GetMapping("/get-resources/{projectId}")
     @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
     public ResponseEntity<?> getResources(@CurrentUser UserDTO userDTO, @PathVariable Long projectId) {
-        return roleOffService.getResources(userDTO, projectId);
+        return roleOffService.getResources(userDTO.getId(), projectId);
     }
 
     @GetMapping("/get-role-off-project-kpi/{projectId}")
@@ -122,5 +123,11 @@ public class RoleOffController {
     public ResponseEntity<RoleOffEvent> getRoleOffEventById(@PathVariable UUID id) {
         RoleOffEvent event = roleOffService.getRoleOffEventById(id);
         return ResponseEntity.ok(event);
+    }
+
+    @GetMapping("/get-role-off-rm")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> getRoleOffEventsRM(@CurrentUser UserDTO userDTO) {
+        return roleOffService.getRMRoleOffEvents(userDTO.getId());
     }
 }
