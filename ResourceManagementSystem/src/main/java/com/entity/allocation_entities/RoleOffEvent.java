@@ -69,7 +69,8 @@ public class RoleOffEvent {
     @UpdateTimestamp
     private LocalDate updatedAt;
     private Long createdBy;
-    private String approvedBy;
+    @Column(name = "rm_approved")
+    private Boolean rmApproved;
     // NEW FIELDS
     private Boolean dlApproved;
     private LocalDate dlActionDate;
