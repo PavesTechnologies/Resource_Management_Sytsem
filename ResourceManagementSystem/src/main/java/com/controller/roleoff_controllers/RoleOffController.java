@@ -3,6 +3,7 @@ package com.controller.roleoff_controllers;
 import com.dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.entity.allocation_entities.RoleOffEvent;
+import com.entity_enums.allocation_enums.RoleOffReason;
 import com.entity_enums.allocation_enums.RoleOffStatus;
 import com.security.CurrentUser;
 import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;
@@ -29,8 +30,7 @@ public class RoleOffController {
             @CurrentUser UserDTO userDTO)
     {
 
-        roleOffServiceImpl.roleOff(dto, userDTO.getId());
-        return ResponseEntity.ok("Processed successfully");
+        return roleOffServiceImpl.roleOff(dto, userDTO.getId());
     }
 
     @PostMapping("/{id}/manual-replacement")
@@ -122,5 +122,14 @@ public class RoleOffController {
     public ResponseEntity<RoleOffEvent> getRoleOffEventById(@PathVariable UUID id) {
         RoleOffEvent event = roleOffService.getRoleOffEventById(id);
         return ResponseEntity.ok(event);
+    }
+
+    /**
+     * Get all role-off reason enum values
+     */
+    @GetMapping("/reasons")
+    public ResponseEntity<List<RoleOffReason>> getRoleOffReasons() {
+        List<RoleOffReason> reasons = List.of(RoleOffReason.values());
+        return ResponseEntity.ok(reasons);
     }
 }
