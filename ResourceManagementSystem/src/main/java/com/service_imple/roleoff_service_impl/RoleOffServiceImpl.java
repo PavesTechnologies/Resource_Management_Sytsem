@@ -908,6 +908,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     .department(resource.getDesignation())
                     .projectName(project != null ? project.getName() : null)
                     .clientName(client != null ? client.getClientName() : null)
+                    .deliveryRoleId(demand != null ? demand.getRole().getId() : null)
                     .demandName(demand != null ? demand.getDemandName() : null)
                     .skills(skillMap.getOrDefault(resource.getResourceId(), new ArrayList<>()))
                     .subSkills(subSkillMap.getOrDefault(resource.getResourceId(), new ArrayList<>()))
@@ -953,6 +954,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     r.getResource().getDesignation(),
                     r.getProject().getName(),
                     r.getProject().getClient().getClientName(),
+                    demand != null ? demand.getRole().getId() : null,
 
                     demand != null ? demand.getDemandName() : null,
 
@@ -1213,6 +1215,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     r.getResource().getDesignation(),
                     r.getProject().getName(),
                     r.getProject().getClient().getClientName(),
+                    demand != null ? demand.getRole().getId() : null,
 
                     demand != null ? demand.getDemandName() : null,
 

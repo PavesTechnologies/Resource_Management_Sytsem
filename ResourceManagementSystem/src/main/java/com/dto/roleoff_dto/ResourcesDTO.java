@@ -24,6 +24,7 @@ public class ResourcesDTO {
     private String department;
     private String projectName;
     private String clientName;
+    private UUID deliveryRoleId;
     private String demandName;
     private List<String> skills;
     private List<String> subSkills;
