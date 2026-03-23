@@ -44,26 +44,42 @@ public class RoleOffController {
         return ResponseEntity.ok("Manual replacement created");
     }
 
-    @PostMapping("/{id}/rm-action")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
-    public ResponseEntity<?> rmAction(
-            @PathVariable UUID id,
-            @RequestParam boolean approve,
-            @RequestParam(required = false) String comments,
-            @CurrentUser UserDTO userDTO) {
+    // ========== SEPARATE RESOURCE MANAGER ENDPOINTS ==========
 
-        return roleOffServiceImpl.rmAction(id, approve, comments, userDTO);
+    @PostMapping("/{id}/rm-approve")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> rmApprove(
+            @PathVariable UUID id,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.rmApprove(id, userDTO);
     }
 
-    @PostMapping("/{id}/dl-action")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
-    public ResponseEntity<?> dlAction(
+    @PostMapping("/{id}/rm-reject")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> rmReject(
             @PathVariable UUID id,
-            @RequestParam RoleOffStatus action,
-            @RequestParam(required = false) String comments,
+            @RequestParam String rejectionReason,
             @CurrentUser UserDTO userDTO) {
+        return roleOffService.rmReject(id, rejectionReason, userDTO);
+    }
 
-        return roleOffServiceImpl.dlAction(id, action, comments, userDTO);
+    // ========== SEPARATE DELIVERY MANAGER ENDPOINTS ==========
+
+    @PostMapping("/{id}/dl-fulfill")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<?> dlFulfill(
+            @PathVariable UUID id,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.dlFulfill(id, userDTO);
+    }
+
+    @PostMapping("/{id}/dl-reject")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<?> dlReject(
+            @PathVariable UUID id,
+            @RequestParam String rejectionReason,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.dlReject(id, rejectionReason, userDTO);
     }
 
     @PostMapping("/role-off-rm")

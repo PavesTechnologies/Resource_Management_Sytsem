@@ -247,7 +247,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     public void manualReplacement(UUID roleOffEventId, Long userId) {
 
         RoleOffEvent event = roleOffRepo.findById(roleOffEventId)
-                .orElseThrow(() -> new RuntimeException("RoleOff not found"));
+                .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + roleOffEventId + " not found. The event may have been deleted or the ID is incorrect."));
 
         if (event.getReplacementStatus() == ReplacementStatus.AUTO_CREATED ||
                 event.getReplacementStatus() == ReplacementStatus.MANUAL_CREATED_LATER) {
@@ -263,86 +263,6 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         event.setReplacementStatus(ReplacementStatus.MANUAL_CREATED_LATER);
         roleOffRepo.save(event);
-    }
-
-    @Transactional
-    public ResponseEntity<?> rmAction(UUID id, boolean approve, String comments, UserDTO user) {
-
-        RoleOffEvent event = roleOffRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("RoleOff not found"));
-
-        if (event.getRoleOffStatus() != RoleOffStatus.PENDING) {
-            throw new RuntimeException("Already processed");
-        }
-
-        if (!approve) {
-            event.setRoleOffStatus(RoleOffStatus.REJECTED);
-            event.setRejectedBy("RESOURCE-MANAGER");
-            event.setRejectionReason(comments);
-
-            roleOffRepo.save(event);
-            return ResponseEntity.ok("Rejected by RM");
-        }
-
-        event.setRmApproved(true);
-        event.setRoleOffStatus(RoleOffStatus.APPROVED);
-
-        roleOffRepo.save(event);
-
-        return ResponseEntity.ok("Approved by RM → Waiting for DL");
-    }
-
-    @Transactional
-    public ResponseEntity<?> dlAction(UUID id, RoleOffStatus action, String comments, UserDTO user) {
-
-        RoleOffEvent event = roleOffRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("RoleOff not found"));
-
-        // RM must approve first
-        if (!"RESOURCE-MANAGER".equals(event.getRmApproved())) {
-            throw new RuntimeException("RM approval required first");
-        }
-
-        if (event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
-            throw new RuntimeException("Invalid state");
-        }
-
-        // ❌ REJECT
-        if (action == RoleOffStatus.REJECTED) {
-
-            event.setRoleOffStatus(RoleOffStatus.REJECTED);
-            event.setRejectedBy("DELIVERY-MANAGER");
-            event.setRejectionReason(comments);
-
-            roleOffRepo.save(event);
-
-            return ResponseEntity.ok("Rejected by DL");
-        }
-
-        // ✅ FULFILL
-        if (action == RoleOffStatus.FULFILLED) {
-
-            event.setDlApproved(true);
-            event.setDlActionDate(LocalDate.now());
-
-            // 🔥 IF DATE PASSED → EXECUTE IMMEDIATELY
-            if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
-
-                closeResourceAllocation(event);
-
-                event.setRoleOffStatus(RoleOffStatus.FULFILLED);
-                roleOffRepo.save(event);
-
-                return ResponseEntity.ok("Executed immediately");
-            }
-
-            // Wait for scheduler
-            roleOffRepo.save(event);
-
-            return ResponseEntity.ok("Approved → waiting for scheduler");
-        }
-
-        throw new RuntimeException("Invalid action. Use REJECTED or FULFILLED");
     }
 
     @Override
@@ -1211,5 +1131,107 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // FINAL SAVE
         roleOffRepo.save(event);
+    }
+    
+    // ========== SEPARATE APPROVE/REJECT METHODS FOR RESOURCE MANAGER ==========
+    
+    @Override
+    @Transactional
+    public ResponseEntity<?> rmApprove(UUID id, UserDTO userDTO) {
+        RoleOffEvent event = roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
+
+        if (event.getRoleOffStatus() != RoleOffStatus.PENDING) {
+            throw new RuntimeException("Already processed");
+        }
+
+        event.setRmApproved(true);
+        event.setRoleOffStatus(RoleOffStatus.APPROVED);
+
+        roleOffRepo.save(event);
+
+        return ResponseEntity.ok("Approved by RM → Waiting for DL");
+    }
+    
+    @Override
+    @Transactional
+    public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userDTO) {
+        RoleOffEvent event = roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
+
+        if (event.getRoleOffStatus() != RoleOffStatus.PENDING) {
+            throw new RuntimeException("Already processed");
+        }
+        
+        if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+            throw new RuntimeException("Rejection reason is required");
+        }
+
+        event.setRoleOffStatus(RoleOffStatus.REJECTED);
+        event.setRejectedBy("RESOURCE-MANAGER");
+        event.setRejectionReason(rejectionReason.trim());
+
+        roleOffRepo.save(event);
+        return ResponseEntity.ok("Rejected by RM");
+    }
+    
+    // ========== SEPARATE FULFILL/REJECT METHODS FOR DELIVERY MANAGER ==========
+    
+    @Override
+    @Transactional
+    public ResponseEntity<?> dlFulfill(UUID id, UserDTO userDTO) {
+        RoleOffEvent event = roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
+
+        // RM must approve first
+        if (event.getRmApproved() == null || !event.getRmApproved()) {
+            throw new RuntimeException("RM approval required first");
+        }
+
+        if (event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
+            throw new RuntimeException("Invalid state");
+        }
+
+        event.setDlApproved(true);
+        event.setDlActionDate(LocalDate.now());
+
+        // 🔥 IF DATE PASSED → EXECUTE IMMEDIATELY
+        if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
+            closeResourceAllocation(event);
+            event.setRoleOffStatus(RoleOffStatus.FULFILLED);
+            roleOffRepo.save(event);
+            return ResponseEntity.ok("Executed immediately");
+        }
+
+        // Wait for scheduler
+        roleOffRepo.save(event);
+        return ResponseEntity.ok("Approved → waiting for scheduler");
+    }
+    
+    @Override
+    @Transactional
+    public ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userDTO) {
+        RoleOffEvent event = roleOffRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
+
+        // RM must approve first
+        if (event.getRmApproved() == null || !event.getRmApproved()) {
+            throw new RuntimeException("RM approval required first");
+        }
+
+        if (event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
+            throw new RuntimeException("Invalid state");
+        }
+        
+        if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
+            throw new RuntimeException("Rejection reason is required");
+        }
+
+        event.setRoleOffStatus(RoleOffStatus.REJECTED);
+        event.setRejectedBy("DELIVERY-MANAGER");
+        event.setRejectionReason(rejectionReason.trim());
+
+        roleOffRepo.save(event);
+        return ResponseEntity.ok("Rejected by DL");
     }
 }
