@@ -1210,23 +1210,23 @@ public class RoleOffServiceImpl implements RoleOffService {
         }
 
         if (event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
-            throw new RuntimeException("Invalid state");
+            throw new RuntimeException("Invalid state - role-off must be RM approved first");
         }
 
         event.setDlApproved(true);
         event.setDlActionDate(LocalDate.now());
+        event.setRoleOffStatus(RoleOffStatus.FULFILLED);
 
         // 🔥 IF DATE PASSED → EXECUTE IMMEDIATELY
         if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
             closeResourceAllocation(event);
-            event.setRoleOffStatus(RoleOffStatus.FULFILLED);
             roleOffRepo.save(event);
             return ResponseEntity.ok("Executed immediately");
         }
 
-        // Wait for scheduler
+        // Wait for scheduler to execute on effective date
         roleOffRepo.save(event);
-        return ResponseEntity.ok("Approved → waiting for scheduler");
+        return ResponseEntity.ok("Fulfilled → waiting for execution on effective date");
     }
 
     @Override
