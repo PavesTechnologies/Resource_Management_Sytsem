@@ -865,51 +865,42 @@ public class RoleOffServiceImpl implements RoleOffService {
     @Override
     public ResponseEntity<?> getResources(Long pmId, Long projectId) {
 
-        List<RoleOffEvent> resources = roleOffRepo.findByProject_PmsProjectIdAndProjectProjectManagerId(projectId, pmId);
-        List<ResourcesDTO> dtos = resources.stream().map(r -> {
+        List<ResourcesDTO> dtos = roleOffRepo.findResources(projectId, pmId);
 
-            var allocation = r.getAllocation();
-            var demand = allocation != null ? allocation.getDemand() : null;
-            var role = demand != null ? demand.getRole() : null;
+        List<Long> resourceIds = dtos.stream()
+                .map(ResourcesDTO::getResourceId)
+                .toList();
 
-            // ✅ Skills List
-            List<String> skills = role != null && role.getSkill() != null
-                    ? List.of(role.getSkill().getName())
-                    : Collections.emptyList();
+        // Fetch skills
+        List<Object[]> skillsData = resourceSkillRepository.findSkillsByResourceIds(resourceIds);
 
-            // ✅ SubSkills List
-            List<String> subSkills = role != null && role.getSubSkill() != null
-                    ? List.of(role.getSubSkill().getName())
-                    : Collections.emptyList();
+        Map<Long, List<String>> skillMap = new HashMap<>();
 
-            return new ResourcesDTO(
-                    r.getResource().getResourceId(),
-                    r.getResource().getFullName(),
-                    r.getResource().getDesignation(),
-                    r.getProject().getName(),
-                    r.getProject().getClient().getClientName(),
+        for (Object[] row : skillsData) {
+            Long resourceId = (Long) row[0];
+            String skill = (String) row[1];
 
-                    demand != null ? demand.getDemandName() : null,
+            skillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(skill);
+        }
 
-                    // 🔥 FIXED HERE
-                    skills,
-                    subSkills,
+        // Fetch subskills
+        List<Object[]> subSkillsData = resourceSubSkillRepository.findSubSkillsByResourceIds(resourceIds);
 
-                    allocation != null ? allocation.getAllocationId() : null,
+        Map<Long, List<String>> subSkillMap = new HashMap<>();
 
-                    calculateResourceImpactLevel(
-                            r.getResource().getResourceId(),
-                            r.getProject().getPmsProjectId()
-                    ),
+        for (Object[] row : subSkillsData) {
+            Long resourceId = (Long) row[0];
+            String subSkill = (String) row[1];
 
-                    allocation != null ? allocation.getAllocationStatus() : null,
-                    r.getRoleOffStatus(),
-                    allocation != null ? allocation.getAllocationPercentage() : null,
-                    r.getProject().getEndDate(),
-                    r.getEffectiveRoleOffDate()
-            );
+            subSkillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(subSkill);
+        }
 
-        }).toList();
+        // Map back to DTO
+        for (ResourcesDTO dto : dtos) {
+            dto.setSkills(skillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
+            dto.setSubSkills(subSkillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
+            dto.setImpact(calculateResourceImpactLevel(dto.getResourceId(), projectId));
+        }
 
         return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrived successfully!", dtos));
     }

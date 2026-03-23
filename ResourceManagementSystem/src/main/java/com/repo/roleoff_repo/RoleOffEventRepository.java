@@ -166,6 +166,33 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
 //    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
 
     @Query("""
+    SELECT r.resourceId as resourceId,
+           r.fullName as name,
+           r.designation as department,
+           p.name as projectName,
+           c.clientName as clientName,
+           d.demandName as demandName,
+           null as skills,
+           null as subSkills,
+           ra.allocationId as allocationId,
+           null as impact,
+           ra.allocationStatus as status,
+           null as roleOffStatus,
+           ra.allocationPercentage as allocationPercentage,
+           ra.allocationEndDate as endDate,
+           null as effectiveDate
+    FROM ResourceAllocation ra
+    JOIN ra.resource r
+    LEFT JOIN ra.project p
+    LEFT JOIN p.client c
+    LEFT JOIN ra.demand d
+    WHERE p.pmsProjectId = :projectId
+    AND p.projectManagerId = :managerId
+    AND ra.allocationStatus = 'ACTIVE'
+    """)
+    List<ResourcesDTO> findResources(Long projectId, Long managerId);
+
+    @Query("""
     SELECT new com.dto.roleoff_dto.ProjectRoleOffKPIDTO(
         (SELECT COUNT(ra) FROM ResourceAllocation ra 
          WHERE ra.project.pmsProjectId = :projectId 
@@ -190,13 +217,12 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
 
         @Query("""
             SELECT r FROM RoleOffEvent r
-            WHERE r.project.id IN (
-                SELECT p.id FROM Project p WHERE p.resourceManagerId = :rmId
+            WHERE r.project.pmsProjectId IN (
+                SELECT p.pmsProjectId FROM Project p WHERE p.resourceManagerId = :rmId
             )
             AND r.roleOffStatus = :status
         """)
-        List<RoleOffEvent> findPendingRoleOffs(@Param("rmId") Long rmId,
-                                             @Param("status") RoleOffStatus status);
+        List<RoleOffEvent> findPendingRoleOffs(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
     List<RoleOffEvent> findByProject_PmsProjectIdAndProjectProjectManagerId(Long projectId, Long projectManagerId);
 }
