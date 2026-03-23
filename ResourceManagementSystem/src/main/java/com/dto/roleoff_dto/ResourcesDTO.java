@@ -19,6 +19,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder
 public class ResourcesDTO {
+    private UUID roleOffId;
     private Long resourceId;
     private String name;
     private String department;
