@@ -865,10 +865,10 @@ public class RoleOffServiceImpl implements RoleOffService {
     @Override
     public ResponseEntity<?> getResources(Long pmId, Long projectId) {
 
-        List<ResourcesDTO> dtos = roleOffRepo.findResources(projectId, pmId);
+        List<ResourceAllocation> allocations = roleOffRepo.findResources(projectId, pmId);
 
-        List<Long> resourceIds = dtos.stream()
-                .map(ResourcesDTO::getResourceId)
+        List<Long> resourceIds = allocations.stream()
+                .map(ra -> ra.getResource().getResourceId())
                 .toList();
 
         // Fetch skills
@@ -895,12 +895,31 @@ public class RoleOffServiceImpl implements RoleOffService {
             subSkillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(subSkill);
         }
 
-        // Map back to DTO
-        for (ResourcesDTO dto : dtos) {
-            dto.setSkills(skillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
-            dto.setSubSkills(subSkillMap.getOrDefault(dto.getResourceId(), new ArrayList<>()));
-            dto.setImpact(calculateResourceImpactLevel(dto.getResourceId(), projectId));
-        }
+        // Convert ResourceAllocation to ResourcesDTO
+        List<ResourcesDTO> dtos = allocations.stream().map(ra -> {
+            var demand = ra.getDemand();
+            var project = ra.getProject();
+            var resource = ra.getResource();
+            var client = project != null ? project.getClient() : null;
+
+            return ResourcesDTO.builder()
+                    .resourceId(resource.getResourceId())
+                    .name(resource.getFullName())
+                    .department(resource.getDesignation())
+                    .projectName(project != null ? project.getName() : null)
+                    .clientName(client != null ? client.getClientName() : null)
+                    .deliveryRoleId(demand != null ? demand.getRole().getId() : null)
+                    .demandName(demand != null ? demand.getDemandName() : null)
+                    .skills(skillMap.getOrDefault(resource.getResourceId(), new ArrayList<>()))
+                    .subSkills(subSkillMap.getOrDefault(resource.getResourceId(), new ArrayList<>()))
+                    .allocationId(ra.getAllocationId())
+                    .impact(calculateResourceImpactLevel(resource.getResourceId(), projectId))
+                    .status(ra.getAllocationStatus())
+                    .allocationPercentage(ra.getAllocationPercentage())
+                    .endDate(ra.getAllocationEndDate())
+                    .effectiveDate(null)
+                    .build();
+        }).toList();
 
         return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrived successfully!", dtos));
     }
@@ -935,6 +954,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     r.getResource().getDesignation(),
                     r.getProject().getName(),
                     r.getProject().getClient().getClientName(),
+                    demand != null ? demand.getRole().getId() : null,
 
                     demand != null ? demand.getDemandName() : null,
 
@@ -952,7 +972,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     allocation != null ? allocation.getAllocationStatus() : null,
                     r.getRoleOffStatus(),
                     allocation != null ? allocation.getAllocationPercentage() : null,
-                    r.getProject().getEndDate(),
+                    r.getAllocation().getAllocationEndDate(),
                     r.getEffectiveRoleOffDate()
             );
 
@@ -1168,5 +1188,57 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // FINAL SAVE
         roleOffRepo.save(event);
+    }
+
+    @Override
+    public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
+        List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffsDm(dmId, RoleOffStatus.APPROVED);
+        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
+
+            var allocation = r.getAllocation();
+            var demand = allocation != null ? allocation.getDemand() : null;
+            var role = demand != null ? demand.getRole() : null;
+
+            // ✅ Skills List
+            List<String> skills = role != null && role.getSkill() != null
+                    ? List.of(role.getSkill().getName())
+                    : Collections.emptyList();
+
+            // ✅ SubSkills List
+            List<String> subSkills = role != null && role.getSubSkill() != null
+                    ? List.of(role.getSubSkill().getName())
+                    : Collections.emptyList();
+
+            return new ResourcesDTO(
+                    r.getResource().getResourceId(),
+                    r.getResource().getFullName(),
+                    r.getResource().getDesignation(),
+                    r.getProject().getName(),
+                    r.getProject().getClient().getClientName(),
+                    demand != null ? demand.getRole().getId() : null,
+
+                    demand != null ? demand.getDemandName() : null,
+
+                    // 🔥 FIXED HERE
+                    skills,
+                    subSkills,
+
+                    allocation != null ? allocation.getAllocationId() : null,
+
+                    calculateResourceImpactLevel(
+                            r.getResource().getResourceId(),
+                            r.getProject().getPmsProjectId()
+                    ),
+
+                    allocation != null ? allocation.getAllocationStatus() : null,
+                    r.getRoleOffStatus(),
+                    allocation != null ? allocation.getAllocationPercentage() : null,
+                    r.getAllocation().getAllocationEndDate(),
+                    r.getEffectiveRoleOffDate()
+            );
+
+        }).toList();
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", dtos));
     }
 }
