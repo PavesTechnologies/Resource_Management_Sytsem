@@ -2,6 +2,7 @@ package com.repo.roleoff_repo;
 
 import com.dto.roleoff_dto.ProjectRoleOffKPIDTO;
 import com.dto.roleoff_dto.ResourcesDTO;
+import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.allocation_entities.RoleOffEvent;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.RoleOffReason;
@@ -166,31 +167,16 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
 //    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
 
     @Query("""
-    SELECT r.resourceId as resourceId,
-           r.fullName as name,
-           r.designation as department,
-           p.name as projectName,
-           c.clientName as clientName,
-           d.demandName as demandName,
-           null as skills,
-           null as subSkills,
-           ra.allocationId as allocationId,
-           null as impact,
-           ra.allocationStatus as status,
-           null as roleOffStatus,
-           ra.allocationPercentage as allocationPercentage,
-           ra.allocationEndDate as endDate,
-           null as effectiveDate
-    FROM ResourceAllocation ra
-    JOIN ra.resource r
-    LEFT JOIN ra.project p
-    LEFT JOIN p.client c
-    LEFT JOIN ra.demand d
+    SELECT ra FROM ResourceAllocation ra
+    JOIN FETCH ra.resource r
+    LEFT JOIN FETCH ra.project p
+    LEFT JOIN FETCH p.client c
+    LEFT JOIN FETCH ra.demand d
     WHERE p.pmsProjectId = :projectId
     AND p.projectManagerId = :managerId
     AND ra.allocationStatus = 'ACTIVE'
     """)
-    List<ResourcesDTO> findResources(Long projectId, Long managerId);
+    List<ResourceAllocation> findResources(Long projectId, Long managerId);
 
     @Query("""
     SELECT new com.dto.roleoff_dto.ProjectRoleOffKPIDTO(
@@ -223,6 +209,15 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
             AND r.roleOffStatus = :status
         """)
         List<RoleOffEvent> findPendingRoleOffs(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
+
+    @Query("""
+            SELECT r FROM RoleOffEvent r
+            WHERE r.project.pmsProjectId IN (
+                SELECT p.pmsProjectId FROM Project p WHERE p.deliveryOwnerId = :rmId
+            )
+            AND r.roleOffStatus = :status
+        """)
+    List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
     List<RoleOffEvent> findByProject_PmsProjectIdAndProjectProjectManagerId(Long projectId, Long projectManagerId);
 }

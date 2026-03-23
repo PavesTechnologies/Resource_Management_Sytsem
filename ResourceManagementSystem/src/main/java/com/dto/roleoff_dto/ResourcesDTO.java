@@ -19,11 +19,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @Builder
 public class ResourcesDTO {
+    private UUID roleOffId;
     private Long resourceId;
     private String name;
     private String department;
     private String projectName;
     private String clientName;
+    private UUID deliveryRoleId;
     private String demandName;
     private List<String> skills;
     private List<String> subSkills;
@@ -32,6 +34,6 @@ public class ResourcesDTO {
     private AllocationStatus status;
     private RoleOffStatus roleOffStatus;
     private Integer allocationPercentage;
-    private LocalDateTime endDate;
+    private LocalDate endDate;
     private LocalDate effectiveDate;
 }

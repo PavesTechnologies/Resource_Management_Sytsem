@@ -147,6 +147,12 @@ public class RoleOffController {
         return roleOffService.getRMRoleOffEvents(userDTO.getId());
     }
 
+    @GetMapping("/get-role-off-dm")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<?> getRoleOffEventsDM(@CurrentUser UserDTO userDTO) {
+        return roleOffService.getDMRoleOffEvents(userDTO.getId());
+    }
+
     /**
      * Get all role-off reason enum values
      */
