@@ -30,6 +30,7 @@ public interface RoleOffService {
      * Get role-off event by specific ID
      */
     RoleOffEvent getRoleOffEventById(UUID id);
-    public ResponseEntity<?> getResources(UserDTO userDTO, Long projectId);
+    public ResponseEntity<?> getResources(Long pmId, Long projectId);
     public ResponseEntity<?> getRoleOffKPI(Long projectId);
+    ResponseEntity<?> getRMRoleOffEvents(Long rmId);
 }
