@@ -24,5 +24,5 @@ public class RoleOffRequestDTO {
     private RoleOffType roleOffType;
     private LocalDate effectiveRoleOffDate;
     private String roleOffReason;
-    private Boolean confirmed; // Added for delivery impact confirmation
+    private Boolean confirmed = false; // Added for delivery impact confirmation
 }
