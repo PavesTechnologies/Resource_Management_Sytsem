@@ -32,6 +32,6 @@ public class ResourcesDTO {
     private AllocationStatus status;
     private RoleOffStatus roleOffStatus;
     private Integer allocationPercentage;
-    private LocalDateTime endDate;
+    private LocalDate endDate;
     private LocalDate effectiveDate;
 }

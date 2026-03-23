@@ -33,4 +33,5 @@ public interface RoleOffService {
     public ResponseEntity<?> getResources(Long pmId, Long projectId);
     public ResponseEntity<?> getRoleOffKPI(Long projectId);
     ResponseEntity<?> getRMRoleOffEvents(Long rmId);
+    ResponseEntity<?> getDMRoleOffEvents(Long dmId);
 }
