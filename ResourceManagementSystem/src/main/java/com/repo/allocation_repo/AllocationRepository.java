@@ -154,7 +154,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             AllocationStatus status
     );
 
-    
+
     @Query("""
         SELECT ra FROM ResourceAllocation ra
         WHERE ra.project.pmsProjectId = :projectId
