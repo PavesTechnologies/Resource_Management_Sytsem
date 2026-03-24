@@ -16,4 +16,5 @@ public class AllocationResponseDTO {
     private Integer allocationPercentage;
     private String allocationStatus;
     private String createdBy;
+    private Integer remainingAllocationPercentage;
 }

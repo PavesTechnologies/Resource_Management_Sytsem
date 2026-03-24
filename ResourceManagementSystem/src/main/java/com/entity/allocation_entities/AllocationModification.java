@@ -78,4 +78,7 @@ public class AllocationModification {
 
     @Column(name = "override_at")
     private LocalDateTime overrideAt;
+    
+    @Column(name = "override_end_date")
+    private LocalDate overrideEndDate;
 }

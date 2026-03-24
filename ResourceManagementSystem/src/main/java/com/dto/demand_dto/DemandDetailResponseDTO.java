@@ -50,4 +50,5 @@ public class DemandDetailResponseDTO {
     private boolean slaBreached;
     private long remainingDays;
     private long overdueDays;
+    private LocalDate fulfilledDate;
 }

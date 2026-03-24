@@ -5,7 +5,7 @@ import com.dto.allocation_dto.RoleOffTrendDTO;
 import com.dto.allocation_dto.ProjectRiskAnalysisDTO;
 import com.entity.allocation_entities.RoleOffEvent;
 import com.entity_enums.allocation_enums.RoleOffReason;
-import com.repo.allocation_repo.RoleOffEventRepository;
+import com.repo.roleoff_repo.RoleOffEventRepository;
 import com.service_interface.allocation_service_interface.RoleOffReportingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

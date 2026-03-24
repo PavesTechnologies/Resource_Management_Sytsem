@@ -1,4 +1,4 @@
-package com.repo.allocation_repo;
+package com.repo.roleoff_repo;
 
 import com.entity.allocation_entities.RoleOffEvent;
 import com.entity_enums.allocation_enums.RoleOffReason;
@@ -13,6 +13,7 @@ import java.util.UUID;
 
 import java.util.UUID;
 
+@Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
     boolean existsByProject_PmsProjectIdAndResource_ResourceId(
             Long projectId,
@@ -27,13 +28,13 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         /**
          * Find role-off events within a date range for reporting
          */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffDate BETWEEN :startDate AND :endDate")
+        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
         List<RoleOffEvent> findByRoleOffDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
         /**
          * Find role-off events by reason within date range for trend analysis
          */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = :reason AND roe.roleOffDate BETWEEN :startDate AND :endDate")
+        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = :reason AND roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
         List<RoleOffEvent> findByRoleOffReasonAndDateBetween(
                 @Param("reason") RoleOffReason reason,
                 @Param("startDate") LocalDate startDate,
@@ -49,10 +50,10 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         /**
          * Get role-off trends by month and reason
          */
-        @Query("SELECT FUNCTION('YEAR', roe.roleOffDate), FUNCTION('MONTH', roe.roleOffDate), roe.roleOffReason, COUNT(roe) " +
-                "FROM RoleOffEvent roe WHERE roe.roleOffDate BETWEEN :startDate AND :endDate " +
-                "GROUP BY FUNCTION('YEAR', roe.roleOffDate), FUNCTION('MONTH', roe.roleOffDate), roe.roleOffReason " +
-                "ORDER BY FUNCTION('YEAR', roe.roleOffDate), FUNCTION('MONTH', roe.roleOffDate)")
+        @Query("SELECT FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate), roe.roleOffReason, COUNT(roe) " +
+                "FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
+                "GROUP BY FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate), roe.roleOffReason " +
+                "ORDER BY FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate)")
         List<Object[]> getRoleOffTrendsByMonth(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
         /**
@@ -60,7 +61,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
          */
         @Query("SELECT p.name, roe.roleOffReason, COUNT(roe) " +
                 "FROM RoleOffEvent roe JOIN roe.project p " +
-                "WHERE roe.roleOffDate BETWEEN :startDate AND :endDate " +
+                "WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
                 "GROUP BY p.name, roe.roleOffReason " +
                 "ORDER BY COUNT(roe) DESC")
         List<Object[]> getRoleOffReasonsByProject(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
@@ -70,7 +71,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
          */
         @Query("SELECT c.clientName, roe.roleOffReason, COUNT(roe) " +
                 "FROM RoleOffEvent roe JOIN roe.project p JOIN p.client c " +
-                "WHERE roe.roleOffDate BETWEEN :startDate AND :endDate " +
+                "WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
                 "GROUP BY c.clientName, roe.roleOffReason " +
                 "ORDER BY COUNT(roe) DESC")
         List<Object[]> getRoleOffReasonsByClient(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
@@ -78,7 +79,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         /**
          * Get performance-related role-offs for quality metrics
          */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = 'PERFORMANCE' AND roe.roleOffDate BETWEEN :startDate AND :endDate")
+        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = 'PERFORMANCE' AND roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
         List<RoleOffEvent> getPerformanceRelatedRoleOffs(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
         /**
@@ -112,7 +113,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         /**
          * Count role-off events within a date range for trend analysis
          */
-        @Query("SELECT COUNT(roe) FROM RoleOffEvent roe WHERE roe.roleOffDate BETWEEN :startDate AND :endDate")
+        @Query("SELECT COUNT(roe) FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
         long countRoleOffsByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
         /**

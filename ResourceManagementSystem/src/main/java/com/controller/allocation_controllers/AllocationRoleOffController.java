@@ -2,23 +2,20 @@ package com.controller.allocation_controllers;
 
 import com.dto.UserDTO;
 import com.dto.allocation_dto.RoleOffRequestDTO;
-import com.entity_enums.allocation_enums.RoleOffType;
-import com.entity_enums.allocation_enums.RoleOffReason;
 import com.security.CurrentUser;
-import com.service_imple.allocation_service_imple.RoleOffServiceImpl;
+import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
 // Force IDE refresh by adding this comment
 @RestController
-@RequestMapping("/role-off")
+@RequestMapping("/allocation/role-off")
 @RequiredArgsConstructor
-public class RoleOffController {
+public class AllocationRoleOffController {
     private final RoleOffServiceImpl roleOffService;
 
     @PostMapping

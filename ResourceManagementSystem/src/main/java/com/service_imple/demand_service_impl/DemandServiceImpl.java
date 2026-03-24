@@ -513,24 +513,26 @@ public class DemandServiceImpl implements DemandService {
                             DemandSLA demandSLA = demandSLAOpt.get();
                             LocalDate today = LocalDate.now();
 
-                            demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
-                            demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
-                            demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
-                            demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
-                            demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
-                            demandInfo.setSlaDueAt(demandSLA.getDueAt());
-
-                            if (demandSLA.getDueAt() != null) {
-                                if (today.isAfter(demandSLA.getDueAt())) {
-                                    demandInfo.setSlaBreached(true);
-                                    demandInfo.setOverdueDays(ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
-                                    demandInfo.setRemainingDays(0);
-                                } else {
-                                    demandInfo.setSlaBreached(false);
-                                    demandInfo.setRemainingDays(ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
-                                    demandInfo.setOverdueDays(0);
+                            if (demandSLA.getFulfillDate() == null) {
+                                demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
+                                demandInfo.setSlaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : "UNKNOWN");
+                                demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
+                                demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
+                                demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
+                                demandInfo.setSlaDueAt(demandSLA.getDueAt());
+                                if (demandSLA.getDueAt() != null) {
+                                    if (today.isAfter(demandSLA.getDueAt())) {
+                                        demandInfo.setSlaBreached(true);
+                                        demandInfo.setOverdueDays(ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                                        demandInfo.setRemainingDays(0);
+                                    } else {
+                                        demandInfo.setSlaBreached(false);
+                                        demandInfo.setRemainingDays(ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                                        demandInfo.setOverdueDays(0);
+                                    }
                                 }
                             }
+                            demandInfo.setFulfilledDate(demandSLA.getFulfillDate());
                         }
 
                         return demandInfo;
@@ -745,16 +747,21 @@ public class DemandServiceImpl implements DemandService {
                             demandInfo.setSlaDueAt(demandSLA.getDueAt());
                             
                             // Calculate SLA status
-                            if (demandSLA.getDueAt() != null) {
-                                if (today.isAfter(demandSLA.getDueAt())) {
-                                    demandInfo.setSlaBreached(true);
-                                    demandInfo.setOverdueDays(java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
-                                    demandInfo.setRemainingDays(0);
-                                } else {
-                                    demandInfo.setSlaBreached(false);
-                                    demandInfo.setRemainingDays(java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
-                                    demandInfo.setOverdueDays(0);
+                            if(demandSLA.getActiveFlag()) {
+                                if (demandSLA.getDueAt() != null) {
+                                    if (today.isAfter(demandSLA.getDueAt())) {
+                                        demandInfo.setSlaBreached(true);
+                                        demandInfo.setOverdueDays(java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                                        demandInfo.setRemainingDays(0);
+                                    } else {
+                                        demandInfo.setSlaBreached(false);
+                                        demandInfo.setRemainingDays(java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                                        demandInfo.setOverdueDays(0);
+                                    }
                                 }
+                            } else {
+                                demandInfo.setFulfilledDate(demandSLA.getFulfillDate());
+//                                demandInfo.setActiveFlag(demandSLA.getActiveFlag());
                             }
                         }
 
@@ -1889,7 +1896,7 @@ public class DemandServiceImpl implements DemandService {
                         "DEMAND_NOT_FOUND",
                         "Demand not found"
                 ));
-
+        Optional<DemandSLA> demandSLA = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(dto.getDemandId());
         DemandStatus decision = dto.getDecision();
 
         if (decision == null) {
@@ -1958,7 +1965,10 @@ public class DemandServiceImpl implements DemandService {
 
             demand.setDemandStatus(DemandStatus.FULFILLED);
             demand.setRmRejectionReason(null);
-
+            DemandSLA demandSLAOpt = demandSLA.get();
+            demandSLAOpt.setFulfillDate(LocalDate.now());
+            demandSLAOpt.setActiveFlag(false);
+            DemandSLA savedDemandSLA = demandSLARepository.save(demandSLAOpt);
         }
 
         // -------- REJECTED --------
