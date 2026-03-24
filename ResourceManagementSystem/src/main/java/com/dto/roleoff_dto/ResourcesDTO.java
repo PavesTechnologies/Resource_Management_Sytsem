@@ -36,4 +36,6 @@ public class ResourcesDTO {
     private Integer allocationPercentage;
     private LocalDate endDate;
     private LocalDate effectiveDate;
+    private String rejectedBy;
+    private String rejectionReason;
 }

@@ -58,4 +58,11 @@ public interface RoleOffService {
      */
     ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userDTO);
     ResponseEntity<?> getDMRoleOffEvents(Long dmId);
+    
+    // ========== PROJECT MANAGER METHODS ==========
+    
+    /**
+     * Cancel role-off event by Project Manager
+     */
+    ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO);
 }
