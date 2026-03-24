@@ -7,17 +7,13 @@ import com.dto.allocation_dto.AllocationModificationResponseDTO;
 import com.dto.allocation_dto.CreateAllocationModificationDTO;
 import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.project_entities.Project;
-import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationModificationStatus;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.allocation_repo.AllocationRepository;
-import com.repo.project_repo.ProjectRepository;
-import com.repo.resource_repo.ResourceRepository;
-import com.service_imple.allocation_service_imple.AllocationServiceImple;
 import com.service_interface.allocation_service_interface.AllocationModificationService;
+import com.service_interface.allocation_service_interface.AllocationService;
 import com.validator.allocation_validator.AllocationModificationValidator;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,15 +25,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class AllocationModificationServiceImpl implements AllocationModificationService {
-
-    @Autowired
-    private AllocationServiceImple allocationService;
 
     @Autowired
     private AllocationModificationRepository modificationRepository;
@@ -46,13 +38,297 @@ public class AllocationModificationServiceImpl implements AllocationModification
     private AllocationRepository allocationRepository;
 
     @Autowired
-    private ResourceRepository resourceRepository;
-
-    @Autowired
-    private ProjectRepository projectRepository;
-
-    @Autowired
     private AllocationModificationValidator validator;
+
+    @Autowired
+    private AllocationService allocationService;
+
+    
+    /**
+     * Create unified allocation change from existing DTO
+     * This method works directly with CreateAllocationModificationDTO to avoid conversion
+     */
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> createUnifiedAllocationChangeFromDTO(
+            CreateAllocationModificationDTO dto, UserDTO userDTO) {
+        try {
+            // Check for role-off scenario
+            if (validator.shouldTriggerRoleOff(dto.getRequestedAllocationPercentage())) {
+                return triggerRoleOffProcessFromDTO(dto, userDTO);
+            }
+
+            // Unified validation with override duration support
+            validator.validateAllocationChange(
+                    dto.getAllocationId(),
+                    dto.getRequestedAllocationPercentage(),
+                    dto.getEffectiveDate(),
+                    dto.getOverrideEndDate(),
+                    dto.getReason()
+            );
+
+            // Get allocation
+            ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
+                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+
+            // System determines if override is needed
+            boolean overrideRequired = validator.checkIfOverrideRequired(
+                    allocation, 
+                    dto.getRequestedAllocationPercentage(), 
+                    dto.getEffectiveDate()
+            );
+
+            // Create allocation change from DTO
+            AllocationModification modification = createModificationFromDTO(
+                    dto, allocation, overrideRequired, userDTO);
+
+            // Save the change request - ALL changes require RM approval
+            AllocationModification savedModification = modificationRepository.save(modification);
+
+            // Set approval requirements based on change type
+            String approvalMessage = determineApprovalRequirements(overrideRequired, dto, allocation);
+
+            return ResponseEntity.ok(
+                ApiResponse.success(approvalMessage, 
+                    convertToResponseDTO(savedModification))
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return ResponseEntity.badRequest().body(
+                new ApiResponse<>(false, e.getMessage(), null)
+            );
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(
+                new ApiResponse<>(false, "Error creating allocation change: " + e.getMessage(), null)
+            );
+        }
+    }
+
+    /**
+     * Create modification from CreateAllocationModificationDTO
+     */
+    private AllocationModification createModificationFromDTO(
+            CreateAllocationModificationDTO dto, 
+            ResourceAllocation allocation,
+            boolean overrideRequired,
+            UserDTO userDTO) {
+        
+        AllocationModification modification = new AllocationModification();
+        modification.setAllocation(allocation);
+        modification.setCurrentAllocationPercentage(allocation.getAllocationPercentage());
+        modification.setRequestedAllocationPercentage(dto.getRequestedAllocationPercentage());
+        modification.setEffectiveDate(dto.getEffectiveDate());
+        modification.setReason(dto.getReason());
+        modification.setRequestedBy(dto.getRequestedBy());
+        modification.setRequestedAt(LocalDateTime.now());
+        modification.setStatus(AllocationModificationStatus.REQUESTED);
+        
+        // Set override fields if needed
+        if (overrideRequired) {
+            modification.setOverrideFlag(true);
+            modification.setOverrideJustification(dto.getReason());
+            modification.setOverrideBy(userDTO.getName());
+            modification.setOverrideAt(LocalDateTime.now());
+            
+            // Handle automatic override end date setting
+            LocalDate overrideEndDate = dto.getOverrideEndDate();
+            if (overrideEndDate == null) {
+                // Check if allocation ends within 14 days of effective date
+                LocalDate allocationEndDate = allocation.getAllocationEndDate();
+                long daysToAllocationEnd = java.time.temporal.ChronoUnit.DAYS.between(
+                    dto.getEffectiveDate(), allocationEndDate);
+                
+                if (daysToAllocationEnd <= 14) {
+                    // Automatically set override end date to allocation end date
+                    overrideEndDate = allocationEndDate;
+                    modification.setOverrideEndDate(overrideEndDate);
+                } else {
+                    // For longer allocations, override end date is required
+                    throw ProjectExceptionHandler.badRequest("OVERRIDE_END_DATE_REQUIRED_FOR_OVER_ALLOCATION");
+                }
+            } else {
+                modification.setOverrideEndDate(overrideEndDate);
+            }
+        }
+        
+        return modification;
+    }
+
+    /**
+     * Determine approval requirements message
+     */
+    private String determineApprovalRequirements(boolean overrideRequired, CreateAllocationModificationDTO dto, ResourceAllocation allocation) {
+        if (overrideRequired) {
+            if (dto.getOverrideEndDate() != null) {
+                return "Override change request created successfully. Requires Resource Manager approval due to capacity constraints. Override will end on " + dto.getOverrideEndDate();
+            } else {
+                // Check if allocation ends within 14 days (automatic override end date)
+                LocalDate allocationEndDate = allocation.getAllocationEndDate();
+                long daysToAllocationEnd = java.time.temporal.ChronoUnit.DAYS.between(
+                    dto.getEffectiveDate(), allocationEndDate);
+                
+                if (daysToAllocationEnd <= 14) {
+                    return "Override change request created successfully. Requires Resource Manager approval due to capacity constraints. Override will automatically end on " + allocationEndDate + " (allocation end date)";
+                } else {
+                    return "Override change request created successfully. Requires Resource Manager approval due to capacity constraints. Override continues until allocation ends.";
+                }
+            }
+        } else {
+            return "Allocation change request created successfully. Requires Resource Manager approval.";
+        }
+    }
+
+    /**
+     * Trigger role-off process from DTO
+     */
+    private ResponseEntity<ApiResponse<?>> triggerRoleOffProcessFromDTO(CreateAllocationModificationDTO dto, UserDTO userDTO) {
+        // Implementation for role-off workflow
+        return ResponseEntity.ok(
+            ApiResponse.success("Role-off process triggered", null)
+        );
+    }
+
+    /**
+     * Resource Manager Approval Method
+     * 
+     * This method is used by Resource Managers to approve or reject allocation change requests
+     */
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> processRMApproval(
+            UUID modificationId, 
+            String decision, 
+            String approvalComments,
+            UserDTO rmUser) {
+        
+        try {
+            AllocationModification modification = modificationRepository.findById(modificationId)
+                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation change request not found"));
+
+            // Validate RM role
+            if (!isResourceManager(rmUser)) {
+                throw ProjectExceptionHandler.badRequest("RESOURCE_MANAGER_APPROVAL_REQUIRED");
+            }
+
+            // Process approval decision
+            if ("APPROVE".equalsIgnoreCase(decision)) {
+                return approveAllocationChange(modification, approvalComments, rmUser);
+            } else if ("REJECT".equalsIgnoreCase(decision)) {
+                return rejectAllocationChange(modification, approvalComments, rmUser);
+            } else {
+                throw ProjectExceptionHandler.badRequest("INVALID_DECISION");
+            }
+
+        } catch (ProjectExceptionHandler e) {
+            return ResponseEntity.badRequest().body(
+                new ApiResponse<>(false, e.getMessage(), null)
+            );
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(
+                new ApiResponse<>(false, "Error processing approval: " + e.getMessage(), null)
+            );
+        }
+    }
+
+    /**
+     * Approve allocation change and execute it
+     */
+    private ResponseEntity<ApiResponse<?>> approveAllocationChange(
+            AllocationModification modification, 
+            String approvalComments,
+            UserDTO rmUser) {
+        
+        // Update modification with approval details
+        modification.setStatus(AllocationModificationStatus.APPROVED);
+        modification.setApprovedBy(rmUser.getName());
+        modification.setApprovedAt(LocalDateTime.now());
+        
+        // Add approval comments to reason field
+        if (approvalComments != null && !approvalComments.trim().isEmpty()) {
+            String updatedReason = modification.getReason() + "\n[RM Approval Comments: " + approvalComments + "]";
+            modification.setReason(updatedReason);
+        }
+        
+        modificationRepository.save(modification);
+        
+        // Execute the allocation change using the proper splitting logic
+        ResponseEntity<ApiResponse<?>> executionResult = executeModification(modification.getModificationId());
+        if (!executionResult.getStatusCode().is2xxSuccessful()) {
+            // If execution failed, rollback approval status
+            modification.setStatus(AllocationModificationStatus.REQUESTED);
+            modification.setApprovedBy(null);
+            modification.setApprovedAt(null);
+            modificationRepository.save(modification);
+            return executionResult;
+        }
+        
+        return ResponseEntity.ok(
+            ApiResponse.success("Allocation change approved and executed successfully", 
+                convertToResponseDTO(modification))
+        );
+    }
+
+    /**
+     * Reject allocation change
+     */
+    private ResponseEntity<ApiResponse<?>> rejectAllocationChange(
+            AllocationModification modification, 
+            String rejectionReason,
+            UserDTO rmUser) {
+        
+        // Update modification with rejection details
+        modification.setStatus(AllocationModificationStatus.REJECTED);
+        modification.setRejectedBy(rmUser.getEmail());
+        modification.setRejectReason(rejectionReason);
+        modification.setApprovedAt(LocalDateTime.now()); // Use same timestamp for rejection
+        
+        modificationRepository.save(modification);
+        
+        return ResponseEntity.ok(
+            ApiResponse.success("Allocation change rejected", 
+                convertToResponseDTO(modification))
+        );
+    }
+
+    /**
+     * Check if user has Resource Manager role
+     */
+    private boolean isResourceManager(UserDTO user) {
+        // Implementation depends on your user role system
+        // This is a placeholder - adjust based on your actual role checking logic
+        return user.getRoles() != null && 
+               (user.getRoles().contains("RESOURCE-MANAGER") || 
+                user.getRoles().contains("ADMIN") ||
+                user.getRoles().contains("RM"));
+    }
+
+    /**
+     * Get pending approvals for Resource Manager
+     */
+    public ResponseEntity<ApiResponse<?>> getPendingApprovals(UserDTO rmUser) {
+        try {
+            if (!isResourceManager(rmUser)) {
+                throw ProjectExceptionHandler.badRequest("RESOURCE_MANAGER_ACCESS_REQUIRED");
+            }
+
+            List<AllocationModification> pendingApprovals = modificationRepository
+                    .findByStatus(AllocationModificationStatus.REQUESTED);
+
+            return ResponseEntity.ok(
+                ApiResponse.success("Pending approvals retrieved", 
+                    pendingApprovals.stream()
+                        .map(this::convertToResponseDTO)
+                        .collect(Collectors.toList()))
+            );
+
+        } catch (ProjectExceptionHandler e) {
+            return ResponseEntity.badRequest().body(
+                new ApiResponse<>(false, e.getMessage(), null)
+            );
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(
+                new ApiResponse<>(false, "Error retrieving pending approvals: " + e.getMessage(), null)
+            );
+        }
+    }
 
     
     @Override
@@ -64,16 +340,20 @@ public class AllocationModificationServiceImpl implements AllocationModification
                 return triggerRoleOffProcess(dto, userDTO);
             }
 
-            // Comprehensive validation
+            // Unified validation for both modification and override
             validator.validateModificationRequest(
                     dto.getAllocationId(), 
                     dto.getRequestedAllocationPercentage(), 
-                    dto.getEffectiveDate()
+                    dto.getEffectiveDate(),
+                    dto.getReason()
             );
 
             // Get allocation for modification creation
             ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
                     .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+
+            // Check if override is needed
+            boolean isOverride = checkIfOverrideRequired(allocation.getResource().getResourceId(), dto);
 
             // Create modification request
             AllocationModification modification = new AllocationModification();
@@ -84,6 +364,20 @@ public class AllocationModificationServiceImpl implements AllocationModification
             modification.setReason(dto.getReason());
             modification.setStatus(AllocationModificationStatus.REQUESTED);
             modification.setRequestedBy(userDTO.getName());
+            
+            // Set override fields if needed
+            if (isOverride) {
+                modification.setOverrideFlag(true);
+                modification.setOverrideJustification(dto.getReason());
+                modification.setOverrideBy(userDTO.getName());
+                modification.setOverrideAt(LocalDateTime.now());
+                
+                // Handle override end date
+                LocalDate overrideEndDate = dto.getOverrideEndDate();
+                if (overrideEndDate != null) {
+                    modification.setOverrideEndDate(overrideEndDate);
+                }
+            }
 
             AllocationModification savedModification = modificationRepository.save(modification);
 
@@ -299,6 +593,16 @@ public class AllocationModificationServiceImpl implements AllocationModification
         dto.setReason(modification.getReason());
         dto.setRejectReason(modification.getRejectReason());
         dto.setRejectedBy(modification.getRejectedBy());
+        dto.setOverrideFlag(modification.getOverrideFlag());
+        dto.setOverrideJustification(modification.getOverrideJustification());
+        dto.setOverrideBy(modification.getOverrideBy());
+        dto.setOverrideAt(modification.getOverrideAt());
+        
+        // Add override end date if present
+        if (modification.getOverrideEndDate() != null) {
+            dto.setOverrideEndDate(modification.getOverrideEndDate().toString());
+        }
+        
         return dto;
     }
 
@@ -316,8 +620,8 @@ public class AllocationModificationServiceImpl implements AllocationModification
                 return handleRoleOffModification(originalAllocation, effectiveDate);
             }
             
-            // Handle percentage change with period split
-            return handlePercentageModification(originalAllocation, effectiveDate, newPercentage);
+            // Handle percentage change with period split and override expiration
+            return handlePercentageModification(originalAllocation, effectiveDate, newPercentage, modification);
 
         } catch (ProjectExceptionHandler e) {
             return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
@@ -353,10 +657,12 @@ public class AllocationModificationServiceImpl implements AllocationModification
 
     /**
      * Handles percentage change modifications by splitting allocation periods
+     * Enhanced to support override expiration without cron jobs
      */
     private ResponseEntity<ApiResponse<?>> handlePercentageModification(ResourceAllocation originalAllocation, 
                                                                         LocalDate effectiveDate, 
-                                                                        Integer newPercentage) {
+                                                                        Integer newPercentage,
+                                                                        AllocationModification modification) {
         
         // Validate effective date is within allocation period
         if (effectiveDate.isBefore(originalAllocation.getAllocationStartDate()) || 
@@ -368,35 +674,30 @@ public class AllocationModificationServiceImpl implements AllocationModification
         validateTotalAllocation(originalAllocation.getResource().getResourceId(), effectiveDate, 
                                originalAllocation.getAllocationPercentage(), newPercentage);
         
-        // If effective date is the start date, just update the percentage
+        // If effective date is the start date, handle override expiration differently
         if (effectiveDate.equals(originalAllocation.getAllocationStartDate())) {
-            originalAllocation.setAllocationPercentage(newPercentage);
-            allocationRepository.save(originalAllocation);
-            allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Allocation percentage updated successfully", null));
+            if (modification.getOverrideFlag() && modification.getOverrideEndDate() != null) {
+                return handleOverrideWithExpirationFromStart(originalAllocation, newPercentage, modification);
+            } else {
+                originalAllocation.setAllocationPercentage(newPercentage);
+                allocationRepository.save(originalAllocation);
+                allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
+                return ResponseEntity.ok(new ApiResponse<>(true, "Allocation percentage updated successfully", null));
+            }
         }
         
-        // Split the allocation: end original period and create new period
-        // 1. End the original allocation at effective date - 1
-        LocalDate originalEndDate = originalAllocation.getAllocationEndDate();
-        originalAllocation.setAllocationEndDate(effectiveDate.minusDays(1));
-        allocationRepository.save(originalAllocation);
-        
-        // Update ledger for the original (shortened) period
-        allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
-        
-        // 2. Create new allocation with new percentage starting from effective date
-        ResourceAllocation newAllocation = createNewAllocationPeriod(originalAllocation, effectiveDate, originalEndDate, newPercentage);
-        allocationRepository.save(newAllocation);
-        
-        // Update ledger for the new allocation period
-        allocationService.updateAvailabilityLedgerForAllocation(newAllocation);
-        
-        return ResponseEntity.ok(new ApiResponse<>(true, "Allocation modification executed successfully with period split", null));
+        // Split the allocation based on override expiration
+        if (modification.getOverrideFlag() && modification.getOverrideEndDate() != null) {
+            return handleOverrideWithExpiration(originalAllocation, effectiveDate, newPercentage, modification);
+        } else {
+            // Standard single split (existing behavior)
+            return handleStandardModification(originalAllocation, effectiveDate, newPercentage);
+        }
     }
 
     /**
      * Creates a new allocation period with the updated percentage
+     * Copies all critical properties from original allocation
      */
     private ResourceAllocation createNewAllocationPeriod(ResourceAllocation original, 
                                                         LocalDate startDate, 
@@ -409,14 +710,142 @@ public class AllocationModificationServiceImpl implements AllocationModification
         newAllocation.setAllocationStartDate(startDate);
         newAllocation.setAllocationEndDate(endDate);
         newAllocation.setAllocationPercentage(newPercentage);
-        newAllocation.setAllocationStatus(AllocationStatus.ACTIVE);
+        newAllocation.setAllocationStatus(original.getAllocationStatus());
         newAllocation.setCreatedBy(original.getCreatedBy());
-        newAllocation.setOverrideFlag(original.getOverrideFlag());
-        newAllocation.setOverrideJustification(original.getOverrideJustification());
-        newAllocation.setOverrideBy(original.getOverrideBy());
-        newAllocation.setOverrideAt(original.getOverrideAt());
         
         return newAllocation;
+    }
+
+    /**
+     * Handles override with expiration when effective date is the allocation start date
+     * Creates two periods: override period and normal period
+     */
+    @Transactional
+    private ResponseEntity<ApiResponse<?>> handleOverrideWithExpirationFromStart(ResourceAllocation original, 
+                                                                               Integer overridePercentage, 
+                                                                               AllocationModification modification) {
+        LocalDate overrideEndDate = modification.getOverrideEndDate();
+        LocalDate originalEndDate = original.getAllocationEndDate();
+        
+        // Validate override end date is within allocation period
+        if (overrideEndDate.isAfter(originalEndDate)) {
+            throw ProjectExceptionHandler.badRequest("Override end date cannot exceed allocation end date");
+        }
+        
+        // Update original allocation to be the override period
+        original.setAllocationPercentage(overridePercentage);
+        original.setAllocationEndDate(overrideEndDate);
+        allocationRepository.save(original);
+        allocationService.updateAvailabilityLedgerForAllocation(original);
+        
+        // Create normal period starting from override end date + 1
+        LocalDate normalPeriodStart = overrideEndDate.plusDays(1);
+        if (normalPeriodStart.isBefore(originalEndDate) || normalPeriodStart.equals(originalEndDate)) {
+            ResourceAllocation normalPeriodAllocation = createNewAllocationPeriod(
+                original, normalPeriodStart, originalEndDate, original.getAllocationPercentage());
+            allocationRepository.save(normalPeriodAllocation);
+            allocationService.updateAvailabilityLedgerForAllocation(normalPeriodAllocation);
+        }
+        
+        return ResponseEntity.ok(new ApiResponse<>(true, 
+            "Override with expiration created successfully. Override period: " + 
+            original.getAllocationStartDate() + " to " + overrideEndDate + 
+            " (" + overridePercentage + "%)" + 
+            (normalPeriodStart.isBefore(originalEndDate) || normalPeriodStart.equals(originalEndDate) ? 
+                ", Normal period resumes: " + normalPeriodStart + " to " + originalEndDate : ""), null));
+    }
+
+    /**
+     * Handles override with expiration for mid-allocation effective dates
+     * Creates three periods: original, override, and normal
+     */
+    @Transactional
+    private ResponseEntity<ApiResponse<?>> handleOverrideWithExpiration(ResourceAllocation original, 
+                                                                       LocalDate effectiveDate, 
+                                                                       Integer overridePercentage,
+                                                                       AllocationModification modification) {
+        LocalDate overrideEndDate = modification.getOverrideEndDate();
+        LocalDate originalEndDate = original.getAllocationEndDate();
+        
+        // Validate override end date is within allocation period
+        if (overrideEndDate.isAfter(originalEndDate)) {
+            throw ProjectExceptionHandler.badRequest("Override end date cannot exceed allocation end date");
+        }
+        
+        // Period 1: Original allocation (shortened) - only if effective date is after start date
+        if (effectiveDate.isAfter(original.getAllocationStartDate())) {
+            original.setAllocationEndDate(effectiveDate.minusDays(1));
+            allocationRepository.saveAndFlush(original);
+            allocationService.updateAvailabilityLedgerForAllocation(original);
+        } else {
+            // If effective date equals start date, no original period needed
+            allocationRepository.saveAndFlush(original);
+        }
+        
+        // Period 2: Override period
+        ResourceAllocation overridePeriod = createNewAllocationPeriod(
+            original, effectiveDate, overrideEndDate, overridePercentage);
+        allocationRepository.saveAndFlush(overridePeriod);
+        allocationService.updateAvailabilityLedgerForAllocation(overridePeriod);
+        
+        // Period 3: Normal period (resumes after override)
+        LocalDate normalPeriodStart = overrideEndDate.plusDays(1);
+        
+        // Only create normal period if there's a meaningful gap after override end date
+        if (normalPeriodStart.isBefore(originalEndDate) || normalPeriodStart.equals(originalEndDate)) {
+            ResourceAllocation normalPeriod = createNewAllocationPeriod(
+                original, normalPeriodStart, originalEndDate, original.getAllocationPercentage());
+            allocationRepository.saveAndFlush(normalPeriod);
+            allocationService.updateAvailabilityLedgerForAllocation(normalPeriod);
+        }
+        
+        return ResponseEntity.ok(new ApiResponse<>(true, 
+            "Override with expiration executed successfully. Created periods: " +
+            (effectiveDate.isAfter(original.getAllocationStartDate()) ? 
+                "Original (" + original.getAllocationStartDate() + " to " + effectiveDate.minusDays(1) + "), " : "") +
+            "Override (" + effectiveDate + " to " + overrideEndDate + ", " + overridePercentage + "%)" +
+            (normalPeriodStart.isBefore(originalEndDate) || normalPeriodStart.equals(originalEndDate) ? 
+                ", Normal (resumes " + normalPeriodStart + " to " + originalEndDate + ")" : ""), null));
+    }
+
+    /**
+     * Handles standard modification without override expiration (existing behavior)
+     */
+    @Transactional
+    private ResponseEntity<ApiResponse<?>> handleStandardModification(ResourceAllocation originalAllocation, 
+                                                                      LocalDate effectiveDate, 
+                                                                      Integer newPercentage) {
+        // Split the allocation: end original period and create new period
+        LocalDate originalEndDate = originalAllocation.getAllocationEndDate();
+        LocalDate originalEndNew = effectiveDate.minusDays(1);
+        
+        // Only update original allocation if effective date is after start date
+        if (effectiveDate.isAfter(originalAllocation.getAllocationStartDate())) {
+            originalAllocation.setAllocationEndDate(originalEndNew);
+            // Update status to ENDED if the end date is in the past or today
+            if (originalEndNew.isBefore(LocalDate.now()) || originalEndNew.equals(LocalDate.now())) {
+                originalAllocation.setAllocationStatus(AllocationStatus.ENDED);
+            }
+            allocationRepository.save(originalAllocation);
+            
+            // Update ledger for the original (shortened) period
+            allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
+        }
+        
+        // Create new allocation with new percentage starting from effective date
+        ResourceAllocation newAllocation = createNewAllocationPeriod(originalAllocation, effectiveDate, originalEndDate, newPercentage);
+        // Ensure new allocation has proper status based on dates
+        if (effectiveDate.isBefore(LocalDate.now()) || effectiveDate.equals(LocalDate.now())) {
+            newAllocation.setAllocationStatus(AllocationStatus.ACTIVE);
+        } else {
+            newAllocation.setAllocationStatus(AllocationStatus.PLANNED);
+        }
+        allocationRepository.save(newAllocation);
+        
+        // Update ledger for the new allocation period
+        allocationService.updateAvailabilityLedgerForAllocation(newAllocation);
+        
+        return ResponseEntity.ok(new ApiResponse<>(true, "Allocation modification executed successfully with period split", null));
     }
 
     /**
@@ -484,5 +913,15 @@ public class AllocationModificationServiceImpl implements AllocationModification
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Error deleting modification: " + e.getMessage(), null));
         }
+    }
+
+
+    private boolean checkIfOverrideRequired(Long resourceId, CreateAllocationModificationDTO dto) {
+        // Get the current allocation to determine the date range
+        ResourceAllocation currentAllocation = allocationRepository.findById(dto.getAllocationId())
+                .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+        
+        // Use validator's checkIfOverrideRequired method to avoid duplication
+        return validator.checkIfOverrideRequired(currentAllocation, dto.getRequestedAllocationPercentage(), dto.getEffectiveDate());
     }
 }

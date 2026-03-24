@@ -3,6 +3,7 @@ package com.dto.allocation_dto;
 import com.entity_enums.allocation_enums.AllocationModificationStatus;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -23,4 +24,9 @@ public class AllocationModificationResponseDTO {
     private String reason;
     private String rejectReason;
     private String rejectedBy;
+    private Boolean overrideFlag;
+    private String overrideJustification;
+    private String overrideBy;
+    private LocalDateTime overrideAt;
+    private String overrideEndDate;
 }

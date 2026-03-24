@@ -3,6 +3,7 @@ package com.service_imple.allocation_service_imple;
 import com.dto.allocation_dto.*;
 import com.dto.ApiResponse;
 import com.dto.resource.ResourceNameDTO;
+import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
@@ -13,6 +14,7 @@ import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandSLARepository;
+import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
@@ -46,6 +48,7 @@ import java.util.stream.Collectors;
 public class AllocationServiceImple implements AllocationService {
 
     private final AllocationRepository allocationRepository;
+    private final AllocationModificationRepository allocationModificationRepository;
     private final ResourceRepository resourceRepository;
     private final DemandRepository demandRepository;
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
@@ -255,7 +258,7 @@ public class AllocationServiceImple implements AllocationService {
     @Override
     public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
 
-        List<ResourceAllocation> overrides = allocationRepository.findByOverrideFlagTrue();
+        List<AllocationModification> overrides = allocationModificationRepository.findByOverrideFlagTrue();
 
         return ResponseEntity.ok(
                 ApiResponse.success("Override allocations retrieved", overrides)
@@ -707,9 +710,19 @@ public class AllocationServiceImple implements AllocationService {
         if (allocation.getResource() != null) {
             dto.setFullName(allocation.getResource().getFullName());
             dto.setEmail(allocation.getResource().getEmail());
+            
+            // Calculate remaining allocation percentage for the resource
+            Integer remainingPercentage = calculateRemainingAllocationPercentage(
+                allocation.getResource().getResourceId(), 
+                allocation.getAllocationStartDate(),
+                allocation.getAllocationEndDate(),
+                allocation.getAllocationId()
+            );
+            dto.setRemainingAllocationPercentage(remainingPercentage);
         } else {
             dto.setFullName("Unknown Resource");
             dto.setEmail("unknown@example.com");
+            dto.setRemainingAllocationPercentage(100); // Default to 100% for unknown resources
         }
 
         if (allocation.getDemand() != null) {
@@ -725,5 +738,37 @@ public class AllocationServiceImple implements AllocationService {
         dto.setCreatedBy(allocation.getCreatedBy());
 
         return dto;
+    }
+
+    /**
+     * Calculate remaining allocation percentage for a resource
+     * This calculates total allocations across all projects for the resource
+     * and returns the remaining capacity (130 - totalAllocations)
+     */
+    private Integer calculateRemainingAllocationPercentage(Long resourceId, LocalDate startDate, LocalDate endDate, UUID currentAllocationId) {
+        try {
+            // Expand date range slightly to include adjacent allocations
+            LocalDate expandedStart = startDate.minusDays(1);
+            LocalDate expandedEnd = endDate.plusDays(1);
+            
+            // Get all allocations that overlap with this allocation's expanded date range
+            List<ResourceAllocation> overlappingAllocations = allocationRepository
+                .findConflictingAllocations(resourceId, expandedStart, expandedEnd);
+            
+            // Calculate total allocation percentage (excluding current allocation)
+            int totalAllocation = overlappingAllocations.stream()
+                .filter(allocation -> !allocation.getAllocationId().equals(currentAllocationId))
+                .mapToInt(ResourceAllocation::getAllocationPercentage)
+                .sum();
+            
+            // Calculate remaining percentage based on 130% max capacity
+            int remainingPercentage = 130 - totalAllocation;
+            return Math.max(0, remainingPercentage);
+            
+        } catch (Exception e) {
+            // Log error and return default value
+            System.err.println("Error calculating remaining allocation percentage for resource " + resourceId + ": " + e.getMessage());
+            return 130; // Default to full capacity if calculation fails
+        }
     }
 }

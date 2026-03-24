@@ -105,8 +105,6 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("resourceId") Long resourceId,
             @Param("date") LocalDate date);
 
-    List<ResourceAllocation> findByOverrideFlagTrue();
-
     @Query("SELECT ra FROM ResourceAllocation ra " +
             "WHERE ra.allocationStatus = 'ACTIVE' " +
             "AND ra.allocationEndDate < :today")
