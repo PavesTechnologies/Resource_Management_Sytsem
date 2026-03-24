@@ -154,24 +154,22 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             AllocationStatus status
     );
 
-    @Query("""
-            SELECT COUNT(ra)
-            FROM ResourceAllocation ra
-            WHERE ra.resource.resourceId = :resourceId
-            AND ra.overrideFlag = true
-            AND ra.overrideAt >= :startOfMonth
-            AND ra.overrideAt <= :endOfMonth
-            """)
-    long countMonthlyOverrides(
-            @Param("resourceId") Long resourceId,
-            @Param("startOfMonth") LocalDateTime startOfMonth,
-            @Param("endOfMonth") LocalDateTime endOfMonth
-    );
-
+    
     @Query("""
         SELECT ra FROM ResourceAllocation ra
         WHERE ra.project.pmsProjectId = :projectId
         AND ra.allocationStatus = :status
     """)
     List<ResourceAllocation> findByProjectIdAndStatus(Long projectId, AllocationStatus status);
+
+    /**
+     * Find allocations for resource in specific project with recent end dates
+     * Used for skill update logic to find project-specific skills
+     */
+    List<ResourceAllocation> findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatusAndAllocationEndDateAfter(
+            Long projectId,
+            Long resourceId,
+            AllocationStatus status,
+            LocalDate endDate
+    );
 }

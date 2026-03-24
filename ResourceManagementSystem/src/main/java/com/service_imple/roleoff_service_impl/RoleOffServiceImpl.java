@@ -32,6 +32,7 @@ import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
+import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final DemandRepository demandRepository;
+    private final ResourceSkillUsageService resourceSkillUsageService;
 
     // Standardized role-off reasons with descriptions
     private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
@@ -164,7 +166,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         // 6️⃣ PROCESS ROLE-OFF (confirmed)
         processRoleOff(dto, userId, resource, project, allocation);
 
-        return ResponseEntity.ok("Processed successfully");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Processed successfully", null));
     }
 
     private void closeResourceAllocation(RoleOffEvent event) {
@@ -175,6 +177,19 @@ public class RoleOffServiceImpl implements RoleOffService {
         closeDTO.setClosureDate(event.getEffectiveRoleOffDate());
 
         allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
+        
+        // Update skill lastUsedDate for role-off
+        try {
+            resourceSkillUsageService.updateResourceSkillLastUsedOnRoleOff(
+                event.getResource(),
+                event.getProject(),
+                event.getEffectiveRoleOffDate()
+            );
+        } catch (Exception e) {
+            // Log error but don't fail the role-off process
+            System.err.println("Failed to update skill lastUsedDate for resource " + 
+                event.getResource().getResourceId() + ": " + e.getMessage());
+        }
     }
 
     private void createReplacementDemand(RoleOffEvent event, Long userId) {
@@ -837,7 +852,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                     .status(ra.getAllocationStatus())
                     .allocationPercentage(ra.getAllocationPercentage())
                     .endDate(ra.getAllocationEndDate())
-                    .effectiveDate(null)
+                    .effectiveDate(ra.getRoleOffDate())
                     .build();
         }).toList();
 
