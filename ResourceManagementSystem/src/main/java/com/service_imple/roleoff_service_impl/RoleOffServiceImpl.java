@@ -234,7 +234,16 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         dto.setAllocationPercentage(event.getAllocation().getAllocationPercentage());
 
-        dto.setDemandStatus(DemandStatus.REQUESTED);
+        // 🔥 EMERGENCY AUTO-APPROVAL LOGIC
+        if (event.getRoleOffType() == RoleOffType.EMERGENCY) {
+            dto.setDemandStatus(DemandStatus.APPROVED); // Auto-approve for emergency
+            dto.setDemandJustification("EMERGENCY REPLACEMENT - Auto-approved: " + event.getResource().getFullName() + 
+                                      " due to " + event.getRoleOffReasonEnum());
+        } else {
+            dto.setDemandStatus(DemandStatus.REQUESTED); // Normal approval flow for planned
+            dto.setDemandJustification("Replacement for " + event.getResource().getFullName() + 
+                                      " due to " + event.getRoleOffReasonEnum());
+        }
 
         dto.setDemandPriority(event.getProject().getPriorityLevel());
 
@@ -249,8 +258,6 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // ✅ Add missing required fields
         dto.setDeliveryModel(com.entity_enums.centralised_enums.DeliveryModel.ONSITE); // Default to ONSITE
-        dto.setDemandJustification("Emergency replacement for " + event.getResource().getFullName() + 
-                                  " due to " + event.getRoleOffReasonEnum());
         dto.setRequiresAdditionalApproval(false);
 
         dto.setOutgoingResourceId(event.getResource().getResourceId());
