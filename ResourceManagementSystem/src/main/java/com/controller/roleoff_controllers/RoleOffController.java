@@ -82,6 +82,16 @@ public class RoleOffController {
         return roleOffService.dlReject(id, rejectionReason, userDTO);
     }
 
+    // ========== PROJECT MANAGER ENDPOINTS ==========
+
+    @PostMapping("/{id}/pm-cancel")
+    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    public ResponseEntity<?> pmCancel(
+            @PathVariable UUID id,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.pmCancel(id, userDTO);
+    }
+
     @PostMapping("/role-off-rm")
     @PreAuthorize("hasRole('RESOURCE-MANAGER')")
     public ResponseEntity<?> roleOffByRM(@RequestBody RoleOffRequestDTO roleOff, @CurrentUser UserDTO userDTO) {
