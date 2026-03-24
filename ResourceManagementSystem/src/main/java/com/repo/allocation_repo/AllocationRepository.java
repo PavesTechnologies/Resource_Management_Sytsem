@@ -140,10 +140,38 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("resourceId") Long resourceId,
             @Param("date") LocalDate date);
 
+    List<ResourceAllocation>
+    findAllByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+            Long projectId,
+            Long resourceId,
+            AllocationStatus status
+    );
+
     Optional<ResourceAllocation>
     findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
             Long projectId,
             Long resourceId,
             AllocationStatus status
     );
+
+    @Query("""
+            SELECT COUNT(ra)
+            FROM ResourceAllocation ra
+            WHERE ra.resource.resourceId = :resourceId
+            AND ra.overrideFlag = true
+            AND ra.overrideAt >= :startOfMonth
+            AND ra.overrideAt <= :endOfMonth
+            """)
+    long countMonthlyOverrides(
+            @Param("resourceId") Long resourceId,
+            @Param("startOfMonth") LocalDateTime startOfMonth,
+            @Param("endOfMonth") LocalDateTime endOfMonth
+    );
+
+    @Query("""
+        SELECT ra FROM ResourceAllocation ra
+        WHERE ra.project.pmsProjectId = :projectId
+        AND ra.allocationStatus = :status
+    """)
+    List<ResourceAllocation> findByProjectIdAndStatus(Long projectId, AllocationStatus status);
 }

@@ -8,6 +8,7 @@ import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
+import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
@@ -18,6 +19,7 @@ import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
+import com.service_interface.availability_service_interface.AvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -54,6 +57,7 @@ public class AllocationServiceImple implements AllocationService {
     private final SkillGapAnalysisService skillGapService;
     private final AvailabilityLedgerAsyncService ledgerAsyncService;
     private final DemandSLARepository demandSLARepository;
+    private final AvailabilityCalculationService availabilityCalculationService;
     /**
      * Main allocation method following clean architecture
      * 
@@ -161,6 +165,11 @@ public class AllocationServiceImple implements AllocationService {
                 }
                 allocation.setRoleOffReason(allocationRequest.getRoleOffReason());
                 allocation.setRoleOffDate(allocationRequest.getRoleOffDate());
+                
+                // Add audit context for role-off closure
+                allocation.setClosedBy("USER"); // TODO: Get actual user from security context
+                allocation.setClosedAt(LocalDateTime.now());
+                allocation.setClosureReason("Role-off: " + allocationRequest.getRoleOffReason());
             }
 
             // Validate capacity for update
@@ -199,6 +208,11 @@ public class AllocationServiceImple implements AllocationService {
 
             ResourceAllocation allocation = existingAllocation.get();
             allocation.setAllocationStatus(AllocationStatus.CANCELLED);
+            
+            // Add audit context for cancellation
+            allocation.setClosedBy(cancelledBy != null ? cancelledBy : "USER");
+            allocation.setClosedAt(LocalDateTime.now());
+            allocation.setClosureReason("Allocation cancelled");
             
             ResourceAllocation cancelledAllocation = allocationRepository.save(allocation);
             
@@ -462,7 +476,7 @@ public class AllocationServiceImple implements AllocationService {
         }
     }
 
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<ApiResponse<?>> closeAllocation(UUID allocationId, CloseAllocationDTO request) {
 
         Optional<ResourceAllocation> allocationOpt = allocationRepository.findById(allocationId);
@@ -480,6 +494,11 @@ public class AllocationServiceImple implements AllocationService {
         }
 
         LocalDate closureDate = request.getClosureDate();
+        
+        // Use today's date if closureDate is not provided
+        if (closureDate == null) {
+            closureDate = LocalDate.now();
+        }
 
         if (closureDate.isBefore(allocation.getAllocationStartDate())) {
             return ResponseEntity.badRequest().body(
@@ -489,13 +508,19 @@ public class AllocationServiceImple implements AllocationService {
 
         allocation.setAllocationEndDate(closureDate);
         allocation.setAllocationStatus(AllocationStatus.ENDED);
+        
+        // Persist audit context
+        allocation.setClosedBy("USER"); // TODO: Get actual user from security context
+        allocation.setClosedAt(LocalDateTime.now());
+        allocation.setClosureReason(request.getReason() != null ? request.getReason() : "Manual closure");
 
         ResourceAllocation saved = allocationRepository.save(allocation);
 
-        updateAvailabilityLedgerForAllocation(saved);
+        // Immediate availability recalculation after de-allocation
+        recalculateAvailabilityImmediately(saved);
 
         return ResponseEntity.ok(
-                new ApiResponse<>(true, "Allocation closed successfully", mapToResponseDTO(saved))
+                new ApiResponse<>(true, "Allocation closed successfully with immediate availability update", mapToResponseDTO(saved))
         );
     }
 
@@ -561,6 +586,68 @@ public class AllocationServiceImple implements AllocationService {
         } catch (Exception e) {
             // Error handling without logs
         }
+    }
+
+    /**
+     * Immediate availability recalculation after de-allocation
+     * Ensures resource availability reflects true freed capacity instantly across all RMS views
+     */
+    private void recalculateAvailabilityImmediately(ResourceAllocation allocation) {
+        try {
+            Long resourceId = allocation.getResource().getResourceId();
+            LocalDate allocationEndDate = allocation.getAllocationEndDate();
+            
+            // Get all affected periods (current month and future months for consistency)
+            List<YearMonth> affectedPeriods = getAffectedPeriods(allocationEndDate);
+            
+            // Immediate synchronous recalculation for primary availability
+            for (YearMonth period : affectedPeriods) {
+                availabilityCalculationService.recalculateForResource(resourceId, period);
+            }
+            
+            // Trigger cross-module synchronization for consistency across all RMS modules
+            ledgerAsyncService.synchronizeAvailabilityAcrossModules(resourceId, allocationEndDate);
+            
+            // Trigger async ledger update for background consistency
+            ledgerAsyncService.triggerLedgerUpdateForResource(resourceId);
+            
+        } catch (Exception e) {
+            // Throw exception to trigger transaction rollback
+            throw new ProjectExceptionHandler(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "AVAILABILITY_RECALCULATION_FAILED",
+                    "Failed to recalculate availability after de-allocation: " + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Get all time periods affected by the de-allocation
+     * Includes current month and future months to ensure consistency across all views
+     */
+    private List<YearMonth> getAffectedPeriods(LocalDate allocationEndDate) {
+        List<YearMonth> periods = new ArrayList<>();
+        
+        // Current month
+        YearMonth currentMonth = YearMonth.from(LocalDate.now());
+        periods.add(currentMonth);
+        
+        // Month of allocation end (if different)
+        YearMonth allocationMonth = YearMonth.from(allocationEndDate);
+        if (!allocationMonth.equals(currentMonth)) {
+            periods.add(allocationMonth);
+        }
+        
+        // Next 2 months for consistency (ensures availability is reflected in future views)
+        for (int i = 1; i <= 2; i++) {
+            periods.add(currentMonth.plusMonths(i));
+        }
+        
+        // Remove duplicates and sort
+        return periods.stream()
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     /**

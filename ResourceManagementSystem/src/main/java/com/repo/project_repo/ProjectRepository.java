@@ -1,6 +1,7 @@
 package com.repo.project_repo;
 
 
+import com.entity.allocation_entities.RoleOffEvent;
 import com.entity.project_entities.Project;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;
@@ -19,7 +20,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
+public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
+
+    @Query("SELECT p FROM Project p WHERE p.pmsProjectId = :projectId AND p.projectManagerId = :projectManagerId")
+    Optional<Project> findByProjectIdAndManagerId(Long projectId, Long projectManagerId);
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId")
     Long countTotalProjectsByClientId(@Param("clientId") UUID clientId);

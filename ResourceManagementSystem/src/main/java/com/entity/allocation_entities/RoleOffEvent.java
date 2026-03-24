@@ -33,9 +33,10 @@ public class RoleOffEvent {
     @JoinColumn(name = "resource_id", nullable = false)
     private Resource resource;
 
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "role_id")
-//    private DeliveryRoleExpectation role;
+@ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "role_id", nullable = true)
+    private DeliveryRoleExpectation role;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "allocation_id", nullable = false)
     private ResourceAllocation allocation;
@@ -68,7 +69,11 @@ public class RoleOffEvent {
     @UpdateTimestamp
     private LocalDate updatedAt;
     private Long createdBy;
-    private String approvedBy;
+    @Column(name = "rm_approved")
+    private Boolean rmApproved;
+    // NEW FIELDS
+    private Boolean dlApproved;
+    private LocalDate dlActionDate;
     private String rejectedBy;
     private String rejectionReason;
     private String roleInitiatedBy;
