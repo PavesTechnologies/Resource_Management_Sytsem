@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,4 +49,17 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
     AND rs.activeFlag = true
 """)
     List<Object[]> findSkillsByResourceIds(List<Long> resourceIds);
+
+    /**
+     * Batch update lastUsedDate for resource skills by skill IDs
+     * Used during role-off to update lastUsedDate for project-specific skills
+     */
+    @Query("UPDATE ResourceSkill rs SET rs.lastUsedDate = :effectiveDate " +
+           "WHERE rs.resourceId = :resourceId " +
+           "AND rs.skill.id IN :skillIds " +
+           "AND rs.activeFlag = true")
+    int updateLastUsedDateByResourceIdAndSkillIds(
+            @Param("resourceId") Long resourceId, 
+            @Param("skillIds") List<UUID> skillIds, 
+            @Param("effectiveDate") LocalDate effectiveDate);
 }
