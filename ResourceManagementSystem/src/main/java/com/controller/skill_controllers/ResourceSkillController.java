@@ -1,6 +1,6 @@
 package com.controller.skill_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
 import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
 import com.dto.skill_dto.ResourceSkillRequestDTO;
@@ -13,7 +13,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/resource-skills")

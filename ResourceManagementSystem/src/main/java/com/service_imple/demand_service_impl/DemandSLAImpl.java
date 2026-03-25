@@ -1,6 +1,6 @@
 package com.service_imple.demand_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.demand_dto.DemandSlaResponseDTO;
 import com.entity.demand_entities.DemandSLA;
 import com.repo.demand_repo.DemandSLARepository;

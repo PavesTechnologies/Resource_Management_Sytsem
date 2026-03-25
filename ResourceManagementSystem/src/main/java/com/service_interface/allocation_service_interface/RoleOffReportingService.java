@@ -3,7 +3,7 @@ package com.service_interface.allocation_service_interface;
 import com.dto.allocation_dto.RoleOffReasonStatsDTO;
 import com.dto.allocation_dto.RoleOffTrendDTO;
 import com.dto.allocation_dto.ProjectRiskAnalysisDTO;
-import com.entity_enums.allocation_enums.RoleOffReason;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 
 import java.time.LocalDate;
 import java.util.List;

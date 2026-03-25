@@ -1,8 +1,8 @@
 package com.service_interface.availability_service_interface;
 
-import com.dto.ResourceTimelineDTO;
-import com.dto.ResourceTimelineResponseDTO;
-import com.dto.ResourceTimelineApiResponse;
+import com.dto.availability_dto.ResourceTimelineDTO;
+import com.dto.availability_dto.ResourceTimelineResponseDTO;
+import com.dto.availability_dto.ResourceTimelineApiResponse;
 
 import java.time.LocalDate;
 import java.util.List;

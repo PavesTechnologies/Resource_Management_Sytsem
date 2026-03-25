@@ -1,13 +1,12 @@
 package com.controller.skill_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
-import com.dto.skill_dto.RoleExpectationRequest;
 import com.dto.skill_dto.RoleExpectationWithMandatoryResponse;
 import com.dto.skill_dto.RoleListResponse;
-import com.exception.skill_exceptions.DuplicateRoleExpectationException;
-import com.exception.skill_exceptions.SkillValidationException;
+import com.global_exception_handler.DuplicateRoleExpectationException;
+import com.global_exception_handler.SkillValidationException;
 import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

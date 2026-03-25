@@ -1,6 +1,6 @@
 package com.service_imple.company_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.company_entities.Company;
 import com.entity.company_entities.CompanyEscalationContact;
 import com.global_exception_handler.CompanyExceptionHandler;

@@ -1,11 +1,10 @@
 package com.controller.roleoff_controllers;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
-import com.entity.allocation_entities.RoleOffEvent;
-import com.entity_enums.allocation_enums.RoleOffReason;
-import com.entity_enums.allocation_enums.RoleOffStatus;
+import com.entity.roleoff_entities.RoleOffEvent;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import com.security.CurrentUser;
 import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;
 import com.service_interface.roleoff_service_interface.RoleOffService;

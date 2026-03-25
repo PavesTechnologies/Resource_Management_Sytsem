@@ -1,9 +1,9 @@
 package com.service_interface.roleoff_service_interface;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
-import com.entity.allocation_entities.RoleOffEvent;
+import com.entity.roleoff_entities.RoleOffEvent;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -66,29 +66,29 @@ public interface RoleOffService {
      * Cancel role-off event by Project Manager
      */
     ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO);
-    
+
     // ========== BULK ROLE-OFF METHODS FOR PLANNED ROLE TYPE ==========
-    
+
     /**
      * Bulk role-off for planned role type (e.g., project end scenarios)
      */
     ResponseEntity<?> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO);
-    
+
     /**
      * Bulk approve role-off events by Resource Manager
      */
     ResponseEntity<?> bulkRmApprove(List<UUID> ids, UserDTO userDTO);
-    
+
     /**
      * Bulk reject role-off events by Resource Manager with reason
      */
     ResponseEntity<?> bulkRmReject(List<UUID> ids, String rejectionReason, UserDTO userDTO);
-    
+
     /**
      * Bulk fulfill role-off events by Delivery Manager
      */
     ResponseEntity<?> bulkDlFulfill(List<UUID> ids, UserDTO userDTO);
-    
+
     /**
      * Bulk reject role-off events by Delivery Manager with reason
      */

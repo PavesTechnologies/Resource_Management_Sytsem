@@ -1,8 +1,7 @@
 package com.controller.allocation_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.allocation_dto.SkillGapAnalysisRequestDTO;
-import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.service_interface.allocation_service_interface.AllocationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

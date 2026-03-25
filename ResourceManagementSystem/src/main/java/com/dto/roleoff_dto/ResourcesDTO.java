@@ -1,16 +1,13 @@
 package com.dto.roleoff_dto;
 
-import com.entity.skill_entities.Skill;
-import com.entity.skill_entities.SubSkill;
 import com.entity_enums.allocation_enums.AllocationStatus;
-import com.entity_enums.allocation_enums.RoleOffStatus;
+import com.entity_enums.roleoff_enums.RoleOffStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 

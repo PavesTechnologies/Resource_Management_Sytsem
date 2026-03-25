@@ -1,6 +1,6 @@
 package com.service_interface.company_service_interface;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.company_entities.CompanyEscalationContact;
 import org.springframework.http.ResponseEntity;
 

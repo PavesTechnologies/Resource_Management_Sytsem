@@ -1,14 +1,13 @@
 package com.service_imple.allocation_service_imple;
 
 import com.dto.allocation_dto.*;
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.resource.ResourceNameDTO;
 import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.availability_entities.ResourceAvailabilityLedger;
+import com.entity.resource_entities.ResourceAvailabilityLedger;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
-import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;

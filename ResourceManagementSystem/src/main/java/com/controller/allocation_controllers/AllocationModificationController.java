@@ -1,12 +1,12 @@
 package com.controller.allocation_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.AllocationModificationResponseDTO;
 import com.dto.allocation_dto.CreateAllocationModificationDTO;
 import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.AllocationModificationService;
-import com.service_imple.allocation_service_impl.AllocationModificationServiceImpl;
+import com.service_imple.allocation_service_imple.AllocationModificationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

@@ -1,9 +1,8 @@
 package com.service_imple.allocation_service_imple;
 
 import com.dto.allocation_dto.CloseAllocationDTO;
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.availability_entities.ResourceAvailabilityLedger;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.repo.allocation_repo.AllocationRepository;

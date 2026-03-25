@@ -1,6 +1,6 @@
 package com.service_imple.skill_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.skill_entities.ProficiencyLevel;
 import com.global_exception_handler.ProficiencyExceptionHandler;
 import com.repo.skill_repo.ProficiencyRepo;
@@ -8,7 +8,6 @@ import com.service_interface.skill_service_interface.ProficiencyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
