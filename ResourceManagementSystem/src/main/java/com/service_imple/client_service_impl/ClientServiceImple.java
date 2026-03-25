@@ -1,6 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.client_dto.ClientProjectStatisticsDTO;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;

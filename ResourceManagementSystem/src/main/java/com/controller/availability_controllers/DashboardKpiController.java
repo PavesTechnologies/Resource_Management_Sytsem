@@ -1,7 +1,7 @@
 package com.controller.availability_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.DashboardKpiDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.availability_dto.DashboardKpiDTO;
 import com.service_interface.availability_service_interface.DashboardKpiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;

@@ -1,8 +1,8 @@
 package com.controller.allocation_controllers;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
-import com.dto.ApiResponse;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.CloseAllocationDTO;
 import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.AllocationService;

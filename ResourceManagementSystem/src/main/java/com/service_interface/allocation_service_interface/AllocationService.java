@@ -1,7 +1,7 @@
 package com.service_interface.allocation_service_interface;
 
 import com.dto.allocation_dto.*;
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.allocation_entities.ResourceAllocation;
 import org.springframework.http.ResponseEntity;
 

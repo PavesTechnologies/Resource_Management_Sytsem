@@ -1,8 +1,6 @@
 package com.repo.skill_repo;
 
 import com.entity.skill_entities.ResourceCertificate;
-import com.dto.CertificationInfoDTO;
-import com.entity.skill_entities.ResourceSkill;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

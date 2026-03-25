@@ -1,8 +1,8 @@
 package com.controller.skill_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.SkillSearchResultDto;
-import com.dto.skill_taxonomy.SkillTaxonomyTreeDto;
+import com.dto.skill_dto.SkillTaxonomyTreeDto;
 import com.entity.skill_entities.SkillCategory;
 import com.service_interface.skill_service_interface.SkillCategoryService;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/skill-categories")

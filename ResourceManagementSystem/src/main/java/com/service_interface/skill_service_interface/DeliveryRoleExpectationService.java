@@ -1,6 +1,6 @@
 package com.service_interface.skill_service_interface;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
 import com.dto.skill_dto.RoleExpectationRequest;

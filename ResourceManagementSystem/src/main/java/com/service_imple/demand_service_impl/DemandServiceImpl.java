@@ -1,7 +1,7 @@
 package com.service_imple.demand_service_impl;
 
-import com.dto.ApiResponse;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.demand_entities.Demand;
@@ -40,13 +40,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
-import static com.entity_enums.demand_enums.DemandCommitment.SOFT;
 
 
 @Service

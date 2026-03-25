@@ -1,10 +1,6 @@
 package com.dto.roleoff_dto;
 
-import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.project_entities.Project;
-import com.entity.resource_entities.Resource;
-import com.entity_enums.allocation_enums.RoleOffStatus;
-import com.entity_enums.allocation_enums.RoleOffType;
+import com.entity_enums.roleoff_enums.RoleOffType;
 import lombok.*;
 
 import java.time.LocalDate;

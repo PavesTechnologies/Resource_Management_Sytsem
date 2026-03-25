@@ -1,6 +1,6 @@
 package com.service_imple.project_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.project_dto.ProjectEscalationActualResponseDTO;
 import com.dto.project_dto.ProjectEscalationResponseDTO;
 import com.entity.client_entities.ClientEscalationContact;
@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor

@@ -1,0 +1,54 @@
+package com.entity.bench;
+
+import com.entity_enums.bench.BenchReason;
+import com.entity_enums.bench.StateType;
+import com.entity_enums.bench.SubState;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "resource_state")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ResourceState {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private Long resourceId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StateType stateType;
+
+    @Enumerated(EnumType.STRING)
+    private SubState subState;
+
+    private LocalDate benchStartDate;
+
+    @Enumerated(EnumType.STRING)
+    private BenchReason benchReason;
+
+    private Long allocationId;
+
+    @Column(nullable = false)
+    private LocalDate effectiveFrom;
+
+    private LocalDate effectiveTo;
+
+    @Builder.Default
+    private Boolean currentFlag = true;
+
+    private String createdBy;
+
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
+}

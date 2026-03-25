@@ -1,6 +1,6 @@
 package com.controller.allocation_controllers;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.security.CurrentUser;
 import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;

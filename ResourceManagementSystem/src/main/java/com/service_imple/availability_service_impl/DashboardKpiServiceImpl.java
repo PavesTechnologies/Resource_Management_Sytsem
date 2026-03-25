@@ -1,8 +1,8 @@
 package com.service_imple.availability_service_impl;
 
-import com.dto.DashboardKpiDTO;
+import com.dto.availability_dto.DashboardKpiDTO;
 import com.service_interface.availability_service_interface.DashboardKpiProjection;
-import com.repo.kpi_repo.DashboardKpiRepository;
+import com.repo.resource_repo.DashboardKpiRepository;
 import com.service_interface.availability_service_interface.DashboardKpiService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

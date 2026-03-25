@@ -1,6 +1,6 @@
 package com.dto.allocation_dto;
 
-import com.entity_enums.centralised_enums.ClientTier;
+import com.entity_enums.client_enums.ClientTier;
 import com.entity_enums.demand_enums.DemandCommitment;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

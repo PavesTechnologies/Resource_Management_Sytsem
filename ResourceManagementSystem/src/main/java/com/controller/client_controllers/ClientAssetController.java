@@ -1,7 +1,7 @@
 package com.controller.client_controllers;
 
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.client_dto.SerialNumberDto;
 import com.entity.client_entities.ClientAsset;
 import com.service_imple.client_service_impl.ClientAssetServiceImpl;
