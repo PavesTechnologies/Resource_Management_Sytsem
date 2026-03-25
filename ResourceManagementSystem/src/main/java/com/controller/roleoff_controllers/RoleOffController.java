@@ -2,6 +2,7 @@ package com.controller.roleoff_controllers;
 
 import com.dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
+import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
 import com.entity.allocation_entities.RoleOffEvent;
 import com.entity_enums.allocation_enums.RoleOffReason;
 import com.entity_enums.allocation_enums.RoleOffStatus;
@@ -170,5 +171,49 @@ public class RoleOffController {
     public ResponseEntity<List<RoleOffReason>> getRoleOffReasons() {
         List<RoleOffReason> reasons = List.of(RoleOffReason.values());
         return ResponseEntity.ok(reasons);
+    }
+
+    // ========== BULK ROLE-OFF ENDPOINTS FOR PLANNED ROLE TYPE ==========
+
+    @PostMapping("/bulk-planned")
+    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
+    public ResponseEntity<?> bulkPlannedRoleOff(
+            @RequestBody BulkRoleOffRequestDTO bulkRequest,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.bulkPlannedRoleOff(bulkRequest, userDTO);
+    }
+
+    @PostMapping("/bulk-rm-approve")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> bulkRmApprove(
+            @RequestBody List<UUID> ids,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.bulkRmApprove(ids, userDTO);
+    }
+
+    @PostMapping("/bulk-rm-reject")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> bulkRmReject(
+            @RequestBody List<UUID> ids,
+            @RequestParam String rejectionReason,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.bulkRmReject(ids, rejectionReason, userDTO);
+    }
+
+    @PostMapping("/bulk-dl-fulfill")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<?> bulkDlFulfill(
+            @RequestBody List<UUID> ids,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.bulkDlFulfill(ids, userDTO);
+    }
+
+    @PostMapping("/bulk-dl-reject")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<?> bulkDlReject(
+            @RequestBody List<UUID> ids,
+            @RequestParam String rejectionReason,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.bulkDlReject(ids, rejectionReason, userDTO);
     }
 }
