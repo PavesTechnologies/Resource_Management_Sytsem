@@ -1,9 +1,8 @@
 package com.service_imple.resource_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.resource.ResourceFiltersDTO;
 import com.dto.resource.ResourceNameDTO;
-import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.resource_enums.EmploymentStatus;
@@ -21,10 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.Year;
-import java.time.YearMonth;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service

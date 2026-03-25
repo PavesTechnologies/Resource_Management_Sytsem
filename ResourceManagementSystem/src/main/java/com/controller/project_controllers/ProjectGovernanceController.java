@@ -1,10 +1,9 @@
 package com.controller.project_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.ProjectKpiDTO;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.project_dto.ProjectKpiDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.project_dto.*;
-import com.entity.project_entities.Project;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;

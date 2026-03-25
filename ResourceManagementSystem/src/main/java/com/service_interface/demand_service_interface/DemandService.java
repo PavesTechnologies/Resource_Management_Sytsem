@@ -1,9 +1,8 @@
 package com.service_interface.demand_service_interface;
 
-import com.dto.ApiResponse;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
-import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import org.springframework.http.ResponseEntity;
 

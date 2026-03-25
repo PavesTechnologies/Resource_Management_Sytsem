@@ -1,8 +1,7 @@
 package com.dto.roleoff_dto;
 
-import com.entity_enums.allocation_enums.RoleOffReason;
-import com.entity_enums.allocation_enums.RoleOffStatus;
-import com.entity_enums.demand_enums.ReplacementStatus;
+import com.entity.roleoff_entities.RoleOffEvent;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -80,7 +79,7 @@ public class RoleOffReportDTO {
     }
     
     // Helper method to create event DTO from entity (essential fields only)
-    public static RoleOffReportDTO fromEntity(com.entity.allocation_entities.RoleOffEvent event) {
+    public static RoleOffReportDTO fromEntity(RoleOffEvent event) {
         if (event == null) return null;
         
         return RoleOffReportDTO.builder()

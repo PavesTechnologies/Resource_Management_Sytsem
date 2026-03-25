@@ -1,6 +1,6 @@
 package com.service_interface.project_service_interface;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.project_dto.ProjectSLAResponseDTO;
 import com.entity.project_entities.ProjectSLA;
 import com.entity_enums.client_enums.SLAType;

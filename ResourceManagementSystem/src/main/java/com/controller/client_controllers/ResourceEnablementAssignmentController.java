@@ -1,7 +1,7 @@
 package com.controller.client_controllers;
 
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.ResourceEnablementAssignment;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import com.service_interface.client_service_interface.ResourceEnablementAssignmentService;

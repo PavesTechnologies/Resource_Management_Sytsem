@@ -1,6 +1,6 @@
 package com.controller.skill_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.SubSkillCreateDTO;
 import com.entity.skill_entities.SubSkill;
 import com.service_interface.skill_service_interface.SubSkillService;

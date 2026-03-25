@@ -1,6 +1,6 @@
 package com.service_imple.project_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.project_dto.ProjectSLAResponseDTO;
 import com.entity.client_entities.ClientSLA;
 import com.entity.project_entities.Project;

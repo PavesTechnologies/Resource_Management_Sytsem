@@ -1,14 +1,14 @@
 package com.service_imple.skill_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.*;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.ProficiencyLevel;
 import com.entity.skill_entities.Role;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
-import com.exception.skill_exceptions.DuplicateRoleExpectationException;
-import com.exception.skill_exceptions.SkillValidationException;
+import com.global_exception_handler.DuplicateRoleExpectationException;
+import com.global_exception_handler.SkillValidationException;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.repo.skill_repo.ProficiencyLevelRepository;
 import com.repo.skill_repo.RoleRepository;
@@ -16,7 +16,6 @@ import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
 import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;

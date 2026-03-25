@@ -1,6 +1,6 @@
 package com.security;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import org.springframework.core.MethodParameter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;

@@ -2,7 +2,7 @@ package com.controller.allocation_controllers;
 
 import com.dto.allocation_dto.AllocationConflictDTO;
 import com.dto.allocation_dto.ConflictResolutionDTO;
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.service_interface.allocation_service_interface.AllocationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

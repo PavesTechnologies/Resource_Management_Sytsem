@@ -1,7 +1,6 @@
 package com.global_exception_handler;
 
-import com.dto.ApiResponse;
-import org.springframework.dao.DataIntegrityViolationException;
+import com.dto.centralised_dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,8 +14,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import com.exception.skill_exceptions.SkillValidationException;
-import com.exception.skill_exceptions.DuplicateRoleExpectationException;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

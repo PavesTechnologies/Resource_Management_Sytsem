@@ -1,6 +1,7 @@
 package com.dto.roleoff_dto;
 
-import com.entity_enums.allocation_enums.RoleOffReason;
+
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

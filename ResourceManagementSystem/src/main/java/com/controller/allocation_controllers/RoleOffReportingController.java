@@ -1,13 +1,12 @@
 package com.controller.allocation_controllers;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffReportDTO;
 import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.RoleOffReportingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -39,7 +38,7 @@ public class RoleOffReportingController {
     public ResponseEntity<RoleOffReportDTO> getMultiDimensionalReport(
             @RequestBody RoleOffReportDTO filter,
             @CurrentUser UserDTO userDTO) {
-        
+
         RoleOffReportDTO report = reportingService.getMultiDimensionalReport(filter);
         return ResponseEntity.ok(report);
     }
@@ -48,12 +47,12 @@ public class RoleOffReportingController {
     @GetMapping("/all")
     public ResponseEntity<Map<String, Object>> getAllRoleOffs(@CurrentUser UserDTO userDTO) {
         Map<String, Object> allData = new HashMap<>();
-        
+
         // Get all role-offs without filtering
         List<RoleOffReportDTO> allEvents = reportingService.getAllRoleOffEvents();
         allData.put("totalRoleOffs", (long) allEvents.size());
         allData.put("allEvents", allEvents);
-        
+
         // Reason breakdown for all data
         Map<String, Long> reasonCounts = allEvents.stream()
             .filter(event -> event.getRoleOffReason() != null)
@@ -62,7 +61,7 @@ public class RoleOffReportingController {
                 java.util.stream.Collectors.counting()
             ));
         allData.put("reasonBreakdown", reasonCounts);
-        
+
         return ResponseEntity.ok(allData);
     }
 
@@ -70,7 +69,7 @@ public class RoleOffReportingController {
     public ResponseEntity<List<RoleOffReportDTO>> getRoleOffEventsByFilter(
             @RequestBody RoleOffReportDTO filter,
             @CurrentUser UserDTO userDTO) {
-        
+
         List<RoleOffReportDTO> events = reportingService.getRoleOffEventsByFilter(filter);
         return ResponseEntity.ok(events);
     }
@@ -79,7 +78,7 @@ public class RoleOffReportingController {
     public ResponseEntity<Long> getRoleOffCountByFilter(
             @RequestBody RoleOffReportDTO filter,
             @CurrentUser UserDTO userDTO) {
-        
+
         Long count = reportingService.getRoleOffCountByFilter(filter);
         return ResponseEntity.ok(count);
     }
@@ -89,7 +88,7 @@ public class RoleOffReportingController {
     public ResponseEntity<byte[]> exportToCsv(
             @RequestBody RoleOffReportDTO filter,
             @CurrentUser UserDTO userDTO) {
-        
+
         return reportingService.exportToCsv(filter);
     }
 }

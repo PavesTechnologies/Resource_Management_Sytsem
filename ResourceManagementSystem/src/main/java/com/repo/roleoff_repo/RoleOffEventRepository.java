@@ -1,12 +1,10 @@
 package com.repo.roleoff_repo;
 
 import com.dto.roleoff_dto.ProjectRoleOffKPIDTO;
-import com.dto.roleoff_dto.ResourcesDTO;
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.allocation_entities.RoleOffEvent;
-import com.entity.resource_entities.Resource;
-import com.entity_enums.allocation_enums.RoleOffReason;
-import com.entity_enums.allocation_enums.RoleOffStatus;
+import com.entity.roleoff_entities.RoleOffEvent;
+import com.entity_enums.roleoff_enums.RoleOffReason;
+import com.entity_enums.roleoff_enums.RoleOffStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,8 +12,6 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
-
 import java.util.UUID;
 
 @Repository
@@ -198,15 +194,15 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     SELECT new com.dto.roleoff_dto.ProjectRoleOffKPIDTO(
         (SELECT COUNT(ra) FROM ResourceAllocation ra 
          WHERE ra.project.pmsProjectId = :projectId 
-         AND ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE),
+         AND ra.allocationStatus = 'ACTIVE'),
 
         (SELECT COUNT(roe) FROM RoleOffEvent roe 
          WHERE roe.project.pmsProjectId = :projectId 
-         AND roe.roleOffStatus <> com.entity_enums.allocation_enums.RoleOffStatus.FULFILLED),
+         AND roe.roleOffStatus <> 'FULFILLED'),
 
         (SELECT COUNT(roe) FROM RoleOffEvent roe 
          WHERE roe.project.pmsProjectId = :projectId 
-         AND roe.roleOffStatus = com.entity_enums.allocation_enums.RoleOffStatus.FULFILLED)
+         AND roe.roleOffStatus = 'FULFILLED')
     )
 """)
     ProjectRoleOffKPIDTO getProjectKPI(Long projectId);

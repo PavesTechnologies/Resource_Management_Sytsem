@@ -3,10 +3,10 @@ package com.service_imple.allocation_service_imple;
 import com.dto.allocation_dto.RoleOffReasonStatsDTO;
 import com.dto.allocation_dto.RoleOffTrendDTO;
 import com.dto.allocation_dto.ProjectRiskAnalysisDTO;
+import com.entity.roleoff_entities.RoleOffEvent;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import com.dto.roleoff_dto.RoleOffReportDTO;
 import com.dto.roleoff_dto.RoleOffExportDTO;
-import com.entity.allocation_entities.RoleOffEvent;
-import com.entity_enums.allocation_enums.RoleOffReason;
 import com.repo.roleoff_repo.RoleOffEventRepository;
 import com.service_interface.allocation_service_interface.RoleOffReportingService;
 import lombok.RequiredArgsConstructor;
@@ -271,10 +271,10 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
             System.out.println("  projectIds: " + filter.getProjectIds());
             System.out.println("  reasons: " + filter.getReasons());
             System.out.println("  clientIds: " + filter.getClientIds());
-            
+
             List<RoleOffReason> reasonEnums = filter.getReasonsAsEnum();
             System.out.println("  converted reasonEnums: " + reasonEnums);
-            
+
             List<RoleOffEvent> events = roleOffRepo.findFilteredRoleOffs(
                 filter.getStartDate(),
                 filter.getEndDate(),
@@ -282,14 +282,14 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 reasonEnums,
                 filter.getClientIds()
             );
-            
+
             System.out.println("  repository returned " + (events != null ? events.size() : "null") + " events");
-            
+
             List<RoleOffReportDTO> dtos = events.stream()
                 .map(RoleOffReportDTO::fromEntity)
                 .collect(Collectors.toList());
             System.out.println("  converted to " + dtos.size() + " DTOs");
-            
+
             return dtos;
         } catch (Exception e) {
             System.err.println("ERROR in getRoleOffEventsByFilter: " + e.getMessage());
@@ -319,15 +319,15 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
     public RoleOffReportDTO getMultiDimensionalReport(RoleOffReportDTO filter) {
         try {
             System.out.println("DEBUG: Starting getMultiDimensionalReport with filter: " + filter);
-            
+
             // Get filtered events
             System.out.println("DEBUG: Calling getRoleOffEventsByFilter");
             List<RoleOffReportDTO> events = getRoleOffEventsByFilter(filter);
             System.out.println("DEBUG: Got events count: " + (events != null ? events.size() : "null"));
-            
+
             Long totalCount = getRoleOffCountByFilter(filter);
             System.out.println("DEBUG: Total count: " + totalCount);
-            
+
             // Reason breakdown
             Map<String, Long> reasonCounts = new HashMap<>();
             if (events != null) {
@@ -338,12 +338,12 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                         Collectors.counting()
                     ));
             }
-            
+
             // NEW: Risk Analysis
             List<RoleOffReportDTO.RiskAlert> riskAlerts = analyzeRiskPatterns(events);
             Map<String, Object> riskMetrics = calculateRiskMetrics(events);
             Boolean hasHighRiskPatterns = hasHighRiskPatterns(events);
-            
+
             // Return report with risk analysis
             return RoleOffReportDTO.builder()
                 .totalRoleOffs(totalCount)
@@ -353,11 +353,11 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 .riskMetrics(riskMetrics)
                 .hasHighRiskPatterns(hasHighRiskPatterns)
                 .build();
-            
+
         } catch (Exception e) {
             System.err.println("ERROR in getMultiDimensionalReport: " + e.getMessage());
             e.printStackTrace();
-            
+
             // Return error DTO with essential fields only
             return RoleOffReportDTO.builder()
                 .totalRoleOffs(0L)
@@ -387,11 +387,11 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
     @Override
     public List<RoleOffReportDTO.RiskAlert> analyzeRiskPatterns(List<RoleOffReportDTO> events) {
         List<RoleOffReportDTO.RiskAlert> alerts = new ArrayList<>();
-        
+
         if (events == null || events.isEmpty()) {
             return alerts;
         }
-        
+
         // 1. High Frequency Project Risk
         Map<Long, Long> projectCounts = events.stream()
             .filter(e -> e.getProjectId() != null)
@@ -399,7 +399,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 RoleOffReportDTO::getProjectId,
                 Collectors.counting()
             ));
-        
+
         projectCounts.entrySet().stream()
             .filter(entry -> entry.getValue() >= 3) // 3+ role-offs in same project
             .forEach(entry -> {
@@ -408,7 +408,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                     .map(RoleOffReportDTO::getProjectName)
                     .distinct()
                     .collect(Collectors.toList());
-                
+
                 alerts.add(RoleOffReportDTO.RiskAlert.builder()
                     .type("HIGH_FREQUENCY_PROJECT")
                     .severity("HIGH")
@@ -418,19 +418,19 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                     .recommendation("Review project health, resource allocation, and client satisfaction")
                     .build());
             });
-        
+
         // 2. Performance Issue Risk
         long performanceCount = events.stream()
             .filter(e -> e.getRoleOffReason() == RoleOffReason.PERFORMANCE)
             .count();
-        
+
         if (performanceCount >= 2) {
             List<String> affectedResources = events.stream()
                 .filter(e -> e.getRoleOffReason() == RoleOffReason.PERFORMANCE)
                 .map(RoleOffReportDTO::getResourceName)
                 .distinct()
                 .collect(Collectors.toList());
-            
+
             alerts.add(RoleOffReportDTO.RiskAlert.builder()
                 .type("PERFORMANCE_ISSUES")
                 .severity("HIGH")
@@ -440,19 +440,19 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 .recommendation("Review performance management processes and provide additional training/support")
                 .build());
         }
-        
+
         // 3. Client Request Risk (Budget/Contract Issues)
         long clientRequestCount = events.stream()
             .filter(e -> e.getRoleOffReason() == RoleOffReason.CLIENT_REQUEST)
             .count();
-        
+
         if (clientRequestCount >= 2) {
             List<String> affectedProjects = events.stream()
                 .filter(e -> e.getRoleOffReason() == RoleOffReason.CLIENT_REQUEST)
                 .map(RoleOffReportDTO::getProjectName)
                 .distinct()
                 .collect(Collectors.toList());
-            
+
             alerts.add(RoleOffReportDTO.RiskAlert.builder()
                 .type("CLIENT_CONCERNS")
                 .severity("MEDIUM")
@@ -462,7 +462,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 .recommendation("Engage with clients to understand concerns and improve service delivery")
                 .build());
         }
-        
+
         // 4. Concentrated Time Period Risk
         Map<YearMonth, Long> monthlyCounts = events.stream()
             .filter(e -> e.getEffectiveRoleOffDate() != null)
@@ -470,7 +470,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 e -> YearMonth.from(e.getEffectiveRoleOffDate()),
                 Collectors.counting()
             ));
-        
+
         monthlyCounts.entrySet().stream()
             .filter(entry -> entry.getValue() >= 5) // 5+ role-offs in same month
             .forEach(entry -> {
@@ -482,21 +482,21 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                     .recommendation("Investigate organizational changes, policy updates, or external factors")
                     .build());
             });
-        
+
         return alerts;
     }
 
     @Override
     public Map<String, Object> calculateRiskMetrics(List<RoleOffReportDTO> events) {
         Map<String, Object> metrics = new HashMap<>();
-        
+
         if (events == null || events.isEmpty()) {
             return metrics;
         }
-        
+
         // Risk Score Calculation
         double riskScore = 0.0;
-        
+
         // High frequency projects (30 points each)
         long highFreqProjects = events.stream()
             .collect(Collectors.groupingBy(RoleOffReportDTO::getProjectId, Collectors.counting()))
@@ -504,19 +504,19 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
             .filter(count -> count >= 3)
             .count();
         riskScore += highFreqProjects * 30;
-        
+
         // Performance issues (25 points each)
         long performanceIssues = events.stream()
             .filter(e -> e.getRoleOffReason() == RoleOffReason.PERFORMANCE)
             .count();
         riskScore += performanceIssues * 25;
-        
+
         // Client requests (15 points each)
         long clientRequests = events.stream()
             .filter(e -> e.getRoleOffReason() == RoleOffReason.CLIENT_REQUEST)
             .count();
         riskScore += clientRequests * 15;
-        
+
         // Concentrated periods (20 points each)
         long concentratedPeriods = events.stream()
             .filter(e -> e.getEffectiveRoleOffDate() != null)
@@ -525,13 +525,13 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
             .filter(count -> count >= 5)
             .count();
         riskScore += concentratedPeriods * 20;
-        
+
         // Risk Level Classification
         String riskLevel = "LOW";
         if (riskScore >= 80) riskLevel = "CRITICAL";
         else if (riskScore >= 60) riskLevel = "HIGH";
         else if (riskScore >= 30) riskLevel = "MEDIUM";
-        
+
         metrics.put("riskScore", Math.round(riskScore));
         metrics.put("riskLevel", riskLevel);
         metrics.put("highFrequencyProjects", highFreqProjects);
@@ -539,7 +539,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
         metrics.put("clientRequests", clientRequests);
         metrics.put("concentratedPeriods", concentratedPeriods);
         metrics.put("totalEvents", events.size());
-        
+
         return metrics;
     }
 
@@ -548,7 +548,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
         if (events == null || events.isEmpty()) {
             return false;
         }
-        
+
         // Check for any high-risk patterns
         return events.stream()
             .collect(Collectors.groupingBy(RoleOffReportDTO::getProjectId, Collectors.counting()))
@@ -564,7 +564,7 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
         try {
             // Get filtered events using existing logic
             List<RoleOffReportDTO> events = getRoleOffEventsByFilter(filter);
-            
+
             // Convert to export format
             return events.stream()
                 .map(RoleOffExportDTO::fromReportDTO)
@@ -579,15 +579,15 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
     public ResponseEntity<byte[]> exportToCsv(RoleOffReportDTO filter) {
         try {
             List<RoleOffExportDTO> exportData = exportRoleOffData(filter);
-            
+
             // Generate CSV content
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             PrintWriter writer = new PrintWriter(outputStream, true, StandardCharsets.UTF_8);
-            
+
             // Write headers
             String[] headers = RoleOffExportDTO.getCsvHeaders();
             writer.println(String.join(",", headers));
-            
+
             // Write data rows
             for (RoleOffExportDTO row : exportData) {
                 String[] rowData = row.getCsvRow();
@@ -599,23 +599,23 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
                 }
                 writer.println(String.join(",", rowData));
             }
-            
+
             writer.flush();
             writer.close();
-            
+
             // Create filename with timestamp
             String filename = "role-off-report-" + LocalDate.now().toString() + ".csv";
-            
+
             // Create response with proper headers
             HttpHeaders responseHeaders = new HttpHeaders();
             responseHeaders.setContentType(MediaType.parseMediaType("text/csv"));
             responseHeaders.setContentDispositionFormData("attachment", filename);
             responseHeaders.setContentLength(outputStream.size());
-            
+
             return ResponseEntity.ok()
                 .headers(responseHeaders)
                 .body(outputStream.toByteArray());
-                
+
         } catch (Exception e) {
             System.err.println("Error generating CSV export: " + e.getMessage());
             return ResponseEntity.internalServerError().build();

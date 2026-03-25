@@ -1,6 +1,6 @@
 package com.repo.availability_repo;
 
-import com.entity.availability_entities.ResourceAvailabilityLedger;
+import com.entity.resource_entities.ResourceAvailabilityLedger;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

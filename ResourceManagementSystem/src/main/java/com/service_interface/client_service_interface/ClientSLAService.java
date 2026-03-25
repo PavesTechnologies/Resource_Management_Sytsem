@@ -1,6 +1,6 @@
 package com.service_interface.client_service_interface;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
 import org.springframework.http.ResponseEntity;
 

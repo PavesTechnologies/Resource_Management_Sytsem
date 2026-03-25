@@ -3,7 +3,7 @@ package com.entity.allocation_entities;
 import com.entity.demand_entities.Demand;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
-import com.entity_enums.allocation_enums.RoleOffReason;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

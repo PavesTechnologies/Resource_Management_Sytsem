@@ -245,18 +245,18 @@ public class AllocationValidationService {
                 // Conditional advanced validations based on allocation status and skipValidation flag
                 boolean override = false;
                 
-                // Skip advanced validations if skipValidation is true
+                // Perform Capacity and Timeline validation in all cases (regardless of skipValidation)
+                if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
+                    override = validateCapacity(resourceId, request, preloadedData);
+                }
+
+                // Skip only skill compliance validation if skipValidation is true
                 if (!Boolean.TRUE.equals(request.getSkipValidation()) && 
                     (request.getAllocationStatus() == AllocationStatus.ACTIVE || 
                      request.getAllocationStatus() == AllocationStatus.PLANNED)) {
                     
                     // Validate skill compliance (applies to both ACTIVE and PLANNED)
                     validateSkillCompliance(resourceId, finalDemand, request);
-                    
-                    // Validate capacity (only for ACTIVE allocations)
-                    if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
-                        override = validateCapacity(resourceId, request, preloadedData);
-                    }
                 }
                 
                 // Create allocation object if all validations pass

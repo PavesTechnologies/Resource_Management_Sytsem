@@ -1,6 +1,6 @@
 package com.controller.management;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.service_interface.allocation_service_interface.AllocationService;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;

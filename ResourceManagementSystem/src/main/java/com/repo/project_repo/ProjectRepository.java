@@ -1,7 +1,6 @@
 package com.repo.project_repo;
 
 
-import com.entity.allocation_entities.RoleOffEvent;
 import com.entity.project_entities.Project;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;

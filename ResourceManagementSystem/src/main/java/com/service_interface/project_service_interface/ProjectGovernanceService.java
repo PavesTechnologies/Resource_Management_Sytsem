@@ -1,8 +1,7 @@
 package com.service_interface.project_service_interface;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.project_dto.*;
-import com.entity.project_entities.Project;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RiskLevel;
 import com.entity_enums.project_enums.ProjectStatus;

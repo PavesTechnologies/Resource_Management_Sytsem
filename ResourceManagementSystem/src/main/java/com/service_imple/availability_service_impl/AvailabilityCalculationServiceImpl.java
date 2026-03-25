@@ -3,7 +3,7 @@ package com.service_imple.availability_service_impl;
 import com.dto.availability_dto.MonthCalculationContext;
 import com.dto.external_dto.HolidayDto;
 import com.dto.external_dto.LeaveApiResponse;
-import com.entity.availability_entities.ResourceAvailabilityLedger;
+import com.entity.resource_entities.ResourceAvailabilityLedger;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;

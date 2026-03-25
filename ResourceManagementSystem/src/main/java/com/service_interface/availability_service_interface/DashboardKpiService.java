@@ -1,6 +1,6 @@
 package com.service_interface.availability_service_interface;
 
-import com.dto.DashboardKpiDTO;
+import com.dto.availability_dto.DashboardKpiDTO;
 import java.time.LocalDate;
 
 public interface DashboardKpiService {

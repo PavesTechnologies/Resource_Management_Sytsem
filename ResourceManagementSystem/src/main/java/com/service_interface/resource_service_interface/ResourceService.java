@@ -1,6 +1,6 @@
 package com.service_interface.resource_service_interface;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.resource_entities.Resource;
 import org.springframework.http.ResponseEntity;
 
