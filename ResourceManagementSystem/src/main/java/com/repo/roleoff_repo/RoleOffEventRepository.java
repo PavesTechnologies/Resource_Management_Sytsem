@@ -238,4 +238,23 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
     List<RoleOffEvent> findByProject_PmsProjectIdAndProjectProjectManagerId(Long projectId, Long projectManagerId);
+
+    /**
+     * Find role-off events with comprehensive filtering (4 filters only)
+     */
+    @Query("""
+        SELECT r FROM RoleOffEvent r
+        JOIN r.project p
+        WHERE r.effectiveRoleOffDate BETWEEN :startDate AND :endDate
+        AND (:projectIds IS NULL OR r.project.pmsProjectId IN :projectIds)
+        AND (:reasons IS NULL OR r.roleOffReasonEnum IN :reasons)
+        AND (:clientIds IS NULL OR p.clientId IN :clientIds)
+        """)
+    List<RoleOffEvent> findFilteredRoleOffs(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("projectIds") List<Long> projectIds,
+            @Param("reasons") List<RoleOffReason> reasons,
+            @Param("clientIds") List<UUID> clientIds
+    );
 }
