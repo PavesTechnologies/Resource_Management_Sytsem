@@ -1,8 +1,8 @@
 package com.service_interface.roleoff_service_interface;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
-import com.entity.allocation_entities.RoleOffEvent;
+import com.entity.roleoff_entities.RoleOffEvent;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;

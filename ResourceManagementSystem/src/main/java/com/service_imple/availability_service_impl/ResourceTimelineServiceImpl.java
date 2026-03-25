@@ -1,18 +1,18 @@
 package com.service_imple.availability_service_impl;
 
-import com.dto.ResourceTimelineDTO;
-import com.dto.ResourceTimelineResponseDTO;
-import com.dto.ResourceTimelineApiResponse;
-import com.dto.SkillInfoDTO;
-import com.dto.CertificationInfoDTO;
+import com.dto.availability_dto.ResourceTimelineDTO;
+import com.dto.availability_dto.ResourceTimelineResponseDTO;
+import com.dto.availability_dto.ResourceTimelineApiResponse;
+import com.dto.skill_dto.SkillInfoDTO;
+import com.dto.skill_dto.CertificationInfoDTO;
 import com.dto.allocation_dto.AllocationTimelineItem;
 import com.dto.allocation_dto.NoticeInfoDTO;
-import com.service_imple.availability_service_impl.projection.ResourceTimelineProjection;
-import com.service_imple.availability_service_impl.projection.TimelineKpiProjection;
-import com.service_imple.availability_service_impl.projection.AllocationTimelineProjection;
-import com.service_imple.availability_service_impl.projection.CurrentProjectProjection;
-import com.service_imple.availability_service_impl.projection.CurrentAllocationProjection;
-import com.repo.timeline_repo.ResourceTimelineRepository;
+import com.service_interface.availability_service_interface.ResourceTimelineProjection;
+import com.service_interface.availability_service_interface.TimelineKpiProjection;
+import com.service_interface.availability_service_interface.AllocationTimelineProjection;
+import com.service_interface.availability_service_interface.CurrentProjectProjection;
+import com.service_interface.availability_service_interface.CurrentAllocationProjection;
+import com.repo.availability_repo.ResourceTimelineRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.repo.skill_repo.ResourceCertificateRepository;
@@ -23,12 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import com.entity_enums.resource_enums.EmploymentStatus;
 
 @Service
 @RequiredArgsConstructor

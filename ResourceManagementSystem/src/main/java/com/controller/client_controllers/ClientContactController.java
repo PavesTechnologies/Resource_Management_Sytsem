@@ -1,6 +1,6 @@
 package com.controller.client_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.ClientEscalationContact;
 import com.service_interface.client_service_interface.ClientContactService;
 import jakarta.validation.Valid;

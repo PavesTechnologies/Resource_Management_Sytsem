@@ -1,7 +1,7 @@
 package com.service_interface.skill_service_interface;
 
 import com.dto.skill_dto.SkillSearchResultDto;
-import com.dto.skill_taxonomy.SkillTaxonomyTreeDto;
+import com.dto.skill_dto.SkillTaxonomyTreeDto;
 import com.entity.skill_entities.SkillCategory;
 
 import java.util.List;

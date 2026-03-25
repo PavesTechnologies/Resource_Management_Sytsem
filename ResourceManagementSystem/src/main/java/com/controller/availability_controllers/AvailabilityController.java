@@ -1,9 +1,9 @@
 package com.controller.availability_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.ResourceTimelineDTO;
-import com.dto.ResourceTimelineResponseDTO;
-import com.dto.ResourceTimelineApiResponse;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.availability_dto.ResourceTimelineDTO;
+import com.dto.availability_dto.ResourceTimelineResponseDTO;
+import com.dto.availability_dto.ResourceTimelineApiResponse;
 import com.service_interface.availability_service_interface.AvailabilityTriggerService;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
 import lombok.RequiredArgsConstructor;

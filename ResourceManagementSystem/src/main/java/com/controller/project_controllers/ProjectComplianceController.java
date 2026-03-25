@@ -1,6 +1,6 @@
 package com.controller.project_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.project_dto.ProjectComplianceResponseDTO;
 import com.entity.project_entities.ProjectCompliance;
 import com.entity_enums.client_enums.RequirementType;

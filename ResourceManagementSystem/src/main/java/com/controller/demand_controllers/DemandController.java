@@ -1,7 +1,7 @@
 package com.controller.demand_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
 import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;

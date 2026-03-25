@@ -1,6 +1,6 @@
 package com.controller.allocation_controllers;
 
-import com.dto.UserDTO;
+import com.dto.centralised_dto.UserDTO;
 import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.RoleOffReportingService;
 import lombok.RequiredArgsConstructor;

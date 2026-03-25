@@ -1,6 +1,6 @@
 package com.controller.company_controllers;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.company_entities.CompanyEscalationContact;
 import com.service_interface.company_service_interface.CompanyContactService;
 import jakarta.validation.Valid;

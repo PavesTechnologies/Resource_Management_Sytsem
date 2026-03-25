@@ -1,18 +1,15 @@
 package com.controller.project_controllers;
 
-import com.dto.ApiResponse;
-import com.dto.project_dto.ProjectEscalationDTO;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.project_dto.ProjectEscalationResponseDTO;
 import com.entity.project_entities.ProjectEscalation;
 import com.service_interface.project_service_interface.ProjectEscalationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController

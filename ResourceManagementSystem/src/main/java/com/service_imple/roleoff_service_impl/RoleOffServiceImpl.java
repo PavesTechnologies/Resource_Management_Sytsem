@@ -1,25 +1,24 @@
 package com.service_imple.roleoff_service_impl;
 
-import com.dto.ApiResponse;
-import com.dto.UserDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.CloseAllocationDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.ResourcesDTO;
 import com.dto.demand_dto.CreateDemandDTO;
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.allocation_entities.RoleOffEvent;
+import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity_enums.allocation_enums.AllocationStatus;
-import com.entity_enums.allocation_enums.RoleOffStatus;
-import com.entity_enums.allocation_enums.RoleOffType;
+import com.entity_enums.roleoff_enums.RoleOffStatus;
+import com.entity_enums.roleoff_enums.RoleOffType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.ReplacementStatus;
-import com.global_exception_handler.AllocationExceptionHandler;
-import com.entity_enums.allocation_enums.RoleOffReason;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.roleoff_repo.RoleOffEventRepository;
@@ -47,12 +46,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import java.time.LocalDate;
-import java.time.chrono.ChronoLocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor

@@ -1,9 +1,9 @@
 package com.service_imple.allocation_service_imple;
 
 import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.allocation_entities.RoleOffEvent;
+import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity_enums.allocation_enums.AllocationStatus;
-import com.entity_enums.allocation_enums.RoleOffStatus;
+import com.entity_enums.roleoff_enums.RoleOffStatus;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.roleoff_repo.RoleOffEventRepository;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;

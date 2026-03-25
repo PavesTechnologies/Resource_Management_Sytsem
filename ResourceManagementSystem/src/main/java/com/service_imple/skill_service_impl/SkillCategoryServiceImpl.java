@@ -2,7 +2,7 @@ package com.service_imple.skill_service_impl;
 
 import com.dto.skill_dto.SkillSearchProjection;
 import com.dto.skill_dto.SkillSearchResultDto;
-import com.dto.skill_taxonomy.SkillTaxonomyTreeDto;
+import com.dto.skill_dto.SkillTaxonomyTreeDto;
 import com.entity.skill_entities.SkillCategory;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;

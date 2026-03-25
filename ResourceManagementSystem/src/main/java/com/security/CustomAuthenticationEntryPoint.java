@@ -1,7 +1,7 @@
 package com.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

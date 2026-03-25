@@ -1,6 +1,6 @@
 package com.service_imple.client_service_impl;
 
-import com.dto.ApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
 import com.entity.project_entities.ProjectSLA;
 import com.global_exception_handler.ClientExceptionHandler;
@@ -9,7 +9,6 @@ import com.repo.project_repo.ProjectSLARepo;
 import com.service_interface.client_service_interface.ClientSLAService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 

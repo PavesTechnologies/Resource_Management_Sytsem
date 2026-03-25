@@ -1,7 +1,7 @@
 package com.service_interface.availability_service_interface;
 
 import com.dto.availability_dto.MonthCalculationContext;
-import com.entity.availability_entities.ResourceAvailabilityLedger;
+import com.entity.resource_entities.ResourceAvailabilityLedger;
 import com.entity.resource_entities.Resource;
 
 import java.time.YearMonth;
