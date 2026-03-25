@@ -32,6 +32,7 @@ import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
+import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final DemandRepository demandRepository;
+    private final ResourceSkillUsageService resourceSkillUsageService;
 
     // Standardized role-off reasons with descriptions
     private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
@@ -148,12 +150,25 @@ public class RoleOffServiceImpl implements RoleOffService {
             allocation = allocations.get(0);
         }
 
-        // 4️⃣ Prevent duplicate role-off
-        if (roleOffRepo.existsByAllocation_AllocationId(allocation.getAllocationId())) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "ROLE_OFF_ALREADY_EXISTS",
-                    "Role-off already initiated for this allocation");
+        // 4️⃣ Handle existing role-off records
+        RoleOffEvent existingRoleOff = roleOffRepo.findByAllocation_AllocationId(allocation.getAllocationId());
+
+        if (existingRoleOff != null) {
+            // If existing role-off is REJECTED, delete it and allow new one
+            if (existingRoleOff.getRoleOffStatus() == RoleOffStatus.REJECTED) {
+                // Log the deletion for audit purposes
+                logRoleOffDeletion(existingRoleOff, "Creating new role-off request for rejected resource");
+
+                // Delete the rejected record
+                roleOffRepo.delete(existingRoleOff);
+            }
+            // If existing role-off is in any other status, prevent duplicate
+            else {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "ROLE_OFF_ALREADY_EXISTS",
+                        "Role-off already initiated for this allocation with status: " + existingRoleOff.getRoleOffStatus());
+            }
         }
 
         // 5️⃣ IMPACT PREVIEW MODE (if not confirmed)
@@ -164,7 +179,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         // 6️⃣ PROCESS ROLE-OFF (confirmed)
         processRoleOff(dto, userId, resource, project, allocation);
 
-        return ResponseEntity.ok("Processed successfully");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Processed successfully", null));
     }
 
     private void closeResourceAllocation(RoleOffEvent event) {
@@ -175,6 +190,19 @@ public class RoleOffServiceImpl implements RoleOffService {
         closeDTO.setClosureDate(event.getEffectiveRoleOffDate());
 
         allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
+
+        // Update skill lastUsedDate for role-off
+        try {
+            resourceSkillUsageService.updateResourceSkillLastUsedOnRoleOff(
+                event.getResource(),
+                event.getProject(),
+                event.getEffectiveRoleOffDate()
+            );
+        } catch (Exception e) {
+            // Log error but don't fail the role-off process
+            System.err.println("Failed to update skill lastUsedDate for resource " +
+                event.getResource().getResourceId() + ": " + e.getMessage());
+        }
     }
 
     private void createReplacementDemand(RoleOffEvent event, Long userId) {
@@ -206,7 +234,16 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         dto.setAllocationPercentage(event.getAllocation().getAllocationPercentage());
 
-        dto.setDemandStatus(DemandStatus.REQUESTED);
+        // 🔥 EMERGENCY AUTO-APPROVAL LOGIC
+        if (event.getRoleOffType() == RoleOffType.EMERGENCY) {
+            dto.setDemandStatus(DemandStatus.APPROVED); // Auto-approve for emergency
+            dto.setDemandJustification("EMERGENCY REPLACEMENT - Auto-approved: " + event.getResource().getFullName() + 
+                                      " due to " + event.getRoleOffReasonEnum());
+        } else {
+            dto.setDemandStatus(DemandStatus.REQUESTED); // Normal approval flow for planned
+            dto.setDemandJustification("Replacement for " + event.getResource().getFullName() + 
+                                      " due to " + event.getRoleOffReasonEnum());
+        }
 
         dto.setDemandPriority(event.getProject().getPriorityLevel());
 
@@ -221,8 +258,6 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         // ✅ Add missing required fields
         dto.setDeliveryModel(com.entity_enums.centralised_enums.DeliveryModel.ONSITE); // Default to ONSITE
-        dto.setDemandJustification("Emergency replacement for " + event.getResource().getFullName() + 
-                                  " due to " + event.getRoleOffReasonEnum());
         dto.setRequiresAdditionalApproval(false);
 
         dto.setOutgoingResourceId(event.getResource().getResourceId());
@@ -330,6 +365,28 @@ public class RoleOffServiceImpl implements RoleOffService {
             }
 
             try {
+
+                // Handle existing role-off records
+                RoleOffEvent existingRoleOff = roleOffRepo.findByAllocation_AllocationId(allocation.getAllocationId());
+
+                if (existingRoleOff != null) {
+                    // If existing role-off is REJECTED, delete it and allow new one
+                    if (existingRoleOff.getRoleOffStatus() == RoleOffStatus.REJECTED) {
+                        // Log the deletion for audit purposes
+                        logRoleOffDeletion(existingRoleOff, "Creating new role-off request for rejected resource");
+
+                        // Delete the rejected record
+                        roleOffRepo.delete(existingRoleOff);
+                    }
+                    // If existing role-off is in any other status, skip this allocation
+                    else {
+                        failedEvents.add(Map.of(
+                                "allocationId", allocationId,
+                                "reason", "Role-off already exists with status: " + existingRoleOff.getRoleOffStatus()
+                        ));
+                        continue;
+                    }
+                }
 
                 RoleOffEvent event = new RoleOffEvent();
                 event.setProject(project);
@@ -503,6 +560,107 @@ public class RoleOffServiceImpl implements RoleOffService {
     }
 
     // ========== DELIVERY IMPACT VALIDATION ==========
+
+    /**
+     * Batch calculate impact levels for multiple resources to avoid N+1 queries
+     */
+    private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Long projectId) {
+        if (resourceIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        Map<Long, String> impactLevels = new HashMap<>();
+
+        try {
+            // Batch fetch all required data
+            Map<Long, Integer> totalUtilizations = new HashMap<>();
+            Map<Long, List<Integer>> projectAllocationsMap = new HashMap<>();
+
+            // Fetch utilization data for all resources in batch
+            List<Object[]> totalUtilData = roleOffRepo.getTotalCurrentUtilizationBatch(resourceIds);
+            for (Object[] row : totalUtilData) {
+                Long resourceId = (Long) row[0];
+                Integer utilization = (Integer) row[1];
+                totalUtilizations.put(resourceId, utilization);
+            }
+
+            List<Object[]> projectAllocData = roleOffRepo.getCurrentUtilizationBatch(resourceIds);
+            for (Object[] row : projectAllocData) {
+                Long resourceId = (Long) row[0];
+                Integer allocation = (Integer) row[1];
+                projectAllocationsMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(allocation);
+            }
+
+            // Fetch all resources in batch
+            List<Resource> resources = resourceRepo.findAllById(resourceIds);
+            Map<Long, Resource> resourcesMap = resources.stream()
+                    .collect(Collectors.toMap(Resource::getResourceId, r -> r));
+
+            // Fetch project data once
+            String projectPriority = roleOffRepo.getProjectPriorityLevel(projectId);
+            long currentAllocations = roleOffRepo.countActiveAllocationsForProject(projectId);
+            List<Integer> requiredPositions = roleOffRepo.getRequiredPositionsForProject(projectId);
+            int totalRequired = requiredPositions.stream().mapToInt(Integer::intValue).sum();
+            int gapAfterRoleOff = Math.max(0, totalRequired - (int)(currentAllocations - resourceIds.size()));
+
+            // Calculate impact for each resource
+            for (Long resourceId : resourceIds) {
+                int impactScore = 0;
+
+                // 1. UTILIZATION IMPACT (0-40 points)
+                List<Integer> projectAllocations = projectAllocationsMap.getOrDefault(resourceId, List.of());
+                int projectUtilization = projectAllocations.stream()
+                        .filter(alloc -> alloc != null)
+                        .findFirst()
+                        .orElse(0);
+
+                if (projectUtilization >= 80) impactScore += 40;
+                else if (projectUtilization >= 50) impactScore += 25;
+                else if (projectUtilization >= 20) impactScore += 10;
+
+                // 2. PROJECT CRITICALITY (0-30 points)
+                if ("CRITICAL".equals(projectPriority)) impactScore += 30;
+                else if ("HIGH".equals(projectPriority)) impactScore += 20;
+                else if ("NORMAL".equals(projectPriority)) impactScore += 5;
+
+                if (gapAfterRoleOff > 2) impactScore += 15;
+                else if (gapAfterRoleOff > 0) impactScore += 10;
+
+                // 3. SKILL CRITICALITY (0-20 points)
+                Resource resource = resourcesMap.get(resourceId);
+                if (resource != null) {
+                    String primarySkill = resource.getPrimarySkillGroup();
+                    if ("TECHNICAL".equals(primarySkill) || "LEAD".equals(primarySkill)) impactScore += 15;
+                    else if ("SUPPORT".equals(primarySkill) || "ANALYST".equals(primarySkill)) impactScore += 10;
+                    else impactScore += 5;
+
+                    // Experience impact
+                    Long experience = resource.getExperiance();
+                    if (experience != null && experience >= 5) impactScore += 5;
+                    else if (experience != null && experience >= 2) impactScore += 3;
+                }
+
+                // 4. TIMELINE IMPACT (0-10 points) - simplified for batch
+                impactScore += 5; // Default medium impact for timeline
+
+                // Determine impact level
+                String impactLevel;
+                if (impactScore >= 70) impactLevel = "HIGH";
+                else if (impactScore >= 40) impactLevel = "MEDIUM";
+                else impactLevel = "LOW";
+
+                impactLevels.put(resourceId, impactLevel);
+            }
+
+        } catch (Exception e) {
+            // Fallback to LOW impact for all resources if calculation fails
+            for (Long resourceId : resourceIds) {
+                impactLevels.put(resourceId, "LOW");
+            }
+        }
+
+        return impactLevels;
+    }
 
     /**
      * Calculate simple resource impact level (LOW/MEDIUM/HIGH)
@@ -784,64 +942,102 @@ public class RoleOffServiceImpl implements RoleOffService {
 
     @Override
     public ResponseEntity<?> getResources(Long pmId, Long projectId) {
-
         List<ResourceAllocation> allocations = roleOffRepo.findResources(projectId, pmId);
+        return buildResourcesResponse(allocations);
+    }
+
+    /**
+     * Common method to build resources response with optimized data fetching
+     */
+    private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> allocations) {
+
+        if (allocations.isEmpty()) {
+            return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrieved successfully!", Collections.emptyList()));
+        }
+
+        // Extract IDs
+        List<UUID> allocationIds = allocations.stream()
+                .map(ResourceAllocation::getAllocationId)
+                .collect(Collectors.toList());
 
         List<Long> resourceIds = allocations.stream()
                 .map(ra -> ra.getResource().getResourceId())
-                .toList();
+                .collect(Collectors.toList());
 
-        // Fetch skills
-        List<Object[]> skillsData = resourceSkillRepository.findSkillsByResourceIds(resourceIds);
+        // Fetch role-off events
+        List<RoleOffEvent> roleOffEvents = roleOffRepo.findByAllocation_AllocationIdIn(allocationIds);
 
-        Map<Long, List<String>> skillMap = new HashMap<>();
+        // 🔥 Single pass processing instead of multiple maps
+        Map<UUID, RoleOffEvent> roleOffMap = roleOffEvents.stream()
+                .collect(Collectors.toMap(
+                        roe -> roe.getAllocation().getAllocationId(),
+                        Function.identity(),
+                        (existing, replacement) -> existing
+                ));
 
-        for (Object[] row : skillsData) {
-            Long resourceId = (Long) row[0];
-            String skill = (String) row[1];
+        // Skills mapping (optimized)
+        Map<Long, List<String>> skillMap = mapToGroupedList(
+                resourceSkillRepository.findSkillsByResourceIds(resourceIds)
+        );
 
-            skillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(skill);
+        Map<Long, List<String>> subSkillMap = mapToGroupedList(
+                resourceSubSkillRepository.findSubSkillsByResourceIds(resourceIds)
+        );
+
+        // Project ID (safe extraction)
+        Long projectId = Optional.ofNullable(allocations.get(0).getProject())
+                .map(Project::getPmsProjectId)
+                .orElse(null);
+
+        // Impact calculation
+        Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
+
+        // DTO Mapping
+        List<ResourcesDTO> dtos = allocations.stream()
+                .map(ra -> {
+                    RoleOffEvent event = roleOffMap.get(ra.getAllocationId());
+                    Long resId = ra.getResource().getResourceId();
+
+                    return ResourcesDTO.builder()
+                            .roleOffId(event != null ? event.getId() : null)
+                            .resourceId(resId)
+                            .name(ra.getResource().getFullName())
+                            .department(ra.getResource().getDesignation()) // Mapping designation to department field as per ResourcesDTO
+                            .projectName(ra.getProject().getName())
+                            .clientName(ra.getProject().getClient().getClientName())
+                            .deliveryRoleId(ra.getDemand() != null ? ra.getDemand().getRole().getId() : null)
+                            .demandName(ra.getDemand() != null ? ra.getDemand().getDemandName() : null)
+                            .skills(skillMap.getOrDefault(resId, Collections.emptyList()))
+                            .subSkills(subSkillMap.getOrDefault(resId, Collections.emptyList()))
+                            .allocationId(ra.getAllocationId())
+                            .impact(impactLevelsMap.getOrDefault(resId, "LOW"))
+                            .status(ra.getAllocationStatus())
+                            .roleOffStatus(event != null ? event.getRoleOffStatus() : null)
+                            .allocationPercentage(ra.getAllocationPercentage())
+                            .endDate(ra.getAllocationEndDate())
+                            .effectiveDate(event != null ? event.getEffectiveRoleOffDate() : null)
+                            .rejectedBy(event != null ? event.getRejectedBy() : null)
+                            .rejectionReason(event != null ? event.getRejectionReason() : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrieved successfully!", dtos));
+    }
+
+    /**
+     * Helper method to group repository results (List<Object[]>) into a Map<Long, List<String>>
+     */
+    private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
+        if (results == null || results.isEmpty()) {
+            return Collections.emptyMap();
         }
-
-        // Fetch subskills
-        List<Object[]> subSkillsData = resourceSubSkillRepository.findSubSkillsByResourceIds(resourceIds);
-
-        Map<Long, List<String>> subSkillMap = new HashMap<>();
-
-        for (Object[] row : subSkillsData) {
-            Long resourceId = (Long) row[0];
-            String subSkill = (String) row[1];
-
-            subSkillMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(subSkill);
-        }
-
-        // Convert ResourceAllocation to ResourcesDTO
-        List<ResourcesDTO> dtos = allocations.stream().map(ra -> {
-            var demand = ra.getDemand();
-            var project = ra.getProject();
-            var resource = ra.getResource();
-            var client = project != null ? project.getClient() : null;
-
-            return ResourcesDTO.builder()
-                    .resourceId(resource.getResourceId())
-                    .name(resource.getFullName())
-                    .department(resource.getDesignation())
-                    .projectName(project != null ? project.getName() : null)
-                    .clientName(client != null ? client.getClientName() : null)
-                    .deliveryRoleId(demand != null ? demand.getRole().getId() : null)
-                    .demandName(demand != null ? demand.getDemandName() : null)
-                    .skills(skillMap.getOrDefault(resource.getResourceId(), new ArrayList<>()))
-                    .subSkills(subSkillMap.getOrDefault(resource.getResourceId(), new ArrayList<>()))
-                    .allocationId(ra.getAllocationId())
-                    .impact(calculateResourceImpactLevel(resource.getResourceId(), projectId))
-                    .status(ra.getAllocationStatus())
-                    .allocationPercentage(ra.getAllocationPercentage())
-                    .endDate(ra.getAllocationEndDate())
-                    .effectiveDate(null)
-                    .build();
-        }).toList();
-
-        return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrived successfully!", dtos));
+        return results.stream()
+                .filter(obj -> obj.length >= 2 && obj[0] != null && obj[1] != null)
+                .collect(Collectors.groupingBy(
+                        obj -> (Long) obj[0],
+                        Collectors.mapping(obj -> (String) obj[1], Collectors.toList())
+                ));
     }
 
     @Override
@@ -852,49 +1048,61 @@ public class RoleOffServiceImpl implements RoleOffService {
     @Override
     public ResponseEntity<?> getRMRoleOffEvents(Long rmId) {
         List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffs(rmId, RoleOffStatus.PENDING);
-        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
 
+        if (roleOffEvents.isEmpty()) {
+            return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", List.of()));
+        }
+
+        // Batch fetch resource IDs for impact calculation
+        List<Long> resourceIds = roleOffEvents.stream()
+                .map(r -> r.getResource().getResourceId())
+                .distinct()
+                .toList();
+
+        // Get project ID from first role-off event for impact calculation
+        Long projectId = roleOffEvents.get(0).getProject().getPmsProjectId();
+
+        // Batch calculate impact levels for all resources
+        Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
+
+        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
             var allocation = r.getAllocation();
+            var resource = r.getResource();
+            var project = r.getProject();
+            var client = project != null ? project.getClient() : null;
             var demand = allocation != null ? allocation.getDemand() : null;
             var role = demand != null ? demand.getRole() : null;
 
-            // ✅ Skills List
+            // Skills List
             List<String> skills = role != null && role.getSkill() != null
                     ? List.of(role.getSkill().getName())
                     : Collections.emptyList();
 
-            // ✅ SubSkills List
+            // SubSkills List
             List<String> subSkills = role != null && role.getSubSkill() != null
                     ? List.of(role.getSubSkill().getName())
                     : Collections.emptyList();
 
             return new ResourcesDTO(
                     r.getId(),
-                    r.getResource().getResourceId(),
-                    r.getResource().getFullName(),
-                    r.getResource().getDesignation(),
-                    r.getProject().getName(),
-                    r.getProject().getClient().getClientName(),
-                    demand != null ? demand.getRole().getId() : null,
-
+                    resource != null ? resource.getResourceId() : null,
+                    resource != null ? resource.getFullName() : "N/A",
+                    resource != null ? resource.getDesignation() : "N/A",
+                    project != null ? project.getName() : "N/A",
+                    client != null ? client.getClientName() : "N/A",
+                    role != null ? role.getId() : null,
                     demand != null ? demand.getDemandName() : null,
-
-                    // 🔥 FIXED HERE
                     skills,
                     subSkills,
-
                     allocation != null ? allocation.getAllocationId() : null,
-
-                    calculateResourceImpactLevel(
-                            r.getResource().getResourceId(),
-                            r.getProject().getPmsProjectId()
-                    ),
-
+                    impactLevelsMap.getOrDefault(resource != null ? resource.getResourceId() : null, "LOW"),
                     allocation != null ? allocation.getAllocationStatus() : null,
                     r.getRoleOffStatus(),
                     allocation != null ? allocation.getAllocationPercentage() : null,
-                    r.getAllocation().getAllocationEndDate(),
-                    r.getEffectiveRoleOffDate()
+                    allocation != null ? allocation.getAllocationEndDate() : null,
+                    r.getEffectiveRoleOffDate(),
+                    r.getRejectedBy(),
+                    r.getRejectionReason()
             );
 
         }).toList();
@@ -1122,34 +1330,6 @@ public class RoleOffServiceImpl implements RoleOffService {
             roleOffRepo.save(event); // ✅ UPDATE AFTER DEMAND
         }
 
-        // Project timeline validation
-        if (event.getProject().getEndDate().toLocalDate().isBefore(event.getEffectiveRoleOffDate())) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "INVALID_PROJECT_TIMELINE",
-                    "Project end date cannot be before role-off date");
-        }
-
-        // Replacement logic
-        if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-
-            createReplacementDemand(event, userId);
-            event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
-
-        } else {
-
-            if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
-
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "SKIP_REASON_REQUIRED",
-                        "Skip reason required when replacement is disabled");
-            }
-
-            event.setReplacementStatus(ReplacementStatus.SKIPPED);
-            event.setSkipReason(dto.getSkipReason());
-        }
-
         // FINAL SAVE
         roleOffRepo.save(event);
     }
@@ -1259,53 +1439,165 @@ public class RoleOffServiceImpl implements RoleOffService {
     @Override
     public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
         List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffsDm(dmId, RoleOffStatus.APPROVED);
-        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
 
+        if (roleOffEvents.isEmpty()) {
+            return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", List.of()));
+        }
+
+        // Batch fetch resource IDs for impact calculation
+        List<Long> resourceIds = roleOffEvents.stream()
+                .map(r -> r.getResource().getResourceId())
+                .distinct()
+                .toList();
+
+        // Get project ID from first role-off event for impact calculation
+        Long projectId = roleOffEvents.get(0).getProject().getPmsProjectId();
+
+        // Batch calculate impact levels for all resources
+        Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
+
+        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
             var allocation = r.getAllocation();
+            var resource = r.getResource();
+            var project = r.getProject();
+            var client = project != null ? project.getClient() : null;
             var demand = allocation != null ? allocation.getDemand() : null;
             var role = demand != null ? demand.getRole() : null;
 
-            // ✅ Skills List
+            // Skills List
             List<String> skills = role != null && role.getSkill() != null
                     ? List.of(role.getSkill().getName())
                     : Collections.emptyList();
 
-            // ✅ SubSkills List
+            // SubSkills List
             List<String> subSkills = role != null && role.getSubSkill() != null
                     ? List.of(role.getSubSkill().getName())
                     : Collections.emptyList();
 
             return new ResourcesDTO(
                     r.getId(),
-                    r.getResource().getResourceId(),
-                    r.getResource().getFullName(),
-                    r.getResource().getDesignation(),
-                    r.getProject().getName(),
-                    r.getProject().getClient().getClientName(),
-                    demand != null ? demand.getRole().getId() : null,
-
+                    resource != null ? resource.getResourceId() : null,
+                    resource != null ? resource.getFullName() : "N/A",
+                    resource != null ? resource.getDesignation() : "N/A",
+                    project != null ? project.getName() : "N/A",
+                    client != null ? client.getClientName() : "N/A",
+                    role != null ? role.getId() : null,
                     demand != null ? demand.getDemandName() : null,
-
-                    // 🔥 FIXED HERE
                     skills,
                     subSkills,
-
                     allocation != null ? allocation.getAllocationId() : null,
-
-                    calculateResourceImpactLevel(
-                            r.getResource().getResourceId(),
-                            r.getProject().getPmsProjectId()
-                    ),
-
+                    impactLevelsMap.getOrDefault(resource != null ? resource.getResourceId() : null, "LOW"),
                     allocation != null ? allocation.getAllocationStatus() : null,
                     r.getRoleOffStatus(),
                     allocation != null ? allocation.getAllocationPercentage() : null,
-                    r.getAllocation().getAllocationEndDate(),
-                    r.getEffectiveRoleOffDate()
+                    allocation != null ? allocation.getAllocationEndDate() : null,
+                    r.getEffectiveRoleOffDate(),
+                    r.getRejectedBy(),
+                    r.getRejectionReason()
             );
 
         }).toList();
 
         return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", dtos));
+    }
+
+    @Override
+    public ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO) {
+        // ========== VALIDATION ==========
+
+        // 1. Basic validation
+        if (id == null) {
+            return ResponseEntity.badRequest().body("Role-off event ID is required");
+        }
+
+        // 2. Find role-off event
+        Optional<RoleOffEvent> roleOffEventOpt = roleOffRepo.findById(id);
+        if (roleOffEventOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Role-off event not found");
+        }
+
+        RoleOffEvent event = roleOffEventOpt.get();
+
+        // 3. Validate current status - only PENDING or APPROVED can be cancelled
+        if (event.getRoleOffStatus() != RoleOffStatus.PENDING && event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
+            return ResponseEntity.badRequest().body("Only PENDING or APPROVED role-off requests can be cancelled");
+        }
+
+        // 4. Validate project ownership - PM can only cancel role-offs for their projects
+        if (event.getProject() == null || event.getProject().getProjectManagerId() == null) {
+            return ResponseEntity.badRequest().body("Invalid role-off event: missing project information");
+        }
+
+        if (!event.getProject().getProjectManagerId().equals(userDTO.getId())) {
+            return ResponseEntity.badRequest().body("You can only cancel role-off requests for your own projects");
+        }
+
+        // 5. Business validation - cannot cancel if already fulfilled or rejected
+        if (event.getRoleOffStatus() == RoleOffStatus.FULFILLED) {
+            return ResponseEntity.badRequest().body("Cannot cancel a role-off request that has already been fulfilled");
+        }
+
+        if (event.getRoleOffStatus() == RoleOffStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body("Role-off request is already cancelled");
+        }
+
+        // ========== EXECUTION ==========
+
+        try {
+            // Log the cancellation for audit purposes
+            logRoleOffCancellation(event, "Cancelled by Project Manager", userDTO.getId());
+
+            // Delete the role-off event instead of just updating status
+            roleOffRepo.delete(event);
+
+            return ResponseEntity.ok(new ApiResponse<>(true,
+                    "Role-off request cancelled and deleted successfully",
+                    Map.of(
+                        "eventId", id,
+                        "status", "DELETED",
+                        "cancelledBy", "PROJECT-MANAGER"
+                    )));
+
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error deleting role-off request: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Log role-off deletion for audit purposes
+     */
+    private void logRoleOffDeletion(RoleOffEvent event, String reason) {
+        String logMessage = String.format(
+            "Role-off DELETED - Event ID: %s, Project: %s, Resource: %s, " +
+            "Previous Status: %s, Reason: %s, Timestamp: %s",
+            event.getId(),
+            event.getProject() != null ? event.getProject().getName() : "N/A",
+            event.getResource() != null ? event.getResource().getFullName() : "N/A",
+            event.getRoleOffStatus(),
+            reason,
+            LocalDateTime.now()
+        );
+
+        // In real implementation, save to audit table
+        System.out.println("AUDIT LOG: " + logMessage);
+    }
+
+    /**
+     * Log role-off cancellation for audit purposes
+     */
+    private void logRoleOffCancellation(RoleOffEvent event, String reason, Long userId) {
+        String logMessage = String.format(
+            "Role-off CANCELLED - Event ID: %s, Project: %s, Resource: %s, User: %d, " +
+            "Reason: %s, Timestamp: %s",
+            event.getId(),
+            event.getProject() != null ? event.getProject().getName() : "N/A",
+            event.getResource() != null ? event.getResource().getFullName() : "N/A",
+            userId,
+            reason,
+            LocalDateTime.now()
+        );
+
+        // In real implementation, save to audit table
+        System.out.println("AUDIT LOG: " + logMessage);
     }
 }

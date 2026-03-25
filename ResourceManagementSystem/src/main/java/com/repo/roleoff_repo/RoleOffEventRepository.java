@@ -21,6 +21,10 @@ import java.util.UUID;
 @Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
     boolean existsByAllocation_AllocationId(UUID allocationId);
+    
+    RoleOffEvent findByAllocation_AllocationId(UUID allocationId);
+    
+    List<RoleOffEvent> findByAllocation_AllocationIdIn(List<UUID> allocationIds);
 
         /**
          * Find role-off events by specific reason for analysis
@@ -155,6 +159,18 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
         Integer getTotalCurrentUtilization(@Param("resourceId") Long resourceId);
 
         /**
+         * Get total allocation percentage for multiple resources in batch
+         */
+        @Query("SELECT ra.resource.resourceId, COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE' GROUP BY ra.resource.resourceId")
+        List<Object[]> getTotalCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
+
+        /**
+         * Get current utilization percentage for multiple resources in batch
+         */
+        @Query("SELECT ra.resource.resourceId, ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE'")
+        List<Object[]> getCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
+
+        /**
          * Get resource availability percentage (100 - current utilization)
          */
         @Query("SELECT (100 - COALESCE(SUM(ra.allocationPercentage), 0)) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
@@ -203,8 +219,11 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
 
         @Query("""
             SELECT r FROM RoleOffEvent r
+            JOIN FETCH r.allocation a
+            JOIN FETCH a.resource
+            JOIN FETCH r.project p
             WHERE r.project.pmsProjectId IN (
-                SELECT p.pmsProjectId FROM Project p WHERE p.resourceManagerId = :rmId
+                SELECT p2.pmsProjectId FROM Project p2 WHERE p2.resourceManagerId = :rmId
             )
             AND r.roleOffStatus = :status
         """)
@@ -212,8 +231,11 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
 
     @Query("""
             SELECT r FROM RoleOffEvent r
+            JOIN FETCH r.allocation a
+            JOIN FETCH a.resource
+            JOIN FETCH r.project p
             WHERE r.project.pmsProjectId IN (
-                SELECT p.pmsProjectId FROM Project p WHERE p.deliveryOwnerId = :rmId
+                SELECT p2.pmsProjectId FROM Project p2 WHERE p2.deliveryOwnerId = :rmId
             )
             AND r.roleOffStatus = :status
         """)
