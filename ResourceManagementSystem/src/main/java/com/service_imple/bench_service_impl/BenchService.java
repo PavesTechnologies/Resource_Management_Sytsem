@@ -1,18 +1,22 @@
 package com.service_imple.bench_service_impl;
 
 import com.dto.bench_dto.BenchResourceDTO;
+import com.dto.bench_dto.BenchPoolResponseDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.bench.ResourceCost;
 import com.entity.bench.ResourceState;
 import com.entity.resource_entities.Resource;
+import com.entity.skill_entities.ResourceSkill;
 import com.entity_enums.bench.BenchReason;
 import com.entity_enums.bench.StateType;
 import com.entity_enums.bench.SubState;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.bench_repo.BenchDetectionRepository;
 import com.repo.bench_repo.ResourceCostRepository;
+import com.repo.skill_repo.ResourceSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -37,10 +38,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class BenchDetectionService {
+public class BenchService {
 
     private final BenchDetectionRepository benchDetectionRepository;
     private final AllocationRepository allocationRepository;
+    private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceCostRepository resourceCostRepository;
 
     /**
@@ -265,7 +267,7 @@ public class BenchDetectionService {
         }
         // ✅ Risk calculation
         String riskLevel = calculateRisk(costPerDay, benchDays);
-        
+
         return BenchResourceDTO.builder()
                 .resourceId(resource.getResourceId())
                 .resourceName(resource.getFullName())
@@ -455,6 +457,95 @@ public class BenchDetectionService {
                 .effectiveFrom(LocalDate.now())
                 .currentFlag(true)
                 .createdBy("RESOURCE_ONBOARDING")
+                .build();
+    }
+
+    /**
+     * Get bench resources for bench endpoint
+     */
+    @Transactional(readOnly = true)
+    public List<BenchPoolResponseDTO> getBenchResources() {
+        log.debug("Fetching bench resources for bench endpoint");
+
+        List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
+        List<Long> resourceIds = benchResourcesData.stream()
+                .map(arr -> ((Resource) arr[0]).getResourceId())
+                .collect(Collectors.toList());
+
+        // Get skill details for all resources
+        List<Object[]> skillDetails = resourceSkillRepository.findResourceIdAndSkillDetails(resourceIds);
+        Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
+
+        return benchResourcesData.stream()
+                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], skillsMap))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get pool resources for pool endpoint
+     */
+    @Transactional(readOnly = true)
+    public List<BenchPoolResponseDTO> getPoolResources() {
+        log.debug("Fetching pool resources for pool endpoint");
+
+        List<Object[]> poolResourcesData = benchDetectionRepository.findPoolResourcesWithDetails();
+        List<Long> resourceIds = poolResourcesData.stream()
+                .map(arr -> ((Resource) arr[0]).getResourceId())
+                .collect(Collectors.toList());
+
+        // Get skill details for all resources
+        List<Object[]> skillDetails = resourceSkillRepository.findResourceIdAndSkillDetails(resourceIds);
+        Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
+
+        return poolResourcesData.stream()
+                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], skillsMap))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Group skills by resource and format as skill->subskill:proficiency map
+     */
+    private Map<Long, List<Map<String, String>>> groupSkillsByResource(List<Object[]> skillDetails) {
+        Map<Long, List<Map<String, String>>> skillsMap = new HashMap<>();
+
+        for (Object[] detail : skillDetails) {
+            Long resourceId = (Long) detail[0];
+            String skillName = (String) detail[1];
+            String proficiency = (String) detail[2];
+
+            skillsMap.computeIfAbsent(resourceId, k -> new ArrayList<>())
+                    .add(Map.of(skillName, proficiency));
+        }
+
+        return skillsMap;
+    }
+
+    /**
+     * Convert Resource entity to BenchPoolResponseDTO
+     */
+    private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate,
+                                                               Map<Long, List<Map<String, String>>> skillsMap) {
+        // Calculate aging (days in bench/pool)
+        long agingDays = ChronoUnit.DAYS.between(benchStartDate, LocalDate.now());
+
+        // Calculate cost per day from annual CTC with 2 decimal places
+        double costPerDay = 0.0;
+        if (resource.getAnnualCtc() != null) {
+            costPerDay = resource.getAnnualCtc().divide(BigDecimal.valueOf(365.0), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+        }
+
+        // Get skills for this resource
+        List<Map<String, String>> skillGroups = skillsMap.getOrDefault(resource.getResourceId(), new ArrayList<>());
+
+        return BenchPoolResponseDTO.builder()
+                .employeeId(resource.getResourceId())
+                .resourceName(resource.getFullName())
+                .designation(resource.getDesignation())
+                .skillGroups(skillGroups)
+                .subState(SubState.READY) // Default sub-state
+                .allocation(0) // Default allocation count
+                .aging((int) agingDays)
+                .costPerDay(costPerDay)
                 .build();
     }
 }
