@@ -19,16 +19,21 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Async service for updating Resource Availability Ledger
+ * 🔥 ROLE-OFF INTEGRATION: Async service for updating Resource Availability Ledger
  * 
  * This service handles expensive ledger recalculation operations asynchronously
- * to prevent blocking the main allocation API response. The ledger update logic
+ * to prevent blocking main role-off API response. The ledger update logic
  * recalculates allocation for each date and is expensive, so it's moved to async processing.
  * 
+ * Role-Off Integration:
+ * - Called by recalculateAvailabilityImmediately() during role-off process
+ * - Updates ResourceAvailabilityLedger entries asynchronously
+ * - Ensures cross-module consistency after role-off completion
+ * 
  * Performance Benefits:
- * - Main allocation API returns immediately after saving allocations
+ * - Main role-off API returns immediately after saving allocations
  * - Ledger updates happen in background without affecting user experience
- * - Prevents timeout issues for bulk allocation requests
+ * - Prevents timeout issues for role-off operations
  */
 @Slf4j
 @Service
@@ -127,15 +132,25 @@ public class AvailabilityLedgerAsyncService {
     }
 
     /**
-     * Async method to trigger ledger update for a specific resource
-     * This method is used after de-allocation to ensure background consistency
+     * 🔥 ROLE-OFF INTEGRATION: Async method to trigger ledger update for a specific resource
      * 
-     * @param resourceId The resource ID to update ledger for
+     * This method is used after role-off to ensure background consistency of ResourceAvailabilityLedger.
+     * It updates availability for the next 30 days to ensure future planning accuracy.
+     * 
+     * Role-Off Flow:
+     * roleOff → closeAllocation → recalculateAvailabilityImmediately → this method
+     * 
+     * Ledger Impact:
+     * - Updates ResourceAvailabilityLedger for future dates
+     * - Ensures availability is reflected in planning modules
+     * - Maintains data consistency for demand matching
+     * 
+     * @param resourceId The rolled-off resource ID to update ledger for
      */
     @Async
     public void triggerLedgerUpdateForResource(Long resourceId) {
         try {
-            log.debug("Starting async ledger update for resource: {}", resourceId);
+            log.info("🔥 ROLE-OFF: Starting async ledger update for resource: {}", resourceId);
             
             // Get current date and next 30 days to ensure consistency
             LocalDate currentDate = LocalDate.now();
@@ -158,33 +173,42 @@ public class AvailabilityLedgerAsyncService {
     }
 
     /**
-     * Cross-module availability synchronization after role-off/de-allocation
-     * Ensures consistent availability across all RMS modules:
-     * - Availability Module: Timeline views, KPIs
-     * - Allocation Module: Capacity validation, conflict detection  
-     * - Demand Module: Demand matching, fulfillment status
-     * - Dashboard Module: KPI calculations, metrics
-     * - Resource Module: Bench management, resource status
+     * 🔥 ROLE-OFF CRITICAL: Cross-module availability synchronization after role-off
+     * 
+     * This method is called by recalculateAvailabilityImmediately() during role-off process.
+     * It ensures all RMS modules reflect the updated availability after resource is rolled off.
+     * 
+     * Role-Off Impact on ResourceAvailabilityLedger across modules:
+     * 1. Availability Module: Primary source of truth for availability data
+     * 2. Allocation Module: Updates capacity and conflict detection
+     * 3. Demand Module: Updates demand matching and fulfillment logic
+     * 4. Dashboard Module: Updates KPIs and metrics
+     * 5. Resource Module: Updates bench management and resource status
      */
     @Async
     public void synchronizeAvailabilityAcrossModules(Long resourceId, LocalDate roleOffDate) {
-        log.info("Starting cross-module availability synchronization for resource {} after role-off on {}", 
+        log.info("🔥 ROLE-OFF: Starting cross-module availability synchronization for resource {} after role-off on {}", 
                 resourceId, roleOffDate);
         
         try {
-            // 1. Update Availability Module (Primary source of truth)
+            // 1. 🔥 Update Availability Module (Primary source of truth)
+            // Updates ResourceAvailabilityLedger entries for bench management
             updateAvailabilityModule(resourceId, roleOffDate);
             
-            // 2. Update Allocation Module (Capacity and conflict detection)
+            // 2. 🔥 Update Allocation Module (Capacity and conflict detection)
+            // Updates allocation capacity based on new availability
             updateAllocationModule(resourceId, roleOffDate);
             
-            // 3. Update Demand Module (Demand matching and fulfillment)
+            // 3. 🔥 Update Demand Module (Demand matching and fulfillment)
+            // Updates demand matching based on resource availability
             updateDemandModule(resourceId, roleOffDate);
             
-            // 4. Update Dashboard Module (KPIs and metrics)
+            // 4. 🔥 Update Dashboard Module (KPIs and metrics)
+            // Updates dashboard KPIs reflecting role-off impact
             updateDashboardModule(resourceId, roleOffDate);
             
-            // 5. Update Resource Module (Bench management)
+            // 5. 🔥 Update Resource Module (Bench management)
+            // Updates resource status and bench management
             updateResourceModule(resourceId, roleOffDate);
             
             log.info("Successfully synchronized availability across all RMS modules for resource {}", resourceId);

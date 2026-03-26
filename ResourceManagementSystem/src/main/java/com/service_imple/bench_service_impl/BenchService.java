@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -52,7 +53,7 @@ public class BenchService {
      * - Allocation closed
      * - Role-off executed
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void detectBenchResources() {
         log.info("Starting bench detection process");
         
@@ -527,10 +528,10 @@ public class BenchService {
         // Calculate aging (days in bench/pool)
         long agingDays = ChronoUnit.DAYS.between(benchStartDate, LocalDate.now());
 
-        // Calculate cost per day from annual CTC
+        // Calculate cost per day from annual CTC with 2 decimal places
         double costPerDay = 0.0;
         if (resource.getAnnualCtc() != null) {
-            costPerDay = resource.getAnnualCtc().doubleValue() / 365.0;
+            costPerDay = resource.getAnnualCtc().divide(BigDecimal.valueOf(365.0), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
         }
 
         // Get skills for this resource
