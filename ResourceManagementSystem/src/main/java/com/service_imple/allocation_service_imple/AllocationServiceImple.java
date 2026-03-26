@@ -20,7 +20,7 @@ import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.availability_service_interface.AvailabilityCalculationService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
-import com.service_imple.bench_service_impl.BenchDetectionService;
+import com.service_imple.bench_service_impl.BenchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,7 +59,7 @@ public class AllocationServiceImple implements AllocationService {
     private final AvailabilityLedgerAsyncService ledgerAsyncService;
     private final DemandSLARepository demandSLARepository;
     private final AvailabilityCalculationService availabilityCalculationService;
-    private final BenchDetectionService benchDetectionService;
+    private final BenchService benchDetectionService;
     private final ResourceSkillUsageService resourceSkillUsageService;
     /**
      * Main allocation method following clean architecture

@@ -14,7 +14,7 @@ import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.availability_service_interface.AvailabilityCalculationService;
 import com.service_interface.resource_service_interface.ResourceEventService;
 import com.service_interface.resource_service_interface.ResourceService;
-import com.service_imple.bench_service_impl.BenchDetectionService;
+import com.service_imple.bench_service_impl.BenchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -43,7 +43,7 @@ public class ResourceServiceImpl implements ResourceService {
     private ProjectRepository projectRepo;
 
     @Autowired
-    private BenchDetectionService benchDetectionService;
+    private BenchService benchDetectionService;
 
     @Override
     public ResponseEntity<ApiResponse<?>> createResource(Resource resource) {
