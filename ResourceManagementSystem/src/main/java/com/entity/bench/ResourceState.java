@@ -8,6 +8,7 @@ import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "resource_state")
@@ -19,8 +20,8 @@ import java.time.LocalDateTime;
 public class ResourceState {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID resourceStateId;
 
     @Column(nullable = false)
     private Long resourceId;
@@ -37,7 +38,7 @@ public class ResourceState {
     @Enumerated(EnumType.STRING)
     private BenchReason benchReason;
 
-    private Long allocationId;
+    private UUID allocationId;
 
     @Column(nullable = false)
     private LocalDate effectiveFrom;

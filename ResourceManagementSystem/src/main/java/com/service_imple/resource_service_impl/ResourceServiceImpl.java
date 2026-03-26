@@ -14,6 +14,7 @@ import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.availability_service_interface.AvailabilityCalculationService;
 import com.service_interface.resource_service_interface.ResourceEventService;
 import com.service_interface.resource_service_interface.ResourceService;
+import com.service_imple.bench_service_impl.BenchDetectionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +41,9 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Autowired
     private ProjectRepository projectRepo;
+
+    @Autowired
+    private BenchDetectionService benchDetectionService;
 
     @Override
     public ResponseEntity<ApiResponse<?>> createResource(Resource resource) {
@@ -101,6 +105,9 @@ public class ResourceServiceImpl implements ResourceService {
 
             // Save the resource
             Resource savedResource = resourceRepository.save(resource);
+            
+            // Initialize resource state (automatic bench/project state creation)
+            benchDetectionService.initializeResourceState(savedResource.getResourceId());
             
             // Trigger async availability ledger calculation
             resourceEventService.triggerLedgerCalculationAfterCreate(savedResource.getResourceId());

@@ -26,6 +26,14 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "LEFT JOIN FETCH proj.client " +
            "WHERE ra.resource.resourceId = :resourceId")
     List<ResourceAllocation> findByResource_ResourceId(Long resourceId);
+
+    /**
+     * Find active allocation for a specific resource
+     */
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "WHERE ra.resource.resourceId = :resourceId " +
+           "AND ra.allocationStatus = 'ACTIVE'")
+    Optional<ResourceAllocation> findActiveByResourceId(@Param("resourceId") Long resourceId);
     
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "LEFT JOIN FETCH ra.resource " +
