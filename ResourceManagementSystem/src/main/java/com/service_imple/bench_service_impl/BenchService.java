@@ -527,10 +527,10 @@ public class BenchService {
         // Calculate aging (days in bench/pool)
         long agingDays = ChronoUnit.DAYS.between(benchStartDate, LocalDate.now());
 
-        // Calculate cost per day from annual CTC
+        // Calculate cost per day from annual CTC with 2 decimal places
         double costPerDay = 0.0;
         if (resource.getAnnualCtc() != null) {
-            costPerDay = resource.getAnnualCtc().doubleValue() / 365.0;
+            costPerDay = resource.getAnnualCtc().divide(BigDecimal.valueOf(365.0), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
         }
 
         // Get skills for this resource
