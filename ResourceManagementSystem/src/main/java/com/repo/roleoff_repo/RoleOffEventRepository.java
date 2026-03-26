@@ -16,7 +16,7 @@ import java.util.UUID;
 
 @Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
-    boolean existsByAllocation_AllocationId(UUID allocationId);
+
     
     RoleOffEvent findByAllocation_AllocationId(UUID allocationId);
     
