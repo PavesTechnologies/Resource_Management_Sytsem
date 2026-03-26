@@ -19,6 +19,7 @@ import com.repo.demand_repo.DemandRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.availability_service_interface.AvailabilityCalculationService;
+import com.service_imple.bench_service_impl.BenchDetectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -57,6 +58,7 @@ public class AllocationServiceImple implements AllocationService {
     private final AvailabilityLedgerAsyncService ledgerAsyncService;
     private final DemandSLARepository demandSLARepository;
     private final AvailabilityCalculationService availabilityCalculationService;
+    private final BenchDetectionService benchDetectionService;
     /**
      * Main allocation method following clean architecture
      * 
@@ -95,6 +97,16 @@ public class AllocationServiceImple implements AllocationService {
 
             // SECTION 6 — Async Ledger Updates
             triggerAsyncLedgerUpdate(savedAllocations);
+
+            // SECTION 7 — Bench Detection Updates
+            for (ResourceAllocation allocation : savedAllocations) {
+                if (allocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
+                    benchDetectionService.moveToProject(
+                        allocation.getResource().getResourceId(), 
+                        allocation.getAllocationId()
+                    );
+                }
+            }
 
             // Build response
             return buildAllocationResponse(savedAllocations, validationResult.getFailures());
@@ -178,6 +190,17 @@ public class AllocationServiceImple implements AllocationService {
             
             // Update availability ledger for the modified allocation period
             updateAvailabilityLedgerForAllocation(updatedAllocation);
+
+            // Bench Detection Updates
+            if (updatedAllocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
+                benchDetectionService.moveToProject(
+                    updatedAllocation.getResource().getResourceId(), 
+                    updatedAllocation.getAllocationId()
+                );
+            } else if (updatedAllocation.getAllocationStatus() == AllocationStatus.ENDED || 
+                      updatedAllocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
+                benchDetectionService.detectBenchResources();
+            }
 
             // Check demand fulfillment if allocation is associated with a demand
             if (updatedAllocation.getDemand() != null) {
@@ -517,6 +540,9 @@ public class AllocationServiceImple implements AllocationService {
 
         // Immediate availability recalculation after de-allocation
         recalculateAvailabilityImmediately(saved);
+
+        // Bench Detection Updates - detect bench resources when allocation is closed
+        benchDetectionService.detectBenchResources();
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Allocation closed successfully with immediate availability update", mapToResponseDTO(saved))

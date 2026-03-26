@@ -16,7 +16,6 @@ import java.util.UUID;
 
 @Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
-    boolean existsByAllocation_AllocationId(UUID allocationId);
     
     RoleOffEvent findByAllocation_AllocationId(UUID allocationId);
     
@@ -236,6 +235,4 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
             AND r.roleOffStatus = :status
         """)
     List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
-
-    List<RoleOffEvent> findByProject_PmsProjectIdAndProjectProjectManagerId(Long projectId, Long projectManagerId);
 }

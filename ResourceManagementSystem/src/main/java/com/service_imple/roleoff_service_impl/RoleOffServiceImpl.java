@@ -31,6 +31,7 @@ import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
+import com.service_imple.bench_service_impl.BenchDetectionService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -62,6 +63,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final DemandRepository demandRepository;
+    private final BenchDetectionService benchDetectionService;
 
     // Standardized role-off reasons with descriptions
     private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
@@ -184,6 +186,9 @@ public class RoleOffServiceImpl implements RoleOffService {
         closeDTO.setClosureDate(event.getEffectiveRoleOffDate());
 
         allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
+        
+        // Bench Detection Updates - detect bench resources when role-off closes allocation
+        benchDetectionService.detectBenchResources();
     }
 
     private void createReplacementDemand(RoleOffEvent event, Long userId) {

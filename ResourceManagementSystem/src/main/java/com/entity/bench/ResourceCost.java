@@ -7,6 +7,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "resource_cost")
@@ -18,8 +19,8 @@ import java.time.LocalDateTime;
 public class ResourceCost {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID resourceCostId;
 
     @Column(nullable = false)
     private Long resourceId;
