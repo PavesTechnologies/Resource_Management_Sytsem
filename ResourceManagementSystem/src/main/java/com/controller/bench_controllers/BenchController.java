@@ -136,4 +136,17 @@ public class BenchController {
             new ApiResponse<>(true, "Pool resources retrieved successfully", poolResources)
         );
     }
+    @GetMapping("/high-risk")
+    public ResponseEntity<ApiResponse<List<BenchResourceDTO>>> getHighRiskBench() {
+
+        List<BenchResourceDTO> list = benchDetectionService.getAllBenchResources()
+                .stream()
+                .filter(dto -> "HIGH".equals(dto.getRiskLevel())
+                        || "CRITICAL".equals(dto.getRiskLevel()))
+                .toList();
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "High risk resources", list)
+        );
+    }
 }
