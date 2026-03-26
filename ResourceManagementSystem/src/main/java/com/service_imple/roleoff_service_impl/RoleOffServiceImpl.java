@@ -1369,7 +1369,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         event.setRejectionReason(rejectionReason.trim());
 
         roleOffRepo.save(event);
-        return ResponseEntity.ok("Rejected by RM");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Rejected by RM", null));
     }
 
     // ========== SEPARATE FULFILL/REJECT METHODS FOR DELIVERY MANAGER ==========
