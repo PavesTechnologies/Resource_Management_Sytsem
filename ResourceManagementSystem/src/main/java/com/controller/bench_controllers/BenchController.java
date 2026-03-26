@@ -111,4 +111,17 @@ public class BenchController {
                 .body(new ApiResponse<>(false, "Error during bench detection: " + e.getMessage(), null));
         }
     }
+    @GetMapping("/high-risk")
+    public ResponseEntity<ApiResponse<List<BenchResourceDTO>>> getHighRiskBench() {
+
+        List<BenchResourceDTO> list = benchDetectionService.getAllBenchResources()
+                .stream()
+                .filter(dto -> "HIGH".equals(dto.getRiskLevel())
+                        || "CRITICAL".equals(dto.getRiskLevel()))
+                .toList();
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "High risk resources", list)
+        );
+    }
 }

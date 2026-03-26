@@ -41,4 +41,9 @@ public class BenchResourceDTO {
     private LocalDate dateOfJoining;
     private BigDecimal hourlyCostRate;
     private String currencyType;
+
+    private BigDecimal costPerDay;
+    private BigDecimal totalBenchCost;
+    private String riskLevel;
+    private Boolean costMissing;
 }

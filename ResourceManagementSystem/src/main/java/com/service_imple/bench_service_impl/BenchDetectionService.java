@@ -2,6 +2,7 @@ package com.service_imple.bench_service_impl;
 
 import com.dto.bench_dto.BenchResourceDTO;
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.bench.ResourceCost;
 import com.entity.bench.ResourceState;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.bench.BenchReason;
@@ -9,11 +10,13 @@ import com.entity_enums.bench.StateType;
 import com.entity_enums.bench.SubState;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.bench_repo.BenchDetectionRepository;
+import com.repo.bench_repo.ResourceCostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -37,6 +40,7 @@ public class BenchDetectionService {
 
     private final BenchDetectionRepository benchDetectionRepository;
     private final AllocationRepository allocationRepository;
+    private final ResourceCostRepository resourceCostRepository;
 
     /**
      * Detect and update bench status for all eligible resources
@@ -200,9 +204,30 @@ public class BenchDetectionService {
                         arr -> arr[0] != null ? arr[0].toString() : "UNKNOWN",
                         arr -> (Long) arr[1]
                 ));
-        
+        // 🔥 NEW: COST + RISK CALCULATION
+        List<BenchResourceDTO> benchResources = getAllBenchResources();
+
+        BigDecimal totalCost = getAllBenchResources().stream()
+                .filter(dto -> dto.getTotalBenchCost() != null)
+                .map(BenchResourceDTO::getTotalBenchCost)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // ✅ Risk Distribution
+        Map<String, Long> riskDistribution = benchResources.stream()
+                .collect(Collectors.groupingBy(
+                        dto -> dto.getRiskLevel() != null ? dto.getRiskLevel() : "UNKNOWN",
+                        Collectors.counting()
+                ));
+
+        // ✅ Missing Cost Count
+        long missingCostCount = benchResources.stream()
+                .filter(BenchResourceDTO::getCostMissing)
+                .count();
+
         return Map.of(
                 "totalCount", totalCount,
+                "totalBenchCost", totalCost,
+                "missingCostCount", missingCostCount,
+                "riskDistribution", riskDistribution,
                 "countBySubState", subStateCounts,
                 "countByReason", reasonCounts
         );
@@ -222,6 +247,23 @@ public class BenchDetectionService {
         
         ResourceState state = benchState.get();
         long benchDays = ChronoUnit.DAYS.between(state.getBenchStartDate(), LocalDate.now());
+        // ✅ Fetch cost
+        Optional<ResourceCost> costOpt =
+                resourceCostRepository.findActiveCost(resource.getResourceId(), LocalDate.now());
+
+        BigDecimal costPerDay = costOpt.map(ResourceCost::getCostPerDay).orElse(null);
+
+        // ✅ Calculate total cost
+        BigDecimal totalCost = BigDecimal.ZERO;
+        boolean costMissing = false;
+
+        if (costPerDay != null) {
+            totalCost = costPerDay.multiply(BigDecimal.valueOf(benchDays));
+        } else {
+            costMissing = true;
+        }
+        // ✅ Risk calculation
+        String riskLevel = calculateRisk(costPerDay, benchDays);
         
         return BenchResourceDTO.builder()
                 .resourceId(resource.getResourceId())
@@ -237,12 +279,36 @@ public class BenchDetectionService {
                 .benchReason(state.getBenchReason())
                 .subState(state.getSubState())
                 .benchDays(benchDays)
+                // 🔥 NEW FIELDS
+                .costPerDay(costPerDay)
+                .totalBenchCost(totalCost)
+                .riskLevel(riskLevel)
+                .costMissing(costMissing)
                 .grade(resource.getGrade())
                 .vendorName(resource.getVendorName())
                 .dateOfJoining(resource.getDateOfJoining())
                 .hourlyCostRate(resource.getHourlyCostRate())
                 .currencyType(resource.getCurrencyType())
                 .build();
+    }
+
+    private String calculateRisk(BigDecimal costPerDay, long days) {
+
+        if (costPerDay == null) return "MISSING_COST";
+
+        if (costPerDay.compareTo(BigDecimal.valueOf(5000)) > 0 && days > 30) {
+            return "CRITICAL";
+        }
+
+        if (costPerDay.compareTo(BigDecimal.valueOf(5000)) > 0) {
+            return "HIGH";
+        }
+
+        if (days > 20) {
+            return "MEDIUM";
+        }
+
+        return "LOW";
     }
 
     /**
