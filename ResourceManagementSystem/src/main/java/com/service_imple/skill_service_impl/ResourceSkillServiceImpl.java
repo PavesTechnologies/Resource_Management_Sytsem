@@ -1,6 +1,9 @@
 package com.service_imple.skill_service_impl;
 
+import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.project_entities.Project;
 import com.global_exception_handler.SkillTaxonomyExceptionHandler;
+import com.repo.allocation_repo.AllocationRepository;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
 import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
@@ -40,6 +43,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     private final SubSkillRepository subSkillRepository;
     private final ProficiencyLevelRepository proficiencyLevelRepository;
     private final ResourceRepository resourceRepository;
+    private final AllocationRepository allocationRepository;
 
     @Override
     @Transactional

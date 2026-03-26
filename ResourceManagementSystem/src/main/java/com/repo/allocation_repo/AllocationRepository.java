@@ -162,10 +162,22 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             AllocationStatus status
     );
 
+
     @Query("""
         SELECT ra FROM ResourceAllocation ra
         WHERE ra.project.pmsProjectId = :projectId
         AND ra.allocationStatus = :status
     """)
     List<ResourceAllocation> findByProjectIdAndStatus(Long projectId, AllocationStatus status);
+
+    /**
+     * Find allocations for resource in specific project with recent end dates
+     * Used for skill update logic to find project-specific skills
+     */
+    List<ResourceAllocation> findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatusAndAllocationEndDateAfter(
+            Long projectId,
+            Long resourceId,
+            AllocationStatus status,
+            LocalDate endDate
+    );
 }

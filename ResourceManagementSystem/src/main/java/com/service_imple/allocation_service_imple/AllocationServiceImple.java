@@ -19,6 +19,7 @@ import com.repo.demand_repo.DemandRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.availability_service_interface.AvailabilityCalculationService;
+import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import com.service_imple.bench_service_impl.BenchDetectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,7 @@ public class AllocationServiceImple implements AllocationService {
     private final DemandSLARepository demandSLARepository;
     private final AvailabilityCalculationService availabilityCalculationService;
     private final BenchDetectionService benchDetectionService;
+    private final ResourceSkillUsageService resourceSkillUsageService;
     /**
      * Main allocation method following clean architecture
      * 
@@ -102,7 +104,7 @@ public class AllocationServiceImple implements AllocationService {
             for (ResourceAllocation allocation : savedAllocations) {
                 if (allocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
                     benchDetectionService.moveToProject(
-                        allocation.getResource().getResourceId(), 
+                        allocation.getResource().getResourceId(),
                         allocation.getAllocationId()
                     );
                 }
@@ -191,13 +193,30 @@ public class AllocationServiceImple implements AllocationService {
             // Update availability ledger for the modified allocation period
             updateAvailabilityLedgerForAllocation(updatedAllocation);
 
+            // Update skill lastUsedDate if allocation is being ended
+            if (allocationRequest.getAllocationStatus() == AllocationStatus.ENDED) {
+                try {
+                    resourceSkillUsageService.updateResourceSkillLastUsedOnRoleOff(
+                        updatedAllocation.getResource(),
+                        updatedAllocation.getProject(),
+                        allocationRequest.getRoleOffDate(),
+                        updatedAllocation.getAllocationEndDate(),
+                        updatedAllocation.getProject() != null ? updatedAllocation.getProject().getEndDate().toLocalDate() : null
+                    );
+                } catch (Exception e) {
+                    // Log error but don't fail the update process
+                    System.err.println("Failed to update skill lastUsedDate for allocation " +
+                        updatedAllocation.getAllocationId() + ": " + e.getMessage());
+                }
+            }
+
             // Bench Detection Updates
             if (updatedAllocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
                 benchDetectionService.moveToProject(
-                    updatedAllocation.getResource().getResourceId(), 
+                    updatedAllocation.getResource().getResourceId(),
                     updatedAllocation.getAllocationId()
                 );
-            } else if (updatedAllocation.getAllocationStatus() == AllocationStatus.ENDED || 
+            } else if (updatedAllocation.getAllocationStatus() == AllocationStatus.ENDED ||
                       updatedAllocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
                 benchDetectionService.detectBenchResources();
             }
@@ -540,6 +559,21 @@ public class AllocationServiceImple implements AllocationService {
 
         // Immediate availability recalculation after de-allocation
         recalculateAvailabilityImmediately(saved);
+
+        // Update skill lastUsedDate for manual allocation closure
+        try {
+            resourceSkillUsageService.updateResourceSkillLastUsedOnRoleOff(
+                saved.getResource(),
+                saved.getProject(),
+                closureDate,
+                saved.getAllocationEndDate(),
+                saved.getProject() != null ? saved.getProject().getEndDate().toLocalDate() : null
+            );
+        } catch (Exception e) {
+            // Log error but don't fail the closure process
+            System.err.println("Failed to update skill lastUsedDate for allocation " +
+                saved.getAllocationId() + ": " + e.getMessage());
+        }
 
         // Bench Detection Updates - detect bench resources when allocation is closed
         benchDetectionService.detectBenchResources();
