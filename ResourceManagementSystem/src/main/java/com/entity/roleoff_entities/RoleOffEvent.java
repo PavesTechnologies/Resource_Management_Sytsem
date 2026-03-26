@@ -8,6 +8,7 @@ import com.entity_enums.roleoff_enums.RoleOffStatus;
 import com.entity_enums.roleoff_enums.RoleOffType;
 import com.entity_enums.demand_enums.ReplacementStatus;
 import com.entity_enums.roleoff_enums.RoleOffReason;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -19,6 +20,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "role_off_event")
 @Data
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class RoleOffEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
