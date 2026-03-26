@@ -2,7 +2,8 @@ package com.controller.bench_controllers;
 
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.bench_dto.BenchResourceDTO;
-import com.service_imple.bench_service_impl.BenchDetectionService;
+import com.dto.bench_dto.BenchPoolResponseDTO;
+import com.service_imple.bench_service_impl.BenchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -19,10 +20,10 @@ import java.util.Map;
 @RequestMapping("/api/bench")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", allowCredentials = "false")
 public class BenchController {
 
-    private final BenchDetectionService benchDetectionService;
+    private final BenchService benchDetectionService;
 
     /**
      * Get all bench resources
@@ -110,6 +111,30 @@ public class BenchController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiResponse<>(false, "Error during bench detection: " + e.getMessage(), null));
         }
+    }
+
+    /**
+     * Get bench resources for bench endpoint
+     * GET /api/bench/bench-resources
+     */
+    @GetMapping("/bench-resources")
+    public ResponseEntity<ApiResponse<List<BenchPoolResponseDTO>>> getBenchResources() {
+        List<BenchPoolResponseDTO> benchResources = benchDetectionService.getBenchResources();
+        return ResponseEntity.ok(
+            new ApiResponse<>(true, "Bench resources retrieved successfully", benchResources)
+        );
+    }
+
+    /**
+     * Get pool resources for pool endpoint
+     * GET /api/bench/pool-resources
+     */
+    @GetMapping("/pool-resources")
+    public ResponseEntity<ApiResponse<List<BenchPoolResponseDTO>>> getPoolResources() {
+        List<BenchPoolResponseDTO> poolResources = benchDetectionService.getPoolResources();
+        return ResponseEntity.ok(
+            new ApiResponse<>(true, "Pool resources retrieved successfully", poolResources)
+        );
     }
     @GetMapping("/high-risk")
     public ResponseEntity<ApiResponse<List<BenchResourceDTO>>> getHighRiskBench() {

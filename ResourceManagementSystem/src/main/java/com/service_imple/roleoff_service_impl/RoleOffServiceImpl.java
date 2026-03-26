@@ -32,7 +32,7 @@ import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
-import com.service_imple.bench_service_impl.BenchDetectionService;
+import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -65,7 +65,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final DemandRepository demandRepository;
-    private final BenchDetectionService benchDetectionService;
+    private final BenchService benchDetectionService;
     private final ResourceSkillUsageService resourceSkillUsageService;
 
     // Standardized role-off reasons with descriptions
@@ -1403,7 +1403,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         event.setRejectionReason(rejectionReason.trim());
 
         roleOffRepo.save(event);
-        return ResponseEntity.ok("Rejected by RM");
+        return ResponseEntity.ok(new ApiResponse<>(true, "Rejected by RM", null));
     }
 
     // ========== SEPARATE FULFILL/REJECT METHODS FOR DELIVERY MANAGER ==========

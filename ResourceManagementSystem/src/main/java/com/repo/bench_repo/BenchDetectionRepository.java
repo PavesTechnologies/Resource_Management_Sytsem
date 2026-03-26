@@ -189,4 +189,32 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         GROUP BY rs.benchReason
         """)
     List<Object[]> getBenchCountByReason();
+
+    /**
+     * Get bench resources with skill details for bench endpoint
+     */
+    @Query("""
+        SELECT r, rs.benchStartDate
+        FROM ResourceState rs
+        JOIN Resource r ON rs.resourceId = r.resourceId
+        WHERE rs.stateType = 'BENCH'
+          AND rs.currentFlag = true
+          AND r.activeFlag = true
+        ORDER BY rs.benchStartDate ASC
+        """)
+    List<Object[]> findBenchResourcesWithDetails();
+
+    /**
+     * Get pool resources with skill details for pool endpoint
+     */
+    @Query("""
+        SELECT r, rs.benchStartDate
+        FROM ResourceState rs
+        JOIN Resource r ON rs.resourceId = r.resourceId
+        WHERE rs.stateType = 'POOL'
+          AND rs.currentFlag = true
+          AND r.activeFlag = true
+        ORDER BY rs.benchStartDate ASC
+        """)
+    List<Object[]> findPoolResourcesWithDetails();
 }
