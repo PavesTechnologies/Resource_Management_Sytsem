@@ -34,8 +34,22 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
 
     private static final int HOURS_PER_WORKING_DAY = 8;
 
+    /**
+     * 🔥 ROLE-OFF INTEGRATION: Calculate monthly availability and update ResourceAvailabilityLedger
+     * 
+     * This method is called by role-off process through recalculateAvailabilityImmediately()
+     * It updates the ResourceAvailabilityLedger with new availability calculations
+     * 
+     * Role-Off Ledger Updates:
+     * - Creates new ledger entry or updates existing one
+     * - Updates all availability fields based on current allocations
+     * - Sets trust flags and timestamps for data reliability
+     * 
+     * @param resource The resource to calculate availability for
+     * @param yearMonth The month to calculate availability for
+     * @return Updated ResourceAvailabilityLedger entry
+     */
     @Override
-    @Transactional
     public ResourceAvailabilityLedger calculateMonthlyAvailability(Resource resource, YearMonth yearMonth) {
         
         MonthCalculationContext context = buildCalculationContext(resource, yearMonth);
@@ -82,13 +96,25 @@ public class AvailabilityCalculationServiceImpl implements AvailabilityCalculati
         
             }
 
+    /**
+     * 🔥 ROLE-OFF TRIGGER: Recalculate availability for specific resource and period
+     * 
+     * This method is called by role-off process through recalculateAvailabilityImmediately()
+     * It triggers the availability calculation that updates ResourceAvailabilityLedger
+     * 
+     * Role-Off Flow:
+     * roleOff → closeAllocation → recalculateAvailabilityImmediately → this method
+     * 
+     * @param resourceId The resource ID (rolled-off resource)
+     * @param yearMonth The period to recalculate availability for
+     */
     @Override
-    @Transactional
     public void recalculateForResource(Long resourceId, YearMonth yearMonth) {
         Resource resource = resourceRepository.findById(resourceId)
                 .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + resourceId));
         
         calculateMonthlyAvailability(resource, yearMonth);
+        // This updates ResourceAvailabilityLedger with new availability data
     }
 
     @Override

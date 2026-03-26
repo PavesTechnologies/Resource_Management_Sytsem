@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -52,7 +53,7 @@ public class BenchService {
      * - Allocation closed
      * - Role-off executed
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void detectBenchResources() {
         log.info("Starting bench detection process");
         
