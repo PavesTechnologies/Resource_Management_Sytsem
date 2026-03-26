@@ -1,5 +1,6 @@
 package com.service_imple.bench_service_impl;
 
+import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
 import com.entity.allocation_entities.ResourceAllocation;
@@ -7,6 +8,7 @@ import com.entity.bench.ResourceCost;
 import com.entity.bench.ResourceState;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.ResourceSkill;
+import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.bench.BenchReason;
 import com.entity_enums.bench.StateType;
 import com.entity_enums.bench.SubState;
@@ -465,7 +467,6 @@ public class BenchService {
      */
     @Transactional(readOnly = true)
     public List<BenchPoolResponseDTO> getBenchResources() {
-        log.debug("Fetching bench resources for bench endpoint");
 
         List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
         List<Long> resourceIds = benchResourcesData.stream()
@@ -486,7 +487,6 @@ public class BenchService {
      */
     @Transactional(readOnly = true)
     public List<BenchPoolResponseDTO> getPoolResources() {
-        log.debug("Fetching pool resources for pool endpoint");
 
         List<Object[]> poolResourcesData = benchDetectionRepository.findPoolResourcesWithDetails();
         List<Long> resourceIds = poolResourcesData.stream()
@@ -521,6 +521,83 @@ public class BenchService {
     }
 
     /**
+     * Get bench KPI metrics
+     */
+    @Transactional(readOnly = true)
+    public BenchKPIDTO getBenchKPI() {
+        log.debug("Calculating bench KPI metrics");
+        
+        // Get total bench resources
+        long totalBenchResources = benchDetectionRepository.countByStateType(StateType.BENCH);
+        
+        // Get total pool resources
+        long totalPoolResources = benchDetectionRepository.countByStateType(StateType.POOL);
+        
+        // Get total ready now resources (READY sub-state in both Bench and Pool)
+        long totalReadyNowResources = benchDetectionRepository.countByStateTypeAndSubState(StateType.BENCH, SubState.READY) +
+                                    benchDetectionRepository.countByStateTypeAndSubState(StateType.POOL, SubState.READY);
+        
+        // Get total risk watch resources (>30 days in Bench or Pool)
+        long totalRiskWatch = calculateRiskWatchResources();
+        
+        return BenchKPIDTO.builder()
+                .totalBenchResources(totalBenchResources)
+                .totalReadyNowResources(totalReadyNowResources)
+                .totalPoolResources(totalPoolResources)
+                .totalRiskWatch(totalRiskWatch)
+                .build();
+    }
+
+    /**
+     * Calculate resources at risk (>30 days in Bench or Pool)
+     */
+    private long calculateRiskWatchResources() {
+        try {
+            LocalDate cutoffDate = LocalDate.now().minusDays(30);
+            
+            // Count bench resources >30 days
+            long benchRiskCount = benchDetectionRepository.countBenchResourcesOlderThanDays(cutoffDate);
+            
+            // Count pool resources >30 days  
+            long poolRiskCount = benchDetectionRepository.countPoolResourcesOlderThanDays(cutoffDate);
+            
+            return benchRiskCount + poolRiskCount;
+            
+        } catch (Exception e) {
+            log.error("Error calculating risk watch resources: {}", e.getMessage(), e);
+            return 0;
+        }
+    }
+
+    /**
+     * Calculate resource availability based on current allocations
+     * 
+     * @param resourceId the resource ID
+     * @return available allocation percentage (0-100)
+     */
+    private int calculateResourceAvailability(Long resourceId) {
+        try {
+            // Get all active allocations for this resource
+            List<ResourceAllocation> activeAllocations = allocationRepository
+                    .findByResource_ResourceIdAndAllocationStatus(resourceId, AllocationStatus.ACTIVE);
+            
+            // Calculate total allocation percentage
+            int totalAllocation = activeAllocations.stream()
+                    .filter(allocation -> allocation.getAllocationPercentage() != null)
+                    .mapToInt(ResourceAllocation::getAllocationPercentage)
+                    .sum();
+            
+            // Calculate available allocation (max 0, min 100)
+            int availableAllocation = Math.max(0, 100 - totalAllocation);
+            
+            return availableAllocation;
+            
+        } catch (Exception e) {
+            return 0; // Default to 0 if calculation fails
+        }
+    }
+
+    /**
      * Convert Resource entity to BenchPoolResponseDTO
      */
     private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate,
@@ -534,6 +611,9 @@ public class BenchService {
             costPerDay = resource.getAnnualCtc().divide(BigDecimal.valueOf(365.0), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
         }
 
+        // Calculate dynamic allocation availability
+        int allocation = calculateResourceAvailability(resource.getResourceId());
+
         // Get skills for this resource
         List<Map<String, String>> skillGroups = skillsMap.getOrDefault(resource.getResourceId(), new ArrayList<>());
 
@@ -543,7 +623,7 @@ public class BenchService {
                 .designation(resource.getDesignation())
                 .skillGroups(skillGroups)
                 .subState(SubState.READY) // Default sub-state
-                .allocation(0) // Default allocation count
+                .allocation(allocation)
                 .aging((int) agingDays)
                 .costPerDay(costPerDay)
                 .build();

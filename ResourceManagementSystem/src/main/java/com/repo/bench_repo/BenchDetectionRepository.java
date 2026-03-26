@@ -217,4 +217,51 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         ORDER BY rs.benchStartDate ASC
         """)
     List<Object[]> findPoolResourcesWithDetails();
+
+    /**
+     * Count resources by state type
+     */
+    @Query("""
+        SELECT COUNT(rs)
+        FROM ResourceState rs
+        WHERE rs.stateType = :stateType
+          AND rs.currentFlag = true
+        """)
+    long countByStateType(@Param("stateType") StateType stateType);
+
+    /**
+     * Count resources by state type and sub state
+     */
+    @Query("""
+        SELECT COUNT(rs)
+        FROM ResourceState rs
+        WHERE rs.stateType = :stateType
+          AND rs.subState = :subState
+          AND rs.currentFlag = true
+        """)
+    long countByStateTypeAndSubState(@Param("stateType") StateType stateType, @Param("subState") SubState subState);
+
+    /**
+     * Count bench resources older than specified days
+     */
+    @Query("""
+        SELECT COUNT(rs)
+        FROM ResourceState rs
+        WHERE rs.stateType = 'BENCH'
+          AND rs.currentFlag = true
+          AND rs.benchStartDate <= :cutoffDate
+        """)
+    long countBenchResourcesOlderThanDays(@Param("cutoffDate") LocalDate cutoffDate);
+
+    /**
+     * Count pool resources older than specified days
+     */
+    @Query("""
+        SELECT COUNT(rs)
+        FROM ResourceState rs
+        WHERE rs.stateType = 'POOL'
+          AND rs.currentFlag = true
+          AND rs.benchStartDate <= :cutoffDate
+        """)
+    long countPoolResourcesOlderThanDays(@Param("cutoffDate") LocalDate cutoffDate);
 }
