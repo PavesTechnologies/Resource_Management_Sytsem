@@ -1,14 +1,19 @@
 package com.controller.bench_controllers;
 
+import com.dto.bench_dto.UpdateSubStateRequestDTO;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
+import com.dto.centralised_dto.UserDTO;
+import com.security.CurrentUser;
 import com.service_imple.bench_service_impl.BenchService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -161,5 +166,11 @@ public class BenchController {
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Bench KPI metrics retrieved successfully", kpi)
         );
+    }
+
+    @PutMapping("/update-resource-state")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> updateResourceState(@Valid @RequestBody UpdateSubStateRequestDTO request, @CurrentUser UserDTO userDTO) {
+        return benchDetectionService.updateSubState(request, userDTO);
     }
 }
