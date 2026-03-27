@@ -1,6 +1,7 @@
 package com.controller.bench_controllers;
 
 import com.dto.centralised_dto.ApiResponse;
+import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
 import com.service_imple.bench_service_impl.BenchService;
@@ -147,6 +148,18 @@ public class BenchController {
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "High risk resources", list)
+        );
+    }
+
+    /**
+     * Get bench KPI metrics
+     * GET /api/bench/kpi
+     */
+    @GetMapping("/kpi")
+    public ResponseEntity<ApiResponse<BenchKPIDTO>> getBenchKPI() {
+        BenchKPIDTO kpi = benchDetectionService.getBenchKPI();
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Bench KPI metrics retrieved successfully", kpi)
         );
     }
 }
