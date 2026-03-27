@@ -25,7 +25,7 @@ public interface ResourceTimelineService {
         Integer size
     );
     
-    ResourceTimelineResponseDTO.TimelineKPI getTimelineKPI(
+    ResourceTimelineResponseDTO.ResourceTimelineKpi getTimelineKPI(
         LocalDate startDate, 
         LocalDate endDate,
         String designation,

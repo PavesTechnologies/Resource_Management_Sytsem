@@ -1,5 +1,6 @@
 package com.service_interface.availability_service_interface;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 
 public interface AvailabilityTriggerService {
@@ -14,4 +15,6 @@ public interface AvailabilityTriggerService {
     
     void handleProjectTimelineChange(Long projectId, java.time.LocalDateTime oldStartDate, java.time.LocalDateTime oldEndDate, 
                                    java.time.LocalDateTime newStartDate, java.time.LocalDateTime newEndDate);
+
+    void triggerRangeRecalculation(Long resourceId, LocalDate startDate, LocalDate endDate);
 }

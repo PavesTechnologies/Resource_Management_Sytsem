@@ -17,7 +17,7 @@ import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.repo.skill_repo.ResourceCertificateRepository;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
-import com.service_imple.external_api_impl.TokenService;
+import com.service_imple.external_api_impl.ExternalApiTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +36,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final ResourceCertificateRepository resourceCertificateRepository;
-    private final TokenService tokenService;
+    private final ExternalApiTokenService ExternalApiTokenService;
 
     @Override
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
@@ -219,7 +219,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     @Override
     @Transactional(readOnly = true)
-    public ResourceTimelineResponseDTO.TimelineKPI getTimelineKPI(
+    public ResourceTimelineResponseDTO.ResourceTimelineKpi getTimelineKPI(
             LocalDate startDate, 
             LocalDate endDate,
             String designation,
@@ -242,7 +242,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         if (kpiData.isEmpty()) {
-            return ResourceTimelineResponseDTO.TimelineKPI.builder()
+            return ResourceTimelineResponseDTO.ResourceTimelineKpi.builder()
                     .totalResources(0L)
                     .fullyAvailable(0L)
                     .partiallyAvailable(0L)
@@ -254,7 +254,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         TimelineKpiProjection kpi = kpiData.get(0);
-        return ResourceTimelineResponseDTO.TimelineKPI.builder()
+        return ResourceTimelineResponseDTO.ResourceTimelineKpi.builder()
                 .totalResources(kpi.getTotalResources())
                 .fullyAvailable(kpi.getFullyAvailable())
                 .partiallyAvailable(kpi.getPartiallyAvailable())
