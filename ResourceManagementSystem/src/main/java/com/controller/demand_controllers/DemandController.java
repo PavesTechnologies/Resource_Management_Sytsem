@@ -3,6 +3,7 @@ package com.controller.demand_controllers;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
+import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,17 @@ public class DemandController {
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getDemandById(@PathVariable UUID demandId) {
         return demandService.getDemandById(demandId);
+    }
+
+    @GetMapping("/debug/open-demands")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','DELIVERY-MANAGER','MANAGER')")
+    public ResponseEntity<ApiResponse<?>> getOpenDemandsDebug() {
+        try {
+            List<Demand> openDemands = demandService.getOpenDemands();
+            return ResponseEntity.ok(ApiResponse.success("Open demands debug", openDemands));
+        } catch (Exception e) {
+            return ResponseEntity.ok(ApiResponse.error("Debug error: " + e.getMessage()));
+        }
     }
 
     @GetMapping("/rm/demands")
