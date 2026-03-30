@@ -1,6 +1,6 @@
 package com.config;
 
-import com.service_imple.external_api_impl.TokenService;
+import com.service_imple.external_api_impl.ExternalApiTokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -18,17 +18,17 @@ import java.util.concurrent.Executor;
 @EnableAsync
 public class AvailabilityEngineConfig {
 
-    private final TokenService tokenService;
+    private final ExternalApiTokenService ExternalApiTokenService;
 
-    public AvailabilityEngineConfig(@Lazy TokenService tokenService) {
-        this.tokenService = tokenService;
+    public AvailabilityEngineConfig(@Lazy ExternalApiTokenService ExternalApiTokenService) {
+        this.ExternalApiTokenService = ExternalApiTokenService;
     }
 
     @Bean
     public RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();
         
-        // Add interceptor to use token from TokenService
+        // Add interceptor to use token from ExternalApiTokenService
         List<ClientHttpRequestInterceptor> interceptors = new ArrayList<>();
         interceptors.add((request, body, execution) -> {
             // Add content type only if body is present
@@ -36,9 +36,9 @@ public class AvailabilityEngineConfig {
                 request.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
             }
             
-            // Get token from TokenService
+            // Get token from ExternalApiTokenService
             try {
-                String token = tokenService.getAccessToken();
+                String token = ExternalApiTokenService.getAccessToken();
                 if (token != null && !token.isEmpty()) {
                     request.getHeaders().add(HttpHeaders.AUTHORIZATION, "Bearer " + token);
                 }

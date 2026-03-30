@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -612,7 +613,7 @@ public class BenchService {
         // Calculate cost per day from annual CTC with 2 decimal places
         double costPerDay = 0.0;
         if (resource.getAnnualCtc() != null) {
-            costPerDay = resource.getAnnualCtc().divide(BigDecimal.valueOf(365.0), 2, BigDecimal.ROUND_HALF_UP).doubleValue();
+            costPerDay = resource.getAnnualCtc().divide(BigDecimal.valueOf(365.0), 2, RoundingMode.HALF_UP).doubleValue();
         }
 
         // Calculate dynamic allocation availability

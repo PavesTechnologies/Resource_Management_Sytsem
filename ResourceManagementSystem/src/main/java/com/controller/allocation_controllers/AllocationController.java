@@ -6,9 +6,7 @@ import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.CloseAllocationDTO;
 import com.security.CurrentUser;
 import com.service_interface.allocation_service_interface.AllocationService;
-import com.service_imple.allocation_service_imple.AllocationClosureScheduler;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,17 +19,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AllocationController {
 
-    @Autowired
-    AllocationService allocationService;
-
-    private final AllocationClosureScheduler allocationClosureScheduler;
+    private final AllocationService allocationService;
 
     @PostMapping("/assign")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<?>> assignAllocation(
             @Valid @RequestBody AllocationRequestDTO allocationRequest, @CurrentUser UserDTO user) {
-        
-                allocationRequest.setCreatedBy(user.getName());
+        allocationRequest.setCreatedBy(user.getName());
         return allocationService.assignAllocation(allocationRequest);
     }
 
@@ -39,8 +33,7 @@ public class AllocationController {
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<?>> getAllocationById(
             @PathVariable UUID allocationId) {
-        
-                return allocationService.getAllocationById(allocationId);
+        return allocationService.getAllocationById(allocationId);
     }
 
     @PutMapping("/{allocationId}")
@@ -48,8 +41,7 @@ public class AllocationController {
     public ResponseEntity<ApiResponse<?>> updateAllocation(
             @PathVariable UUID allocationId,
             @Valid @RequestBody AllocationRequestDTO allocationRequest) {
-        
-                return allocationService.updateAllocation(allocationId, allocationRequest);
+        return allocationService.updateAllocation(allocationId, allocationRequest);
     }
 
     @PostMapping("/{allocationId}/cancel")
@@ -57,31 +49,28 @@ public class AllocationController {
     public ResponseEntity<ApiResponse<?>> cancelAllocation(
             @PathVariable UUID allocationId,
             @RequestParam String cancelledBy) {
-        
-                return allocationService.cancelAllocation(allocationId, cancelledBy);
+        return allocationService.cancelAllocation(allocationId, cancelledBy);
     }
 
     @GetMapping("/resource/{resourceId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByResource(
             @PathVariable Long resourceId) {
-        
-                return allocationService.getAllocationsByResource(resourceId);
+        return allocationService.getAllocationsByResource(resourceId);
     }
 
     @GetMapping("/demand/{demandId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(
             @PathVariable UUID demandId) {
-                return allocationService.getAllocationsByDemand(demandId);
+        return allocationService.getAllocationsByDemand(demandId);
     }
 
     @GetMapping("/project/{projectId}")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN', 'DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByProject(
             @PathVariable Long projectId) {
-        
-                return allocationService.getAllocationsByProject(projectId);
+        return allocationService.getAllocationsByProject(projectId);
     }
 
     @GetMapping("/get-all-resources/{projectId}")
@@ -101,7 +90,6 @@ public class AllocationController {
     public ResponseEntity<ApiResponse<?>> closeAllocation(
             @PathVariable UUID allocationId,
             @RequestBody CloseAllocationDTO request) {
-
         return allocationService.closeAllocation(allocationId, request);
     }
 }

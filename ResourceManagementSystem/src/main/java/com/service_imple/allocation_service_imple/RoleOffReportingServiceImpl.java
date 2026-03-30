@@ -194,8 +194,30 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
     @Override
     public List<ProjectRiskAnalysisDTO> getClientRiskAnalysis(LocalDate startDate, LocalDate endDate) {
         List<Object[]> results = roleOffRepo.getRoleOffReasonsByClient(startDate, endDate);
-        // Similar implementation to project risk analysis
-        return Collections.emptyList(); // Placeholder
+        
+        return results.stream()
+                .map(result -> new ProjectRiskAnalysisDTO(
+                    (String) result[0], // client name
+                    result[1] != null ? result[1].toString() : null, // project id as string
+                    RoleOffReason.valueOf((String) result[2]), // convert string to enum
+                    ((Number) result[3]).longValue(), // count
+                    calculateRiskScore(((Number) result[3]).longValue()), // risk score based on count
+                    determineRiskLevel(((Number) result[3]).longValue()) // risk level
+                ))
+                .collect(Collectors.toList());
+    }
+    
+    private Double calculateRiskScore(Long count) {
+        // Simple risk calculation: higher count = higher risk
+        // Normalize to 0-100 scale
+        return Math.min(count * 10.0, 100.0);
+    }
+    
+    private String determineRiskLevel(Long count) {
+        if (count >= 10) return "CRITICAL";
+        if (count >= 5) return "HIGH";
+        if (count >= 2) return "MEDIUM";
+        return "LOW";
     }
 
     @Override
@@ -246,8 +268,27 @@ public class RoleOffReportingServiceImpl implements RoleOffReportingService {
     }
 
     private List<Map<String, Object>> getRiskTrends(LocalDate startDate, LocalDate endDate) {
-        // Implement risk trend calculation
-        return Collections.emptyList(); // Placeholder
+        List<Map<String, Object>> trends = new ArrayList<>();
+        
+        // Get monthly role-off data for trend analysis
+        LocalDate current = startDate;
+        while (!current.isAfter(endDate)) {
+            LocalDate monthEnd = current.withDayOfMonth(current.lengthOfMonth());
+            LocalDate monthStart = current.withDayOfMonth(1);
+            
+            // Get role-offs for this month
+            Long monthlyCount = roleOffRepo.countRoleOffsByDateRange(monthStart, monthEnd);
+            
+            Map<String, Object> trendPoint = new HashMap<>();
+            trendPoint.put("month", current.toString());
+            trendPoint.put("count", monthlyCount);
+            trendPoint.put("riskLevel", determineRiskLevel(monthlyCount));
+            
+            trends.add(trendPoint);
+            current = current.plusMonths(1);
+        }
+        
+        return trends;
     }
 
     private Map<String, Object> convertProjectRiskToMap(ProjectRiskAnalysisDTO project) {
