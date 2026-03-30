@@ -1216,7 +1216,7 @@ public class RoleOffServiceImpl implements RoleOffService {
      * Process the actual role-off after confirmation
      */
     private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
-                               Resource resource, Project project, ResourceAllocation allocation) {
+                                Resource resource, Project project, ResourceAllocation allocation) {
 
         // Validate RoleOffType
         if (dto.getRoleOffType() == null) {
@@ -1226,10 +1226,9 @@ public class RoleOffServiceImpl implements RoleOffService {
                     "RoleOffType must be provided");
         }
 
-        // Get the role from allocation or replacement role
+        // Get role from allocation or replacement role
         DeliveryRoleExpectation roleToSet = null;
 
-        // First try to get role from the allocation's demand (demand-based allocation)
         if (dto.getAllocationId() != null) {
             ResourceAllocation tempAllocation = allocationRepository.findById(dto.getAllocationId()).orElse(null);
             if (tempAllocation != null && tempAllocation.getDemand() != null) {
@@ -1237,9 +1236,8 @@ public class RoleOffServiceImpl implements RoleOffService {
             }
         }
 
-        // If auto replacement is required, we must have a role
+        // Handle role for auto replacement
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-            // If no role from demand, use replacement role (must be provided when auto replacement is true)
             if (roleToSet == null) {
                 if (dto.getReplacementRoleId() != null) {
                     roleToSet = roleRepository.findById(dto.getReplacementRoleId())
@@ -1255,7 +1253,6 @@ public class RoleOffServiceImpl implements RoleOffService {
                 }
             }
         } else {
-            // Auto replacement is false - role is optional, but use it if provided
             if (roleToSet == null && dto.getReplacementRoleId() != null) {
                 roleToSet = roleRepository.findById(dto.getReplacementRoleId())
                         .orElseThrow(() -> new ProjectExceptionHandler(
@@ -1265,54 +1262,47 @@ public class RoleOffServiceImpl implements RoleOffService {
             }
         }
 
-        // Create RoleOffEvent
+        // Create event
         RoleOffEvent event = new RoleOffEvent();
-
         event.setProject(project);
         event.setResource(resource);
-        event.setRole(roleToSet); // Always set the role (can be null if neither demand nor replacement role exists)
+        event.setRole(roleToSet);
         event.setRoleOffType(dto.getRoleOffType());
         event.setRoleInitiatedBy("PROJECT-MANAGER");
         event.setCreatedBy(userId);
         event.setAllocation(allocation);
 
-        // COMMON FIELDS
         event.setRoleOffReasonEnum(dto.getRoleOffReason());
         event.setEffectiveRoleOffDate(dto.getEffectiveRoleOffDate());
 
         // =========================================================
-        // 🔥 EMERGENCY ROLE-OFF (IMMEDIATE EXECUTION)
+        // 🔥 EMERGENCY ROLE-OFF
         // =========================================================
         if (dto.getRoleOffType() == RoleOffType.EMERGENCY) {
 
             event.setRoleOffReason(dto.getEmergencyReason());
             event.setRoleOffStatus(RoleOffStatus.APPROVED);
-//            event.setApprovedBy("SYSTEM");
 
-            roleOffRepo.save(event); // ✅ FIRST SAVE
+            roleOffRepo.save(event);
 
-            // 🔥 REPLACEMENT LOGIC
+            // Replacement
             if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-
                 createReplacementDemand(event, userId);
                 event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
-
             } else {
-
                 if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
                     throw new ProjectExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "SKIP_REASON_REQUIRED",
                             "Skip reason required when replacement is disabled");
                 }
-
                 event.setReplacementStatus(ReplacementStatus.SKIPPED);
                 event.setSkipReason(dto.getSkipReason());
             }
 
-            roleOffRepo.save(event); // ✅ UPDATE AFTER DEMAND
+            roleOffRepo.save(event);
 
-            // 🔥 immediate execution
+            // Immediate execution
             closeResourceAllocation(event);
 
             event.setRoleOffStatus(RoleOffStatus.FULFILLED);
@@ -1322,7 +1312,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         }
 
         // =========================================================
-        // 🔥 PLANNED ROLE-OFF (APPROVAL FLOW)
+        // 🔥 PLANNED ROLE-OFF
         // =========================================================
         if (dto.getRoleOffType() == RoleOffType.PLANNED) {
 
@@ -1340,63 +1330,36 @@ public class RoleOffServiceImpl implements RoleOffService {
                         "Role-off date cannot be in past");
             }
 
+            // Project timeline validation
+            if (project.getEndDate().toLocalDate().isBefore(dto.getEffectiveRoleOffDate())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_PROJECT_TIMELINE",
+                        "Project end date cannot be before role-off date");
+            }
+
             event.setRoleOffReason(dto.getRoleOffReason().name());
             event.setRoleOffStatus(RoleOffStatus.PENDING);
 
-            roleOffRepo.save(event); // ✅ SAVE FIRST
+            roleOffRepo.save(event);
 
-            // 🔥 REPLACEMENT LOGIC
+            // ✅ SINGLE replacement logic (FIXED)
             if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-
                 createReplacementDemand(event, userId);
                 event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
-
             } else {
-
                 if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
                     throw new ProjectExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "SKIP_REASON_REQUIRED",
                             "Skip reason required when replacement is disabled");
                 }
-
                 event.setReplacementStatus(ReplacementStatus.SKIPPED);
                 event.setSkipReason(dto.getSkipReason());
             }
 
-            roleOffRepo.save(event); // ✅ UPDATE AFTER DEMAND
+            roleOffRepo.save(event);
         }
-
-        // Project timeline validation
-        if (event.getProject().getEndDate().toLocalDate().isBefore(event.getEffectiveRoleOffDate())) {
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "INVALID_PROJECT_TIMELINE",
-                    "Project end date cannot be before role-off date");
-        }
-
-        // Replacement logic
-        if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-
-            createReplacementDemand(event, userId);
-            event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
-
-        } else {
-
-            if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
-
-                throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "SKIP_REASON_REQUIRED",
-                        "Skip reason required when replacement is disabled");
-            }
-
-            event.setReplacementStatus(ReplacementStatus.SKIPPED);
-            event.setSkipReason(dto.getSkipReason());
-        }
-
-        // FINAL SAVE
-        roleOffRepo.save(event);
     }
 
     // ========== SEPARATE APPROVE/REJECT METHODS FOR RESOURCE MANAGER ==========
