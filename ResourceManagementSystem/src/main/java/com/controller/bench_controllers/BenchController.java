@@ -4,7 +4,9 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
+import com.dto.bench_dto.MatchResponse;
 import com.service_imple.bench_service_impl.BenchService;
+import com.service_interface.bench_service_interface.BenchDemandMatchingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Bench Controller for managing bench resources and providing frontend APIs
@@ -25,6 +28,7 @@ import java.util.Map;
 public class BenchController {
 
     private final BenchService benchDetectionService;
+    private final BenchDemandMatchingService benchDemandMatchingService;
 
     /**
      * Get all bench resources
@@ -161,5 +165,56 @@ public class BenchController {
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Bench KPI metrics retrieved successfully", kpi)
         );
+    }
+
+    /**
+     * Get bench-to-demand matches
+     * GET /api/bench/matches
+     */
+    @GetMapping("/matches")
+    public ResponseEntity<List<MatchResponse>> getMatches(
+            @RequestParam(required = false) String skill,
+            @RequestParam(required = false) Integer minExp) {
+        
+        try {
+            log.info("Getting bench-demand matches with filters - skill: {}, minExp: {}", skill, minExp);
+            
+            List<MatchResponse> matches;
+            
+            if (skill != null || minExp != null) {
+                matches = benchDemandMatchingService.getMatches(skill, minExp);
+            } else {
+                matches = benchDemandMatchingService.getMatches();
+            }
+            
+            return ResponseEntity.ok(matches);
+            
+        } catch (Exception e) {
+            log.error("Error getting bench-demand matches: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Quick allocate bench resource to demand
+     * POST /api/bench/quick-allocate
+     */
+    @PostMapping("/quick-allocate")
+    public ResponseEntity<String> quickAllocate(
+            @RequestParam Long resourceId,
+            @RequestParam UUID demandId) {
+        
+        try {
+            log.info("Quick allocating resource {} to demand {}", resourceId, demandId);
+            
+            // TODO: Implement allocation logic
+            // allocationService.createAllocation(resourceId, demandId);
+            
+            return ResponseEntity.ok("Allocation successful - TODO: Implement allocation logic");
+            
+        } catch (Exception e) {
+            log.error("Error in quick allocation: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Allocation failed: " + e.getMessage());
+        }
     }
 }

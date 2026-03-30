@@ -31,6 +31,7 @@ import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_imple.project_service_impl.ProjectDemandValidationService;
 import com.service_interface.demand_service_interface.DemandService;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +47,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 
+@Slf4j
 @Service
 public class DemandServiceImpl implements DemandService {
 
@@ -2179,5 +2181,11 @@ public class DemandServiceImpl implements DemandService {
         }
 
         return kpi;
+    }
+
+    @Override
+    public List<Demand> getOpenDemands() {
+        log.info("Getting open demands for bench matching");
+        return demandRepository.findOpenDemands();
     }
 }
