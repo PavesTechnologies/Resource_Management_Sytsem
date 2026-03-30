@@ -1,5 +1,6 @@
 package com.dto.availability_dto;
 
+import com.dto.allocation_dto.AllocationTimelineItem;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
@@ -29,28 +30,5 @@ public class ResourceTimelineWindowDTO {
     private String nextAssignment;
     private List<AllocationTimelineItem> allocationTimeline;
     
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class AllocationTimelineItem {
-        private String project;
-        private LocalDate startDate;
-        private LocalDate endDate;
-        private Integer allocation;
-        private Boolean tentative;
-    }
-    
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class TimelineKPI {
-        private Long totalResources;
-        private Long availableCount;
-        private Long partialCount;
-        private Long allocatedCount;
-        private Double avgAllocationOverall;
-        private Long overAllocatedCount;
-    }
+    private ResourceTimelineResponseDTO.ResourceTimelineKpi timelineKpi;
 }

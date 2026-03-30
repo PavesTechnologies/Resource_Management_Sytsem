@@ -130,7 +130,7 @@ public class AvailabilityController {
 
     @GetMapping("/timeline/window/kpi")
     @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
-    public ResponseEntity<ApiResponse<ResourceTimelineResponseDTO.TimelineKPI>> getTimelineKPI(
+    public ResponseEntity<ApiResponse<ResourceTimelineResponseDTO.ResourceTimelineKpi>> getTimelineKPI(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -150,18 +150,18 @@ public class AvailabilityController {
                 
         // Validate status if provided
         if (status != null && !List.of("available", "partial", "allocated").contains(status.toLowerCase())) {
-            ApiResponse<ResourceTimelineResponseDTO.TimelineKPI> errorResponse = new ApiResponse<>();
+            ApiResponse<ResourceTimelineResponseDTO.ResourceTimelineKpi> errorResponse = new ApiResponse<>();
             errorResponse.setSuccess(false);
             errorResponse.setMessage("Invalid status. Must be one of: available, partial, allocated");
             errorResponse.setData(null);
             return ResponseEntity.badRequest().body(errorResponse);
         }
         
-        ResourceTimelineResponseDTO.TimelineKPI kpi = resourceTimelineService.getTimelineKPI(
+        ResourceTimelineResponseDTO.ResourceTimelineKpi kpi = resourceTimelineService.getTimelineKPI(
                 startDate, endDate, designation, location, minExp, maxExp, 
                 employmentType, status != null ? status.toLowerCase() : null);
         
-        ApiResponse<ResourceTimelineResponseDTO.TimelineKPI> response = new ApiResponse<>();
+        ApiResponse<ResourceTimelineResponseDTO.ResourceTimelineKpi> response = new ApiResponse<>();
         response.setSuccess(true);
         response.setMessage("Timeline KPI retrieved successfully");
         response.setData(kpi);

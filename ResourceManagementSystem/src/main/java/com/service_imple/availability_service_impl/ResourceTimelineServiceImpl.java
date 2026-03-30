@@ -17,7 +17,7 @@ import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.repo.skill_repo.ResourceCertificateRepository;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
-import com.service_imple.external_api_impl.TokenService;
+import com.service_imple.external_api_impl.ExternalApiTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,11 +36,36 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final ResourceCertificateRepository resourceCertificateRepository;
-    private final TokenService tokenService;
+    private final ExternalApiTokenService ExternalApiTokenService;
 
     @Override
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
-        return List.of();
+        // Get all resources without date filtering - use full history mode with default parameters
+        List<ResourceTimelineProjection> allResources = resourceTimelineRepository.getResourceTimelineFullHistory(
+                null, null, null, null, null, null, Integer.MAX_VALUE, 0, null);
+        
+        return allResources.stream()
+                .map(this::convertToResourceTimelineDTO)
+                .collect(Collectors.toList());
+    }
+    
+    private ResourceTimelineDTO convertToResourceTimelineDTO(ResourceTimelineProjection projection) {
+        return ResourceTimelineDTO.builder()
+                .id(projection.getId().toString())
+                .name(projection.getFullName())
+                .avatar(generateAvatarFromName(projection.getFullName()))
+                .role(projection.getDesignation())
+                .skills(List.of()) // Empty for basic timeline - skills loaded in detailed view
+                .location(projection.getWorkingLocation())
+                .experience(projection.getExperiance())
+                .currentAllocation(null) // Not calculated in basic timeline
+                .availableFrom(null) // Not calculated in basic timeline
+                .currentProject(List.of()) // Not calculated in basic timeline
+                .nextAssignment(null) // Not calculated in basic timeline
+                .employmentType(projection.getEmploymentType())
+                .utilizationHistory(List.of()) // Not calculated in basic timeline
+                .allocationTimeline(List.of()) // Not calculated in basic timeline
+                .build();
     }
 
     @Override
@@ -219,7 +244,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     @Override
     @Transactional(readOnly = true)
-    public ResourceTimelineResponseDTO.TimelineKPI getTimelineKPI(
+    public ResourceTimelineResponseDTO.ResourceTimelineKpi getTimelineKPI(
             LocalDate startDate, 
             LocalDate endDate,
             String designation,
@@ -242,7 +267,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         if (kpiData.isEmpty()) {
-            return ResourceTimelineResponseDTO.TimelineKPI.builder()
+            return ResourceTimelineResponseDTO.ResourceTimelineKpi.builder()
                     .totalResources(0L)
                     .fullyAvailable(0L)
                     .partiallyAvailable(0L)
@@ -254,7 +279,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         TimelineKpiProjection kpi = kpiData.get(0);
-        return ResourceTimelineResponseDTO.TimelineKPI.builder()
+        return ResourceTimelineResponseDTO.ResourceTimelineKpi.builder()
                 .totalResources(kpi.getTotalResources())
                 .fullyAvailable(kpi.getFullyAvailable())
                 .partiallyAvailable(kpi.getPartiallyAvailable())

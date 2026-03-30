@@ -414,17 +414,15 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         Map<String, List<DeliveryRoleExpectation>> groupedBySkill = expectations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSkill().getName()));
 
-        List<DeliveryRoleExpectationResponse.SkillRequirement> skillRequirements = new ArrayList<>();
+        List<RoleSkillRequirement> skillRequirements = new ArrayList<>();
 
         for (Map.Entry<String, List<DeliveryRoleExpectation>> entry : groupedBySkill.entrySet()) {
-            DeliveryRoleExpectationResponse.SkillRequirement skillReq = 
-                    new DeliveryRoleExpectationResponse.SkillRequirement();
+            RoleSkillRequirement skillReq = new RoleSkillRequirement();
             skillReq.setSkill(entry.getKey());
 
-            List<DeliveryRoleExpectationResponse.RequirementDetail> requirements = entry.getValue().stream()
+            List<RoleRequirementDetail> requirements = entry.getValue().stream()
                     .map(e -> {
-                        DeliveryRoleExpectationResponse.RequirementDetail detail = 
-                                new DeliveryRoleExpectationResponse.RequirementDetail();
+                        RoleRequirementDetail detail = new RoleRequirementDetail();
                         detail.setSubSkill(e.getSubSkill() != null ? e.getSubSkill().getName() : null);
                         detail.setProficiency(e.getProficiencyLevel().getProficiencyName());
                         detail.setMandatoryFlag(e.getMandatoryFlag());
@@ -437,7 +435,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         }
 
         response.setSkills(skillRequirements.stream()
-                .sorted(Comparator.comparing(DeliveryRoleExpectationResponse.SkillRequirement::getSkill))
+                .sorted(Comparator.comparing(RoleSkillRequirement::getSkill))
                 .collect(Collectors.toList()));
 
         return response;
@@ -456,12 +454,11 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         response.setRoleName(roleName);
         response.setDev_role_id(expectations.get(0).getId());
 
-        List<RoleExpectationWithMandatoryResponse.SkillRequirement> mandatorySkills = new ArrayList<>();
-        List<RoleExpectationWithMandatoryResponse.SkillRequirement> optionalSkills = new ArrayList<>();
+        List<RoleSkillRequirement> mandatorySkills = new ArrayList<>();
+        List<RoleSkillRequirement> optionalSkills = new ArrayList<>();
 
         for (DeliveryRoleExpectation expectation : expectations) {
-            RoleExpectationWithMandatoryResponse.SkillRequirement skillReq = 
-                    new RoleExpectationWithMandatoryResponse.SkillRequirement();
+            RoleSkillRequirement skillReq = new RoleSkillRequirement();
             skillReq.setSkill(expectation.getSkill().getName());
             skillReq.setSubSkill(expectation.getSubSkill() != null ? expectation.getSubSkill().getName() : null);
             skillReq.setProficiency(expectation.getProficiencyLevel().getProficiencyName());
@@ -474,11 +471,11 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         }
 
         response.setMandatorySkills(mandatorySkills.stream()
-                .sorted(Comparator.comparing(RoleExpectationWithMandatoryResponse.SkillRequirement::getSkill))
+                .sorted(Comparator.comparing(RoleSkillRequirement::getSkill))
                 .collect(Collectors.toList()));
 
         response.setOptionalSkills(optionalSkills.stream()
-                .sorted(Comparator.comparing(RoleExpectationWithMandatoryResponse.SkillRequirement::getSkill))
+                .sorted(Comparator.comparing(RoleSkillRequirement::getSkill))
                 .collect(Collectors.toList()));
 
         return response;

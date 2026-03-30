@@ -1,18 +1,19 @@
 package com.service_imple.availability_service_impl;
 
 import com.repo.allocation_repo.AllocationRepository;
-import com.service_interface.availability_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectTimelineChangeService {
@@ -24,14 +25,12 @@ public class ProjectTimelineChangeService {
     public void handleProjectTimelineChange(Long projectId, LocalDateTime oldStartDate, LocalDateTime oldEndDate, 
                                            LocalDateTime newStartDate, LocalDateTime newEndDate) {
         try {
-            // Find all resources allocated to this project
             List<com.entity.allocation_entities.ResourceAllocation> allocations = allocationRepository.findByProject_PmsProjectId(projectId);
             
             if (allocations.isEmpty()) {
-                return; // No resources affected
+                return;
             }
             
-            // Determine the date range that needs recalculation
             LocalDateTime earliestDate = oldStartDate;
             LocalDateTime latestDate = oldEndDate;
             
@@ -43,43 +42,27 @@ public class ProjectTimelineChangeService {
             }
             
             if (earliestDate == null || latestDate == null) {
-                return; // Insufficient data for recalculation
-            }
-            
-            // Calculate affected months
-            YearMonth startMonth = YearMonth.from(earliestDate);
-            YearMonth endMonth = YearMonth.from(latestDate);
-            
-            // Validate that dates are reasonable (not in year 58062!)
-            YearMonth currentYearMonth = YearMonth.now();
-            if (startMonth.isAfter(currentYearMonth.plusYears(10)) || endMonth.isAfter(currentYearMonth.plusYears(10))) {
-                System.err.println("Invalid date range detected - startMonth: " + startMonth + ", endMonth: " + endMonth + ". Skipping recalculation.");
                 return;
             }
             
-            // Get unique resource IDs
+            LocalDate start = earliestDate.toLocalDate();
+            LocalDate end = latestDate.toLocalDate();
+            
             Set<Long> resourceIds = allocations.stream()
                 .map(allocation -> allocation.getResource().getResourceId())
                 .collect(Collectors.toSet());
             
-            // Recalculate availability for each affected resource for each affected month
-            YearMonth currentMonth = startMonth;
-            while (!currentMonth.isAfter(endMonth)) {
-                for (Long resourceId : resourceIds) {
-                    try {
-                        calculationService.recalculateForResource(resourceId, currentMonth);
-                    } catch (Exception e) {
-                        // Continue with other resources/months even if one fails
-                        System.err.println("Failed to recalculate availability for resource " + resourceId + 
-                                         " in month " + currentMonth + ": " + e.getMessage());
-                    }
+            for (Long resourceId : resourceIds) {
+                try {
+                    calculationService.recalculateForDateRange(resourceId, start, end);
+                } catch (Exception e) {
+                    log.error("Failed to recalculate availability for resource {} from {} to {}: {}", 
+                            resourceId, start, end, e.getMessage());
                 }
-                currentMonth = currentMonth.plusMonths(1);
             }
             
         } catch (Exception e) {
-            // Log error but don't fail the entire CDC processing
-            System.err.println("Failed to handle project timeline change for project " + projectId + ": " + e.getMessage());
+            log.error("Failed to handle project timeline change for project {}: {}", projectId, e.getMessage());
         }
     }
 }
