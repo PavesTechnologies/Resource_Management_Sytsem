@@ -52,4 +52,10 @@ public class ResourceState {
 
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    private LocalDateTime updatedAt;
+    private Long updatedBy;
+    private SubState oldSubStateTypeValue;
+    private SubState newSubStateTypeValue;
+    private String reason;
 }
