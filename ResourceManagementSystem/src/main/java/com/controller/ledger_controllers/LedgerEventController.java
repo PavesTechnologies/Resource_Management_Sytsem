@@ -7,7 +7,6 @@ import com.events.ledger_events.AllocationChangedEvent;
 import com.events.ledger_events.ResourceCreatedEvent;
 import com.events.ledger_events.RoleOffEvent;
 import com.events.publisher.EventPublishingService;
-import com.service_imple.ledger_service_impl.LedgerHorizonService;
 import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -34,14 +33,11 @@ public class LedgerEventController {
 
     private final EventPublishingService eventPublishingService;
     private final AvailabilityCalculationService availabilityCalculationService;
-    private final LedgerHorizonService horizonService;
 
     @PostMapping("/allocation-changed")
     @Operation(summary = "Trigger allocation changed event", description = "Publishes an allocation changed event to trigger ledger recalculation")
     public CompletableFuture<ResponseEntity<Map<String, Object>>> triggerAllocationChangedEvent(
             @RequestBody LedgerAllocationChangedRequest request) {
-        
-        log.info("Received allocation changed event request: {}", request);
         
         try {
             AllocationChangedEvent event = AllocationChangedEvent.builder()
@@ -94,8 +90,6 @@ public class LedgerEventController {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> triggerRoleOffEvent(
             @RequestBody LedgerRoleOffEventRequest request) {
         
-        log.info("Received role-off event request: {}", request);
-        
         try {
             RoleOffEvent event = RoleOffEvent.builder()
                     .eventId(request.getEventId())
@@ -143,8 +137,6 @@ public class LedgerEventController {
     @Operation(summary = "Trigger resource created event", description = "Publishes a resource created event to trigger ledger calculation")
     public CompletableFuture<ResponseEntity<Map<String, Object>>> triggerResourceCreatedEvent(
             @RequestBody LedgerResourceCreatedRequest request) {
-        
-        log.info("Received resource created event request: {}", request);
         
         try {
             ResourceCreatedEvent event = ResourceCreatedEvent.builder()
@@ -198,8 +190,6 @@ public class LedgerEventController {
             @RequestParam @Parameter(description = "Start date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @Parameter(description = "End date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         
-        log.info("Manual recalculation request for resource {} from {} to {}", resourceId, startDate, endDate);
-        
         return CompletableFuture.runAsync(() -> {
             try {
                 availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
@@ -224,20 +214,6 @@ public class LedgerEventController {
         });
     }
 
-    @GetMapping("/horizon/{resourceId}")
-    @Operation(summary = "Get horizon information", description = "Get horizon calculation details for a resource")
-    public ResponseEntity<LedgerHorizonService.HorizonInfo> getHorizonInfo(
-            @PathVariable @Parameter(description = "Resource ID") Long resourceId) {
-        
-        try {
-            LedgerHorizonService.HorizonInfo horizonInfo = horizonService.getHorizonInfo(resourceId);
-            return ResponseEntity.ok(horizonInfo);
-        } catch (Exception e) {
-            log.error("Failed to get horizon info for resource {}: {}", resourceId, e.getMessage(), e);
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
     @PostMapping("/incremental-update")
     @Operation(summary = "Trigger incremental update", description = "Trigger incremental availability update based on event date")
     public CompletableFuture<ResponseEntity<Map<String, Object>>> triggerIncrementalUpdate(
@@ -245,10 +221,11 @@ public class LedgerEventController {
             @RequestParam @Parameter(description = "Event date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate eventDate,
             @RequestParam @Parameter(description = "Event type") String eventType) {
         
-        log.info("Incremental update request for resource {} on {} with event type {}", resourceId, eventDate, eventType);
-        
         try {
-            horizonService.optimizeForEvent(resourceId, eventDate, eventType);
+            LocalDate startDate = eventDate.isBefore(LocalDate.now().minusDays(30)) ? LocalDate.now().minusDays(30) : eventDate;
+            LocalDate endDate = eventDate.plusDays(90);
+            
+            availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
             
             return CompletableFuture.completedFuture(ResponseEntity.ok(Map.<String, Object>of(
                     "status", "success",

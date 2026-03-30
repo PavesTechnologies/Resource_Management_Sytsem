@@ -4,7 +4,10 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.entity_enums.centralised_enums.RecordStatus;
+import com.entity_enums.project_enums.ProjectStatus;
 import com.repo.client_repo.ClientRepo;
+import com.repo.project_repo.ProjectRepository;
+import com.repo.project_repo.ProjectEscalationRepo;
 import com.service_interface.client_service_interface.ClientService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +20,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +36,17 @@ import java.util.stream.Collectors;
 public class ClientServiceImpl implements ClientService {
 
     private final ClientRepo clientRepo;
+    private final ProjectRepository projectRepository;
+    private final ProjectEscalationRepo projectEscalationRepo;
 
     @Override
     public ResponseEntity<ApiResponse<Client>> createClient(Client client) {
         try {
             if (client.getStatus() == null) {
                 client.setStatus(RecordStatus.ACTIVE);
+            }
+            if (client.getCreatedAt() == null) {
+                client.setCreatedAt(LocalDateTime.now());
             }
 
             Client savedClient = clientRepo.save(client);
@@ -79,8 +89,8 @@ public class ClientServiceImpl implements ClientService {
     @Override
     public ResponseEntity<ApiResponse<Void>> countClients() {
         try {
-            clientRepo.count();
-            return ResponseEntity.ok(ApiResponse.<Void>success("Client count retrieved successfully", null));
+            long count = clientRepo.count();
+            return ResponseEntity.ok(ApiResponse.<Void>success("Client count retrieved successfully: " + count, null));
 
         } catch (Exception e) {
             log.error("Error counting clients: {}", e.getMessage());
@@ -125,25 +135,39 @@ public class ClientServiceImpl implements ClientService {
             long totalClients = clientRepo.count();
             List<Client> activeClients = clientRepo.findByStatus(RecordStatus.ACTIVE);
             int activeClientCount = activeClients.size();
-            int activeProjects = 25;
-            int previousPeriodClientCount = 45;
-            double growthPercentage = totalClients > 0 ? 
-                    ((double)(totalClients - previousPeriodClientCount) / previousPeriodClientCount) * 100 : 0;
             
-            Map<Integer, Integer> yearlyClientCounts = new HashMap<>();
-            yearlyClientCounts.put(2023, 35);
-            yearlyClientCounts.put(2024, 45);
-            yearlyClientCounts.put(2025, (int) totalClients);
+            Long activeProjectsCount = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
+            int activeProjects = activeProjectsCount != null ? activeProjectsCount.intValue() : 0;
             
-            AdminKPIDTO adminKPIDTO = new AdminKPIDTO(
-                    (int) totalClients,
-                    activeClientCount,
-                    activeProjects,
-                    growthPercentage,
-                    previousPeriodClientCount,
-                    growthPercentage >= 0,
-                    yearlyClientCounts
-            );
+            int currentYear = Year.now().getValue();
+            int previousYear = currentYear - 1;
+            
+            long currentYearClientCount = getClientCountByYear(currentYear);
+            long previousYearClientCount = getClientCountByYear(previousYear);
+            
+            // Growth percentage calculation: ((Current Year - Previous Year) / Previous Year) * 100
+            // Rounding to int only as per requirement
+            double growthPercentage = 0;
+            if (previousYearClientCount > 0) {
+                growthPercentage = Math.round(((double)(currentYearClientCount - previousYearClientCount) / previousYearClientCount) * 100);
+            } else if (currentYearClientCount > 0) {
+                growthPercentage = 100; // 100% growth if there were no clients in previous year but some in current year
+            }
+            
+            Map<Integer, Long> yearlyClientCounts = new HashMap<>();
+            yearlyClientCounts.put(currentYear - 2, getClientCountByYear(currentYear - 2));
+            yearlyClientCounts.put(currentYear - 1, previousYearClientCount);
+            yearlyClientCounts.put(currentYear, currentYearClientCount);
+            
+            AdminKPIDTO adminKPIDTO = AdminKPIDTO.builder()
+                    .totalClients(totalClients)
+                    .activeClients(activeClientCount)
+                    .activeProjects(activeProjects)
+                    .growthPercentage(growthPercentage)
+                    .previousPeriodClientCount(previousYearClientCount)
+                    .isGrowthPositive(growthPercentage >= 0)
+                    .yearlyClientCounts(yearlyClientCounts)
+                    .build();
             
             return ResponseEntity.ok(ApiResponse.<AdminKPIDTO>success("Admin KPI retrieved successfully", adminKPIDTO));
 
@@ -174,9 +198,62 @@ public class ClientServiceImpl implements ClientService {
         try {
             return clientRepo.findById(clientId)
                     .map(client -> {
-                        ClientProjectStatisticsDTO stats = new ClientProjectStatisticsDTO(
-                                15L, 8L, java.math.BigDecimal.valueOf(250000.50), 85.5, 3L, "GOOD", null
+                        Long totalProjects = projectRepository.countTotalProjectsByClientId(clientId);
+                        Long activeProjects = projectRepository.countProjectsByClientIdAndStatus(clientId, ProjectStatus.ACTIVE);
+                        BigDecimal totalSpend = projectRepository.sumProjectBudgetByClientId(clientId);
+                        
+                        // Enhanced Metrics Calculation
+                        Long completedProjects = projectRepository.countCompletedProjectsByClientId(clientId);
+                        Long onTimeCompleted = projectRepository.countOnTimeCompletedProjectsByClientId(clientId);
+                        Double onTimeDeliveryRate = completedProjects > 0 ? (onTimeCompleted.doubleValue() / completedProjects.doubleValue()) * 100 : 0.0;
+                        
+                        Long delayedProjects = projectRepository.countDelayedProjectsByClientId(clientId);
+                        Long highRiskProjects = projectRepository.countHighRiskProjectsByClientId(clientId);
+                        Long readyProjects = projectRepository.countReadyProjectsByClientId(clientId);
+                        
+                        Double resourceReadiness = totalProjects > 0 ? (readyProjects.doubleValue() / totalProjects.doubleValue()) * 100 : 0.0;
+                        
+                        // Enhanced escalation metrics
+                        Long activeEscalations = projectEscalationRepo.countActiveEscalationsByClientId(clientId);
+                        Long highPriorityEscalations = projectEscalationRepo.countHighPriorityEscalationsByClientId(clientId);
+
+                        // Satisfaction score derived from performance
+                        Double satisfactionScore = 100.0;
+                        if (totalProjects > 0) {
+                            satisfactionScore = (onTimeDeliveryRate * 0.5) + (resourceReadiness * 0.3) + (100.0 - (highRiskProjects.doubleValue() / totalProjects * 100) * 0.2);
+                        }
+
+                        String overallHealth = "EXCELLENT";
+                        if (highRiskProjects > 0 || delayedProjects > (totalProjects * 0.1) || activeEscalations > 2) {
+                            overallHealth = "GOOD";
+                        }
+                        if (highRiskProjects > (totalProjects * 0.2) || delayedProjects > (totalProjects * 0.3) || highPriorityEscalations > 1) {
+                            overallHealth = "FAIR";
+                        }
+                        if (highRiskProjects > (totalProjects * 0.4) || delayedProjects > (totalProjects * 0.5) || highPriorityEscalations > 3) {
+                            overallHealth = "POOR";
+                        }
+
+                        ClientProjectStatisticsDTO.HealthMetrics healthMetrics = new ClientProjectStatisticsDTO.HealthMetrics(
+                                onTimeDeliveryRate,
+                                100.0, // Budget performance default (can be enhanced if actual spend vs budget is available)
+                                resourceReadiness,
+                                100.0 - (highRiskProjects.doubleValue() / (totalProjects > 0 ? totalProjects : 1) * 100),
+                                highPriorityEscalations,
+                                delayedProjects,
+                                highRiskProjects
                         );
+
+                        ClientProjectStatisticsDTO stats = new ClientProjectStatisticsDTO(
+                                totalProjects,
+                                activeProjects,
+                                totalSpend,
+                                Math.round(satisfactionScore * 10.0) / 10.0,
+                                activeEscalations,
+                                overallHealth,
+                                healthMetrics
+                        );
+
                         return ResponseEntity.ok(ApiResponse.<ClientProjectStatisticsDTO>success("Client project statistics retrieved successfully", stats));
                     })
                     .orElse(ResponseEntity.badRequest()
@@ -305,5 +382,20 @@ public class ClientServiceImpl implements ClientService {
 
             return predicate;
         };
+    }
+    
+    /**
+     * Helper method to get client count by year
+     */
+    private long getClientCountByYear(int year) {
+        try {
+            return clientRepo.findAll().stream()
+                    .filter(client -> client.getCreatedAt() != null && 
+                            client.getCreatedAt().getYear() == year)
+                    .count();
+        } catch (Exception e) {
+            log.error("Error getting client count for year {}: {}", year, e.getMessage());
+            return 0;
+        }
     }
 }

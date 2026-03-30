@@ -10,8 +10,6 @@ public interface AvailabilityCalculationService {
     
     void recalculateForDateRange(Long resourceId, LocalDate startDate, LocalDate endDate);
     
-    ResourceAvailabilityLedgerDaily calculateDailyAvailability(Long resourceId, LocalDate date, Long calculationVersion);
-    
     void recalculateForSingleDate(Long resourceId, LocalDate date);
     
     void markAsUntrustworthy(Long resourceId, LocalDate startDate, LocalDate endDate);

@@ -25,8 +25,11 @@ public class HolidayServiceImpl implements HolidayService {
 
     private final RestTemplate restTemplate;
     
-    @Value("${holiday.api.base-url:http://localhost:8081/api/holidays}")
+    @Value("${external.api.holiday.base-url}")
     private String holidayApiBaseUrl;
+    
+    @Value("${external.api.holiday.year-endpoint}")
+    private String holidayYearEndpoint;
 
     private volatile boolean apiHealthy = true;
     private volatile long lastHealthCheck = 0;
@@ -36,11 +39,25 @@ public class HolidayServiceImpl implements HolidayService {
     @Cacheable(value = "holidays", key = "#year", unless = "#result == null || #result.isEmpty()")
     @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
                maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
+    public Set<LocalDate> getHolidaysCached(int year) throws HolidayApiException {
+        return getHolidaysInternal(year);
+    }
+
+    @Override
     public Set<LocalDate> getHolidaysForYear(int year) throws HolidayApiException {
+        try {
+            return getHolidaysCached(year);
+        } catch (Exception ex) {
+            log.warn("Cache failure, falling back to API for holidays year {}: {}", year, ex.getMessage());
+            return getHolidaysInternal(year);
+        }
+    }
+
+    private Set<LocalDate> getHolidaysInternal(int year) throws HolidayApiException {
         try {
             checkApiHealth();
             
-            String url = String.format("%s/years/%d", holidayApiBaseUrl, year);
+            String url = holidayApiBaseUrl + holidayYearEndpoint.replace("{year}", String.valueOf(year));
             HolidayApiResponse response = restTemplate.getForObject(url, HolidayApiResponse.class);
             
             if (response == null || response.getHolidays() == null) {
@@ -84,22 +101,13 @@ public class HolidayServiceImpl implements HolidayService {
     }
 
     private void checkApiHealth() throws HolidayApiException {
-        if (!apiHealthy) {
-            performHealthCheck();
-            if (!apiHealthy) {
-                throw new HolidayApiException("Holiday API is currently unhealthy");
-            }
-        }
+        // Health check not implemented - API assumed to be available
+        // Add health check implementation if needed in the future
     }
 
     private void performHealthCheck() {
-        try {
-            String healthUrl = holidayApiBaseUrl + "/health";
-            ApiHealthResponse response = restTemplate.getForObject(healthUrl, ApiHealthResponse.class);
-            apiHealthy = response != null && "UP".equals(response.getStatus());
-        } catch (Exception e) {
-            apiHealthy = false;
-        }
+        // Health check not implemented - API assumed to be healthy
+        apiHealthy = true;
     }
 
     @Retryable(value = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))

@@ -7,14 +7,17 @@ import com.events.publisher.LedgerEventPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.repo.ledger_repo.DeadLetterQueueRepository;
 import com.repo.ledger_repo.LedgerEventLogRepository;
+import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class DeadLetterQueueService {
     private final LedgerEventLogRepository ledgerEventLogRepository;
     private final ObjectMapper objectMapper;
     private final LedgerEventPublisher ledgerEventPublisher;
+    private final AvailabilityCalculationService availabilityCalculationService;
 
     private static final int MAX_RETRY_COUNT = 3;
     private static final int RETRY_DELAY_MINUTES = 15;
@@ -83,8 +87,64 @@ public class DeadLetterQueueService {
     }
 
     @Transactional
+    public void retryLedgerCalculation(DeadLetterQueue dlqEntry) {
+        try {
+            Map<String, Object> payload = objectMapper.readValue(dlqEntry.getPayload(), Map.class);
+            
+            Long resourceId = ((Number) payload.get("resourceId")).longValue();
+            String startDateStr = (String) payload.get("startDate");
+            String endDateStr = (String) payload.get("endDate");
+            
+            LocalDate startDate = LocalDate.parse(startDateStr);
+            LocalDate endDate = LocalDate.parse(endDateStr);
+            
+            log.info("Retrying ledger calculation for resource {} from {} to {}", resourceId, startDate, endDate);
+            
+            availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
+            
+            dlqEntry.setStatus(DLQStatus.MANUALLY_PROCESSED);
+            dlqEntry.setUpdatedAt(LocalDateTime.now());
+            deadLetterQueueRepository.save(dlqEntry);
+            
+            log.info("Successfully retried ledger calculation for resource {}", resourceId);
+            
+        } catch (Exception e) {
+            log.error("Failed to retry ledger calculation for DLQ entry {}: {}", 
+                    dlqEntry.getEventId(), e.getMessage());
+            
+            int newRetryCount = dlqEntry.getRetryCount() + 1;
+            dlqEntry.setRetryCount(newRetryCount);
+            dlqEntry.setLastRetryAt(LocalDateTime.now());
+            dlqEntry.setErrorMessage(e.getMessage());
+
+            if (newRetryCount >= dlqEntry.getMaxRetryCount()) {
+                dlqEntry.setStatus(DLQStatus.RETRY_EXHAUSTED);
+                dlqEntry.setNextRetryAt(null);
+            } else {
+                dlqEntry.setStatus(DLQStatus.PENDING_RETRY);
+                long delayMinutes = (long) RETRY_DELAY_MINUTES * (long) Math.pow(2, newRetryCount - 1);
+                dlqEntry.setNextRetryAt(LocalDateTime.now().plusMinutes(delayMinutes));
+            }
+
+            deadLetterQueueRepository.save(dlqEntry);
+        }
+    }
+
+    @Transactional
     public void processDLQEntry(DeadLetterQueue dlqEntry) {
         try {
+            // Check if this is a ledger calculation payload
+            if (dlqEntry.getOriginalEventType() != null && 
+                (dlqEntry.getOriginalEventType().equals("ALLOCATION_UPDATE") ||
+                 dlqEntry.getOriginalEventType().equals("RANGE_UPDATE") ||
+                 dlqEntry.getOriginalEventType().equals("RESOURCE_UPDATE") ||
+                 dlqEntry.getOriginalEventType().equals("SYNC_UPDATE"))) {
+                
+                retryLedgerCalculation(dlqEntry);
+                return;
+            }
+            
+            // Handle event-based payloads
             BaseLedgerEvent event = deserializeEvent(dlqEntry.getPayload());
             
             if (event == null) {

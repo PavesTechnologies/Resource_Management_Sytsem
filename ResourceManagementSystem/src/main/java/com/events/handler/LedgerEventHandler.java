@@ -29,9 +29,6 @@ public class LedgerEventHandler {
     @Async("ledgerEventHandlerExecutor")
     @Transactional
     public void handleAllocationChangedEvent(AllocationChangedEvent event) {
-        log.info("Handling allocation changed event: eventId={}, resourceId={}, allocationId={}", 
-                event.getEventId(), event.getResourceId(), event.getAllocationId());
-
         try {
             if (!processEventWithIdempotency(event)) {
                 return;
@@ -41,15 +38,9 @@ public class LedgerEventHandler {
             LocalDate endDate = event.getCalculationEndDate();
 
             if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
-                log.info("Triggering availability recalculation for resource {} from {} to {}", 
-                        event.getResourceId(), startDate, endDate);
-                
                 availabilityCalculationService.recalculateForDateRange(event.getResourceId(), startDate, endDate);
-                
                 markEventAsCompleted(event.getEventId());
             } else {
-                log.warn("Invalid date range for event {}: start={}, end={}", 
-                        event.getEventId(), startDate, endDate);
                 markEventAsFailed(event.getEventId(), "Invalid date range");
             }
 
@@ -63,9 +54,6 @@ public class LedgerEventHandler {
     @Async("ledgerEventHandlerExecutor")
     @Transactional
     public void handleRoleOffEvent(RoleOffEvent event) {
-        log.info("Handling role-off event: eventId={}, resourceId={}, allocationId={}", 
-                event.getEventId(), event.getResourceId(), event.getAllocationId());
-
         try {
             if (!processEventWithIdempotency(event)) {
                 return;
@@ -75,15 +63,9 @@ public class LedgerEventHandler {
             LocalDate endDate = event.getCalculationEndDate();
 
             if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
-                log.info("Triggering availability recalculation for resource {} from {} to {}", 
-                        event.getResourceId(), startDate, endDate);
-                
                 availabilityCalculationService.recalculateForDateRange(event.getResourceId(), startDate, endDate);
-                
                 markEventAsCompleted(event.getEventId());
             } else {
-                log.warn("Invalid date range for role-off event {}: start={}, end={}", 
-                        event.getEventId(), startDate, endDate);
                 markEventAsFailed(event.getEventId(), "Invalid date range");
             }
 
@@ -97,9 +79,6 @@ public class LedgerEventHandler {
     @Async("ledgerEventHandlerExecutor")
     @Transactional
     public void handleResourceCreatedEvent(ResourceCreatedEvent event) {
-        log.info("Handling resource created event: eventId={}, resourceId={}, employeeId={}", 
-                event.getEventId(), event.getResourceId(), event.getEmployeeId());
-
         try {
             if (!processEventWithIdempotency(event)) {
                 return;
@@ -109,15 +88,9 @@ public class LedgerEventHandler {
             LocalDate endDate = event.getCalculationEndDate();
 
             if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
-                log.info("Triggering availability calculation for new resource {} from {} to {}", 
-                        event.getResourceId(), startDate, endDate);
-                
                 availabilityCalculationService.recalculateForDateRange(event.getResourceId(), startDate, endDate);
-                
                 markEventAsCompleted(event.getEventId());
             } else {
-                log.warn("Invalid date range for resource created event {}: start={}, end={}", 
-                        event.getEventId(), startDate, endDate);
                 markEventAsFailed(event.getEventId(), "Invalid date range");
             }
 
@@ -139,19 +112,15 @@ public class LedgerEventHandler {
             if (existingEvent.isPresent()) {
                 LedgerEventLog eventLog = existingEvent.get();
                 if (eventLog.getProcessedFlag()) {
-                    log.info("Event {} already processed, skipping", eventId);
                     return false;
                 } else if (eventLog.getStatus() == EventStatus.PROCESSING) {
-                    log.info("Event {} currently being processed, skipping", eventId);
                     return false;
                 } else if (eventLog.getStatus() == EventStatus.RETRY_EXHAUSTED) {
-                    log.warn("Event {} has exhausted retries, skipping", eventId);
                     return false;
                 }
             }
 
             if (eventLogRepository.existsByEventHash(eventHash) && !existingEvent.isPresent()) {
-                log.warn("Duplicate event detected by hash {} for event type {}, skipping", eventHash, eventType);
                 return false;
             }
 
@@ -192,7 +161,6 @@ public class LedgerEventHandler {
         try {
             eventLogRepository.markEventAsCompleted(eventId, EventStatus.SUCCESS, 
                     LocalDateTime.now(), LocalDateTime.now());
-            log.info("Event {} marked as completed", eventId);
         } catch (Exception e) {
             log.error("Failed to mark event {} as completed: {}", eventId, e.getMessage(), e);
         }
@@ -202,7 +170,6 @@ public class LedgerEventHandler {
         try {
             eventLogRepository.markEventAsFailed(eventId, EventStatus.FAILED, 
                     errorMessage, LocalDateTime.now());
-            log.error("Event {} marked as failed: {}", eventId, errorMessage);
         } catch (Exception e) {
             log.error("Failed to mark event {} as failed: {}", eventId, e.getMessage(), e);
         }

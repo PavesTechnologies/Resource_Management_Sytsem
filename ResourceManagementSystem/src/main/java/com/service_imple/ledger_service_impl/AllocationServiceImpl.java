@@ -15,6 +15,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.concurrent.CompletableFuture;
 
 @Service("ledgerAllocationService") // Renamed bean
@@ -35,7 +36,21 @@ public class AllocationServiceImpl implements AllocationService {
     @Cacheable(value = "allocations", key = "#resourceId + '-' + #date", unless = "#result == null")
     @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
                maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
+    public AllocationData getAllocationDataCached(Long resourceId, LocalDate date) {
+        return getAllocationDataInternal(resourceId, date);
+    }
+
+    @Override
     public AllocationData getAllocationDataForResourceAndDate(Long resourceId, LocalDate date) {
+        try {
+            return getAllocationDataCached(resourceId, date);
+        } catch (Exception ex) {
+            log.warn("Cache failure, falling back to DB for resource {} on date {}: {}", resourceId, date, ex.getMessage());
+            return getAllocationDataInternal(resourceId, date);
+        }
+    }
+
+    private AllocationData getAllocationDataInternal(Long resourceId, LocalDate date) {
         try {
             checkApiHealth();
             
@@ -73,6 +88,66 @@ public class AllocationServiceImpl implements AllocationService {
         } catch (Exception e) {
             apiHealthy = false;
             log.error("Unexpected error fetching allocation for resource {} on date {}: {}", resourceId, date, e.getMessage());
+            return new AllocationData(0, 0);
+        }
+    }
+
+    @Override
+    @Cacheable(value = "allocations", key = "#resourceId + '-' + #yearMonth", unless = "#result == null")
+    @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
+               maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
+    public AllocationData getAllocationDataCachedForMonth(Long resourceId, YearMonth yearMonth) {
+        return getAllocationDataInternalForMonth(resourceId, yearMonth);
+    }
+
+    @Override
+    public AllocationData getAllocationDataForResourceForMonth(Long resourceId, YearMonth yearMonth) {
+        try {
+            return getAllocationDataCachedForMonth(resourceId, yearMonth);
+        } catch (Exception ex) {
+            log.warn("Cache failure, falling back to DB for resource {} for month {}: {}", resourceId, yearMonth, ex.getMessage());
+            return getAllocationDataInternalForMonth(resourceId, yearMonth);
+        }
+    }
+
+    private AllocationData getAllocationDataInternalForMonth(Long resourceId, YearMonth yearMonth) {
+        try {
+            checkApiHealth();
+            
+            String url = String.format("%s/resources/%d/allocations?month=%s-%s", 
+                    allocationApiBaseUrl, resourceId, yearMonth.getYear(), yearMonth.getMonthValue());
+            ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
+            
+            if (response == null || response.getAllocations() == null) {
+                return new AllocationData(0, 0);
+            }
+
+            int confirmedPercentage = 0;
+            int draftPercentage = 0;
+
+            for (ExternalAllocationDto allocation : response.getAllocations()) {
+                if (allocation.isConfirmed()) {
+                    confirmedPercentage += allocation.getPercentage();
+                } else if (allocation.isDraft()) {
+                    draftPercentage += allocation.getPercentage();
+                }
+            }
+
+            return new AllocationData(confirmedPercentage, draftPercentage);
+
+        } catch (ResourceAccessException e) {
+            apiHealthy = false;
+            log.error("Allocation API connection failed for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
+            return new AllocationData(0, 0);
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode().value() != 404) {
+                apiHealthy = false;
+                log.error("Allocation API error for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
+            }
+            return new AllocationData(0, 0);
+        } catch (Exception e) {
+            apiHealthy = false;
+            log.error("Unexpected error fetching allocation for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
             return new AllocationData(0, 0);
         }
     }

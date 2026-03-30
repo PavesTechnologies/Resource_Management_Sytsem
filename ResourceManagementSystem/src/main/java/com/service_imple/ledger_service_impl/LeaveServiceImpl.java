@@ -25,8 +25,11 @@ public class LeaveServiceImpl implements LeaveService {
 
     private final RestTemplate restTemplate;
     
-    @Value("${leave.api.base-url:http://localhost:8082/api/leaves}")
+    @Value("${external.api.leave.base-url}")
     private String leaveApiBaseUrl;
+    
+    @Value("${external.api.leave.employee-endpoint}")
+    private String leaveEmployeeEndpoint;
 
     private volatile boolean apiHealthy = true;
     private volatile long lastHealthCheck = 0;
@@ -36,12 +39,25 @@ public class LeaveServiceImpl implements LeaveService {
     @Cacheable(value = "leaves", key = "#resourceId + '-' + #year", unless = "#result == null || #result.isEmpty()")
     @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
                maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
+    public Set<LocalDate> getApprovedLeaveCached(Long resourceId, int year) throws LeaveApiException {
+        return getApprovedLeaveInternal(resourceId, year);
+    }
+
+    @Override
     public Set<LocalDate> getApprovedLeaveForEmployee(Long resourceId, int year) throws LeaveApiException {
+        try {
+            return getApprovedLeaveCached(resourceId, year);
+        } catch (Exception ex) {
+            log.warn("Cache failure, falling back to API for leave resource {} year {}: {}", resourceId, year, ex.getMessage());
+            return getApprovedLeaveInternal(resourceId, year);
+        }
+    }
+
+    private Set<LocalDate> getApprovedLeaveInternal(Long resourceId, int year) throws LeaveApiException {
         try {
             checkApiHealth();
             
-            String url = String.format("%s/employees/%d/leaves?year=%d&status=APPROVED", 
-                    leaveApiBaseUrl, resourceId, year);
+            String url = leaveApiBaseUrl + leaveEmployeeEndpoint.replace("{employeeId}", String.valueOf(resourceId)).replace("{year}", String.valueOf(year));
             LeaveApiResponse response = restTemplate.getForObject(url, LeaveApiResponse.class);
             
             if (response == null || response.getLeaves() == null) {
@@ -85,22 +101,13 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     private void checkApiHealth() throws LeaveApiException {
-        if (!apiHealthy) {
-            performHealthCheck();
-            if (!apiHealthy) {
-                throw new LeaveApiException("Leave API is currently unhealthy");
-            }
-        }
+        // Health check not implemented - API assumed to be available
+        // Add health check implementation if needed in the future
     }
 
     private void performHealthCheck() {
-        try {
-            String healthUrl = leaveApiBaseUrl + "/health";
-            ApiHealthResponse response = restTemplate.getForObject(healthUrl, ApiHealthResponse.class);
-            apiHealthy = response != null && "UP".equals(response.getStatus());
-        } catch (Exception e) {
-            apiHealthy = false;
-        }
+        // Health check not implemented - API assumed to be healthy
+        apiHealthy = true;
     }
 
     @Retryable(value = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))

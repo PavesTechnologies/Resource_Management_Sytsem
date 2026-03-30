@@ -1,14 +1,20 @@
 package com.service_imple.allocation_service_imple;
 
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.ledger_entities.DeadLetterQueue;
+import com.entity_enums.ledger_enums.DLQStatus;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.ledger_repo.DeadLetterQueueRepository;
 import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -17,59 +23,47 @@ public class AvailabilityLedgerAsyncServiceRefactored {
 
     private final AllocationRepository allocationRepository;
     private final AvailabilityCalculationService availabilityCalculationService;
+    private final DeadLetterQueueRepository deadLetterQueueRepository;
+    private final ObjectMapper objectMapper;
 
     @Async
     public void updateLedgerAsync(ResourceAllocation allocation) {
         try {
-            String eventId = generateEventId("ALLOCATION_CHANGED", allocation);
             Long resourceId = allocation.getResource().getResourceId();
             LocalDate startDate = allocation.getAllocationStartDate();
             LocalDate endDate = allocation.getAllocationEndDate();
             
-            LocalDate currentDate = startDate;
-            while (!currentDate.isAfter(endDate)) {
-                String dateEventId = eventId + "_" + currentDate;
-                availabilityCalculationService.recalculateDailyWithIdempotency(resourceId, currentDate, dateEventId);
-                currentDate = currentDate.plusDays(1);
-            }
+            availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
         } catch (Exception e) {
-            log.error("Error in async ledger update for allocation {}: {}", 
-                    allocation.getAllocationId(), e.getMessage());
+            log.error("Ledger calculation failed for allocation {}, saving to DLQ", 
+                    allocation.getAllocationId(), e);
+            
+            saveToDeadLetterQueue("ALLOCATION_UPDATE", allocation.getResource().getResourceId(), 
+                    allocation.getAllocationStartDate(), allocation.getAllocationEndDate(), e);
         }
     }
 
     @Async
     public void updateLedger(Long resourceId, LocalDate startDate, LocalDate endDate) {
         try {
-            String eventId = generateEventId("RANGE_UPDATE", resourceId, startDate, endDate);
-            LocalDate currentDate = startDate;
-            while (!currentDate.isAfter(endDate)) {
-                String dateEventId = eventId + "_" + currentDate;
-                availabilityCalculationService.recalculateDailyWithIdempotency(resourceId, currentDate, dateEventId);
-                currentDate = currentDate.plusDays(1);
-            }
+            availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
         } catch (Exception e) {
-            log.error("Error in async ledger update for resource {}: {}", resourceId, e.getMessage());
+            log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
+            
+            saveToDeadLetterQueue("RANGE_UPDATE", resourceId, startDate, endDate, e);
         }
-    }
-
-    private String generateEventId(String eventType, Object... params) {
-        StringBuilder sb = new StringBuilder(eventType);
-        for (Object param : params) {
-            sb.append("_").append(param.toString());
-        }
-        sb.append("_").append(System.currentTimeMillis());
-        return sb.toString();
     }
 
     @Async
     public void triggerLedgerUpdateForResource(Long resourceId) {
+        LocalDate currentDate = LocalDate.now();
+        LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
         try {
-            LocalDate currentDate = LocalDate.now();
-            LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
             availabilityCalculationService.recalculateForDateRange(resourceId, currentDate, endDate);
         } catch (Exception e) {
-            log.error("Error in async ledger update for resource {}: {}", resourceId, e.getMessage());
+            log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
+            
+            saveToDeadLetterQueue("RESOURCE_UPDATE", resourceId, currentDate, endDate, e);
         }
     }
 
@@ -88,13 +82,41 @@ public class AvailabilityLedgerAsyncServiceRefactored {
 
     @Async
     public void synchronizeAvailabilityAcrossModules(Long resourceId, LocalDate roleOffDate) {
+        LocalDate currentDate = LocalDate.now();
+        LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
         try {
-            LocalDate currentDate = LocalDate.now();
-            LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
             availabilityCalculationService.recalculateForDateRange(resourceId, roleOffDate, endDate);
         } catch (Exception e) {
-            log.error("Failed to synchronize availability across modules for resource {}: {}", 
-                    resourceId, e.getMessage());
+            log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
+            
+            saveToDeadLetterQueue("SYNC_UPDATE", resourceId, roleOffDate, endDate, e);
+        }
+    }
+
+    private void saveToDeadLetterQueue(String eventType, Long resourceId, LocalDate startDate, LocalDate endDate, Exception exception) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("resourceId", resourceId);
+            payload.put("startDate", startDate);
+            payload.put("endDate", endDate);
+            payload.put("eventType", eventType);
+
+            DeadLetterQueue dlq = DeadLetterQueue.builder()
+                    .eventId(eventType + "_" + resourceId + "_" + System.currentTimeMillis())
+                    .payload(objectMapper.writeValueAsString(payload))
+                    .errorMessage(exception.getMessage())
+                    .retryCount(0)
+                    .maxRetryCount(5)
+                    .status(DLQStatus.PENDING_RETRY)
+                    .nextRetryAt(java.time.LocalDateTime.now().plusMinutes(5))
+                    .originalEventType(eventType)
+                    .resourceId(resourceId)
+                    .eventDate(java.time.LocalDateTime.now())
+                    .build();
+
+            deadLetterQueueRepository.save(dlq);
+        } catch (Exception dlqEx) {
+            log.error("Failed to save to DLQ for resource {}: {}", resourceId, dlqEx.getMessage());
         }
     }
 }

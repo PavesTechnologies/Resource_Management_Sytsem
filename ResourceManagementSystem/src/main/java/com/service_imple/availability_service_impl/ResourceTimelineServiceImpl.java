@@ -40,7 +40,32 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     @Override
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
-        return List.of();
+        // Get all resources without date filtering - use full history mode with default parameters
+        List<ResourceTimelineProjection> allResources = resourceTimelineRepository.getResourceTimelineFullHistory(
+                null, null, null, null, null, null, Integer.MAX_VALUE, 0, null);
+        
+        return allResources.stream()
+                .map(this::convertToResourceTimelineDTO)
+                .collect(Collectors.toList());
+    }
+    
+    private ResourceTimelineDTO convertToResourceTimelineDTO(ResourceTimelineProjection projection) {
+        return ResourceTimelineDTO.builder()
+                .id(projection.getId().toString())
+                .name(projection.getFullName())
+                .avatar(generateAvatarFromName(projection.getFullName()))
+                .role(projection.getDesignation())
+                .skills(List.of()) // Empty for basic timeline - skills loaded in detailed view
+                .location(projection.getWorkingLocation())
+                .experience(projection.getExperiance())
+                .currentAllocation(null) // Not calculated in basic timeline
+                .availableFrom(null) // Not calculated in basic timeline
+                .currentProject(List.of()) // Not calculated in basic timeline
+                .nextAssignment(null) // Not calculated in basic timeline
+                .employmentType(projection.getEmploymentType())
+                .utilizationHistory(List.of()) // Not calculated in basic timeline
+                .allocationTimeline(List.of()) // Not calculated in basic timeline
+                .build();
     }
 
     @Override
