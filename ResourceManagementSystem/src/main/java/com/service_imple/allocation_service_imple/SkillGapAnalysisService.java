@@ -132,7 +132,7 @@ public class SkillGapAnalysisService {
         // Calculate final metrics
         double matchPercentage = totalRequirements > 0 ? (totalScore / totalRequirements) * 100 : 0.0;
         String riskLevel = calculateOverallRisk(hasMandatoryGap, hasMandatoryPartial, recencyWarnings);
-        boolean allocationAllowed = RiskEvaluator.isAllocationAllowed(hasMandatoryGap, hasMandatoryPartial);
+        boolean allocationAllowed = AllocationRiskEvaluator.isAllocationAllowed(hasMandatoryGap, hasMandatoryPartial);
 
         return SkillGapAnalysisResponseDTO.builder()
             .demandId(demand.getDemandId())
@@ -375,14 +375,14 @@ public class SkillGapAnalysisService {
             lastUsedDate = ((ResourceSubSkill) resourceSkill).getLastUsedDate();
         }
 
-        String riskLevel = RiskEvaluator.evaluateRecencyRisk(lastUsedDate);
-        if (!RiskEvaluator.RISK_LOW.equals(riskLevel)) {
+        String riskLevel = AllocationRiskEvaluator.evaluateRecencyRisk(lastUsedDate);
+        if (!AllocationRiskEvaluator.ALLOCATION_RISK_LOW.equals(riskLevel)) {
             recencyWarnings.add(SkillGapAnalysisResponseDTO.RecencyWarningDTO.builder()
                 .skillName(skillName)
                 .subSkillName(subSkillName)
                 .lastUsedDate(lastUsedDate)
                 .riskLevel(riskLevel)
-                .yearsUnused(RiskEvaluator.calculateYearsUnused(lastUsedDate))
+                .yearsUnused(AllocationRiskEvaluator.calculateYearsUnused(lastUsedDate))
                 .build());
         }
     }
@@ -392,20 +392,20 @@ public class SkillGapAnalysisService {
      */
     private String calculateOverallRisk(boolean hasMandatoryGap, boolean hasMandatoryPartial, 
                                     List<SkillGapAnalysisResponseDTO.RecencyWarningDTO> recencyWarnings) {
-        String mandatoryGapRisk = hasMandatoryGap ? RiskEvaluator.RISK_HIGH : RiskEvaluator.RISK_LOW;
-        String partialRisk = hasMandatoryPartial ? RiskEvaluator.RISK_HIGH : RiskEvaluator.RISK_LOW;
+        String mandatoryGapRisk = hasMandatoryGap ? AllocationRiskEvaluator.ALLOCATION_RISK_HIGH : AllocationRiskEvaluator.ALLOCATION_RISK_LOW;
+        String partialRisk = hasMandatoryPartial ? AllocationRiskEvaluator.ALLOCATION_RISK_HIGH : AllocationRiskEvaluator.ALLOCATION_RISK_LOW;
         
-        String recencyRisk = RiskEvaluator.RISK_LOW;
+        String recencyRisk = AllocationRiskEvaluator.ALLOCATION_RISK_LOW;
         for (SkillGapAnalysisResponseDTO.RecencyWarningDTO warning : recencyWarnings) {
-            if (RiskEvaluator.RISK_HIGH.equals(warning.getRiskLevel())) {
-                recencyRisk = RiskEvaluator.RISK_HIGH;
+            if (AllocationRiskEvaluator.ALLOCATION_RISK_HIGH.equals(warning.getRiskLevel())) {
+                recencyRisk = AllocationRiskEvaluator.ALLOCATION_RISK_HIGH;
                 break;
-            } else if (RiskEvaluator.RISK_MEDIUM.equals(warning.getRiskLevel())) {
-                recencyRisk = RiskEvaluator.RISK_MEDIUM;
+            } else if (AllocationRiskEvaluator.ALLOCATION_RISK_MEDIUM.equals(warning.getRiskLevel())) {
+                recencyRisk = AllocationRiskEvaluator.ALLOCATION_RISK_MEDIUM;
             }
         }
 
-        return RiskEvaluator.aggregateRisk(mandatoryGapRisk, partialRisk, recencyRisk);
+        return AllocationRiskEvaluator.aggregateRisk(mandatoryGapRisk, partialRisk, recencyRisk);
     }
 
     /**
@@ -456,18 +456,18 @@ public class SkillGapAnalysisService {
     }
 
     // Utility class for risk evaluation (assuming this exists elsewhere)
-    private static class RiskEvaluator {
-        static final String RISK_LOW = "LOW";
-        static final String RISK_MEDIUM = "MEDIUM";
-        static final String RISK_HIGH = "HIGH";
+    private static class AllocationRiskEvaluator {
+        static final String ALLOCATION_RISK_LOW = "LOW";
+        static final String ALLOCATION_RISK_MEDIUM = "MEDIUM";
+        static final String ALLOCATION_RISK_HIGH = "HIGH";
 
         static String evaluateRecencyRisk(LocalDate lastUsedDate) {
-            if (lastUsedDate == null) return RISK_HIGH;
+            if (lastUsedDate == null) return ALLOCATION_RISK_HIGH;
             
             long yearsUnused = java.time.temporal.ChronoUnit.YEARS.between(lastUsedDate, LocalDate.now());
-            if (yearsUnused > 3) return RISK_HIGH;
-            if (yearsUnused > 1) return RISK_MEDIUM;
-            return RISK_LOW;
+            if (yearsUnused > 3) return ALLOCATION_RISK_HIGH;
+            if (yearsUnused > 1) return ALLOCATION_RISK_MEDIUM;
+            return ALLOCATION_RISK_LOW;
         }
 
         static long calculateYearsUnused(LocalDate lastUsedDate) {
@@ -481,12 +481,12 @@ public class SkillGapAnalysisService {
 
         static String aggregateRisk(String... risks) {
             for (String risk : risks) {
-                if (RISK_HIGH.equals(risk)) return RISK_HIGH;
+                if (ALLOCATION_RISK_HIGH.equals(risk)) return ALLOCATION_RISK_HIGH;
             }
             for (String risk : risks) {
-                if (RISK_MEDIUM.equals(risk)) return RISK_MEDIUM;
+                if (ALLOCATION_RISK_MEDIUM.equals(risk)) return ALLOCATION_RISK_MEDIUM;
             }
-            return RISK_LOW;
+            return ALLOCATION_RISK_LOW;
         }
     }
 

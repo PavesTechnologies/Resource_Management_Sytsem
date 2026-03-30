@@ -35,11 +35,13 @@ public class ResourceTimelineResponseDTO {
     private String employmentType;
     private List<AllocationTimelineItem> allocationTimeline;
     
+    private ResourceTimelineKpi timelineKpi;
+    
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class TimelineKPI {
+    public static class ResourceTimelineKpi {
         private Long totalResources;
         private Long fullyAvailable;
         private Long partiallyAvailable;
@@ -47,5 +49,8 @@ public class ResourceTimelineResponseDTO {
         private Long overAllocated;
         private Long noticePeriodResources;
         private Long availableNoticePeriodResources;
+        
+        // Additional fields from Window KPI if needed for unification
+        private Double avgAllocationOverall;
     }
 }

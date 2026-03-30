@@ -4,14 +4,15 @@ import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -27,9 +28,6 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE ra.resource.resourceId = :resourceId")
     List<ResourceAllocation> findByResource_ResourceId(Long resourceId);
 
-    /**
-     * Find active allocation for a specific resource
-     */
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus = 'ACTIVE'")
@@ -68,7 +66,6 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId")
     List<Resource> findResourcesByProjectId(@Param("projectId") Long projectId);
 
-
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "LEFT JOIN FETCH ra.resource " +
            "LEFT JOIN FETCH ra.demand d " +
@@ -85,13 +82,6 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
     
-    /**
-     * Optimized batch query to fetch conflicting allocations for multiple resources
-     * This query loads all overlapping allocations for the requested resources in a single 
-     * round-trip to prevent N+1 queries and reduce allocation validation latency.
-     * SQL logic filters overlapping allocations using:
-     * existing.start_date <= request.end_date AND existing.end_date >= request.start_date
-     */
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "LEFT JOIN FETCH ra.resource " +
            "LEFT JOIN FETCH ra.demand d " +
@@ -128,6 +118,9 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             "AND ra.allocationEndDate < :today")
     List<ResourceAllocation> findExpiredAllocations(@Param("today") LocalDate today);
 
+    @Modifying
+    @Query("UPDATE ResourceAllocation ra SET ra.allocationStatus = :newStatus WHERE ra.allocationStatus = 'ACTIVE' AND ra.allocationEndDate < :today")
+    int autoCloseAllocations(@Param("today") LocalDate today, @Param("newStatus") AllocationStatus newStatus);
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "LEFT JOIN FETCH ra.resource " +
@@ -172,7 +165,6 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
             AllocationStatus status
     );
 
-
     @Query("""
         SELECT ra FROM ResourceAllocation ra
         WHERE ra.project.pmsProjectId = :projectId
@@ -180,14 +172,28 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     """)
     List<ResourceAllocation> findByProjectIdAndStatus(Long projectId, AllocationStatus status);
 
-    /**
-     * Find allocations for resource in specific project with recent end dates
-     * Used for skill update logic to find project-specific skills
-     */
     List<ResourceAllocation> findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatusAndAllocationEndDateAfter(
             Long projectId,
             Long resourceId,
             AllocationStatus status,
             LocalDate endDate
     );
+
+    @Query("SELECT DISTINCT ra.resource.resourceId FROM ResourceAllocation ra " +
+           "WHERE ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED') " +
+           "AND ra.allocationStartDate <= :endDate " +
+           "AND ra.allocationEndDate >= :startDate")
+    List<Long> findResourcesWithAllocationsInDateRange(@Param("startDate") LocalDate startDate,
+                                                     @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT DISTINCT ra.resource.resourceId FROM ResourceAllocation ra " +
+           "WHERE ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED') " +
+           "AND ra.allocationStartDate <= :date " +
+           "AND ra.allocationEndDate >= :date")
+    Set<Long> findActiveResourcesForDate(@Param("date") LocalDate date);
+
+    @Query("SELECT MAX(ra.allocationEndDate) FROM ResourceAllocation ra " +
+           "WHERE ra.resource.resourceId = :resourceId " +
+           "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED')")
+    java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") Long resourceId);
 }

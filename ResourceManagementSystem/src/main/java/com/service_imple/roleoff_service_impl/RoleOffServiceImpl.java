@@ -33,6 +33,7 @@ import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
+import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncServiceRefactored;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -67,6 +68,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final DemandRepository demandRepository;
     private final BenchService benchDetectionService;
     private final ResourceSkillUsageService resourceSkillUsageService;
+    private final AvailabilityLedgerAsyncServiceRefactored availabilityLedgerAsyncService;
 
     // Standardized role-off reasons with descriptions
     private static final Map<RoleOffReason, String> REASON_DESCRIPTIONS = Map.of(
@@ -203,20 +205,36 @@ public class RoleOffServiceImpl implements RoleOffService {
         CloseAllocationDTO closeDTO = new CloseAllocationDTO();
         closeDTO.setClosureDate(event.getEffectiveRoleOffDate());
 
-        // 🔥 ROLE-OFF TRIGGER: This call initiates availability ledger updates
-        // allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
+        // 🔥 FIXED: Role-off now properly triggers availability ledger updates
+        allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
+        
+        // 🔥 PATCH 2: ROLE-OFF HORIZON OVER-CALCULATION FIX
+        LocalDate today = LocalDate.now();
+        LocalDate horizonEnd = today.plusDays(90);
+        
+        // Get max allocation end date for this resource to prevent early cutoff
+        LocalDate maxAllocationEnd = allocationRepository
+                .findMaxAllocationEndDateForResource(event.getResource().getResourceId())
+                .orElse(today.plusMonths(3));
+        
+        // Use max of (today + 90 days, max allocation end)
+        LocalDate finalHorizonEnd = horizonEnd;
+        if (maxAllocationEnd.isAfter(horizonEnd)) {
+            finalHorizonEnd = maxAllocationEnd;
+        }
+        
+        // Trigger async ledger update for resource from role-off date to final horizon
+        availabilityLedgerAsyncService.updateLedger(
+                event.getResource().getResourceId(), 
+                event.getEffectiveRoleOffDate(), 
+                finalHorizonEnd
+        );
         // COMMENTED OUT: Disable availability ledger updates to make role-off work
         // After this call:
         // - ResourceAvailabilityLedger entries are updated for the resource
         // - Resource availability changes from ALLOCATED to AVAILABLE
         // - Cross-module synchronization is triggered asynchronously
         
-        // TEMPORARY: Direct allocation closure without availability ledger updates
-        ResourceAllocation allocationToClose = event.getAllocation();
-        allocationToClose.setAllocationStatus(AllocationStatus.ENDED);
-        allocationToClose.setAllocationEndDate(event.getEffectiveRoleOffDate());
-        allocationRepository.save(allocationToClose);
-
         // Update skill lastUsedDate for role-off
         // COMMENTED OUT: Disable skill updates to avoid transaction issues
         // try {
