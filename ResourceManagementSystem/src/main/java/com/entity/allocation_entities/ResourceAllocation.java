@@ -4,6 +4,7 @@ import com.entity.demand_entities.Demand;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.roleoff_enums.RoleOffReason;
+import com.entity_enums.allocation_enums.ApprovalStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -119,4 +120,20 @@ public class ResourceAllocation {
 
     @Column(name = "closure_reason", length = 500)
     private String closureReason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status")
+    private ApprovalStatus approvalStatus;
+
+    @Column(name = "approval_action_by")
+    private String approvalActionBy;
+
+    @Column(name = "approval_action_at")
+    private LocalDateTime approvalActionAt;
+
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
+    @Column(name = "request_beyond_capacity_approval")
+    private Boolean requestBeyondCapacityApproval;
 }

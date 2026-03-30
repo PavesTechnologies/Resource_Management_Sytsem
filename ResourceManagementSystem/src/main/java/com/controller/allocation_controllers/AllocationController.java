@@ -1,6 +1,7 @@
 package com.controller.allocation_controllers;
 
 import com.dto.allocation_dto.AllocationRequestDTO;
+import com.dto.allocation_dto.InternalPoolAllocationApproval;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.CloseAllocationDTO;
@@ -92,4 +93,27 @@ public class AllocationController {
             @RequestBody CloseAllocationDTO request) {
         return allocationService.closeAllocation(allocationId, request);
     }
+    @GetMapping("/approvals/pending")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> getPendingApprovals() {
+        return allocationService.getPendingApprovals();
+    }
+    @PostMapping("/approvals/{allocationId}/approve")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> approve(
+            @PathVariable UUID allocationId,
+            @CurrentUser UserDTO user) {
+
+        return allocationService.approveAllocation(allocationId, user.getName());
+    }
+    @PostMapping("/approvals/{allocationId}/reject")
+    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    public ResponseEntity<ApiResponse<?>> reject(
+            @PathVariable UUID allocationId,
+            @RequestBody InternalPoolAllocationApproval dto,
+            @CurrentUser UserDTO user) {
+
+        return allocationService.rejectAllocation(allocationId, dto.getRejectionReason(), user.getName());
+    }
+
 }

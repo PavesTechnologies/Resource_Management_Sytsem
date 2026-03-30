@@ -5,12 +5,17 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.resource.ResourceNameDTO;
 import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.bench.ResourceState;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.ApprovalStatus;
+import com.entity_enums.bench.StateType;
+import com.entity_enums.bench.SubState;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.bench_repo.ResourceStateRepository;
 import com.repo.demand_repo.DemandSLARepository;
 import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.resource_repo.ResourceRepository;
@@ -48,6 +53,7 @@ public class AllocationServiceImpl implements AllocationService {
     private final AvailabilityCalculationService availabilityCalculationService;
     private final BenchService benchDetectionService;
     private final ResourceSkillUsageService resourceSkillUsageService;
+    private final ResourceStateRepository resourceStateRepository;
 
     @Override
     @Transactional
@@ -180,6 +186,100 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Override
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> approveAllocation(UUID allocationId, String dmName) {
+
+        ResourceAllocation allocation = allocationRepository.findById(allocationId)
+                .orElseThrow(() -> new RuntimeException("Allocation not found"));
+
+        if (allocation.getApprovalStatus() != ApprovalStatus.PENDING) {
+            throw new RuntimeException("Not in pending state");
+        }
+
+        ResourceState state = resourceStateRepository
+                .findByResourceIdAndCurrentFlagTrue(allocation.getResource().getResourceId())
+                .orElseThrow();
+
+        allocation.setApprovalStatus(ApprovalStatus.APPROVED);
+        allocation.setApprovalActionBy(dmName);
+        allocation.setApprovalActionAt(LocalDateTime.now());
+        allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+
+        int currentInternal = state.getInternalAllocationPercentage() != null
+                ? state.getInternalAllocationPercentage()
+                : 0;
+
+        int requested = allocation.getAllocationPercentage();
+
+        int updatedInternal = Math.max(0, currentInternal - requested);
+        state.setInternalAllocationPercentage(updatedInternal);
+
+        if (updatedInternal == 0 && state.getStateType() == StateType.POOL) {
+            moveToProjectState(state);
+        }
+
+        resourceStateRepository.save(state);
+        allocationRepository.save(allocation);
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Approved", null));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<ApiResponse<?>> rejectAllocation(UUID allocationId, String reason, String dmName) {
+
+        ResourceAllocation allocation = allocationRepository.findById(allocationId)
+                .orElseThrow(() -> new RuntimeException("Allocation not found"));
+
+        if (allocation.getApprovalStatus() != ApprovalStatus.PENDING) {
+            throw new RuntimeException("Not in pending state");
+        }
+
+        if (reason == null || reason.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(new ApiResponse<>(false, "Rejection reason required", null));
+        }
+
+        allocation.setApprovalStatus(ApprovalStatus.REJECTED);
+        allocation.setRejectionReason(reason);
+        allocation.setApprovalActionBy(dmName);
+        allocation.setApprovalActionAt(LocalDateTime.now());
+
+        allocationRepository.save(allocation);
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Rejected", null));
+    }
+
+    private void moveToProjectState(ResourceState currentState) {
+
+        currentState.setCurrentFlag(false);
+        currentState.setEffectiveTo(LocalDate.now());
+
+        ResourceState newState = ResourceState.builder()
+                .resourceId(currentState.getResourceId())
+                .stateType(StateType.PROJECT)
+                .subState(SubState.READY)
+                .effectiveFrom(LocalDate.now())
+                .currentFlag(true)
+                .createdBy("SYSTEM")
+                .build();
+
+        resourceStateRepository.save(currentState);
+        resourceStateRepository.save(newState);
+    }
+
+    @Override
+    public ResponseEntity<ApiResponse<?>> getPendingApprovals() {
+
+        List<ResourceAllocation> list =
+                allocationRepository.findByApprovalStatus(ApprovalStatus.PENDING);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Pending approvals", list)
+        );
+    }
+
+    @Override
     public ResponseEntity<ApiResponse<?>> getAllocationsByResource(Long resourceId) {
         try {
             List<AllocationResponseDTO> responseList = allocationRepository.findByResource_ResourceId(resourceId).stream()
@@ -286,11 +386,54 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     private List<ResourceAllocation> persistAllocations(List<ResourceAllocation> validAllocations) {
-        List<ResourceAllocation> saved = allocationRepository.saveAll(validAllocations);
-        for (int i = 0; i < saved.size(); i++) {
-            validAllocations.get(i).setAllocationId(saved.get(i).getAllocationId());
+
+        List<ResourceAllocation> finalList = new ArrayList<>();
+
+        for (ResourceAllocation allocation : validAllocations) {
+
+            Long resourceId = allocation.getResource().getResourceId();
+
+            ResourceState state = resourceStateRepository
+                    .findByResourceIdAndCurrentFlagTrue(resourceId)
+                    .orElseThrow();
+
+            int internal = state.getInternalAllocationPercentage() != null
+                    ? state.getInternalAllocationPercentage()
+                    : 0;
+
+            Integer currentProject = allocationRepository
+                    .getActiveAllocationPercentage(resourceId, allocation.getAllocationStartDate());
+
+            if (currentProject == null) currentProject = 0;
+
+            int available = 100 - (internal + currentProject);
+
+            int requested = allocation.getAllocationPercentage();
+
+            // ✅ WITHIN CAPACITY
+            if (requested <= available) {
+
+                allocation.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+                allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+            }
+
+            // ⚠ EXCEEDS → PENDING
+            else {
+
+                allocation.setApprovalStatus(ApprovalStatus.PENDING);
+                allocation.setAllocationStatus(AllocationStatus.PLANNED);
+            }
+
+            finalList.add(allocation);
         }
-        return validAllocations;
+
+        List<ResourceAllocation> saved = allocationRepository.saveAll(finalList);
+
+        for (int i = 0; i < saved.size(); i++) {
+            finalList.get(i).setAllocationId(saved.get(i).getAllocationId());
+        }
+
+        return finalList;
     }
 
     private void triggerAsyncLedgerUpdate(List<ResourceAllocation> savedAllocations) {

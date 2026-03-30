@@ -79,4 +79,11 @@ public interface AllocationService {
      * Updates the ResourceAvailabilityLedger for the given allocation
      */
     void updateAvailabilityLedgerForAllocation(ResourceAllocation allocation);
+    
+    /**
+     * Approves a pending allocation
+     */
+    ResponseEntity<ApiResponse<?>> approveAllocation(UUID allocationId, String dmName);
+    ResponseEntity<ApiResponse<?>> rejectAllocation(UUID allocationId, String reason, String dmName);
+    ResponseEntity<ApiResponse<?>> getPendingApprovals();
 }
