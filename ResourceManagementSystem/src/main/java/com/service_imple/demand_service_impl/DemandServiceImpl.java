@@ -1036,14 +1036,37 @@ public class DemandServiceImpl implements DemandService {
         List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
         
         for (Demand existing : existingDemands) {
-            if (isExactDuplicate(demand, existing)) {
-                throw new ProjectExceptionHandler(
-                        HttpStatus.CONFLICT,
-                        "DUPLICATE_DEMAND",
-                        "Exact duplicate demand exists for project: " + demand.getProject().getName() + 
-                        ", role: " + demand.getRole().getRole().getRoleName() + 
-                        ", dates: " + demand.getDemandStartDate() + " to " + demand.getDemandEndDate()
-                );
+            // Skip duplicate check if this is the original allocation demand for a replacement
+            if (demand.getDemandType() == DemandType.REPLACEMENT && 
+                demand.getOutgoingResource() != null && 
+                existing.getDemandId().equals(getOriginalDemandIdForReplacement(demand))) {
+                continue;
+            }
+            
+            // For replacement demands, be more lenient - only flag as duplicate if it's another replacement
+            // with the same parameters (to prevent multiple replacement demands for same role-off)
+            if (demand.getDemandType() == DemandType.REPLACEMENT && existing.getDemandType() == DemandType.REPLACEMENT) {
+                if (isExactDuplicate(demand, existing)) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.CONFLICT,
+                            "DUPLICATE_DEMAND",
+                            "Exact duplicate replacement demand exists for project: " + demand.getProject().getName() + 
+                            ", role: " + demand.getRole().getRole().getRoleName() + 
+                            ", dates: " + demand.getDemandStartDate() + " to " + demand.getDemandEndDate()
+                    );
+                }
+            }
+            // For non-replacement demands, use strict duplicate checking
+            else if (demand.getDemandType() != DemandType.REPLACEMENT) {
+                if (isExactDuplicate(demand, existing)) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.CONFLICT,
+                            "DUPLICATE_DEMAND",
+                            "Exact duplicate demand exists for project: " + demand.getProject().getName() + 
+                            ", role: " + demand.getRole().getRole().getRoleName() + 
+                            ", dates: " + demand.getDemandStartDate() + " to " + demand.getDemandEndDate()
+                    );
+                }
             }
         }
         
@@ -1062,6 +1085,31 @@ public class DemandServiceImpl implements DemandService {
                newDemand.getDemandStartDate().equals(existing.getDemandStartDate()) &&
                newDemand.getDemandEndDate().equals(existing.getDemandEndDate()) &&
                newDemand.getAllocationPercentage().equals(existing.getAllocationPercentage());
+    }
+    
+    private UUID getOriginalDemandIdForReplacement(Demand replacementDemand) {
+        // For replacement demands, find the original demand that the outgoing resource was allocated from
+        if (replacementDemand.getOutgoingResource() == null) {
+            return null;
+        }
+        
+        // Find allocation for the outgoing resource in the same project (check both ACTIVE and ENDED)
+        Optional<ResourceAllocation> allocation = allocationRepository
+                .findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+                    replacementDemand.getProject().getPmsProjectId(),
+                    replacementDemand.getOutgoingResource().getResourceId(),
+                    AllocationStatus.ACTIVE);
+        
+        // If not found as ACTIVE, try ENDED (since allocation might have been ended during role-off)
+        if (allocation.isEmpty()) {
+            allocation = allocationRepository
+                    .findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
+                        replacementDemand.getProject().getPmsProjectId(),
+                        replacementDemand.getOutgoingResource().getResourceId(),
+                        AllocationStatus.ENDED);
+        }
+        
+        return allocation.map(a -> a.getDemand().getDemandId()).orElse(null);
     }
     
     private List<Demand> findSimilarDemands(Demand newDemand, List<Demand> existingDemands) {
