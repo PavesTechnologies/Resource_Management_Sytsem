@@ -483,7 +483,7 @@ public class BenchService {
         Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
 
         return benchResourcesData.stream()
-                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], skillsMap))
+                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], (SubState) arr[2], skillsMap))
                 .collect(Collectors.toList());
     }
 
@@ -503,7 +503,7 @@ public class BenchService {
         Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
 
         return poolResourcesData.stream()
-                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], skillsMap))
+                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], (SubState) arr[2], skillsMap))
                 .collect(Collectors.toList());
     }
 
@@ -605,7 +605,7 @@ public class BenchService {
     /**
      * Convert Resource entity to BenchPoolResponseDTO
      */
-    private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate,
+    private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate, SubState subState,
                                                                Map<Long, List<Map<String, String>>> skillsMap) {
         // Calculate aging (days in bench/pool)
         long agingDays = ChronoUnit.DAYS.between(benchStartDate, LocalDate.now());
@@ -627,7 +627,7 @@ public class BenchService {
                 .resourceName(resource.getFullName())
                 .designation(resource.getDesignation())
                 .skillGroups(skillGroups)
-                .subState(SubState.READY) // Default sub-state
+                .subState(subState) // Use actual subState from database
                 .allocation(allocation)
                 .aging((int) agingDays)
                 .costPerDay(costPerDay)
