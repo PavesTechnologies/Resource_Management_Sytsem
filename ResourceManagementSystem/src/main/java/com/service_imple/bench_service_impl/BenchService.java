@@ -618,6 +618,9 @@ public class BenchService {
         // Get skills for this resource
         List<Map<String, String>> skillGroups = skillsMap.getOrDefault(resource.getResourceId(), new ArrayList<>());
 
+        // Get last allocation date for this resource
+        LocalDate lastAllocationDate = allocationRepository.findLastAllocationDateForResource(resource.getResourceId()).orElse(null);
+
         return BenchPoolResponseDTO.builder()
                 .employeeId(resource.getResourceId())
                 .resourceName(resource.getFullName())
@@ -627,6 +630,7 @@ public class BenchService {
                 .allocation(allocation)
                 .aging((int) agingDays)
                 .costPerDay(costPerDay)
+                .lastAllocationDate(lastAllocationDate)
                 .build();
     }
 }
