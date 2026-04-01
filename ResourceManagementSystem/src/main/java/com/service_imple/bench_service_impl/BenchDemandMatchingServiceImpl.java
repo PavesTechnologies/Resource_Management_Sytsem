@@ -4,14 +4,18 @@ import com.dto.bench_dto.MatchResponse;
 import com.entity.resource_entities.Resource;
 import com.entity.demand_entities.Demand;
 import com.entity.skill_entities.ResourceSkill;
+import com.entity.allocation_entities.ResourceAllocation;
+import com.entity_enums.allocation_enums.AllocationStatus;
 import com.service_interface.bench_service_interface.BenchDemandMatchingService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.repo.bench_repo.BenchDetectionRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.allocation_repo.AllocationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +28,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     private final BenchDetectionRepository benchDetectionRepository;
     private final DemandService demandService;
     private final ResourceSkillRepository resourceSkillRepository;
+    private final AllocationRepository allocationRepository;
 
     @Override
     public List<MatchResponse> getMatches() {
@@ -147,13 +152,40 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     }
 
     private double calculateAvailabilityScore(Resource resource, Demand demand) {
-        // Simple availability check - assume bench resources are available
-        // In real implementation, check resource.availableDate vs demand.startDate
-        return 100; // Bench resources are generally available
+        // Check if resource is available for demand start date
+        LocalDate demandStartDate = demand.getDemandStartDate();
+        LocalDate today = LocalDate.now();
+        
+        // Resource must be in bench status and allocation allowed
+        if (!resource.getAllocationAllowed() || !resource.getActiveFlag()) {
+            return 0; // Not available for allocation
+        }
+        
+        // Check if resource has any active allocations that overlap with demand period
+        List<ResourceAllocation> activeAllocations = allocationRepository
+                .findByResource_ResourceIdAndAllocationStatus(resource.getResourceId(), AllocationStatus.ACTIVE);
+        
+        boolean hasOverlappingAllocation = activeAllocations.stream()
+                .anyMatch(allocation -> 
+                    !(allocation.getAllocationEndDate().isBefore(demandStartDate) || 
+                      allocation.getAllocationStartDate().isAfter(demand.getDemandEndDate())));
+        
+        if (hasOverlappingAllocation) {
+            return 0; // Has overlapping allocation
+        }
+        
+        // Check if resource is immediately available (bench resources should be available from today)
+        if (demandStartDate.isBefore(today)) {
+            return 50; // Demand start date is in the past, partial availability
+        }
+        
+        // Full availability for bench resources with demand start date today or future
+        return 100;
     }
 
     private MatchResponse buildMatchResponse(Resource resource, Demand demand, double score) {
         List<String> matchedSkills = getMatchedSkills(resource, demand);
+        String availabilityStatus = determineAvailabilityStatus(resource, demand);
         
         return MatchResponse.builder()
                 .resourceId(resource.getResourceId())
@@ -161,10 +193,42 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
                 .resourceExperience(resource.getExperiance() != null ? resource.getExperiance().intValue() : 0)
                 .matchScore(Math.round(score))
                 .matchedSkills(matchedSkills)
-                .availability("Available") // Bench resources are available
+                .availability(availabilityStatus)
                 .demandId(demand.getDemandId())
                 .demandName(demand.getDemandName())
                 .build();
+    }
+
+    private String determineAvailabilityStatus(Resource resource, Demand demand) {
+        LocalDate demandStartDate = demand.getDemandStartDate();
+        LocalDate today = LocalDate.now();
+        
+        // Check resource basic availability
+        if (!resource.getAllocationAllowed() || !resource.getActiveFlag()) {
+            return "Not Available";
+        }
+        
+        // Check for overlapping allocations
+        List<ResourceAllocation> activeAllocations = allocationRepository
+                .findByResource_ResourceIdAndAllocationStatus(resource.getResourceId(), AllocationStatus.ACTIVE);
+        
+        boolean hasOverlappingAllocation = activeAllocations.stream()
+                .anyMatch(allocation -> 
+                    !(allocation.getAllocationEndDate().isBefore(demandStartDate) || 
+                      allocation.getAllocationStartDate().isAfter(demand.getDemandEndDate())));
+        
+        if (hasOverlappingAllocation) {
+            return "Partially Available";
+        }
+        
+        // Check demand start date
+        if (demandStartDate.isBefore(today)) {
+            return "Available Immediately";
+        } else if (demandStartDate.isEqual(today)) {
+            return "Available Today";
+        } else {
+            return "Available from " + demandStartDate;
+        }
     }
 
     private List<String> getMatchedSkills(Resource resource, Demand demand) {

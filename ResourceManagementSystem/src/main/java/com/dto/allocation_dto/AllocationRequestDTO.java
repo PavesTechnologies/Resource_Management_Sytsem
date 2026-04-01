@@ -2,9 +2,10 @@ package com.dto.allocation_dto;
 
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.roleoff_enums.RoleOffReason;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AllocationRequestDTO {
