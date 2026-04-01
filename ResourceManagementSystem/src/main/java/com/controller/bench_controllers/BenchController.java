@@ -6,6 +6,15 @@ import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
 import com.dto.bench_dto.MatchResponse;
+import com.dto.allocation_dto.AllocationRequestDTO;
+import com.dto.allocation_dto.QuickAllocationDTO;
+import com.dto.centralised_dto.UserDTO;
+import com.entity_enums.allocation_enums.AllocationStatus;
+import com.service_imple.bench_service_impl.BenchService;
+import com.service_interface.bench_service_interface.BenchDemandMatchingService;
+import com.service_interface.allocation_service_interface.AllocationService;
+import com.repo.demand_repo.DemandRepository;
+import com.security.CurrentUser;
 import com.dto.centralised_dto.UserDTO;
 import com.security.CurrentUser;
 import com.service_imple.bench_service_impl.BenchService;
@@ -18,6 +27,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +44,8 @@ public class BenchController {
 
     private final BenchService benchDetectionService;
     private final BenchDemandMatchingService benchDemandMatchingService;
+    private final AllocationService allocationService;
+    private final DemandRepository demandRepository;
 
     /**
      * Get all bench resources
@@ -211,21 +223,73 @@ public class BenchController {
      * POST /api/bench/quick-allocate
      */
     @PostMapping("/quick-allocate")
-    public ResponseEntity<String> quickAllocate(
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<?>> quickAllocate(
             @RequestParam Long resourceId,
-            @RequestParam UUID demandId) {
-
+            @RequestParam UUID demandId,
+            @RequestParam(defaultValue = "100") Integer allocationPercentage,
+            @CurrentUser UserDTO user) {
+        
         try {
-            log.info("Quick allocating resource {} to demand {}", resourceId, demandId);
-
-            // TODO: Implement allocation logic
-            // allocationService.createAllocation(resourceId, demandId);
-
-            return ResponseEntity.ok("Allocation successful - TODO: Implement allocation logic");
-
+            log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation", 
+                    resourceId, demandId, user.getName(), allocationPercentage);
+            
+            // Create quick allocation DTO from parameters
+            QuickAllocationDTO quickAllocation = QuickAllocationDTO.builder()
+                    .resourceId(resourceId)
+                    .demandId(demandId)
+                    .allocationPercentage(allocationPercentage)
+                    .build();
+            
+            // Convert quick allocation to full allocation request
+            AllocationRequestDTO allocationRequest = buildAllocationRequest(quickAllocation, user);
+            
+            // Use existing allocation service with full validation
+            return allocationService.assignAllocation(allocationRequest);
+            
         } catch (Exception e) {
             log.error("Error in quick allocation: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Allocation failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ApiResponse<>(false, "Allocation failed: " + e.getMessage(), null));
         }
+    }
+
+    /**
+     * Build full AllocationRequestDTO from QuickAllocationDTO with smart defaults
+     */
+    private AllocationRequestDTO buildAllocationRequest(QuickAllocationDTO quickAllocation, UserDTO user) {
+        return AllocationRequestDTO.builder()
+                .resourceId(List.of(quickAllocation.getResourceId()))
+                .demandId(quickAllocation.getDemandId())
+                .allocationPercentage(quickAllocation.getAllocationPercentage())
+                .allocationStartDate(calculateStartDate(quickAllocation.getDemandId()))
+                .allocationEndDate(calculateEndDate(quickAllocation.getDemandId()))
+                .allocationStatus(AllocationStatus.PLANNED)
+                .createdBy(user.getName())
+                .skipValidation(true)  // Skip demand status validation for quick allocation
+                .build();
+    }
+
+    /**
+     * Calculate smart start date based on demand
+     */
+    private java.time.LocalDate calculateStartDate(UUID demandId) {
+        return demandRepository.findById(demandId)
+                .map(demand -> {
+                    java.time.LocalDate demandStart = demand.getDemandStartDate();
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    // Use demand start date if it's today or future, otherwise start today
+                    return demandStart.isAfter(today) ? demandStart : today;
+                })
+                .orElseGet(java.time.LocalDate::now); // Fallback to today if demand not found
+    }
+
+    /**
+     * Calculate smart end date based on demand
+     */
+    private java.time.LocalDate calculateEndDate(UUID demandId) {
+        return demandRepository.findById(demandId)
+                .map(demand -> demand.getDemandEndDate())
+                .orElseGet(() -> java.time.LocalDate.now().plusMonths(6)); // Fallback to 6 months
     }
 }
