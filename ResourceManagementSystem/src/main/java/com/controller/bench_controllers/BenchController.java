@@ -1,5 +1,6 @@
 package com.controller.bench_controllers;
 
+import com.dto.bench_dto.UpdateSubStateRequestDTO;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
@@ -9,8 +10,11 @@ import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.allocation_dto.QuickAllocationDTO;
 import com.dto.centralised_dto.UserDTO;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.dto.centralised_dto.UserDTO;
+import com.security.CurrentUser;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_interface.bench_service_interface.BenchDemandMatchingService;
+import jakarta.validation.Valid;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.repo.demand_repo.DemandRepository;
 import com.security.CurrentUser;
@@ -178,6 +182,12 @@ public class BenchController {
         );
     }
 
+    @PutMapping("/update-resource-state")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> updateResourceState(@Valid @RequestBody UpdateSubStateRequestDTO request, @CurrentUser UserDTO userDTO) {
+        return benchDetectionService.updateSubState(request, userDTO);
+    }
+
     /**
      * Get bench-to-demand matches
      * GET /api/bench/matches
@@ -219,7 +229,7 @@ public class BenchController {
             @CurrentUser UserDTO user) {
         
         try {
-            log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation", 
+            log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
                     resourceId, demandId, user.getName(), allocationPercentage);
             
             // Create quick allocation DTO from parameters
@@ -237,7 +247,7 @@ public class BenchController {
             
         } catch (Exception e) {
             log.error("Error in quick allocation: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            return ResponseEntity.badRequest()
                 .body(new ApiResponse<>(false, "Allocation failed: " + e.getMessage(), null));
         }
     }

@@ -194,7 +194,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
      * Get bench resources with skill details for bench endpoint
      */
     @Query("""
-        SELECT r, rs.benchStartDate
+        SELECT r, rs.benchStartDate, rs.subState
         FROM ResourceState rs
         JOIN Resource r ON rs.resourceId = r.resourceId
         WHERE rs.stateType = 'BENCH'
@@ -208,7 +208,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
      * Get pool resources with skill details for pool endpoint
      */
     @Query("""
-        SELECT r, rs.benchStartDate
+        SELECT r, rs.benchStartDate, rs.subState
         FROM ResourceState rs
         JOIN Resource r ON rs.resourceId = r.resourceId
         WHERE rs.stateType = 'POOL'
