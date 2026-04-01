@@ -7,6 +7,9 @@ import com.entity.skill_entities.ResourceCertificate;
 import com.service_interface.skill_service_interface.ResourceCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+//import org.springframework.web.bind.annotation;
+
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,5 +48,11 @@ public class ResourceCertificateController {
     public ResponseEntity<ApiResponse<ResourceCertificate>> getCertificateById(@PathVariable UUID id) {
         ResourceCertificate certificate = service.getCertificateById(id);
         return ResponseEntity.ok(ApiResponse.success("Certificate retrieved successfully", certificate));
+    }
+
+    @PutMapping("/{resourceCertificateId}")
+    public ResponseEntity<ApiResponse<ResourceCertificate>> updateResourceCertificate(@PathVariable UUID resourceCertificateId, @Valid @RequestBody ResourceCertificateRequestDTO dto) {
+        ResourceCertificate updated = service.updateResourceCertificate(resourceCertificateId, dto);
+        return ResponseEntity.ok(ApiResponse.success("Resource certificate updated successfully", updated));
     }
 }

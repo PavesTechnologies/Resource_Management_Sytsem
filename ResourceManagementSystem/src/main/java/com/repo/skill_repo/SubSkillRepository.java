@@ -14,6 +14,8 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
 
     boolean existsByNameIgnoreCaseAndSkill_Id(String name, UUID skillId);
 
+    boolean existsByNameIgnoreCaseAndSkill_IdAndIdNot(String name, UUID skillId, UUID id);
+
     List<SubSkill> findByStatusIgnoreCase(String status);
 
     List<SubSkill> findBySkill_IdAndStatusIgnoreCase(UUID skillId, String status);

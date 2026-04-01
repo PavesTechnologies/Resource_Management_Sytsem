@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -48,9 +49,13 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         CertificateStatus status;
 
         if (Boolean.TRUE.equals(master.getTimeBound())) {
-
-            expiryDate = dto.getIssuedDate()
-                    .plusMonths(master.getValidityMonths());
+            // Use manual expiry date if provided, otherwise calculate automatically
+            if (dto.getExpiryDate() != null) {
+                expiryDate = dto.getExpiryDate();
+            } else {
+                expiryDate = dto.getIssuedDate()
+                        .plusMonths(master.getValidityMonths());
+            }
 
             status = calculateStatus(expiryDate);
 
@@ -62,6 +67,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                 .resourceId(dto.getResourceId())
                 .certificateId(dto.getCertificateId())
                 .issuedDate(dto.getIssuedDate())
+                .certificateFile(dto.getCertificateFile())
                 .expiryDate(expiryDate)
                 .status(status)
                 .activeFlag(true)
@@ -144,6 +150,72 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             throw new CertificationComplianceException(
                     "Resource is not active: " + resource.getFullName() + " (ID: " + resourceId + ")");
         }
+    }
+
+    @Override
+    @Transactional
+    public ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto) {
+        ResourceCertificate existingResourceCertificate = resourceCertificateRepository.findById(resourceCertificateId)
+                .orElseThrow(() -> new CertificationComplianceException(
+                        "Resource certificate not found with ID: " + resourceCertificateId));
+
+        // Validate resource exists and is active if changing resource
+        if (!existingResourceCertificate.getResourceId().equals(dto.getResourceId())) {
+            validateResourceExistsAndActive(dto.getResourceId());
+        }
+
+        // Validate certificate exists if changing certificate
+        if (!existingResourceCertificate.getCertificateId().equals(dto.getCertificateId())) {
+            Certificate master = certificateRepository.findById(dto.getCertificateId())
+                    .orElseThrow(() -> new CertificationComplianceException("Certificate master not found"));
+        }
+
+        // Check for duplicate assignment if changing resource or certificate
+        if (!existingResourceCertificate.getResourceId().equals(dto.getResourceId()) || 
+            !existingResourceCertificate.getCertificateId().equals(dto.getCertificateId())) {
+            
+            Optional<ResourceCertificate> existing = resourceCertificateRepository
+                    .findByResourceIdAndCertificateIdAndActiveFlagTrue(dto.getResourceId(), dto.getCertificateId());
+            
+            if (existing.isPresent() && !existing.get().getId().equals(resourceCertificateId)) {
+                throw new CertificationComplianceException(
+                        "Certificate already assigned to this resource");
+            }
+        }
+
+        // Update fields
+        existingResourceCertificate.setResourceId(dto.getResourceId());
+        existingResourceCertificate.setCertificateId(dto.getCertificateId());
+        
+        if (dto.getIssuedDate() != null) {
+            existingResourceCertificate.setIssuedDate(dto.getIssuedDate());
+            
+            // Recalculate expiry date and status if time-bound certificate
+            Certificate master = certificateRepository.findById(existingResourceCertificate.getCertificateId())
+                    .orElseThrow(() -> new CertificationComplianceException("Certificate master not found"));
+            
+            if (Boolean.TRUE.equals(master.getTimeBound())) {
+                // Use manual expiry date if provided, otherwise calculate automatically
+                LocalDate newExpiryDate;
+                if (dto.getExpiryDate() != null) {
+                    newExpiryDate = dto.getExpiryDate();
+                } else {
+                    newExpiryDate = dto.getIssuedDate().plusMonths(master.getValidityMonths());
+                }
+                existingResourceCertificate.setExpiryDate(newExpiryDate);
+                existingResourceCertificate.setStatus(calculateStatus(newExpiryDate));
+            }
+        } else if (dto.getExpiryDate() != null) {
+            // Handle case where only expiry date is updated
+            existingResourceCertificate.setExpiryDate(dto.getExpiryDate());
+            existingResourceCertificate.setStatus(calculateStatus(dto.getExpiryDate()));
+        }
+        
+        if (dto.getCertificateFile() != null) {
+            existingResourceCertificate.setCertificateFile(dto.getCertificateFile());
+        }
+
+        return resourceCertificateRepository.save(existingResourceCertificate);
     }
 
 }

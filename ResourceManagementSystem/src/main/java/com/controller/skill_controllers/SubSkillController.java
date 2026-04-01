@@ -49,5 +49,21 @@ public class SubSkillController {
         service.deactivateSubSkill(subSkillId);
         return ResponseEntity.ok(ApiResponse.success("Sub-skill deactivated successfully"));
     }
+
+    @PutMapping("/{subSkillId}")
+    public ResponseEntity<ApiResponse<SubSkill>> update(@PathVariable UUID subSkillId, @RequestBody SubSkill subSkill) {
+        if (subSkill.getSkill() == null || subSkill.getSkill().getId() == null) {
+            throw new RuntimeException("Skill ID is required");
+        }
+
+        SubSkill updated = service.update(
+                subSkillId,
+                subSkill.getSkill().getId(),
+                subSkill.getName(),
+                subSkill.getDescription()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Sub-skill updated successfully", updated));
+    }
 }
 

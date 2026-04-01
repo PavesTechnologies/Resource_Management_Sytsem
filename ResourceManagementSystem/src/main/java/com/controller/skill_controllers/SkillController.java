@@ -56,5 +56,21 @@ public class SkillController {
         service.deactivateSkill(skillId);
         return ResponseEntity.ok(ApiResponse.success("Skill deactivated successfully"));
     }
+
+    @PutMapping("/{skillId}")
+    public ResponseEntity<ApiResponse<Skill>> update(@PathVariable UUID skillId, @RequestBody Skill skill) {
+        if (skill.getCategory() == null || skill.getCategory().getId() == null) {
+            throw new RuntimeException("Category ID is required");
+        }
+
+        Skill updated = service.update(
+                skillId,
+                skill.getCategory().getId(),
+                skill.getName(),
+                skill.getDescription()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Skill updated successfully", updated));
+    }
 }
 

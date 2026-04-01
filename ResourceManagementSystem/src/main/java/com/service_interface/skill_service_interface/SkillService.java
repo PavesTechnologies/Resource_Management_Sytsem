@@ -14,5 +14,7 @@ public interface SkillService {
     List<Skill> findActiveSkillsByCategoryId(UUID categoryId);
 
     void deactivateSkill(UUID skillId);
+
+    Skill update(UUID skillId, UUID categoryId, String name, String description);
 }
 
