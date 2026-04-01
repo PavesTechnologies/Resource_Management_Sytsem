@@ -1442,6 +1442,7 @@ public class RoleOffServiceImpl implements RoleOffService {
         event.setDlApproved(true);
         event.setDlActionDate(LocalDate.now());
         event.setRoleOffStatus(RoleOffStatus.FULFILLED);
+        event.getAllocation().setAllocationEndDate(event.getEffectiveRoleOffDate());
 
         // 🔥 IF DATE PASSED → EXECUTE IMMEDIATELY
         if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {

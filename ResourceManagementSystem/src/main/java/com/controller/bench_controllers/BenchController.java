@@ -6,6 +6,8 @@ import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
 import com.dto.bench_dto.MatchResponse;
+import com.dto.bench_dto.ResourceMatchResponse;
+import com.dto.bench_dto.DemandMatch;
 import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.allocation_dto.QuickAllocationDTO;
 import com.dto.centralised_dto.UserDTO;
@@ -198,23 +200,53 @@ public class BenchController {
      * GET /api/bench/matches
      */
     @GetMapping("/matches")
-    public ResponseEntity<List<MatchResponse>> getMatches(
+    public ResponseEntity<ApiResponse<List<ResourceMatchResponse>>> getMatches(
             @RequestParam(required = false) String skill,
             @RequestParam(required = false) Integer minExp) {
-        
+
         try {
             log.info("Getting bench-demand matches with filters - skill: {}, minExp: {}", skill, minExp);
-            
+
             List<MatchResponse> matches;
-            
+
             if (skill != null || minExp != null) {
                 matches = benchDemandMatchingService.getMatches(skill, minExp);
             } else {
                 matches = benchDemandMatchingService.getMatches();
             }
-            
-            return ResponseEntity.ok(matches);
-            
+
+            // Group matches by resource
+            Map<Long, List<MatchResponse>> groupedByResource = matches.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(MatchResponse::getResourceId));
+
+            List<ResourceMatchResponse> response = groupedByResource.entrySet().stream()
+                    .map(entry -> {
+                        Long resourceId = entry.getKey();
+                        List<MatchResponse> resourceMatches = entry.getValue();
+
+                        MatchResponse firstMatch = resourceMatches.get(0);
+
+                        List<DemandMatch> demands = resourceMatches.stream()
+                                .map(match -> DemandMatch.builder()
+                                        .demandId(match.getDemandId())
+                                        .demandName(match.getDemandName())
+                                        .matchedSkills(match.getMatchedSkills())
+                                        .matchScore(match.getMatchScore())
+                                        .build())
+                                .collect(java.util.stream.Collectors.toList());
+
+                        return ResourceMatchResponse.builder()
+                                .resourceId(firstMatch.getResourceId())
+                                .resourceName(firstMatch.getResourceName())
+                                .resourceExperience(firstMatch.getResourceExperience())
+                                .availability(firstMatch.getAvailability())
+                                .demands(demands)
+                                .build();
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
+            return ResponseEntity.ok().body(new ApiResponse<>(true, "Matched Demands Retrived Successfully!", response));
+
         } catch (Exception e) {
             log.error("Error getting bench-demand matches: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -232,24 +264,24 @@ public class BenchController {
             @RequestParam UUID demandId,
             @RequestParam(defaultValue = "100") Integer allocationPercentage,
             @CurrentUser UserDTO user) {
-        
+
         try {
             log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
                     resourceId, demandId, user.getName(), allocationPercentage);
-            
+
             // Create quick allocation DTO from parameters
             QuickAllocationDTO quickAllocation = QuickAllocationDTO.builder()
                     .resourceId(resourceId)
                     .demandId(demandId)
                     .allocationPercentage(allocationPercentage)
                     .build();
-            
+
             // Convert quick allocation to full allocation request
             AllocationRequestDTO allocationRequest = buildAllocationRequest(quickAllocation, user);
-            
+
             // Use existing allocation service with full validation
             return allocationService.assignAllocation(allocationRequest);
-            
+
         } catch (Exception e) {
             log.error("Error in quick allocation: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
