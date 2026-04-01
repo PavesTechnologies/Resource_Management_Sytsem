@@ -4,6 +4,7 @@ import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity_enums.roleoff_enums.ResourcePerformance;
 import com.entity_enums.roleoff_enums.RoleOffStatus;
 import com.entity_enums.roleoff_enums.RoleOffType;
 import com.entity_enums.demand_enums.ReplacementStatus;
@@ -35,7 +36,7 @@ public class RoleOffEvent {
     @JoinColumn(name = "resource_id", nullable = false)
     private Resource resource;
 
-@ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = true)
     private DeliveryRoleExpectation role;
 
@@ -65,6 +66,9 @@ public class RoleOffEvent {
     @Enumerated(EnumType.STRING)
     @Column(name = "role_off_reason")
     private RoleOffReason roleOffReasonEnum;
+
+    @Enumerated(EnumType.STRING)
+    private ResourcePerformance resourcePerformance;
 
     @CreationTimestamp
     private LocalDate createdAt;

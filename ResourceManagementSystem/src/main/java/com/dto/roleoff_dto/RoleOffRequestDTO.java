@@ -1,6 +1,7 @@
 package com.dto.roleoff_dto;
 
 import com.entity_enums.roleoff_enums.RoleOffType;
+import com.entity_enums.roleoff_enums.ResourcePerformance;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -21,4 +22,7 @@ public class RoleOffRequestDTO {
     private LocalDate effectiveRoleOffDate;
     private String roleOffReason;
     private Boolean confirmed = false; // Added for delivery impact confirmation
+    
+    // NEW FIELD from RoleOffEvent entity
+    private ResourcePerformance resourcePerformance;
 }

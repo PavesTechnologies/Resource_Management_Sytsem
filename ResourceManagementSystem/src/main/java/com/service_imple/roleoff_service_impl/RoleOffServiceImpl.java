@@ -453,6 +453,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                 event.setRoleOffReason(roleOff.getRoleOffReason());
                 event.setCreatedAt(LocalDate.now());
                 event.setCreatedBy(userDTO.getId());
+                event.setResourcePerformance(roleOff.getResourcePerformance());
                 event.setRoleInitiatedBy(
                         userDTO.getRoles().contains("RESOURCE-MANAGER")
                                 ? "RESOURCE-MANAGER"
@@ -1292,6 +1293,9 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         event.setRoleOffReasonEnum(dto.getRoleOffReason());
         event.setEffectiveRoleOffDate(dto.getEffectiveRoleOffDate());
+        
+        // NEW FIELD: Map resourcePerformance from DTO to entity
+        event.setResourcePerformance(dto.getResourcePerformance());
 
         // =========================================================
         // 🔥 EMERGENCY ROLE-OFF
