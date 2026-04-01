@@ -6,6 +6,8 @@ import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
 import com.dto.bench_dto.MatchResponse;
+import com.dto.bench_dto.ResourceMatchResponse;
+import com.dto.bench_dto.DemandMatch;
 import com.dto.centralised_dto.UserDTO;
 import com.security.CurrentUser;
 import com.service_imple.bench_service_impl.BenchService;
@@ -183,7 +185,7 @@ public class BenchController {
      * GET /api/bench/matches
      */
     @GetMapping("/matches")
-    public ResponseEntity<List<MatchResponse>> getMatches(
+    public ResponseEntity<ApiResponse<List<ResourceMatchResponse>>> getMatches(
             @RequestParam(required = false) String skill,
             @RequestParam(required = false) Integer minExp) {
 
@@ -198,7 +200,37 @@ public class BenchController {
                 matches = benchDemandMatchingService.getMatches();
             }
 
-            return ResponseEntity.ok(matches);
+            // Group matches by resource
+            Map<Long, List<MatchResponse>> groupedByResource = matches.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(MatchResponse::getResourceId));
+
+            List<ResourceMatchResponse> response = groupedByResource.entrySet().stream()
+                    .map(entry -> {
+                        Long resourceId = entry.getKey();
+                        List<MatchResponse> resourceMatches = entry.getValue();
+                        
+                        MatchResponse firstMatch = resourceMatches.get(0);
+                        
+                        List<DemandMatch> demands = resourceMatches.stream()
+                                .map(match -> DemandMatch.builder()
+                                        .demandId(match.getDemandId())
+                                        .demandName(match.getDemandName())
+                                        .matchedSkills(match.getMatchedSkills())
+                                        .matchScore(match.getMatchScore())
+                                        .build())
+                                .collect(java.util.stream.Collectors.toList());
+
+                        return ResourceMatchResponse.builder()
+                                .resourceId(firstMatch.getResourceId())
+                                .resourceName(firstMatch.getResourceName())
+                                .resourceExperience(firstMatch.getResourceExperience())
+                                .availability(firstMatch.getAvailability())
+                                .demands(demands)
+                                .build();
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
+            return ResponseEntity.ok().body(new ApiResponse<>(true, "Matched Demands Retrived Successfully!", response));
 
         } catch (Exception e) {
             log.error("Error getting bench-demand matches: {}", e.getMessage(), e);
