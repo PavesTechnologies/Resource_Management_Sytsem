@@ -19,6 +19,7 @@ import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.ReplacementStatus;
+import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.roleoff_enums.RoleOffReason;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
@@ -37,6 +38,7 @@ import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncService
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -53,6 +55,7 @@ import java.util.*;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RoleOffServiceImpl implements RoleOffService {
@@ -625,7 +628,7 @@ public class RoleOffServiceImpl implements RoleOffService {
             return new HashMap<>();
         }
 
-        Map<Long, String> impactLevels = new HashMap<>();
+        Map<Long, String> impactLevelsMap = new HashMap<>();
         
         try {
             // Batch fetch all required data
@@ -705,17 +708,17 @@ public class RoleOffServiceImpl implements RoleOffService {
                 else if (impactScore >= 40) impactLevel = "MEDIUM";
                 else impactLevel = "LOW";
                 
-                impactLevels.put(resourceId, impactLevel);
+                impactLevelsMap.put(resourceId, impactLevel);
             }
             
         } catch (Exception e) {
             // Fallback to LOW impact for all resources if calculation fails
             for (Long resourceId : resourceIds) {
-                impactLevels.put(resourceId, "LOW");
+                impactLevelsMap.put(resourceId, "LOW");
             }
         }
         
-        return impactLevels;
+        return impactLevelsMap;
     }
 
     /**
@@ -2068,5 +2071,108 @@ public class RoleOffServiceImpl implements RoleOffService {
 
         String message = rejectedEvents.size() + " role-off events rejected by DL";
         return ResponseEntity.ok(new ApiResponse<>(true, message, result));
+    }
+
+    @Override
+    @Transactional
+    public void handleAttrition(Long resourceId, LocalDate dateOfExit) {
+        log.info("Processing attrition for resource ID: {} with exit date: {}", resourceId, dateOfExit);
+        
+        // Step 1: Fetch resource and check status
+        Resource resource = resourceRepo.findById(resourceId)
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
+
+        if (EmploymentStatus.EXITED.equals(resource.getEmploymentStatus())) {
+            log.info("Resource {} already marked as EXITED. Skipping attrition processing.", resourceId);
+            return;
+        }
+
+        // Step 2: Fetch all allocations for resource
+        List<ResourceAllocation> allocations = allocationRepository.findByResource_ResourceId(resourceId);
+        
+        // Step 3: Process EACH allocation independently
+        for (ResourceAllocation allocation : allocations) {
+            // Only process ACTIVE or PLANNED allocations
+            if (AllocationStatus.ENDED.equals(allocation.getAllocationStatus()) || 
+                AllocationStatus.CANCELLED.equals(allocation.getAllocationStatus())) {
+                continue;
+            }
+
+            LocalDate startDate = allocation.getAllocationStartDate();
+            LocalDate endDate = allocation.getAllocationEndDate();
+
+            // ✅ NULL CHECK
+            if (startDate == null || endDate == null) {
+                log.error("Skipping allocation {} due to null dates", allocation.getAllocationId());
+                continue;
+            }
+
+            // ✅ INVALID RANGE CHECK
+            if (startDate.isAfter(endDate)) {
+                log.error("Skipping allocation {} due to invalid date range", allocation.getAllocationId());
+                continue;
+            }
+
+            // CASE 1: Past allocation (allocationEndDate < dateOfExit) -> Do nothing
+            if (endDate.isBefore(dateOfExit)) {
+                log.debug("Skipping past allocation {} for attrition processing", allocation.getAllocationId());
+                continue;
+            }
+
+            // CASE 2: OVERLAPPING allocation (allocationStartDate <= dateOfExit <= allocationEndDate)
+            if (!startDate.isAfter(dateOfExit) && !endDate.isBefore(dateOfExit)) {
+                log.info("Closing overlapping allocation {} due to attrition", allocation.getAllocationId());
+                
+                // 1. Close allocation using existing logic
+                CloseAllocationDTO closeDTO = new CloseAllocationDTO();
+                closeDTO.setClosureDate(dateOfExit);
+                closeDTO.setReason("ATTRITION");
+                allocationService.closeAllocation(allocation.getAllocationId(), closeDTO);
+
+                // ✅ FIX: EXACT DATE MATCH - Skip demand creation if allocation ends on exit date
+                if (endDate.isEqual(dateOfExit)) {
+                    log.info("Skipping demand creation as allocation ends on exit date for allocation {}",
+                             allocation.getAllocationId());
+                    continue;
+                }
+
+                // Optional: skip past demand
+                if (dateOfExit.isBefore(LocalDate.now())) {
+                    continue;
+                }
+
+                // 2. Create replacement demand: startDate = dateOfExit + 1, endDate = original allocationEndDate
+                demandService.createReplacementDemandFromAllocation(allocation, dateOfExit.plusDays(1), endDate);
+            }
+            
+            // CASE 3: FUTURE allocation (allocationStartDate > dateOfExit)
+            else if (startDate.isAfter(dateOfExit)) {
+                log.info("Cancelling future allocation {} due to attrition", allocation.getAllocationId());
+                
+                // 1. Mark as CANCELLED
+                allocation.setAllocationStatus(AllocationStatus.CANCELLED);
+                allocation.setClosureReason("CANCELLED DUE TO RESOURCE ATTRITION");
+                
+                // 2. Save using existing repository
+                allocationRepository.save(allocation);
+
+                // 3. Create replacement demand: startDate = allocationStartDate, endDate = allocationEndDate
+                if (!dateOfExit.isBefore(LocalDate.now())) {
+                    demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate);
+                }
+            }
+        }
+
+        // Step 6: Trigger ledger update
+        // Using same horizon logic as closeResourceAllocation to maintain consistency
+        LocalDate horizonEnd = LocalDate.now().plusDays(90);
+        java.util.Optional<LocalDate> maxAllocEnd = allocationRepository.findMaxAllocationEndDateForResource(resourceId);
+        if (maxAllocEnd.isPresent() && maxAllocEnd.get().isAfter(horizonEnd)) {
+            horizonEnd = maxAllocEnd.get();
+        }
+
+        availabilityLedgerAsyncService.updateLedger(resourceId, dateOfExit, horizonEnd);
+        
+        log.info("Attrition processing completed for resource: {}", resource.getFullName());
     }
 }

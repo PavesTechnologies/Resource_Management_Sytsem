@@ -13,6 +13,7 @@ import com.repo.resource_repo.ResourceRepository;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.service_interface.resource_service_interface.ResourceEventService;
 import com.service_interface.resource_service_interface.ResourceService;
+import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class ResourceServiceImpl implements ResourceService {
     private final ResourceEventService resourceEventService;
     private final ProjectRepository projectRepo;
     private final BenchService benchDetectionService;
+    private final RoleOffService roleOffService;
 
     @Override
     public ResponseEntity<ApiResponse<?>> createResource(Resource resource) {
@@ -94,6 +96,12 @@ public class ResourceServiceImpl implements ResourceService {
 
             if (resource.getEmail() != null && !resource.getEmail().equals(existing.getEmail()) && resourceRepository.existsByEmail(resource.getEmail())) {
                 throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists");
+            }
+
+            // ATTRITION TRIGGER
+            if (resource.getDateOfExit() != null && EmploymentStatus.ON_NOTICE.equals(resource.getEmploymentStatus())) {
+                log.info("Attrition detected for resource: {}. Triggering attrition flow.", resource.getResourceId());
+                roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit());
             }
 
             resourceRepository.save(resource);
