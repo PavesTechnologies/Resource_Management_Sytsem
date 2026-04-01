@@ -3,6 +3,9 @@ package com.service_imple.bench_service_impl;
 import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
+import com.dto.bench_dto.UpdateSubStateRequestDTO;
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.bench.ResourceCost;
 import com.entity.bench.ResourceState;
@@ -26,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -479,7 +483,7 @@ public class BenchService {
         Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
 
         return benchResourcesData.stream()
-                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], skillsMap))
+                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], (SubState) arr[2], skillsMap))
                 .collect(Collectors.toList());
     }
 
@@ -499,7 +503,7 @@ public class BenchService {
         Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
 
         return poolResourcesData.stream()
-                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], skillsMap))
+                .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], (SubState) arr[2], skillsMap))
                 .collect(Collectors.toList());
     }
 
@@ -601,7 +605,7 @@ public class BenchService {
     /**
      * Convert Resource entity to BenchPoolResponseDTO
      */
-    private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate,
+    private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate, SubState subState,
                                                                Map<Long, List<Map<String, String>>> skillsMap) {
         // Calculate aging (days in bench/pool)
         long agingDays = ChronoUnit.DAYS.between(benchStartDate, LocalDate.now());
@@ -626,11 +630,47 @@ public class BenchService {
                 .resourceName(resource.getFullName())
                 .designation(resource.getDesignation())
                 .skillGroups(skillGroups)
-                .subState(SubState.READY) // Default sub-state
+                .subState(subState) // Use actual subState from database
                 .allocation(allocation)
                 .aging((int) agingDays)
                 .costPerDay(costPerDay)
                 .lastAllocationDate(lastAllocationDate)
                 .build();
+    }
+
+    public ResponseEntity<?> updateSubState(UpdateSubStateRequestDTO request, UserDTO userDTO) {
+        ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
+        SubState oldSubState = resourceState.getSubState();
+        SubState newSubState = request.getNewSubState();
+
+        if (oldSubState == newSubState) {
+            return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));
+        }
+
+        resourceState.setCurrentFlag(false);
+        resourceState.setEffectiveTo(LocalDate.now());
+        resourceState.setUpdatedAt(LocalDateTime.now());
+        resourceState.setUpdatedBy(userDTO.getId());
+
+        benchDetectionRepository.save(resourceState);
+
+        ResourceState newState = ResourceState.builder()
+                .resourceId(resourceState.getResourceId())
+                .stateType(resourceState.getStateType())
+                .subState(newSubState)
+                .benchStartDate(resourceState.getBenchStartDate())
+                .benchReason(resourceState.getBenchReason())
+                .allocationId(resourceState.getAllocationId())
+                .effectiveFrom(resourceState.getEffectiveFrom())
+                .currentFlag(true)
+                .createdBy(userDTO.getName())
+                .createdAt(LocalDateTime.now())
+                .oldSubStateTypeValue(oldSubState)
+                .newSubStateTypeValue(newSubState)
+                .reason(request.getReason())
+                .build();
+
+        benchDetectionRepository.save(newState);
+        return ResponseEntity.ok().body(new ApiResponse<>(true, "Resource State Updated Successfully.", newState));
     }
 }

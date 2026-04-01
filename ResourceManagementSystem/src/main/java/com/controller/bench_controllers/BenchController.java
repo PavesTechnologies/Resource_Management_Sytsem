@@ -1,5 +1,6 @@
 package com.controller.bench_controllers;
 
+import com.dto.bench_dto.UpdateSubStateRequestDTO;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
@@ -14,6 +15,11 @@ import com.service_interface.bench_service_interface.BenchDemandMatchingService;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.repo.demand_repo.DemandRepository;
 import com.security.CurrentUser;
+import com.dto.centralised_dto.UserDTO;
+import com.security.CurrentUser;
+import com.service_imple.bench_service_impl.BenchService;
+import com.service_interface.bench_service_interface.BenchDemandMatchingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -178,6 +184,12 @@ public class BenchController {
         );
     }
 
+    @PutMapping("/update-resource-state")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> updateResourceState(@Valid @RequestBody UpdateSubStateRequestDTO request, @CurrentUser UserDTO userDTO) {
+        return benchDetectionService.updateSubState(request, userDTO);
+    }
+
     /**
      * Get bench-to-demand matches
      * GET /api/bench/matches
@@ -186,20 +198,20 @@ public class BenchController {
     public ResponseEntity<List<MatchResponse>> getMatches(
             @RequestParam(required = false) String skill,
             @RequestParam(required = false) Integer minExp) {
-        
+
         try {
             log.info("Getting bench-demand matches with filters - skill: {}, minExp: {}", skill, minExp);
-            
+
             List<MatchResponse> matches;
-            
+
             if (skill != null || minExp != null) {
                 matches = benchDemandMatchingService.getMatches(skill, minExp);
             } else {
                 matches = benchDemandMatchingService.getMatches();
             }
-            
+
             return ResponseEntity.ok(matches);
-            
+
         } catch (Exception e) {
             log.error("Error getting bench-demand matches: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
