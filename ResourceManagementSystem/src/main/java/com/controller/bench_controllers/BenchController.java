@@ -10,8 +10,11 @@ import com.dto.allocation_dto.AllocationRequestDTO;
 import com.dto.allocation_dto.QuickAllocationDTO;
 import com.dto.centralised_dto.UserDTO;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.dto.centralised_dto.UserDTO;
+import com.security.CurrentUser;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_interface.bench_service_interface.BenchDemandMatchingService;
+import jakarta.validation.Valid;
 import com.service_interface.allocation_service_interface.AllocationService;
 import com.repo.demand_repo.DemandRepository;
 import com.security.CurrentUser;
@@ -198,20 +201,20 @@ public class BenchController {
     public ResponseEntity<List<MatchResponse>> getMatches(
             @RequestParam(required = false) String skill,
             @RequestParam(required = false) Integer minExp) {
-
+        
         try {
             log.info("Getting bench-demand matches with filters - skill: {}, minExp: {}", skill, minExp);
-
+            
             List<MatchResponse> matches;
-
+            
             if (skill != null || minExp != null) {
                 matches = benchDemandMatchingService.getMatches(skill, minExp);
             } else {
                 matches = benchDemandMatchingService.getMatches();
             }
-
+            
             return ResponseEntity.ok(matches);
-
+            
         } catch (Exception e) {
             log.error("Error getting bench-demand matches: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -231,7 +234,7 @@ public class BenchController {
             @CurrentUser UserDTO user) {
         
         try {
-            log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation", 
+            log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
                     resourceId, demandId, user.getName(), allocationPercentage);
             
             // Create quick allocation DTO from parameters
@@ -249,7 +252,7 @@ public class BenchController {
             
         } catch (Exception e) {
             log.error("Error in quick allocation: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            return ResponseEntity.badRequest()
                 .body(new ApiResponse<>(false, "Allocation failed: " + e.getMessage(), null));
         }
     }
