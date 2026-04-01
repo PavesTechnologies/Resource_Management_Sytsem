@@ -3,6 +3,7 @@ package com.service_interface.demand_service_interface;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
+import com.entity.demand_entities.Demand;
 import com.security.CurrentUser;
 import org.springframework.http.ResponseEntity;
 
@@ -37,4 +38,7 @@ public interface DemandService {
     ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(@CurrentUser UserDTO userDTO);
     ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dto);
     ResponseEntity<ApiResponse<?>> processResourceManagerDecision(DemandDecisionDTO dto, UserDTO userDTO);
+    
+    // Method for bench-demand matching
+    List<Demand> getOpenDemands();
 }
