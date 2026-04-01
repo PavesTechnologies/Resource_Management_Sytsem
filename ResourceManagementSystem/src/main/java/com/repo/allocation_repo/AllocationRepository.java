@@ -198,6 +198,11 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED')")
     java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") Long resourceId);
 
+    @Query("SELECT MAX(ra.allocationStartDate) FROM ResourceAllocation ra " +
+           "WHERE ra.resource.resourceId = :resourceId " +
+           "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED', 'ENDED')")
+    java.util.Optional<java.time.LocalDate> findLastAllocationDateForResource(@Param("resourceId") Long resourceId);
+
     @Query("""
     SELECT COALESCE(SUM(a.allocationPercentage), 0)
     FROM ResourceAllocation a

@@ -109,4 +109,7 @@ public class Resource {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "resource_performance", precision = 3, scale = 2)
+    private BigDecimal resourcePerformance;
 }

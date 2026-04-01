@@ -130,7 +130,8 @@ public class AllocationValidationService {
                 );
             }
             
-            if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+            // Skip demand status validation for quick allocation
+            if (!request.getSkipValidation() && demand.getDemandStatus() != DemandStatus.APPROVED) {
                 throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "DEMAND_NOT_APPROVED",
