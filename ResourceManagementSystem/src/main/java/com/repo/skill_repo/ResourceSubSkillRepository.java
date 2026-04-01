@@ -17,6 +17,8 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
     boolean existsByResourceIdAndSubSkillId(
             Long resourceId, UUID subSkillId);
 
+    boolean existsByResourceIdAndSubSkillIdAndIdNot(Long resourceId, UUID subSkillId, UUID id);
+
     @Query("SELECT rss FROM ResourceSubSkill rss WHERE rss.resourceId = :resourceId AND rss.activeFlag = true")
     List<ResourceSubSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") Long resourceId);
 

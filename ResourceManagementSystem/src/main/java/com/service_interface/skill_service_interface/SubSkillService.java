@@ -17,5 +17,7 @@ public interface SubSkillService {
     List<SubSkill> findActiveSubSkillsBySkillId(UUID skillId);
 
     void deactivateSubSkill(UUID subSkillId);
+
+    SubSkill update(UUID subSkillId, UUID skillId, String name, String description);
 }
 

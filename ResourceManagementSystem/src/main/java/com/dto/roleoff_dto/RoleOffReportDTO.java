@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class RoleOffReportDTO {
     private UUID clientId;
     private Long resourceId;
     private String resourceName;
+    private BigDecimal resourcePerformance;
     private RoleOffReason roleOffReason;
     private LocalDate effectiveRoleOffDate;
     private String roleInitiatedBy;
@@ -89,6 +91,7 @@ public class RoleOffReportDTO {
             .clientId(event.getProject() != null ? event.getProject().getClientId() : null)
             .resourceId(event.getResource() != null ? event.getResource().getResourceId() : null)
             .resourceName(event.getResource() != null ? event.getResource().getFullName() : null)
+            .resourcePerformance(event.getResource() != null ? event.getResource().getResourcePerformance() : null)
             .roleOffReason(event.getRoleOffReasonEnum())
             .effectiveRoleOffDate(event.getEffectiveRoleOffDate())
             .roleInitiatedBy(event.getRoleInitiatedBy())

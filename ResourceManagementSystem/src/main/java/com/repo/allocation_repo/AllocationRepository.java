@@ -3,6 +3,7 @@ package com.repo.allocation_repo;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.ApprovalStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -196,4 +197,20 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED')")
     java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") Long resourceId);
+
+    @Query("SELECT MAX(ra.allocationStartDate) FROM ResourceAllocation ra " +
+           "WHERE ra.resource.resourceId = :resourceId " +
+           "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED', 'ENDED')")
+    java.util.Optional<java.time.LocalDate> findLastAllocationDateForResource(@Param("resourceId") Long resourceId);
+
+    @Query("""
+    SELECT COALESCE(SUM(a.allocationPercentage), 0)
+    FROM ResourceAllocation a
+    WHERE a.resource.resourceId = :resourceId
+    AND a.allocationStatus IN ('ACTIVE', 'PLANNED')
+    AND :date BETWEEN a.allocationStartDate AND a.allocationEndDate
+""")
+    Integer getActiveAllocationPercentage(Long resourceId, LocalDate date);
+
+    List<ResourceAllocation> findByApprovalStatus(ApprovalStatus status);
 }

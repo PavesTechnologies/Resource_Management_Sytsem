@@ -18,6 +18,8 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
     boolean existsByResourceIdAndSkillId(
             Long resourceId, UUID skillId);
 
+    boolean existsByResourceIdAndSkillIdAndIdNot(Long resourceId, UUID skillId, UUID id);
+
     Optional<ResourceSkill>findByResourceIdAndSkillIdAndActiveFlagTrue(Long resourceId, UUID certSkillId);
 
     @Query("SELECT rs FROM ResourceSkill rs " +

@@ -14,4 +14,6 @@ public interface ResourceCertificateService {
     List<ResourceCertificate> getAllCertificates();
     
     ResourceCertificate getCertificateById(UUID id);
+    
+    ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto);
 }

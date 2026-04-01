@@ -15,6 +15,8 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     boolean existsByNameIgnoreCaseAndCategory_Id(String name, UUID categoryId);
 
+    boolean existsByNameIgnoreCaseAndCategory_IdAndIdNot(String name, UUID categoryId, UUID id);
+
     List<Skill> findByStatusIgnoreCase(String status);
 
     List<Skill> findByCategory_IdAndStatusIgnoreCase(UUID categoryId, String status);
