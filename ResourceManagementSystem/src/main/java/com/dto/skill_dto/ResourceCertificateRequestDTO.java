@@ -24,4 +24,13 @@ public class ResourceCertificateRequestDTO {
     
     @JsonProperty("issuedDate")
     private LocalDate issuedDate;
+    
+    @JsonProperty("expiryDate")
+    private LocalDate expiryDate;
+    
+    @JsonProperty("certificateFile")
+    private String certificateFile;
+    
+    @JsonProperty("activeFlag")
+    private Boolean activeFlag;
 }

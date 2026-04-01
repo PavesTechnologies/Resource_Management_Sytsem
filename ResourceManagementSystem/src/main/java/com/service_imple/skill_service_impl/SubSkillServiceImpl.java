@@ -108,4 +108,32 @@ public class SubSkillServiceImpl implements SubSkillService {
             throw new SkillTaxonomyExceptionHandler("Failed to deactivate sub-skill");
         }
     }
+
+    @Override
+    public SubSkill update(UUID subSkillId, UUID skillId, String name, String description) {
+        SubSkill subSkill = subSkillRepository.findById(subSkillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Sub-skill not found"));
+
+        Skill skill = skillRepository.findById(skillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Parent skill not found"));
+
+        String normalized = name.trim();
+
+        if (!subSkill.getSkill().getId().equals(skillId) && 
+            subSkillRepository.existsByNameIgnoreCaseAndSkill_Id(normalized, skillId)) {
+            throw new SkillTaxonomyExceptionHandler("Sub-skill already exists under this skill");
+        }
+
+        if (!subSkill.getName().equalsIgnoreCase(normalized) || !subSkill.getSkill().getId().equals(skillId)) {
+            if (subSkillRepository.existsByNameIgnoreCaseAndSkill_IdAndIdNot(normalized, skillId, subSkillId)) {
+                throw new SkillTaxonomyExceptionHandler("Sub-skill already exists under this skill");
+            }
+        }
+
+        subSkill.setName(normalized);
+        subSkill.setDescription(description);
+        subSkill.setSkill(skill);
+
+        return subSkillRepository.save(subSkill);
+    }
 }
