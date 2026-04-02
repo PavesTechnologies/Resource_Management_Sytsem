@@ -15,4 +15,6 @@ public interface CertificateService {
     Skill getCertificationSkillById(UUID id);
     
     List<Skill> getCertificationSkillsByCategory(UUID categoryId);
+    
+    Certificate updateCertificate(UUID certificateId, CertificateRequestDTO dto);
 }

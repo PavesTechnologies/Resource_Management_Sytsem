@@ -99,6 +99,6 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
     Long countDemandsByDeliveryOwnerIdAndStatus(@Param("deliveryOwnerId") Long deliveryOwnerId, @Param("status") DemandStatus status);
 
     @Query("SELECT d FROM Demand d WHERE " +
-           "d.demandStatus IN ('OPEN', 'REQUESTED')")
+           "d.demandStatus IN ('APPROVED')")
     List<Demand> findOpenDemands();
 }

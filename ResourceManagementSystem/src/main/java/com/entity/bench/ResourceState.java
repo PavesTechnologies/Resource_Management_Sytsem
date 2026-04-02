@@ -48,6 +48,9 @@ public class ResourceState {
     @Builder.Default
     private Boolean currentFlag = true;
 
+    @Column(name = "internal_allocation_percentage")
+    private Integer internalAllocationPercentage;
+
     private String createdBy;
 
     @Builder.Default

@@ -635,6 +635,8 @@ public class BenchService {
                 .aging((int) agingDays)
                 .costPerDay(costPerDay)
                 .lastAllocationDate(lastAllocationDate)
+                .experience(resource.getExperiance())
+                .location(resource.getWorkingLocation())
                 .build();
     }
 

@@ -68,4 +68,32 @@ public class SkillServiceImpl implements SkillService {
             throw new SkillTaxonomyExceptionHandler("Failed to deactivate skill");
         }
     }
+
+    @Override
+    public Skill update(UUID skillId, UUID categoryId, String name, String description) {
+        Skill skill = skillRepository.findById(skillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Skill not found"));
+
+        SkillCategory category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Category not found"));
+
+        String normalized = name.trim();
+
+        if (!skill.getCategory().getId().equals(categoryId) && 
+            skillRepository.existsByNameIgnoreCaseAndCategory_Id(normalized, categoryId)) {
+            throw new SkillTaxonomyExceptionHandler("Skill already exists in this category");
+        }
+
+        if (!skill.getName().equalsIgnoreCase(normalized) || !skill.getCategory().getId().equals(categoryId)) {
+            if (skillRepository.existsByNameIgnoreCaseAndCategory_IdAndIdNot(normalized, categoryId, skillId)) {
+                throw new SkillTaxonomyExceptionHandler("Skill already exists in this category");
+            }
+        }
+
+        skill.setName(normalized);
+        skill.setDescription(description);
+        skill.setCategory(category);
+
+        return skillRepository.save(skill);
+    }
 }

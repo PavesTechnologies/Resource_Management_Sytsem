@@ -32,8 +32,8 @@ public class Certificate {
     @Column(name = "provider_name")
     private String providerName;
 
-    @Column(name = "certificate_file")
-    private String certificateFile;
+    @Column(name = "certificate_name")
+    private String certificateName;
 
     //    @Column(name = "certified_at")
 //    private LocalDate certifiedAt;

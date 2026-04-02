@@ -13,9 +13,11 @@ import java.util.UUID;
 public class CertificateRequestDTO {
     private UUID skillId;
     private String providerName;
-    private CertificateType certificateType;
+    private String certificateName;
+//    private CertificateType certificateType;
 //    private LocalDate certifiedAt;
 //    private LocalDate expiryDate;
     private Integer validityMonths;
     private Boolean timeBound;
+    private Boolean activeFlag;
 }

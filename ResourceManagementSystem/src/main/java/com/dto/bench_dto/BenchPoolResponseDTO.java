@@ -24,4 +24,6 @@ public class BenchPoolResponseDTO {
     private Integer aging;
     private Double costPerDay;
     private LocalDate lastAllocationDate;
+    private String location;
+    private Long experience;
 }

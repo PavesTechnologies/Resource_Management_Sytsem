@@ -7,6 +7,7 @@ import com.dto.allocation_dto.AllocationValidationResult;
 import com.dto.allocation_dto.DemandProjectData;
 import com.dto.allocation_dto.ConflictDetectionResult;
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.bench.ResourceState;
 import com.entity.demand_entities.Demand;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
@@ -20,6 +21,7 @@ import com.entity_enums.project_enums.ProjectStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.allocation_repo.AllocationModificationRepository;
+import com.repo.bench_repo.ResourceStateRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.project_repo.ProjectRepository;
@@ -53,6 +55,7 @@ public class AllocationValidationService {
     private final AllocationConflictService conflictService;
     private final AllocationCapacityService capacityService;
     private final SkillGapAnalysisService skillGapService;
+    private final ResourceStateRepository resourceStateRepository;
 
     /**
      * Validates basic allocation request parameters
@@ -242,13 +245,49 @@ public class AllocationValidationService {
                 
                 // Validate demand rules and priority conflicts
                 validateDemandRules(request, finalDemand, finalProject, resourceId, preloadedData);
-                
-                // Conditional advanced validations based on allocation status and skipValidation flag
+
                 boolean override = false;
-                
-                // Perform Capacity and Timeline validation in all cases (regardless of skipValidation)
+
                 if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
+
+                    // 🔹 EXISTING CAPACITY LOGIC
                     override = validateCapacity(resourceId, request, preloadedData);
+
+                    // 🔥 NEW: INTERNAL POOL CHECK
+                    ResourceState state = resourceStateRepository
+                            .findByResourceIdAndCurrentFlagTrue(resourceId)
+                            .orElseThrow();
+
+                    int internal = state.getInternalAllocationPercentage() != null
+                            ? state.getInternalAllocationPercentage()
+                            : 0;
+
+                    int currentProject = preloadedData.getAllocationsByResource()
+                            .getOrDefault(resourceId, new ArrayList<>())
+                            .stream()
+                            .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE
+                                    || a.getAllocationStatus() == AllocationStatus.PLANNED)
+                            .mapToInt(ResourceAllocation::getAllocationPercentage)
+                            .sum();
+
+                    int available = 100 - (currentProject + internal);
+
+                    int requested = request.getAllocationPercentage();
+
+                    // 🔴 EXCEEDS INTERNAL CAPACITY
+                    if (requested > available) {
+
+                        if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
+
+                            throw new ProjectExceptionHandler(
+                                    HttpStatus.BAD_REQUEST,
+                                    "INTERNAL_CAPACITY_EXCEEDED",
+                                    "Allocation exceeds available capacity due to internal pool. Approval required."
+                            );
+                        }
+
+                        // ✅ allow → will be PENDING later
+                    }
                 }
 
                 // Skip only skill compliance validation if skipValidation is true
@@ -272,6 +311,7 @@ public class AllocationValidationService {
                 allocation.setAllocationStatus(request.getAllocationStatus());
                 allocation.setCreatedBy(request.getCreatedBy());
                 allocation.setCreatedAt(LocalDateTime.now());
+                allocation.setRequestBeyondCapacityApproval(request.getRequestBeyondCapacityApproval());
                 
                 validAllocations.add(allocation);
                 

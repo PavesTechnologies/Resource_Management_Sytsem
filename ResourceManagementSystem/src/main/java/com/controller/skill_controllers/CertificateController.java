@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,5 +44,11 @@ public class CertificateController {
     public ResponseEntity<ApiResponse<List<Skill>>> getCertificationSkillsByCategory(@PathVariable UUID categoryId) {
         List<Skill> skills = service.getCertificationSkillsByCategory(categoryId);
         return ResponseEntity.ok(ApiResponse.success("Certification skills by category retrieved successfully", skills));
+    }
+
+    @PutMapping("/{certificateId}")
+    public ResponseEntity<ApiResponse<Certificate>> updateCertificate(@PathVariable UUID certificateId, @Valid @RequestBody CertificateRequestDTO dto) {
+        Certificate updated = service.updateCertificate(certificateId, dto);
+        return ResponseEntity.ok(ApiResponse.success("Certificate updated successfully", updated));
     }
 }
