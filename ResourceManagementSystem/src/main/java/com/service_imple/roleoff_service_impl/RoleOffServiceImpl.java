@@ -7,6 +7,7 @@ import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.ResourcesDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
 import com.dto.demand_dto.CreateDemandDTO;
+import com.dto.resource_dto.ResourceRemovalDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity.project_entities.Project;
@@ -2075,7 +2076,7 @@ public class RoleOffServiceImpl implements RoleOffService {
 
     @Override
     @Transactional
-    public void handleAttrition(Long resourceId, LocalDate dateOfExit) {
+    public void handleAttrition(Long resourceId, LocalDate dateOfExit, Long userId) {
         log.info("Processing attrition for resource ID: {} with exit date: {}", resourceId, dateOfExit);
         
         // Step 1: Fetch resource and check status
@@ -2142,7 +2143,7 @@ public class RoleOffServiceImpl implements RoleOffService {
                 }
 
                 // 2. Create replacement demand: startDate = dateOfExit + 1, endDate = original allocationEndDate
-                demandService.createReplacementDemandFromAllocation(allocation, dateOfExit.plusDays(1), endDate);
+                demandService.createReplacementDemandFromAllocation(allocation, dateOfExit.plusDays(1), endDate, userId);
             }
             
             // CASE 3: FUTURE allocation (allocationStartDate > dateOfExit)
@@ -2158,7 +2159,7 @@ public class RoleOffServiceImpl implements RoleOffService {
 
                 // 3. Create replacement demand: startDate = allocationStartDate, endDate = allocationEndDate
                 if (!dateOfExit.isBefore(LocalDate.now())) {
-                    demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate);
+                    demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate, userId);
                 }
             }
         }
@@ -2174,5 +2175,65 @@ public class RoleOffServiceImpl implements RoleOffService {
         availabilityLedgerAsyncService.updateLedger(resourceId, dateOfExit, horizonEnd);
         
         log.info("Attrition processing completed for resource: {}", resource.getFullName());
+    }
+
+    @Override
+    @Transactional
+    public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long userId) {
+        log.info("Processing resource removal from organization for resource ID: {}", removalDTO.getResourceId());
+        
+        try {
+            // Step 1: Validate resource exists and is active
+            Resource resource = resourceRepo.findById(removalDTO.getResourceId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "RESOURCE_NOT_FOUND",
+                            "Resource not found with ID: " + removalDTO.getResourceId()));
+
+            // Check if resource is already exited
+            if (EmploymentStatus.EXITED.equals(resource.getEmploymentStatus())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "RESOURCE_ALREADY_EXITED",
+                        "Resource has already exited the organization");
+            }
+
+            // Step 2: Update resource status to ON_NOTICE and set notice period details
+            resource.setEmploymentStatus(EmploymentStatus.ON_NOTICE);
+            resource.setDateOfExit(removalDTO.getNoticePeriodEndDate());
+            resource.setNoticeStartDate(LocalDate.now());
+            resource.setNoticeEndDate(removalDTO.getNoticePeriodEndDate());
+            resource.setChangedBy(userId);
+            resource.setChangedAt(java.time.LocalDateTime.now());
+            resource.setStatusEffectiveFrom(LocalDate.now());
+            
+            // Save the resource with notice period details
+            resourceRepo.save(resource);
+            
+            log.info("Resource {} marked as ON_NOTICE with exit date: {}", 
+                    resource.getFullName(), removalDTO.getNoticePeriodEndDate());
+
+            // Step 3: Trigger attrition immediately if requested
+            if (Boolean.TRUE.equals(removalDTO.getTriggerAttritionImmediately())) {
+                log.info("Triggering immediate attrition for resource: {}", resource.getResourceId());
+                handleAttrition(resource.getResourceId(), removalDTO.getNoticePeriodEndDate(), userId);
+                return "Resource removal processed successfully. Resource marked as ON_NOTICE and attrition triggered immediately.";
+            } else {
+                log.info("Resource marked as ON_NOTICE. Attrition will be triggered automatically by ResourceService when conditions are met.");
+                return "Resource removal processed successfully. Resource marked as ON_NOTICE with notice period until " + 
+                       removalDTO.getNoticePeriodEndDate() + ". Attrition will be triggered automatically.";
+            }
+
+        } catch (ProjectExceptionHandler e) {
+            log.error("Resource removal failed for resource ID {}: {}", removalDTO.getResourceId(), e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error during resource removal for resource ID {}: {}", 
+                     removalDTO.getResourceId(), e.getMessage(), e);
+            throw new ProjectExceptionHandler(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "RESOURCE_REMOVAL_ERROR",
+                    "Failed to process resource removal: " + e.getMessage());
+        }
     }
 }

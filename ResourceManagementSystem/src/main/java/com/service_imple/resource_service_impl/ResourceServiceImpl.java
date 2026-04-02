@@ -101,7 +101,7 @@ public class ResourceServiceImpl implements ResourceService {
             // ATTRITION TRIGGER
             if (resource.getDateOfExit() != null && EmploymentStatus.ON_NOTICE.equals(resource.getEmploymentStatus())) {
                 log.info("Attrition detected for resource: {}. Triggering attrition flow.", resource.getResourceId());
-                roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit());
+                roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit(), 0L); // System user ID
             }
 
             resourceRepository.save(resource);

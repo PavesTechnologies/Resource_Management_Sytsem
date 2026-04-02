@@ -47,5 +47,5 @@ public interface DemandService {
     /**
      * Create a replacement demand specifically from an existing allocation during attrition
      */
-    void createReplacementDemandFromAllocation(ResourceAllocation allocation, LocalDate startDate, LocalDate endDate);
+    void createReplacementDemandFromAllocation(ResourceAllocation allocation, LocalDate startDate, LocalDate endDate, Long createdBy);
 }

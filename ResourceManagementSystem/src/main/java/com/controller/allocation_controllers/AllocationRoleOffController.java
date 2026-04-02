@@ -2,10 +2,12 @@ package com.controller.allocation_controllers;
 
 import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.RoleOffRequestDTO;
+import com.dto.resource_dto.ResourceRemovalDTO;
 import com.security.CurrentUser;
 import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -51,5 +53,25 @@ public class AllocationRoleOffController {
 
         roleOffService.manualReplacement(id, userDTO.getId());
         return ResponseEntity.ok("Manual replacement created");
+    }
+
+    @PostMapping("/resource-removal")
+    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    public ResponseEntity<?> removeResourceFromOrganization(
+            @RequestBody ResourceRemovalDTO removalDTO,
+            @CurrentUser UserDTO userDTO) {
+
+        // Set the processed by user
+        removalDTO.setProcessedBy(userDTO.getName() + " (" + userDTO.getId() + ")");
+        
+        // Process the resource removal
+        String result = roleOffService.removeResourceFromOrganization(removalDTO, userDTO.getId());
+        
+        return ResponseEntity.ok(Map.of(
+            "message", result,
+            "resourceId", removalDTO.getResourceId(),
+            "noticePeriodEndDate", removalDTO.getNoticePeriodEndDate(),
+            "triggerAttritionImmediately", removalDTO.getTriggerAttritionImmediately()
+        ));
     }
 }
