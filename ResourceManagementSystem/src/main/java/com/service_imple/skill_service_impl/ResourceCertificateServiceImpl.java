@@ -36,9 +36,11 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     @Override
     @Transactional
     public String assignCertificate(ResourceCertificateRequestDTO dto, MultipartFile certificateFile) {
-        // Validate resource exists and is active before proceeding
+
+        // ✅ 1. Validate resource
         validateResourceExistsAndActive(dto.getResourceId());
 
+        // ✅ 2. Validate certificate
         Certificate master = certificateRepository.findById(dto.getCertificateId())
                 .orElseThrow(() ->
                         new CertificationComplianceException("Certificate master not found"));
@@ -47,11 +49,25 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             throw new CertificationComplianceException("Issued date required");
         }
 
+        // ✅ 3. 🔥 ADD DUPLICATE CHECK HERE
+        Optional<ResourceCertificate> existing =
+                resourceCertificateRepository
+                        .findByResourceIdAndCertificateIdAndActiveFlagTrue(
+                                dto.getResourceId(),
+                                dto.getCertificateId()
+                        );
+
+        if (existing.isPresent()) {
+            throw new CertificationComplianceException(
+                    "Certificate already assigned to this resource"
+            );
+        }
+
+        // ✅ 4. Expiry logic
         LocalDate expiryDate = null;
         CertificateStatus status;
 
         if (Boolean.TRUE.equals(master.getTimeBound())) {
-            // Use manual expiry date if provided, otherwise calculate automatically
             if (dto.getExpiryDate() != null) {
                 expiryDate = dto.getExpiryDate();
             } else {
@@ -65,21 +81,29 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             status = CertificateStatus.ACTIVE;
         }
 
+        // ✅ 5. File handling
         byte[] fileBytes = null;
+        String fileName = null;
+        String fileType = null;
 
         if (certificateFile != null && !certificateFile.isEmpty()) {
             try {
                 fileBytes = certificateFile.getBytes();
+                fileName = certificateFile.getOriginalFilename();
+                fileType = certificateFile.getContentType();
             } catch (IOException e) {
                 throw new CertificationComplianceException("Failed to process certificate file: " + e.getMessage());
             }
         }
 
+        // ✅ 6. Save entity
         ResourceCertificate entity = ResourceCertificate.builder()
                 .resourceId(dto.getResourceId())
                 .certificateId(dto.getCertificateId())
                 .issuedDate(dto.getIssuedDate())
                 .certificateFile(fileBytes)
+                .fileName(fileName)
+                .fileType(fileType)
                 .expiryDate(expiryDate)
                 .status(status)
                 .activeFlag(true)
@@ -227,6 +251,8 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         if (certificateFile != null && !certificateFile.isEmpty()) {
             try {
                 existingResourceCertificate.setCertificateFile(certificateFile.getBytes());
+                existingResourceCertificate.setFileName(certificateFile.getOriginalFilename());
+                existingResourceCertificate.setFileType(certificateFile.getContentType());
             } catch (IOException e) {
                 throw new CertificationComplianceException("Failed to process certificate file: " + e.getMessage());
             }

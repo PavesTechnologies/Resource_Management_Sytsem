@@ -4,6 +4,7 @@ package com.controller.skill_controllers;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.ResourceCertificateRequestDTO;
 import com.entity.skill_entities.ResourceCertificate;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.service_interface.skill_service_interface.ResourceCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
@@ -11,6 +12,10 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 //import org.springframework.web.bind.annotation;
 
 import jakarta.validation.Valid;
@@ -28,7 +33,7 @@ public class ResourceCertificateController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse> assignCertification(
-            @RequestPart("certificateData") ResourceCertificateRequestDTO dto,
+            @ModelAttribute ResourceCertificateRequestDTO dto,
             @RequestPart("certificateFile") MultipartFile certificateFile) {
 
         return ResponseEntity.ok(
@@ -68,16 +73,18 @@ public class ResourceCertificateController {
     @GetMapping("/{id}/download")
     public ResponseEntity<Resource> downloadCertificate(@PathVariable UUID id) {
         ResourceCertificate certificate = service.getCertificateById(id);
-        
+
         if (certificate.getCertificateFile() == null) {
             return ResponseEntity.notFound().build();
         }
-        
+
         ByteArrayResource resource = new ByteArrayResource(certificate.getCertificateFile());
-        
+
         return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"certificate_" + id + "\"")
+                .contentType(MediaType.parseMediaType(
+                        certificate.getFileType() != null ? certificate.getFileType() : "application/octet-stream"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + certificate.getFileName() + "\"")
                 .body(resource);
     }
 }
