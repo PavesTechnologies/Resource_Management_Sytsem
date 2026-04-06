@@ -275,7 +275,6 @@ public class BenchController {
                     .demandId(demandId)
                     .allocationPercentage(allocationPercentage)
                     .build();
-
             // Convert quick allocation to full allocation request
             AllocationRequestDTO allocationRequest = buildAllocationRequest(quickAllocation, user);
 
