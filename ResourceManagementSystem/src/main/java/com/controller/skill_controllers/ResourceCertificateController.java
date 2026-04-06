@@ -6,11 +6,16 @@ import com.dto.skill_dto.ResourceCertificateRequestDTO;
 import com.entity.skill_entities.ResourceCertificate;
 import com.service_interface.skill_service_interface.ResourceCertificateService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 //import org.springframework.web.bind.annotation;
 
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,13 +26,14 @@ import java.util.UUID;
 public class ResourceCertificateController {
     private final ResourceCertificateService service;
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse> assignCertification(
-            @RequestBody ResourceCertificateRequestDTO dto) {
+            @RequestPart("certificateData") ResourceCertificateRequestDTO dto,
+            @RequestPart("certificateFile") MultipartFile certificateFile) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        service.assignCertificate(dto)
+                        service.assignCertificate(dto, certificateFile)
                 )
         );
     }
@@ -50,9 +56,28 @@ public class ResourceCertificateController {
         return ResponseEntity.ok(ApiResponse.success("Certificate retrieved successfully", certificate));
     }
 
-    @PutMapping("/{resourceCertificateId}")
-    public ResponseEntity<ApiResponse<ResourceCertificate>> updateResourceCertificate(@PathVariable UUID resourceCertificateId, @Valid @RequestBody ResourceCertificateRequestDTO dto) {
-        ResourceCertificate updated = service.updateResourceCertificate(resourceCertificateId, dto);
+    @PutMapping(value = "/{resourceCertificateId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<ResourceCertificate>> updateResourceCertificate(
+            @PathVariable UUID resourceCertificateId, 
+            @RequestPart("certificateData") @Valid ResourceCertificateRequestDTO dto,
+            @RequestPart(value = "certificateFile", required = false) MultipartFile certificateFile) {
+        ResourceCertificate updated = service.updateResourceCertificate(resourceCertificateId, dto, certificateFile);
         return ResponseEntity.ok(ApiResponse.success("Resource certificate updated successfully", updated));
+    }
+
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Resource> downloadCertificate(@PathVariable UUID id) {
+        ResourceCertificate certificate = service.getCertificateById(id);
+        
+        if (certificate.getCertificateFile() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        ByteArrayResource resource = new ByteArrayResource(certificate.getCertificateFile());
+        
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"certificate_" + id + "\"")
+                .body(resource);
     }
 }

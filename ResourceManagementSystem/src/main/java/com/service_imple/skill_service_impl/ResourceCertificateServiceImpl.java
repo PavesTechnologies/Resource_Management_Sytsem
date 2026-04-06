@@ -17,7 +17,9 @@ import com.service_interface.skill_service_interface.ResourceCertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +35,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
 
     @Override
     @Transactional
-    public String assignCertificate(ResourceCertificateRequestDTO dto) {
+    public String assignCertificate(ResourceCertificateRequestDTO dto, MultipartFile certificateFile) {
         // Validate resource exists and is active before proceeding
         validateResourceExistsAndActive(dto.getResourceId());
 
@@ -63,11 +65,21 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             status = CertificateStatus.ACTIVE;
         }
 
+        byte[] fileBytes = null;
+
+        if (certificateFile != null && !certificateFile.isEmpty()) {
+            try {
+                fileBytes = certificateFile.getBytes();
+            } catch (IOException e) {
+                throw new CertificationComplianceException("Failed to process certificate file: " + e.getMessage());
+            }
+        }
+
         ResourceCertificate entity = ResourceCertificate.builder()
                 .resourceId(dto.getResourceId())
                 .certificateId(dto.getCertificateId())
                 .issuedDate(dto.getIssuedDate())
-                .certificateFile(dto.getCertificateFile())
+                .certificateFile(fileBytes)
                 .expiryDate(expiryDate)
                 .status(status)
                 .activeFlag(true)
@@ -154,7 +166,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
 
     @Override
     @Transactional
-    public ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto) {
+    public ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto, MultipartFile certificateFile) {
         ResourceCertificate existingResourceCertificate = resourceCertificateRepository.findById(resourceCertificateId)
                 .orElseThrow(() -> new CertificationComplianceException(
                         "Resource certificate not found with ID: " + resourceCertificateId));
@@ -211,8 +223,13 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             existingResourceCertificate.setStatus(calculateStatus(dto.getExpiryDate()));
         }
         
-        if (dto.getCertificateFile() != null) {
-            existingResourceCertificate.setCertificateFile(dto.getCertificateFile());
+        // Handle file update
+        if (certificateFile != null && !certificateFile.isEmpty()) {
+            try {
+                existingResourceCertificate.setCertificateFile(certificateFile.getBytes());
+            } catch (IOException e) {
+                throw new CertificationComplianceException("Failed to process certificate file: " + e.getMessage());
+            }
         }
 
         return resourceCertificateRepository.save(existingResourceCertificate);
