@@ -35,23 +35,8 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     public List<MatchResponse> getMatches() {
         log.info("Getting bench-demand matches");
 
-        // ✅ Fetch + Validate bench resources (NEW LOGIC)
-        List<Resource> benchResources = benchDetectionRepository.findAllBenchResources()
-                .stream()
-                .filter(resource -> {
-                    try {
-                        // ✅ Validation added
-                        benchService.validateBenchData(resource.getResourceId());
-                        benchService.validateStateConsistency(resource.getResourceId());
-                        return true;
-                    } catch (Exception e) {
-                        log.warn("Skipping invalid resource {}: {}", resource.getResourceId(), e.getMessage());
-                        return false;
-                    }
-                })
-                .collect(Collectors.toList());
-
-        log.info("Valid bench resources after filtering: {}", benchResources.size());
+        // Fetch bench resources for matching
+        List<Resource> benchResources = benchDetectionRepository.findAllBenchResources();
 
         if (benchResources.isEmpty()) {
             log.warn("No valid bench resources found!");

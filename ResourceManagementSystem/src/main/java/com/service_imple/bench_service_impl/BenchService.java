@@ -95,8 +95,6 @@ public class BenchService {
     @Transactional
     public void createOrUpdateBenchState(Long resourceId) {
         log.debug("Processing bench state for resource {}", resourceId);
-        validateBenchData(resourceId);
-        validateStateConsistency(resourceId);
         
         // Fetch current active RESOURCE_STATE
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
@@ -646,8 +644,6 @@ public class BenchService {
         ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
         SubState oldSubState = resourceState.getSubState();
         SubState newSubState = request.getNewSubState();
-        validateBenchData(request.getResourceId());
-        validateStateConsistency(request.getResourceId());
 
         if (oldSubState == newSubState) {
             return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));
@@ -678,42 +674,5 @@ public class BenchService {
 
         benchDetectionRepository.save(newState);
         return ResponseEntity.ok().body(new ApiResponse<>(true, "Resource State Updated Successfully.", newState));
-    }
-    public void validateBenchData(Long resourceId) {
-
-        // ✅ Skill validation
-        var skills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
-        if (skills == null || skills.isEmpty()) {
-            throw new RuntimeException("Validation Failed: Resource has no skills mapped");
-        }
-
-        // ✅ Cost validation
-        var costOpt = resourceCostRepository.findActiveCost(resourceId, LocalDate.now());
-
-        if (costOpt.isEmpty() || costOpt.get().getCostPerDay() == null) {
-            throw new RuntimeException("Validation Failed: Cost data missing");
-        }
-
-        // ✅ Cost sanity
-        if (costOpt.get().getCostPerDay().doubleValue() <= 0) {
-            throw new RuntimeException("Validation Failed: Invalid cost per day");
-        }
-    }
-    public void validateStateConsistency(Long resourceId) {
-
-        boolean hasActiveAllocations = benchDetectionRepository.hasActiveAllocations(resourceId);
-        Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
-
-        if (currentState.isEmpty()) {
-            throw new RuntimeException("Validation Failed: No active state found");
-        }
-
-        if (hasActiveAllocations && currentState.get().getStateType() == StateType.BENCH) {
-            throw new RuntimeException("Invalid State: Resource has allocation but marked as BENCH");
-        }
-
-        if (!hasActiveAllocations && currentState.get().getStateType() == StateType.PROJECT) {
-            throw new RuntimeException("Invalid State: Resource has no allocation but marked as PROJECT");
-        }
     }
 }
