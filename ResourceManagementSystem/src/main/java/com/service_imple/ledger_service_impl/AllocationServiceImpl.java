@@ -34,7 +34,7 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Cacheable(value = "allocations", key = "#resourceId + '-' + #date", unless = "#result == null")
-    @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
+    @Retryable(retryFor = {ResourceAccessException.class, HttpClientErrorException.class}, 
                maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
     public AllocationData getAllocationDataCached(Long resourceId, LocalDate date) {
         return getAllocationDataInternal(resourceId, date);
@@ -94,7 +94,7 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Cacheable(value = "allocations", key = "#resourceId + '-' + #yearMonth", unless = "#result == null")
-    @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
+    @Retryable(retryFor = {ResourceAccessException.class, HttpClientErrorException.class}, 
                maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
     public AllocationData getAllocationDataCachedForMonth(Long resourceId, YearMonth yearMonth) {
         return getAllocationDataInternalForMonth(resourceId, yearMonth);
@@ -178,7 +178,7 @@ public class AllocationServiceImpl implements AllocationService {
         }
     }
 
-    @Retryable(value = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
+    @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
     public CompletableFuture<AllocationData> getAllocationDataForResourceAndDateAsync(Long resourceId, LocalDate date) {
         return CompletableFuture.supplyAsync(() -> getAllocationDataForResourceAndDate(resourceId, date));
     }
