@@ -43,8 +43,14 @@ public class ResourceCertificate {
     private LocalDate expiryDate;
 
     @Lob
-    @Column(name = "certificate_file")
+    @Column(name = "certificate_file", columnDefinition = "LONGBLOB")
     private byte[] certificateFile;
+
+    @Column(name = "file_name")
+    private String fileName;
+
+    @Column(name = "file_type")
+    private String fileType;
 
     @Column(name = "active_flag")
     private Boolean activeFlag;
