@@ -275,10 +275,6 @@ public class BenchController {
                     .demandId(demandId)
                     .allocationPercentage(allocationPercentage)
                     .build();
-            // ✅ NEW: enforce governance BEFORE allocation
-            benchDetectionService.validateBenchData(resourceId);
-            benchDetectionService.validateStateConsistency(resourceId);
-
             // Convert quick allocation to full allocation request
             AllocationRequestDTO allocationRequest = buildAllocationRequest(quickAllocation, user);
 
