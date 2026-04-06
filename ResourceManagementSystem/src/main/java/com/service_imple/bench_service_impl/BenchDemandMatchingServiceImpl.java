@@ -29,37 +29,60 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     private final DemandService demandService;
     private final ResourceSkillRepository resourceSkillRepository;
     private final AllocationRepository allocationRepository;
+    private final BenchService benchService;
 
     @Override
     public List<MatchResponse> getMatches() {
         log.info("Getting bench-demand matches");
-        
-        List<Resource> benchResources = benchDetectionRepository.findAllBenchResources();
-        log.info("Found {} bench resources", benchResources.size());
+
+        // ✅ Fetch + Validate bench resources (NEW LOGIC)
+        List<Resource> benchResources = benchDetectionRepository.findAllBenchResources()
+                .stream()
+                .filter(resource -> {
+                    try {
+                        // ✅ Validation added
+                        benchService.validateBenchData(resource.getResourceId());
+                        benchService.validateStateConsistency(resource.getResourceId());
+                        return true;
+                    } catch (Exception e) {
+                        log.warn("Skipping invalid resource {}: {}", resource.getResourceId(), e.getMessage());
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        log.info("Valid bench resources after filtering: {}", benchResources.size());
+
         if (benchResources.isEmpty()) {
-            log.warn("No bench resources found!");
+            log.warn("No valid bench resources found!");
             return new ArrayList<>();
         }
-        
+
         List<Demand> demands = demandService.getOpenDemands();
         log.info("Found {} open demands", demands.size());
+
         if (demands.isEmpty()) {
             log.warn("No open demands found!");
             return new ArrayList<>();
         }
-        
+
         List<MatchResponse> results = new ArrayList<>();
 
         for (Demand demand : demands) {
             log.info("Processing demand: {} (ID: {})", demand.getDemandName(), demand.getDemandId());
+
             for (Resource resource : benchResources) {
                 log.info("Evaluating resource: {} (ID: {})", resource.getFullName(), resource.getResourceId());
+
                 double score = calculateMatch(resource, demand);
-                log.info("Resource {} vs Demand {}: score = {}", resource.getFullName(), demand.getDemandName(), score);
-                
-                if (score > 30) { // temporarily lowered threshold for debugging
+
+                log.info("Resource {} vs Demand {}: score = {}",
+                        resource.getFullName(), demand.getDemandName(), score);
+
+                if (score > 30) { // threshold
                     results.add(buildMatchResponse(resource, demand, score));
-                    log.info("Added match: {} -> {} (score: {})", resource.getFullName(), demand.getDemandName(), score);
+                    log.info("Added match: {} -> {} (score: {})",
+                            resource.getFullName(), demand.getDemandName(), score);
                 } else {
                     log.info("Score too low: {} (threshold: 30)", score);
                 }
@@ -68,7 +91,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
 
         // Sort by best matches first
         results.sort((a, b) -> Double.compare(b.getMatchScore(), a.getMatchScore()));
-        
+
         log.info("Found {} matches above threshold", results.size());
         return results;
     }
