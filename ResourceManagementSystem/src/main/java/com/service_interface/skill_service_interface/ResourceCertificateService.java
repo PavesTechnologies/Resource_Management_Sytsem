@@ -2,12 +2,13 @@ package com.service_interface.skill_service_interface;
 
 import com.dto.skill_dto.ResourceCertificateRequestDTO;
 import com.entity.skill_entities.ResourceCertificate;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface ResourceCertificateService {
-    String assignCertificate(ResourceCertificateRequestDTO dto);
+    String assignCertificate(ResourceCertificateRequestDTO dto, MultipartFile certificateFile);
 
     List<ResourceCertificate> getCertificatesByResourceId(Long resourceId);
     
@@ -15,5 +16,5 @@ public interface ResourceCertificateService {
     
     ResourceCertificate getCertificateById(UUID id);
     
-    ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto);
+    ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto, MultipartFile certificateFile);
 }
