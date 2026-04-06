@@ -2,125 +2,71 @@ package com.service_imple.report_service_imple;
 
 import com.dto.report_dto.BenchPoolFilterDTO;
 import com.dto.report_dto.BenchPoolReportDTO;
-import com.repo.report_repo.BenchPoolReportRepository;
-import com.util.report_util.RiskEvaluationHelper;
-import com.entity_enums.resource_enums.EmploymentStatus;
+import com.dto.bench_dto.BenchPoolResponseDTO;
+import com.service_imple.bench_service_impl.BenchService;
+import com.entity_enums.bench.SubState;
+import com.entity_enums.centralised_enums.RiskLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class BenchPoolReportService {
 
-    private final BenchPoolReportRepository benchPoolReportRepository;
-    private final RiskEvaluationHelper riskEvaluationHelper;
+    private final BenchService benchService;
+    
+    public BenchPoolReportService(BenchService benchService) {
+        this.benchService = benchService;
+    }
 
     public Page<BenchPoolReportDTO> getBenchPoolReport(BenchPoolFilterDTO filters) {
         log.info("Fetching bench pool report with filters: {}", filters);
 
-        // Ensure valid pagination parameters
-        int page = filters.getPage() != null && filters.getPage() >= 0 ? filters.getPage() : 0;
-        int size = filters.getSize() != null && filters.getSize() > 0 ? filters.getSize() : 50;
+        // Get bench and pool resources using same logic as working endpoints
+        List<BenchPoolResponseDTO> benchResources = benchService.getBenchResources();
+        List<BenchPoolResponseDTO> poolResources = benchService.getPoolResources();
 
-        // Use simple pageable without custom sort since JPQL query handles ordering
-        Pageable pageable = PageRequest.of(page, size);
+        // Combine both lists
+        List<BenchPoolResponseDTO> allResources = new ArrayList<>();
+        allResources.addAll(benchResources);
+        allResources.addAll(poolResources);
 
-        Page<Object[]> rawData = benchPoolReportRepository.findBenchPoolReportData(pageable);
+        // Apply filters
+        List<BenchPoolResponseDTO> filteredResources = applyFilters(allResources, filters);
 
-        // Group by resourceId to handle duplicates and merge skills
-        Map<Long, List<Object[]>> groupedData = rawData.getContent().stream()
-                .collect(Collectors.groupingBy(row -> row[0] != null ? ((Number) row[0]).longValue() : 0L));
-
-        List<BenchPoolReportDTO> uniqueResults = groupedData.values().stream()
-                .map(this::convertGroupedRowsToDTO)
+        // Convert to report DTOs
+        List<BenchPoolReportDTO> reportData = filteredResources.stream()
+                .map(this::convertToReportDTO)
                 .collect(Collectors.toList());
 
-        // Create a new Page with the unique results
-        return new PageImpl<>(uniqueResults, pageable, groupedData.size());
-    }
-
-    private BenchPoolReportDTO convertToBenchPoolReportDTO(Object[] row) {
-        BenchPoolReportDTO dto = BenchPoolReportDTO.builder()
-                .resourceId(row[0] != null ? ((Number) row[0]).longValue() : null)
-                .name((String) row[1])
-                .status(row[2] != null ? row[2].toString() : null)
-                .region((String) row[3])
-                .role((String) row[4])
-                .cost(row[5] != null ? (BigDecimal) row[5] : BigDecimal.ZERO)
-                .lastProject((String) row[7])
-                .client((String) row[8])
-                .build();
-
-        // Get benchDays from query result (row[10]) instead of calculating
-        Long benchDays = row[10] != null ? ((Number) row[10]).longValue() : 0L;
-        dto.setBenchDays(benchDays);
-
-        String skill = (String) row[9];
-        if (skill != null && !skill.trim().isEmpty()) {
-            dto.setSkills(List.of(skill));
-        } else {
-            dto.setSkills(new ArrayList<>());
-        }
-
-        riskEvaluationHelper.evaluateRisk(dto);
-
-        return dto;
-    }
-
-    private BenchPoolReportDTO convertGroupedRowsToDTO(List<Object[]> rows) {
-        if (rows.isEmpty()) {
-            return null;
-        }
-
-        // Use the first row for basic data
-        Object[] firstRow = rows.get(0);
-        BenchPoolReportDTO dto = BenchPoolReportDTO.builder()
-                .resourceId(firstRow[0] != null ? ((Number) firstRow[0]).longValue() : null)
-                .name((String) firstRow[1])
-                .status(firstRow[2] != null ? firstRow[2].toString() : null)
-                .region((String) firstRow[3])
-                .role((String) firstRow[4])
-                .cost(firstRow[5] != null ? (BigDecimal) firstRow[5] : BigDecimal.ZERO)
-                .lastProject((String) firstRow[7])
-                .client((String) firstRow[8])
-                .build();
-
-        // Get benchDays from query result (row[10])
-        Long benchDays = firstRow[10] != null ? ((Number) firstRow[10]).longValue() : 0L;
-        dto.setBenchDays(benchDays);
-
-        // Collect all skills from all rows
-        Set<String> skills = new HashSet<>();
-        for (Object[] row : rows) {
-            String skill = (String) row[9];
-            if (skill != null && !skill.trim().isEmpty()) {
-                skills.add(skill);
-            }
-        }
-        dto.setSkills(new ArrayList<>(skills));
-
-        riskEvaluationHelper.evaluateRisk(dto);
-
-        return dto;
+        // Apply pagination
+        int page = filters.getPage() != null && filters.getPage() >= 0 ? filters.getPage() : 0;
+        int size = filters.getSize() != null && filters.getSize() > 0 ? filters.getSize() : 50;
+        
+        int startIndex = page * size;
+        int endIndex = Math.min(startIndex + size, reportData.size());
+        
+        List<BenchPoolReportDTO> pageContent = reportData.subList(startIndex, endIndex);
+        
+        Pageable pageable = PageRequest.of(page, size);
+        return new PageImpl<>(pageContent, pageable, reportData.size());
     }
 
     public List<BenchPoolReportDTO> getBenchPoolReportForExport(BenchPoolFilterDTO filters) {
         log.info("Fetching bench pool report for export with filters: {}", filters);
 
+        // For export, get all data without pagination
         BenchPoolFilterDTO exportFilters = filters.toBuilder()
                 .page(0)
                 .size(Integer.MAX_VALUE)
@@ -128,5 +74,134 @@ public class BenchPoolReportService {
 
         Page<BenchPoolReportDTO> allData = getBenchPoolReport(exportFilters);
         return allData.getContent();
+    }
+
+    private List<BenchPoolResponseDTO> applyFilters(List<BenchPoolResponseDTO> resources, BenchPoolFilterDTO filters) {
+        return resources.stream()
+                .filter(resource -> {
+                    // Skill filter
+                    if (filters.getSkill() != null && !filters.getSkill().isEmpty()) {
+                        boolean hasSkill = resource.getSkillGroups().stream()
+                                .anyMatch(skillMap -> skillMap.containsKey(filters.getSkill()));
+                        if (!hasSkill) return false;
+                    }
+
+                    // Role filter
+                    if (filters.getRole() != null && !filters.getRole().isEmpty()) {
+                        if (!filters.getRole().equalsIgnoreCase(resource.getDesignation())) {
+                            return false;
+                        }
+                    }
+
+                    // Region/Location filter
+                    if (filters.getRegion() != null && !filters.getRegion().isEmpty()) {
+                        if (!filters.getRegion().equalsIgnoreCase(resource.getLocation())) {
+                            return false;
+                        }
+                    }
+
+                    // Cost filter
+                    if (filters.getMaxCost() != null) {
+                        if (resource.getCostPerDay() == null || 
+                            BigDecimal.valueOf(resource.getCostPerDay()).compareTo(filters.getMaxCost()) > 0) {
+                            return false;
+                        }
+                    }
+
+                    // Bench days filter
+                    if (filters.getMinBenchDays() != null) {
+                        if (resource.getAging() == null || resource.getAging() < filters.getMinBenchDays()) {
+                            return false;
+                        }
+                    }
+
+                    if (filters.getMaxBenchDays() != null) {
+                        if (resource.getAging() == null || resource.getAging() > filters.getMaxBenchDays()) {
+                            return false;
+                        }
+                    }
+
+                    // Risk level filter
+                    if (filters.getRiskLevel() != null) {
+                        RiskLevel resourceRiskLevel = calculateRiskLevel(resource.getAging(), resource.getCostPerDay());
+                        if (!resourceRiskLevel.equals(filters.getRiskLevel())) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private BenchPoolReportDTO convertToReportDTO(BenchPoolResponseDTO source) {
+        // Determine resource type based on subState
+        String resourceType = "BENCH";
+        if (source.getSubState() == SubState.RND) {
+            resourceType = "INTERNAL_POOL";
+        }
+
+        // Calculate risk level
+        RiskLevel riskLevel = calculateRiskLevel(source.getAging(), source.getCostPerDay());
+
+        return BenchPoolReportDTO.builder()
+                .resourceId(source.getEmployeeId())
+                .name(source.getResourceName())
+                .status(resourceType)
+                .region(source.getLocation())
+                .role(source.getDesignation())
+                .cost(BigDecimal.valueOf(source.getCostPerDay() != null ? source.getCostPerDay() : 0.0))
+                .benchDays(source.getAging() != null ? source.getAging().longValue() : 0L)
+                .lastProject(formatSkills(source.getSkillGroups()))
+                .client(source.getLastAllocationDate() != null ? source.getLastAllocationDate().toString() : "")
+                .riskLevel(riskLevel)
+                .skills(formatSkillsToList(source.getSkillGroups()))
+                .build();
+    }
+
+    private RiskLevel calculateRiskLevel(Integer aging, Double costPerDay) {
+        if (aging == null) aging = 0;
+        if (costPerDay == null) costPerDay = 0.0;
+
+        if (aging > 60) {
+            return RiskLevel.CRITICAL;
+        } else if (aging > 30 || (costPerDay > 300 && aging > 20)) {
+            return RiskLevel.HIGH;
+        } else if (aging > 15) {
+            return RiskLevel.MEDIUM;
+        } else {
+            return RiskLevel.LOW;
+        }
+    }
+
+    private String formatSkills(List<Map<String, String>> skillGroups) {
+        if (skillGroups == null || skillGroups.isEmpty()) {
+            return "";
+        }
+        
+        StringBuilder skills = new StringBuilder();
+        for (Map<String, String> skillMap : skillGroups) {
+            for (Map.Entry<String, String> entry : skillMap.entrySet()) {
+                if (skills.length() > 0) {
+                    skills.append(", ");
+                }
+                skills.append(entry.getKey()).append(" (").append(entry.getValue()).append(")");
+            }
+        }
+        return skills.toString();
+    }
+
+    private List<String> formatSkillsToList(List<Map<String, String>> skillGroups) {
+        if (skillGroups == null || skillGroups.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<String> skills = new ArrayList<>();
+        for (Map<String, String> skillMap : skillGroups) {
+            for (Map.Entry<String, String> entry : skillMap.entrySet()) {
+                skills.add(entry.getKey() + " (" + entry.getValue() + ")");
+            }
+        }
+        return skills;
     }
 }

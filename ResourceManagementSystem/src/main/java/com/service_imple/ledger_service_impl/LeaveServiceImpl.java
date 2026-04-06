@@ -37,7 +37,7 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     @Cacheable(value = "leaves", key = "#resourceId + '-' + #year", unless = "#result == null || #result.isEmpty()")
-    @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
+    @Retryable(retryFor = {ResourceAccessException.class, HttpClientErrorException.class}, 
                maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
     public Set<LocalDate> getApprovedLeaveCached(Long resourceId, int year) throws LeaveApiException {
         return getApprovedLeaveInternal(resourceId, year);
@@ -110,7 +110,7 @@ public class LeaveServiceImpl implements LeaveService {
         apiHealthy = true;
     }
 
-    @Retryable(value = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
+    @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
     public CompletableFuture<Set<LocalDate>> getApprovedLeaveForEmployeeAsync(Long resourceId, int year) {
         return CompletableFuture.supplyAsync(() -> {
             try {
