@@ -35,28 +35,21 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     public List<MatchResponse> getMatches() {
         log.info("Getting bench-demand matches");
 
-        // ✅ Fetch + Validate bench resources (NEW LOGIC)
-        List<Resource> benchResources = benchDetectionRepository.findAllBenchResources()
-                .stream()
-                .filter(resource -> {
-                    try {
-                        // ✅ Validation added
-                        benchService.validateBenchData(resource.getResourceId());
-                        benchService.validateStateConsistency(resource.getResourceId());
-                        return true;
-                    } catch (Exception e) {
-                        log.warn("Skipping invalid resource {}: {}", resource.getResourceId(), e.getMessage());
-                        return false;
-                    }
-                })
-                .collect(Collectors.toList());
+        // Use the same data source as working endpoints
+        List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
+        log.info("Found {} bench resources from working endpoint", benchResourcesData.size());
 
-        log.info("Valid bench resources after filtering: {}", benchResources.size());
-
-        if (benchResources.isEmpty()) {
-            log.warn("No valid bench resources found!");
+        if (benchResourcesData.isEmpty()) {
+            log.warn("No bench resources found!");
             return new ArrayList<>();
         }
+
+        // Convert to Resource objects for matching logic
+        List<Resource> benchResources = benchResourcesData.stream()
+                .map(arr -> (Resource) arr[0])
+                .collect(Collectors.toList());
+
+        log.info("Converted {} bench resources for matching", benchResources.size());
 
         List<Demand> demands = demandService.getOpenDemands();
         log.info("Found {} open demands", demands.size());
