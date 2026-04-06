@@ -98,6 +98,7 @@ public class BenchService {
         validateBenchData(resourceId);
         validateStateConsistency(resourceId);
 
+
         // Fetch current active RESOURCE_STATE
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
         
@@ -651,8 +652,6 @@ public class BenchService {
 
         SubState oldSubState = resourceState.getSubState();
         SubState newSubState = request.getNewSubState();
-        validateBenchData(request.getResourceId());
-        validateStateConsistency(request.getResourceId());
 
         if (oldSubState == newSubState) {
             return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));

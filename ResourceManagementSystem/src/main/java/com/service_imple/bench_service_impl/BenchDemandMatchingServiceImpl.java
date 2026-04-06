@@ -35,21 +35,13 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     public List<MatchResponse> getMatches() {
         log.info("Getting bench-demand matches");
 
-        // Use the same data source as working endpoints
-        List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
-        log.info("Found {} bench resources from working endpoint", benchResourcesData.size());
+        // Fetch bench resources for matching
+        List<Resource> benchResources = benchDetectionRepository.findAllBenchResources();
 
-        if (benchResourcesData.isEmpty()) {
-            log.warn("No bench resources found!");
+        if (benchResources.isEmpty()) {
+            log.warn("No valid bench resources found!");
             return new ArrayList<>();
         }
-
-        // Convert to Resource objects for matching logic
-        List<Resource> benchResources = benchResourcesData.stream()
-                .map(arr -> (Resource) arr[0])
-                .collect(Collectors.toList());
-
-        log.info("Converted {} bench resources for matching", benchResources.size());
 
         List<Demand> demands = demandService.getOpenDemands();
         log.info("Found {} open demands", demands.size());
