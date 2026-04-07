@@ -43,6 +43,30 @@ public class ResourceSkillController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    @GetMapping("/resource/{resourceId}/skills")
+    public ResponseEntity<ApiResponse<List<ResourceSkill>>> getAllResourceSkills(@PathVariable Long resourceId) {
+        List<ResourceSkill> skills = resourceSkillService.getAllResourceSkills(resourceId);
+        return ResponseEntity.ok(ApiResponse.success("Resource skills retrieved successfully", skills));
+    }
+
+    @GetMapping("/resource/{resourceId}/subskills")
+    public ResponseEntity<ApiResponse<List<ResourceSubSkill>>> getAllResourceSubSkills(@PathVariable Long resourceId) {
+        List<ResourceSubSkill> subSkills = resourceSkillService.getAllResourceSubSkills(resourceId);
+        return ResponseEntity.ok(ApiResponse.success("Resource sub-skills retrieved successfully", subSkills));
+    }
+
+    @GetMapping("/skills")
+    public ResponseEntity<ApiResponse<List<ResourceSkill>>> getAllResourceSkills() {
+        List<ResourceSkill> skills = resourceSkillService.getAllResourceSkills();
+        return ResponseEntity.ok(ApiResponse.success("All resource skills retrieved successfully", skills));
+    }
+
+    @GetMapping("/subskills")
+    public ResponseEntity<ApiResponse<List<ResourceSubSkill>>> getAllResourceSubSkills() {
+        List<ResourceSubSkill> subSkills = resourceSkillService.getAllResourceSubSkills();
+        return ResponseEntity.ok(ApiResponse.success("All resource sub-skills retrieved successfully", subSkills));
+    }
+
     @GetMapping("/resource/{resourceId}/profile")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<List<ResourceSkillProfileResponseDTO>>> getResourceSkillProfile(@PathVariable Long resourceId) {
@@ -50,12 +74,14 @@ public class ResourceSkillController {
         return ResponseEntity.ok(ApiResponse.success("Resource skill profile retrieved successfully", profile));
     }
 
+    
     @PutMapping("/skill/{resourceSkillId}")
     public ResponseEntity<ApiResponse<ResourceSkill>> updateResourceSkill(@PathVariable UUID resourceSkillId, @Valid @RequestBody ResourceSkillRequestDTO dto) {
         ResourceSkill updated = resourceSkillService.updateResourceSkill(resourceSkillId, dto);
         return ResponseEntity.ok(ApiResponse.success("Resource skill updated successfully", updated));
     }
 
+    
     @PutMapping("/subskill/{resourceSubSkillId}")
     public ResponseEntity<ApiResponse<ResourceSubSkill>> updateResourceSubSkill(@PathVariable UUID resourceSubSkillId, @Valid @RequestBody ResourceSubSkillRequestDTO dto) {
         ResourceSubSkill updated = resourceSkillService.updateResourceSubSkill(resourceSubSkillId, dto);

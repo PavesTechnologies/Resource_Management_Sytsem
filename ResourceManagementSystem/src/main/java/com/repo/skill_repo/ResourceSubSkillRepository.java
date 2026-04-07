@@ -11,6 +11,8 @@ import java.util.UUID;
 
 public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSkill, UUID> {
 
+    List<ResourceSubSkill> findByResourceId(Long resourceId);
+
     boolean existsByResourceIdAndSubSkillIdAndActiveFlagTrue(
             Long resourceId, UUID subSkillId);
 
@@ -40,6 +42,9 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
     AND rss.activeFlag = true
 """)
     List<Object[]> findSubSkillsByResourceIds(List<Long> resourceIds);
+
+    @Query("SELECT rss FROM ResourceSubSkill rss LEFT JOIN FETCH rss.subSkill")
+    List<ResourceSubSkill> findAllWithSubSkills();
 
     /**
      * Batch update lastUsedDate for resource subskills by skill IDs
