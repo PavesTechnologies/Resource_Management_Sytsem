@@ -95,7 +95,10 @@ public class BenchService {
     @Transactional
     public void createOrUpdateBenchState(Long resourceId) {
         log.debug("Processing bench state for resource {}", resourceId);
-        
+        validateBenchData(resourceId);
+        validateStateConsistency(resourceId);
+
+
         // Fetch current active RESOURCE_STATE
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
         
@@ -641,7 +644,12 @@ public class BenchService {
     }
 
     public ResponseEntity<?> updateSubState(UpdateSubStateRequestDTO request, UserDTO userDTO) {
-        ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
+        log.info("Updating resource {} sub-state from {} to {} by user {}",
+                request.getResourceId(), "current", request.getNewSubState(), userDTO.getName());
+
+        ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId())
+                .orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
+
         SubState oldSubState = resourceState.getSubState();
         SubState newSubState = request.getNewSubState();
 
@@ -649,6 +657,10 @@ public class BenchService {
             return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));
         }
 
+        // Validate transition logic
+        validateSubStateTransition(oldSubState, newSubState);
+
+        // Close current state
         resourceState.setCurrentFlag(false);
         resourceState.setEffectiveTo(LocalDate.now());
         resourceState.setUpdatedAt(LocalDateTime.now());
@@ -656,6 +668,7 @@ public class BenchService {
 
         benchDetectionRepository.save(resourceState);
 
+        // Create new state with updated sub-state
         ResourceState newState = ResourceState.builder()
                 .resourceId(resourceState.getResourceId())
                 .stateType(resourceState.getStateType())
@@ -673,6 +686,73 @@ public class BenchService {
                 .build();
 
         benchDetectionRepository.save(newState);
+
+        log.info("Successfully updated resource {} sub-state from {} to {}",
+                request.getResourceId(), oldSubState, newSubState);
+
         return ResponseEntity.ok().body(new ApiResponse<>(true, "Resource State Updated Successfully.", newState));
+    }
+
+    /**
+     * Validate sub-state transitions based on business rules
+     */
+    private void validateSubStateTransition(SubState oldSubState, SubState newSubState) {
+        // Define valid transitions
+        Set<SubState> benchSubStates = Set.of(SubState.READY, SubState.NOT_AVAILABLE, SubState.LOW_UTILIZATION);
+        Set<SubState> poolSubStates = Set.of(SubState.TRAINING_POOL, SubState.SHADOW, SubState.COE, SubState.RND, SubState.TRAINING);
+
+        // All transitions are allowed, but log the category change for audit
+        boolean oldIsBench = benchSubStates.contains(oldSubState);
+        boolean newIsBench = benchSubStates.contains(newSubState);
+
+        boolean oldIsPool = poolSubStates.contains(oldSubState);
+        boolean newIsPool = poolSubStates.contains(newSubState);
+
+        if (oldIsBench && newIsPool) {
+            log.info("Resource moving from Bench to Internal Pool");
+        } else if (oldIsPool && newIsBench) {
+            log.info("Resource moving from Internal Pool to Bench");
+        } else if (oldIsPool && newIsPool) {
+            log.info("Resource moving within Internal Pool sub-states");
+        } else if (oldIsBench && newIsBench) {
+            log.info("Resource moving within Bench sub-states");
+        }
+    }
+    public void validateBenchData(Long resourceId) {
+
+        // ✅ Skill validation
+        var skills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
+        if (skills == null || skills.isEmpty()) {
+            throw new RuntimeException("Validation Failed: Resource has no skills mapped");
+        }
+
+        // ✅ Cost validation
+        var costOpt = resourceCostRepository.findActiveCost(resourceId, LocalDate.now());
+
+        if (costOpt.isEmpty() || costOpt.get().getCostPerDay() == null) {
+            throw new RuntimeException("Validation Failed: Cost data missing");
+        }
+
+        // ✅ Cost sanity
+        if (costOpt.get().getCostPerDay().doubleValue() <= 0) {
+            throw new RuntimeException("Validation Failed: Invalid cost per day");
+        }
+    }
+    public void validateStateConsistency(Long resourceId) {
+
+        boolean hasActiveAllocations = benchDetectionRepository.hasActiveAllocations(resourceId);
+        Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
+
+        if (currentState.isEmpty()) {
+            throw new RuntimeException("Validation Failed: No active state found");
+        }
+
+        if (hasActiveAllocations && currentState.get().getStateType() == StateType.BENCH) {
+            throw new RuntimeException("Invalid State: Resource has allocation but marked as BENCH");
+        }
+
+        if (!hasActiveAllocations && currentState.get().getStateType() == StateType.PROJECT) {
+            throw new RuntimeException("Invalid State: Resource has no allocation but marked as PROJECT");
+        }
     }
 }
