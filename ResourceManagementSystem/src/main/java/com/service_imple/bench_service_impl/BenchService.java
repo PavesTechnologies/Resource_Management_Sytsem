@@ -95,8 +95,8 @@ public class BenchService {
     @Transactional
     public void createOrUpdateBenchState(Long resourceId) {
         log.debug("Processing bench state for resource {}", resourceId);
-        validateBenchData(resourceId);
-        validateStateConsistency(resourceId);
+//        validateBenchData(resourceId);
+//        validateStateConsistency(resourceId);
         
         // Fetch current active RESOURCE_STATE
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
