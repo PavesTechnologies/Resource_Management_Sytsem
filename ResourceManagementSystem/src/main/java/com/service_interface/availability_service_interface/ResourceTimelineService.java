@@ -21,6 +21,8 @@ public interface ResourceTimelineService {
         String employmentType,
         String status,
         String search,
+        Integer allocationPercentage,
+        String project,
         Integer page,
         Integer size
     );
