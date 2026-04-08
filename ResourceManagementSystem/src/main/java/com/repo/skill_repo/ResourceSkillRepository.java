@@ -42,7 +42,12 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
     @Query("SELECT rs.resourceId, s.name, pl.proficiencyName, rs.lastUsedDate FROM ResourceSkill rs JOIN rs.skill s JOIN com.entity.skill_entities.ProficiencyLevel pl ON rs.proficiencyId = pl.proficiencyId WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
     List<Object[]> findResourceIdAndSkillDetails(@Param("resourceIds") List<Long> resourceIds);
 
+    List<ResourceSkill> findByResourceId(Long resourceId);
+
     List<ResourceSkill> findByActiveFlagTrue();
+
+    @Query("SELECT rs FROM ResourceSkill rs LEFT JOIN FETCH rs.skill")
+    List<ResourceSkill> findAllWithSkills();
 
     @Query("""
     SELECT rs.resourceId, rs.skill.name

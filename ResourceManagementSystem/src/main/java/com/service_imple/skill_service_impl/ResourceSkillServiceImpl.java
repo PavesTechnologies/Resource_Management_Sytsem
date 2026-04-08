@@ -350,6 +350,40 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     }
 
     @Override
+    public List<ResourceSkill> getAllResourceSkills() {
+        return resourceSkillRepository.findAllWithSkills();
+    }
+
+    @Override
+    public List<ResourceSubSkill> getAllResourceSubSkills() {
+        return resourceSubSkillRepository.findAllWithSubSkills();
+    }
+
+    @Override
+    public List<ResourceSkill> getAllResourceSkills(Long resourceId) {
+        return resourceSkillRepository.findByResourceId(resourceId);
+    }
+
+    @Override
+    public List<ResourceSubSkill> getAllResourceSubSkills(Long resourceId) {
+        return resourceSubSkillRepository.findByResourceId(resourceId);
+    }
+
+    @Override
+    public ResourceSkill getResourceSkillById(UUID resourceSkillId) {
+        return resourceSkillRepository.findById(resourceSkillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Resource skill not found with ID: " + resourceSkillId));
+    }
+
+    @Override
+    public ResourceSubSkill getResourceSubSkillById(UUID resourceSubSkillId) {
+        return resourceSubSkillRepository.findById(resourceSubSkillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Resource sub-skill not found with ID: " + resourceSubSkillId));
+    }
+
+    @Override
     @Transactional
     public ResourceSkill updateResourceSkill(UUID resourceSkillId, ResourceSkillRequestDTO dto) {
         // Find the existing resource skill

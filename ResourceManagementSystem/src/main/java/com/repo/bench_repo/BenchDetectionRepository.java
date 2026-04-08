@@ -192,6 +192,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
 
     /**
      * Get bench resources with skill details for bench endpoint
+     * Bench resources are those with sub-states: READY, NOT_AVAILABLE, LOW_UTILIZATION
      */
     @Query("""
         SELECT r, rs.benchStartDate, rs.subState
@@ -200,20 +201,23 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
           AND r.activeFlag = true
+          AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION')
         ORDER BY rs.benchStartDate ASC
         """)
     List<Object[]> findBenchResourcesWithDetails();
 
     /**
      * Get pool resources with skill details for pool endpoint
+     * Pool resources are those with sub-states: TRAINING_POOL, SHADOW, COE, RND, TRAINING
      */
     @Query("""
         SELECT r, rs.benchStartDate, rs.subState
         FROM ResourceState rs
         JOIN Resource r ON rs.resourceId = r.resourceId
-        WHERE rs.stateType = 'POOL'
+        WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
           AND r.activeFlag = true
+          AND rs.subState IN ('TRAINING_POOL', 'SHADOW', 'COE', 'RND', 'TRAINING')
         ORDER BY rs.benchStartDate ASC
         """)
     List<Object[]> findPoolResourcesWithDetails();
@@ -249,6 +253,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         FROM ResourceState rs
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
+          AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION')
           AND rs.benchStartDate <= :cutoffDate
         """)
     long countBenchResourcesOlderThanDays(@Param("cutoffDate") LocalDate cutoffDate);
@@ -259,9 +264,34 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
     @Query("""
         SELECT COUNT(rs)
         FROM ResourceState rs
-        WHERE rs.stateType = 'POOL'
+        WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
+          AND rs.subState IN ('TRAINING_POOL', 'SHADOW', 'COE', 'RND', 'TRAINING')
           AND rs.benchStartDate <= :cutoffDate
         """)
     long countPoolResourcesOlderThanDays(@Param("cutoffDate") LocalDate cutoffDate);
+
+    /**
+     * Count bench resources by sub-state (bench sub-states: READY, NOT_AVAILABLE, LOW_UTILIZATION)
+     */
+    @Query("""
+        SELECT COUNT(rs)
+        FROM ResourceState rs
+        WHERE rs.stateType = 'BENCH'
+          AND rs.currentFlag = true
+          AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION')
+        """)
+    long countBenchResources();
+
+    /**
+     * Count pool resources by sub-state (pool sub-states: TRAINING_POOL, SHADOW, COE, RND, TRAINING)
+     */
+    @Query("""
+        SELECT COUNT(rs)
+        FROM ResourceState rs
+        WHERE rs.stateType = 'BENCH'
+          AND rs.currentFlag = true
+          AND rs.subState IN ('TRAINING_POOL', 'SHADOW', 'COE', 'RND', 'TRAINING')
+        """)
+    long countPoolResources();
 }

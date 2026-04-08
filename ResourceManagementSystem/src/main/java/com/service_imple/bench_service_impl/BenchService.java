@@ -653,6 +653,10 @@ public class BenchService {
             return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));
         }
 
+        // Validate transition logic
+        validateSubStateTransition(oldSubState, newSubState);
+
+        // Close current state
         resourceState.setCurrentFlag(false);
         resourceState.setEffectiveTo(LocalDate.now());
         resourceState.setUpdatedAt(LocalDateTime.now());
@@ -660,6 +664,7 @@ public class BenchService {
 
         benchDetectionRepository.save(resourceState);
 
+        // Create new state with updated sub-state
         ResourceState newState = ResourceState.builder()
                 .resourceId(resourceState.getResourceId())
                 .stateType(resourceState.getStateType())
@@ -678,6 +683,32 @@ public class BenchService {
 
         benchDetectionRepository.save(newState);
         return ResponseEntity.ok().body(new ApiResponse<>(true, "Resource State Updated Successfully.", newState));
+    }
+
+    /**
+     * Validate sub-state transitions based on business rules
+     */
+    private void validateSubStateTransition(SubState oldSubState, SubState newSubState) {
+        // Define valid transitions
+        Set<SubState> benchSubStates = Set.of(SubState.READY, SubState.NOT_AVAILABLE, SubState.LOW_UTILIZATION);
+        Set<SubState> poolSubStates = Set.of(SubState.TRAINING_POOL, SubState.SHADOW, SubState.COE, SubState.RND, SubState.TRAINING);
+
+        // All transitions are allowed, but log the category change for audit
+        boolean oldIsBench = benchSubStates.contains(oldSubState);
+        boolean newIsBench = benchSubStates.contains(newSubState);
+
+        boolean oldIsPool = poolSubStates.contains(oldSubState);
+        boolean newIsPool = poolSubStates.contains(newSubState);
+
+        if (oldIsBench && newIsPool) {
+            log.info("Resource moving from Bench to Internal Pool");
+        } else if (oldIsPool && newIsBench) {
+            log.info("Resource moving from Internal Pool to Bench");
+        } else if (oldIsPool && newIsPool) {
+            log.info("Resource moving within Internal Pool sub-states");
+        } else if (oldIsBench && newIsBench) {
+            log.info("Resource moving within Bench sub-states");
+        }
     }
     public void validateBenchData(Long resourceId) {
 
