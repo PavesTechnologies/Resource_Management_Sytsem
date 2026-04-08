@@ -261,4 +261,18 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         return resourceCertificateRepository.save(existingResourceCertificate);
     }
 
+    @Override
+    @Transactional
+    public String deleteResourceCertificate(UUID resourceCertificateId) {
+        ResourceCertificate resourceCertificate = resourceCertificateRepository.findById(resourceCertificateId)
+                .orElseThrow(() -> new CertificationComplianceException(
+                        "Resource certificate not found with ID: " + resourceCertificateId));
+        
+        // Soft delete by setting activeFlag to false
+        resourceCertificate.setActiveFlag(false);
+        resourceCertificateRepository.save(resourceCertificate);
+        
+        return "Resource certificate deleted successfully";
+    }
+
 }
