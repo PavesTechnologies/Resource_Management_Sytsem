@@ -646,8 +646,8 @@ public class BenchService {
         ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
         SubState oldSubState = resourceState.getSubState();
         SubState newSubState = request.getNewSubState();
-        validateBenchData(request.getResourceId());
-        validateStateConsistency(request.getResourceId());
+//        validateBenchData(request.getResourceId());
+//        validateStateConsistency(request.getResourceId());
 
         if (oldSubState == newSubState) {
             return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));
