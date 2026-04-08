@@ -250,14 +250,12 @@ public class RoleOffServiceImpl implements RoleOffService {
         // }
 
         // 🔥 BENCH DETECTION: Updates resource state based on availability ledger
-        // This method checks ResourceAvailabilityLedger to determine if resource should be moved to bench
-        // COMMENTED OUT: Disable bench detection to avoid availability ledger dependency
-        // try {
-        //     benchDetectionService.detectBenchResources();
-        // } catch (Exception e) {
-        //     // Log error but don't fail the role-off process
-        //     System.err.println("Failed to detect bench resources after role-off: " + e.getMessage());
-        // }
+         try {
+             benchDetectionService.detectBenchResources();
+         } catch (Exception e) {
+             // Log error but don't fail the role-off process
+             System.err.println("Failed to detect bench resources after role-off: " + e.getMessage());
+         }
     }
 
     private void createReplacementDemand(RoleOffEvent event, Long userId) {
