@@ -18,6 +18,7 @@ public class Certificate {
 
     @Id
     @Column(name = "certificate_id")
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID certificateId;
 
     @Column(name = "skill_id", nullable = true)
