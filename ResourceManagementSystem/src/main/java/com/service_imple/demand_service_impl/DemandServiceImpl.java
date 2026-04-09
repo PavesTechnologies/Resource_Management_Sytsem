@@ -2238,6 +2238,21 @@ public class DemandServiceImpl implements DemandService {
     }
 
     @Override
+    public List<Demand> getApprovedDemands() {
+        log.info("Getting approved demands for bench matching");
+        List<Demand> approvedDemands = demandRepository.findOpenDemands();
+        log.info("Found {} approved demands out of all demands", approvedDemands.size());
+        
+        // Log the details of found demands for debugging
+        approvedDemands.forEach(demand -> 
+            log.debug("Approved Demand: ID={}, Name={}, Status={}", 
+                demand.getDemandId(), demand.getDemandName(), demand.getDemandStatus())
+        );
+        
+        return approvedDemands;
+    }
+
+    @Override
     @Transactional
     public void createReplacementDemandFromAllocation(ResourceAllocation allocation, LocalDate startDate, LocalDate endDate, Long createdBy) {
         log.info("Creating internal replacement demand for resource: {} in project: {}", 

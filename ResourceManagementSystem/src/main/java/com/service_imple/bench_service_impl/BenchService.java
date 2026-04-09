@@ -533,27 +533,34 @@ public class BenchService {
      */
     @Transactional(readOnly = true)
     public BenchKPIDTO getBenchKPI() {
-        log.debug("Calculating bench KPI metrics");
+        log.info("Calculating bench KPI metrics");
         
-        // Get total bench resources
-        long totalBenchResources = benchDetectionRepository.countByStateType(StateType.BENCH);
+        // Get total bench resources (bench sub-states: READY, NOT_AVAILABLE, LOW_UTILIZATION)
+        long totalBenchResources = benchDetectionRepository.countBenchResources();
+        log.debug("Total bench resources: {}", totalBenchResources);
         
-        // Get total pool resources
-        long totalPoolResources = benchDetectionRepository.countByStateType(StateType.POOL);
+        // Get total pool resources (pool sub-states: TRAINING_POOL, SHADOW, COE, RND, TRAINING)
+        long totalPoolResources = benchDetectionRepository.countPoolResources();
+        log.debug("Total pool resources: {}", totalPoolResources);
         
-        // Get total ready now resources (READY sub-state in both Bench and Pool)
-        long totalReadyNowResources = benchDetectionRepository.countByStateTypeAndSubState(StateType.BENCH, SubState.READY) +
-                                    benchDetectionRepository.countByStateTypeAndSubState(StateType.POOL, SubState.READY);
+        // Get total ready now resources (READY sub-state in both Bench and Pool categories)
+        // Note: Both bench and pool resources use stateType = 'BENCH' in the database
+        long totalReadyNowResources = benchDetectionRepository.countByStateTypeAndSubState(StateType.BENCH, SubState.READY);
+        log.debug("Total ready now resources: {}", totalReadyNowResources);
         
         // Get total risk watch resources (>30 days in Bench or Pool)
         long totalRiskWatch = calculateRiskWatchResources();
+        log.debug("Total risk watch resources: {}", totalRiskWatch);
         
-        return BenchKPIDTO.builder()
+        BenchKPIDTO result = BenchKPIDTO.builder()
                 .totalBenchResources(totalBenchResources)
                 .totalReadyNowResources(totalReadyNowResources)
                 .totalPoolResources(totalPoolResources)
                 .totalRiskWatch(totalRiskWatch)
                 .build();
+        
+        log.info("KPI calculation completed: {}", result);
+        return result;
     }
 
     /**

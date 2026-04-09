@@ -43,6 +43,7 @@ public interface DemandService {
     
     // Method for bench-demand matching
     List<Demand> getOpenDemands();
+    List<Demand> getApprovedDemands();
 
     /**
      * Create a replacement demand specifically from an existing allocation during attrition

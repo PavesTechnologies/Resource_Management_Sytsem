@@ -1,15 +1,15 @@
 package com.service_imple.bench_service_impl;
 
 import com.dto.bench_dto.MatchResponse;
+import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.entity.resource_entities.Resource;
 import com.entity.demand_entities.Demand;
-import com.entity.skill_entities.ResourceSkill;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.service_interface.bench_service_interface.BenchDemandMatchingService;
 import com.service_interface.demand_service_interface.DemandService;
+import com.service_imple.allocation_service_imple.SkillGapAnalysisService;
 import com.repo.bench_repo.BenchDetectionRepository;
-import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.allocation_repo.AllocationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,13 +27,12 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
 
     private final BenchDetectionRepository benchDetectionRepository;
     private final DemandService demandService;
-    private final ResourceSkillRepository resourceSkillRepository;
     private final AllocationRepository allocationRepository;
-    private final BenchService benchService;
+    private final SkillGapAnalysisService skillGapAnalysisService;
 
     @Override
     public List<MatchResponse> getMatches() {
-        log.info("Getting bench-demand matches");
+        log.info("Getting bench-demand matches using comprehensive skill analysis (APPROVED demands only)");
 
         // Fetch bench resources for matching
         List<Resource> benchResources = benchDetectionRepository.findAllBenchResources();
@@ -43,33 +42,59 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
             return new ArrayList<>();
         }
 
-        List<Demand> demands = demandService.getOpenDemands();
-        log.info("Found {} open demands", demands.size());
+        List<Demand> demands = demandService.getApprovedDemands();
+        log.info("Found {} approved demands for matching", demands.size());
 
         if (demands.isEmpty()) {
-            log.warn("No open demands found!");
+            log.warn("No approved demands found!");
             return new ArrayList<>();
         }
+        
+        // Additional validation to ensure all demands are APPROVED
+        List<Demand> verifiedApprovedDemands = demands.stream()
+            .filter(demand -> {
+                boolean isApproved = demand.getDemandStatus() == com.entity_enums.demand_enums.DemandStatus.APPROVED;
+                if (!isApproved) {
+                    log.warn("Filtering out non-approved demand: {} (Status: {})", 
+                        demand.getDemandName(), demand.getDemandStatus());
+                }
+                return isApproved;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        log.info("Verified {} approved demands after filtering", verifiedApprovedDemands.size());
 
         List<MatchResponse> results = new ArrayList<>();
 
-        for (Demand demand : demands) {
-            log.info("Processing demand: {} (ID: {})", demand.getDemandName(), demand.getDemandId());
+        for (Demand demand : verifiedApprovedDemands) {
+            log.info("Processing demand: {} (ID: {}) - Status: {}", 
+                    demand.getDemandName(), demand.getDemandId(), demand.getDemandStatus());
 
             for (Resource resource : benchResources) {
                 log.info("Evaluating resource: {} (ID: {})", resource.getFullName(), resource.getResourceId());
 
-                double score = calculateMatch(resource, demand);
+                try {
+                    // Use existing comprehensive skill gap analysis
+                    SkillGapAnalysisResponseDTO skillGapResult = skillGapAnalysisService.performSkillGapAnalysis(demand, resource.getResourceId());
+                    
+                    // Calculate overall match score (skill gap + experience + availability)
+                    double overallScore = calculateOverallMatch(resource, demand, skillGapResult);
 
-                log.info("Resource {} vs Demand {}: score = {}",
-                        resource.getFullName(), demand.getDemandName(), score);
+                    log.info("Resource {} vs Demand {}: skillGap={}%, overallScore={}%",
+                            resource.getFullName(), demand.getDemandName(), 
+                            skillGapResult.getMatchPercentage(), overallScore);
 
-                if (score > 30) { // threshold
-                    results.add(buildMatchResponse(resource, demand, score));
-                    log.info("Added match: {} -> {} (score: {})",
-                            resource.getFullName(), demand.getDemandName(), score);
-                } else {
-                    log.info("Score too low: {} (threshold: 30)", score);
+                    if (overallScore > 30) { // threshold - back to 30%
+                        results.add(buildMatchResponse(resource, demand, overallScore, skillGapResult));
+                        log.info("Added match: {} -> {} (score: {})",
+                                resource.getFullName(), demand.getDemandName(), overallScore);
+                    } else {
+                        log.info("Score too low: {} (threshold: 30)", overallScore);
+                    }
+                } catch (Exception e) {
+                    log.error("Error analyzing match for resource {} and demand {}: {}", 
+                             resource.getResourceId(), demand.getDemandId(), e.getMessage());
+                    continue;
                 }
             }
         }
@@ -102,50 +127,25 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         return filteredMatches;
     }
 
-    private double calculateMatch(Resource resource, Demand demand) {
-        // 3.1 Skill Matching (50% weight)
-        double skillScore = calculateSkillScore(resource, demand);
+    /**
+     * Calculate overall match score combining skill gap analysis with experience and availability
+     */
+    private double calculateOverallMatch(Resource resource, Demand demand, SkillGapAnalysisResponseDTO skillGapResult) {
+        // 1. Skill Matching Score (50% weight) - from comprehensive skill gap analysis
+        double skillScore = skillGapResult.getMatchPercentage();
         
-        // 3.2 Experience Matching (30% weight)
+        // 2. Experience Matching (30% weight)
         double expScore = calculateExperienceScore(resource, demand);
         
-        // 3.3 Availability Matching (20% weight)
+        // 3. Availability Matching (20% weight)
         double availabilityScore = calculateAvailabilityScore(resource, demand);
         
-        // 3.4 Final Score
-        return (skillScore * 0.5) + (expScore * 0.3) + (availabilityScore * 0.2);
-    }
-
-    private double calculateSkillScore(Resource resource, Demand demand) {
-        // Get resource skills through ResourceSkill repository
-        List<ResourceSkill> resourceSkills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resource.getResourceId());
+        // 4. Risk Adjustment Factor (penalty for high risk allocations)
+        double riskAdjustment = calculateRiskAdjustment(skillGapResult);
         
-        List<String> resourceSkillNames = resourceSkills.stream()
-                .map(rs -> rs.getSkill().getName())
-                .collect(Collectors.toList());
-        
-        List<String> demandSkillNames = demand.getRequiredSkills().stream()
-                .map(skill -> skill.getName())
-                .collect(Collectors.toList());
-        
-        // If no required skills, check delivery role
-        if (demandSkillNames.isEmpty() && demand.getRole() != null && demand.getRole().getSkill() != null) {
-            // Convert delivery role skill to skill name for matching
-            demandSkillNames = List.of(demand.getRole().getSkill().getName());
-            log.info("No required skills found, using delivery role skill: {}", demandSkillNames);
-        }
-        
-        log.info("Resource {} skills: {}", resource.getFullName(), resourceSkillNames);
-        log.info("Demand {} required skills: {}", demand.getDemandName(), demandSkillNames);
-        
-        long matchedSkills = resourceSkillNames.stream()
-                .filter(demandSkillNames::contains)
-                .count();
-        
-        double score = demandSkillNames.isEmpty() ? 0 : (matchedSkills / (double) demandSkillNames.size()) * 100;
-        log.info("Skill match: {}/{} = {}", matchedSkills, demandSkillNames.size(), score);
-        
-        return score;
+        // Final Score with risk adjustment
+        double finalScore = (skillScore * 0.5) + (expScore * 0.3) + (availabilityScore * 0.2);
+        return finalScore * riskAdjustment;
     }
 
     private double calculateExperienceScore(Resource resource, Demand demand) {
@@ -191,15 +191,33 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         return 100;
     }
 
-    private MatchResponse buildMatchResponse(Resource resource, Demand demand, double score) {
-        List<String> matchedSkills = getMatchedSkills(resource, demand);
+    /**
+     * Calculate risk adjustment factor based on skill gap analysis risk level
+     */
+    private double calculateRiskAdjustment(SkillGapAnalysisResponseDTO skillGapResult) {
+        String riskLevel = skillGapResult.getRiskLevel();
+        
+        switch (riskLevel.toUpperCase()) {
+            case "HIGH":
+                return 0.7; // 30% penalty for high risk
+            case "MEDIUM":
+                return 0.85; // 15% penalty for medium risk
+            case "LOW":
+            default:
+                return 1.0; // No penalty for low risk
+        }
+    }
+
+    private MatchResponse buildMatchResponse(Resource resource, Demand demand, double overallScore, 
+                                          SkillGapAnalysisResponseDTO skillGapResult) {
+        List<String> matchedSkills = extractMatchedSkills(skillGapResult);
         String availabilityStatus = determineAvailabilityStatus(resource, demand);
         
         return MatchResponse.builder()
                 .resourceId(resource.getResourceId())
                 .resourceName(resource.getFullName())
                 .resourceExperience(resource.getExperiance() != null ? resource.getExperiance().intValue() : 0)
-                .matchScore(Math.round(score))
+                .matchScore(Math.round(overallScore))
                 .matchedSkills(matchedSkills)
                 .availability(availabilityStatus)
                 .demandId(demand.getDemandId())
@@ -239,25 +257,28 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         }
     }
 
-    private List<String> getMatchedSkills(Resource resource, Demand demand) {
-        // Get resource skills through ResourceSkill repository
-        List<ResourceSkill> resourceSkills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resource.getResourceId());
+    /**
+     * Extract matched skills from skill gap analysis result
+     */
+    private List<String> extractMatchedSkills(SkillGapAnalysisResponseDTO skillGapResult) {
+        List<String> matchedSkills = new ArrayList<>();
         
-        List<String> resourceSkillNames = resourceSkills.stream()
-                .map(rs -> rs.getSkill().getName())
-                .collect(Collectors.toList());
+        // Add matched skills from skill comparisons
+        skillGapResult.getSkillComparisons().stream()
+                .filter(comparison -> !"GAP".equals(comparison.getStatus()))
+                .forEach(comparison -> {
+                    if (comparison.getSubSkillName() != null) {
+                        matchedSkills.add(comparison.getSkillName() + " - " + comparison.getSubSkillName());
+                    } else {
+                        matchedSkills.add(comparison.getSkillName());
+                    }
+                });
         
-        List<String> demandSkillNames = demand.getRequiredSkills().stream()
-                .map(skill -> skill.getName())
-                .collect(Collectors.toList());
+        // Add matched certificates
+        skillGapResult.getCertificateComparisons().stream()
+                .filter(comparison -> !"GAP".equals(comparison.getStatus()))
+                .forEach(comparison -> matchedSkills.add("Cert: " + comparison.getCertificateName()));
         
-        // If no required skills, check delivery role (same logic as calculateSkillScore)
-        if (demandSkillNames.isEmpty() && demand.getRole() != null && demand.getRole().getSkill() != null) {
-            demandSkillNames = List.of(demand.getRole().getSkill().getName());
-        }
-        
-        return resourceSkillNames.stream()
-                .filter(demandSkillNames::contains)
-                .collect(Collectors.toList());
+        return matchedSkills;
     }
 }
