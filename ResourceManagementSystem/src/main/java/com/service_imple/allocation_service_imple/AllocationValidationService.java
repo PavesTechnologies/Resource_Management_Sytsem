@@ -256,7 +256,11 @@ public class AllocationValidationService {
                     // 🔥 NEW: INTERNAL POOL CHECK
                     ResourceState state = resourceStateRepository
                             .findByResourceIdAndCurrentFlagTrue(resourceId)
-                            .orElseThrow();
+                            .orElseThrow(() -> new ProjectExceptionHandler(
+                                    HttpStatus.BAD_REQUEST,
+                                    "RESOURCE_STATE_MISSING",
+                                    "Resource " + resourceId + " has no state record. Please initialize resource state first."
+                            ));
 
                     int internal = state.getInternalAllocationPercentage() != null
                             ? state.getInternalAllocationPercentage()
