@@ -93,4 +93,14 @@ public class ResourceCertificateController {
         String message = service.deleteResourceCertificate(id);
         return ResponseEntity.ok(ApiResponse.success(message));
     }
+
+    @PutMapping("/approve/{id}")
+    public ResponseEntity<ApiResponse<String>> approveCertificate(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(service.approveCertificate(id)));
+    }
+
+    @PutMapping("/reject/{id}")
+    public ResponseEntity<ApiResponse<String>> rejectCertificate(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(service.rejectCertificate(id)));
+    }
 }

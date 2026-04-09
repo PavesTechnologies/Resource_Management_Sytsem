@@ -40,48 +40,61 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         // ✅ 1. Validate resource
         validateResourceExistsAndActive(dto.getResourceId());
 
-        // ✅ 2. Validate certificate
-        Certificate master = certificateRepository.findById(dto.getCertificateId())
-                .orElseThrow(() ->
-                        new CertificationComplianceException("Certificate master not found"));
+        boolean isCustom = dto.getCertificateId() == null;
 
-        if (dto.getIssuedDate() == null) {
-            throw new CertificationComplianceException("Issued date required");
+        Certificate master = null;
+
+        // ✅ 2. Handle Existing Certificate
+        if (!isCustom) {
+            master = certificateRepository.findById(dto.getCertificateId())
+                    .orElseThrow(() ->
+                            new CertificationComplianceException("Certificate master not found"));
         }
 
-        // ✅ 3. 🔥 ADD DUPLICATE CHECK HERE
-        Optional<ResourceCertificate> existing =
-                resourceCertificateRepository
-                        .findByResourceIdAndCertificateIdAndActiveFlagTrue(
-                                dto.getResourceId(),
-                                dto.getCertificateId()
-                        );
-
-        if (existing.isPresent()) {
-            throw new CertificationComplianceException(
-                    "Certificate already assigned to this resource"
-            );
+        // ✅ 3. Validate Custom Certificate
+        if (isCustom && (dto.getCustomCertificateName() == null || dto.getCustomCertificateName().isBlank())) {
+            throw new CertificationComplianceException("Custom certificate name is required");
         }
 
-        // ✅ 4. Expiry logic
+        // ✅ 4. Duplicate Check (only for existing certs)
+        if (!isCustom) {
+            Optional<ResourceCertificate> existing =
+                    resourceCertificateRepository
+                            .findByResourceIdAndCertificateIdAndActiveFlagTrue(
+                                    dto.getResourceId(),
+                                    dto.getCertificateId()
+                            );
+
+            if (existing.isPresent()) {
+                throw new CertificationComplianceException(
+                        "Certificate already assigned to this resource"
+                );
+            }
+        }
+
+        // ✅ 5. Expiry + Status
         LocalDate expiryDate = null;
         CertificateStatus status;
 
-        if (Boolean.TRUE.equals(master.getTimeBound())) {
-            if (dto.getExpiryDate() != null) {
-                expiryDate = dto.getExpiryDate();
-            } else {
-                expiryDate = dto.getIssuedDate()
-                        .plusMonths(master.getValidityMonths());
-            }
-
-            status = calculateStatus(expiryDate);
-
+        if (isCustom) {
+            status = CertificateStatus.PENDING_APPROVAL;
         } else {
-            status = CertificateStatus.ACTIVE;
+            if (Boolean.TRUE.equals(master.getTimeBound())) {
+                if (dto.getExpiryDate() != null) {
+                    expiryDate = dto.getExpiryDate();
+                } else {
+                    expiryDate = dto.getIssuedDate()
+                            .plusMonths(master.getValidityMonths());
+                }
+
+                status = calculateStatus(expiryDate);
+
+            } else {
+                status = CertificateStatus.ACTIVE;
+            }
         }
 
-        // ✅ 5. File handling
+        // ✅ 6. File handling
         byte[] fileBytes = null;
         String fileName = null;
         String fileType = null;
@@ -92,26 +105,29 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                 fileName = certificateFile.getOriginalFilename();
                 fileType = certificateFile.getContentType();
             } catch (IOException e) {
-                throw new CertificationComplianceException("Failed to process certificate file: " + e.getMessage());
+                throw new CertificationComplianceException("Failed to process certificate file");
             }
         }
 
-        // ✅ 6. Save entity
+        // ✅ 7. Save
         ResourceCertificate entity = ResourceCertificate.builder()
                 .resourceId(dto.getResourceId())
-                .certificateId(dto.getCertificateId())
+                .certificateId(dto.getCertificateId()) // null for custom
+                .customCertificateName(dto.getCustomCertificateName())
                 .issuedDate(dto.getIssuedDate())
+                .expiryDate(expiryDate)
                 .certificateFile(fileBytes)
                 .fileName(fileName)
                 .fileType(fileType)
-                .expiryDate(expiryDate)
                 .status(status)
                 .activeFlag(true)
                 .build();
 
         resourceCertificateRepository.save(entity);
 
-        return "Certificate assigned successfully";
+        return isCustom
+                ? "Custom certificate submitted for approval"
+                : "Certificate assigned successfully";
     }
 
     private CertificateStatus calculateStatus(LocalDate expiryDate) {
@@ -268,11 +284,48 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                 .orElseThrow(() -> new CertificationComplianceException(
                         "Resource certificate not found with ID: " + resourceCertificateId));
         
-        // Soft delete by setting activeFlag to false
-        resourceCertificate.setActiveFlag(false);
-        resourceCertificateRepository.save(resourceCertificate);
+        // Hard delete from database
+        resourceCertificateRepository.deleteById(resourceCertificateId);
         
         return "Resource certificate deleted successfully";
+    }
+    @Transactional
+    public String approveCertificate(UUID id) {
+
+        ResourceCertificate rc = resourceCertificateRepository.findById(id)
+                .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
+
+        if (rc.getStatus() != CertificateStatus.PENDING_APPROVAL) {
+            throw new CertificationComplianceException("Not in pending approval state");
+        }
+
+        // 🔥 Create new master certificate
+        Certificate newCert = Certificate.builder()
+                .certificateName(rc.getCustomCertificateName())
+                .timeBound(false)
+                .build();
+
+        certificateRepository.save(newCert);
+
+        // 🔥 Update resource certificate
+        rc.setCertificateId(newCert.getCertificateId());
+        rc.setStatus(CertificateStatus.ACTIVE);
+
+        return "Certificate approved and added to master";
+    }
+    @Transactional
+    public String rejectCertificate(UUID id) {
+
+        ResourceCertificate rc = resourceCertificateRepository.findById(id)
+                .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
+
+        if (rc.getStatus() != CertificateStatus.PENDING_APPROVAL) {
+            throw new CertificationComplianceException("Only pending certificates can be rejected");
+        }
+
+        rc.setStatus(CertificateStatus.REJECTED);
+
+        return "Certificate request rejected";
     }
 
 }

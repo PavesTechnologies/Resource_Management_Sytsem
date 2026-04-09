@@ -213,6 +213,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                         .findById(subSkillRecord.getProficiencyId()).orElseThrow();
                 
                 subSkillProficiencies.add(ResourceSkillProfileResponseDTO.SubSkillProficiencyDTO.builder()
+                        .resourceSubSkillId(subSkillRecord.getId())
                         .subSkill(subSkill.getName())
                         .proficiency(subProficiencyLevel.getProficiencyName())
                         .proficiencyCode(subProficiencyLevel.getProficiencyCode())
@@ -221,6 +222,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
             
             // Create response DTO
             ResourceSkillProfileResponseDTO responseDTO = ResourceSkillProfileResponseDTO.builder()
+                    .resourceSkillId(skillRecord.getId())
                     .category(skill.getCategory().getName())
                     .skill(skill.getName())
                     .skillProficiency(skillProficiencyLevel.getProficiencyName())
@@ -428,75 +430,118 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                     "Proficiency level is inactive: " + proficiency.getProficiencyName());
         }
         
-        // Update fields
+        // Update skill fields
         existingResourceSkill.setResourceId(dto.getResourceId());
         existingResourceSkill.setProficiencyId(dto.getProficiencyId());
-        if (dto.getLastUsedDate() != null) {
-            existingResourceSkill.setLastUsedDate(dto.getLastUsedDate());
-        }
+        // Only set lastUsedDate if explicitly provided in request (can be null to clear it)
+        existingResourceSkill.setLastUsedDate(dto.getLastUsedDate());
         if (dto.getActiveFlag() != null) {
             existingResourceSkill.setActiveFlag(dto.getActiveFlag());
         }
         
+        // Handle sub-skills update
+        if (dto.getSubSkills() != null && !dto.getSubSkills().isEmpty()) {
+            updateSubSkillsForResourceSkill(existingResourceSkill.getResourceId(), 
+                    existingResourceSkill.getSkill().getId(), dto.getSubSkills());
+        }
+        
         return resourceSkillRepository.save(existingResourceSkill);
     }
-
-    @Override
-    @Transactional
-    public ResourceSubSkill updateResourceSubSkill(UUID resourceSubSkillId, ResourceSubSkillRequestDTO dto) {
-        // Find the existing resource sub-skill
-        ResourceSubSkill existingResourceSubSkill = resourceSubSkillRepository.findById(resourceSubSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
-                        "Resource sub-skill not found with ID: " + resourceSubSkillId));
+    
+    private void updateSubSkillsForResourceSkill(Long resourceId, UUID skillId, 
+            List<ResourceSkillRequestDTO.SubSkillUpdateDTO> subSkillUpdates) {
         
-        // Validate resource exists and is active
-        validateResourceExistsAndActive(dto.getResourceId());
-        
-        // If changing sub-skill, validate the new sub-skill
-        if (!existingResourceSubSkill.getSubSkill().getId().equals(dto.getSubSkillId())) {
-            SubSkill subSkill = subSkillRepository.findById(dto.getSubSkillId())
+        for (ResourceSkillRequestDTO.SubSkillUpdateDTO subSkillDTO : subSkillUpdates) {
+            // Validate sub-skill exists and belongs to the skill
+            SubSkill subSkill = subSkillRepository.findById(subSkillDTO.getSubSkillId())
                     .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
-                            "SubSkill not found: " + dto.getSubSkillId()));
+                            "SubSkill not found: " + subSkillDTO.getSubSkillId()));
+            
+            if (!skillId.equals(subSkill.getSkill().getId())) {
+                throw new SkillTaxonomyExceptionHandler(
+                        "SubSkill does not belong to the specified skill: " + subSkill.getName());
+            }
             
             if (!"ACTIVE".equalsIgnoreCase(subSkill.getStatus())) {
                 throw new SkillTaxonomyExceptionHandler(
                         "SubSkill is not active: " + subSkill.getName());
             }
             
-            // Check if new sub-skill already assigned to this resource
-            boolean subSkillExists = resourceSubSkillRepository
-                    .existsByResourceIdAndSubSkillIdAndIdNot(dto.getResourceId(), dto.getSubSkillId(), resourceSubSkillId);
+            // Validate proficiency exists and is ACTIVE
+            ProficiencyLevel proficiency = proficiencyLevelRepository
+                    .findById(subSkillDTO.getProficiencyId())
+                    .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                            "Proficiency not found for subSkill: " + subSkillDTO.getProficiencyId()));
             
-            if (subSkillExists) {
+            if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
                 throw new SkillTaxonomyExceptionHandler(
-                        "SubSkill already assigned to this resource: " + subSkill.getName());
+                        "Proficiency level is inactive for subSkill: " + proficiency.getProficiencyName());
             }
             
-            existingResourceSubSkill.setSubSkill(subSkill);
+            // Find existing resource sub-skill or create new one
+            ResourceSubSkill existingResourceSubSkill = resourceSubSkillRepository
+                    .findByResourceIdAndSubSkillId(resourceId, subSkillDTO.getSubSkillId())
+                    .orElse(null);
+            
+            if (existingResourceSubSkill != null) {
+                // Update existing sub-skill
+                existingResourceSubSkill.setProficiencyId(subSkillDTO.getProficiencyId());
+                // Only set lastUsedDate if explicitly provided in request (can be null to clear it)
+                existingResourceSubSkill.setLastUsedDate(subSkillDTO.getLastUsedDate());
+                if (subSkillDTO.getActiveFlag() != null) {
+                    existingResourceSubSkill.setActiveFlag(subSkillDTO.getActiveFlag());
+                }
+                resourceSubSkillRepository.save(existingResourceSubSkill);
+            } else {
+                // Create new sub-skill assignment
+                ResourceSubSkill newResourceSubSkill = ResourceSubSkill.builder()
+                        .resourceId(resourceId)
+                        .subSkill(subSkillRepository.getReferenceById(subSkillDTO.getSubSkillId()))
+                        .proficiencyId(subSkillDTO.getProficiencyId())
+                        .lastUsedDate(subSkillDTO.getLastUsedDate())
+                        .activeFlag(subSkillDTO.getActiveFlag() != null ? subSkillDTO.getActiveFlag() : true)
+                        .build();
+                resourceSubSkillRepository.save(newResourceSubSkill);
+            }
         }
-        
-        // Validate proficiency exists and is ACTIVE
-        ProficiencyLevel proficiency = proficiencyLevelRepository
-                .findById(dto.getProficiencyId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
-                        "Proficiency not found: " + dto.getProficiencyId()));
-        
-        if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
-            throw new SkillTaxonomyExceptionHandler(
-                    "Proficiency level is inactive: " + proficiency.getProficiencyName());
-        }
-        
-        // Update fields
-        existingResourceSubSkill.setResourceId(dto.getResourceId());
-        existingResourceSubSkill.setProficiencyId(dto.getProficiencyId());
-        if (dto.getLastUsedDate() != null) {
-            existingResourceSubSkill.setLastUsedDate(dto.getLastUsedDate());
-        }
-        if (dto.getActiveFlag() != null) {
-            existingResourceSubSkill.setActiveFlag(dto.getActiveFlag());
-        }
-        
-        return resourceSubSkillRepository.save(existingResourceSubSkill);
     }
-
+    
+    @Override
+    @Transactional
+    public String deleteResourceSkill(UUID resourceSkillId) {
+        // Find the existing resource skill
+        ResourceSkill existingResourceSkill = resourceSkillRepository.findById(resourceSkillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Resource skill not found with ID: " + resourceSkillId));
+        
+        // Delete associated sub-skills first
+        List<ResourceSubSkill> associatedSubSkills = resourceSubSkillRepository
+                .findByResourceId(existingResourceSkill.getResourceId());
+        
+        // Filter sub-skills that belong to this skill
+        List<ResourceSubSkill> subSkillsToDelete = associatedSubSkills.stream()
+                .filter(rss -> rss.getSubSkill().getSkill().getId().equals(existingResourceSkill.getSkill().getId()))
+                .collect(Collectors.toList());
+        
+        resourceSubSkillRepository.deleteAll(subSkillsToDelete);
+        
+        // Delete the main resource skill
+        resourceSkillRepository.delete(existingResourceSkill);
+        
+        return "Resource skill and associated sub-skills deleted successfully";
+    }
+    
+    @Override
+    @Transactional
+    public String deleteResourceSubSkill(UUID resourceSubSkillId) {
+        // Find the existing resource sub-skill
+        ResourceSubSkill existingResourceSubSkill = resourceSubSkillRepository.findById(resourceSubSkillId)
+                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                        "Resource sub-skill not found with ID: " + resourceSubSkillId));
+        
+        // Delete the resource sub-skill
+        resourceSubSkillRepository.delete(existingResourceSubSkill);
+        
+        return "Resource sub-skill deleted successfully";
+    }
 }

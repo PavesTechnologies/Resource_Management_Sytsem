@@ -11,7 +11,8 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "resource_certificate",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "certificate_id"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "certificate_id"}, 
+            name = "uk_resource_certificate")
 )
 @Getter
 @Setter
@@ -28,7 +29,7 @@ public class ResourceCertificate {
     @Column(name = "resource_id", nullable = false)
     private Long resourceId;
 
-    @Column(name = "certificate_id", nullable = false)
+    @Column(name = "certificate_id", nullable = true)
     private UUID certificateId;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -58,4 +59,8 @@ public class ResourceCertificate {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private CertificateStatus status;
+
+    @Column(name ="custom_certificate_name")
+    private String customCertificateName;
+
 }
