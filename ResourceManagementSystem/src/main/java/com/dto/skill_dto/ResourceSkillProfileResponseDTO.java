@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -15,6 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ResourceSkillProfileResponseDTO {
+    private UUID resourceSkillId;
     private String category;
     private String skill;
     private String skillProficiency;
@@ -28,6 +30,7 @@ public class ResourceSkillProfileResponseDTO {
     @AllArgsConstructor
     @Builder
     public static class SubSkillProficiencyDTO {
+        private UUID resourceSubSkillId;
         private String subSkill;
         private String proficiency;
         private String proficiencyCode;
