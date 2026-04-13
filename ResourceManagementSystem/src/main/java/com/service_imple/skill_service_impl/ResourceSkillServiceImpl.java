@@ -433,11 +433,9 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         // Update skill fields
         existingResourceSkill.setResourceId(dto.getResourceId());
         existingResourceSkill.setProficiencyId(dto.getProficiencyId());
-        // Only set lastUsedDate if explicitly provided in request (can be null to clear it)
-        existingResourceSkill.setLastUsedDate(dto.getLastUsedDate());
-        if (dto.getActiveFlag() != null) {
-            existingResourceSkill.setActiveFlag(dto.getActiveFlag());
-        }
+        // Automatically set lastUsedDate to current date and activeFlag to true
+        existingResourceSkill.setLastUsedDate(LocalDate.now());
+        existingResourceSkill.setActiveFlag(true);
         
         // Handle sub-skills update
         if (dto.getSubSkills() != null && !dto.getSubSkills().isEmpty()) {
@@ -486,11 +484,9 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
             if (existingResourceSubSkill != null) {
                 // Update existing sub-skill
                 existingResourceSubSkill.setProficiencyId(subSkillDTO.getProficiencyId());
-                // Only set lastUsedDate if explicitly provided in request (can be null to clear it)
-                existingResourceSubSkill.setLastUsedDate(subSkillDTO.getLastUsedDate());
-                if (subSkillDTO.getActiveFlag() != null) {
-                    existingResourceSubSkill.setActiveFlag(subSkillDTO.getActiveFlag());
-                }
+                // Automatically set lastUsedDate to current date and activeFlag to true
+                existingResourceSubSkill.setLastUsedDate(LocalDate.now());
+                existingResourceSubSkill.setActiveFlag(true);
                 resourceSubSkillRepository.save(existingResourceSubSkill);
             } else {
                 // Create new sub-skill assignment
@@ -498,8 +494,8 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                         .resourceId(resourceId)
                         .subSkill(subSkillRepository.getReferenceById(subSkillDTO.getSubSkillId()))
                         .proficiencyId(subSkillDTO.getProficiencyId())
-                        .lastUsedDate(subSkillDTO.getLastUsedDate())
-                        .activeFlag(subSkillDTO.getActiveFlag() != null ? subSkillDTO.getActiveFlag() : true)
+                        .lastUsedDate(LocalDate.now())
+                        .activeFlag(true)
                         .build();
                 resourceSubSkillRepository.save(newResourceSubSkill);
             }
