@@ -198,7 +198,7 @@ public class AllocationServiceImpl implements AllocationService {
 
         ResourceState state = resourceStateRepository
                 .findByResourceIdAndCurrentFlagTrue(allocation.getResource().getResourceId())
-                .orElseThrow();
+                .orElseThrow(() -> new RuntimeException("Resource " + allocation.getResource().getResourceId() + " has no state record. Please initialize resource state first."));
 
         allocation.setApprovalStatus(ApprovalStatus.APPROVED);
         allocation.setApprovalActionBy(dmName);
@@ -395,7 +395,7 @@ public class AllocationServiceImpl implements AllocationService {
 
             ResourceState state = resourceStateRepository
                     .findByResourceIdAndCurrentFlagTrue(resourceId)
-                    .orElseThrow();
+                    .orElseThrow(() -> new RuntimeException("Resource " + resourceId + " has no state record. Please initialize resource state first."));
 
             int internal = state.getInternalAllocationPercentage() != null
                     ? state.getInternalAllocationPercentage()
