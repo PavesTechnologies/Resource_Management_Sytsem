@@ -7,7 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,9 +26,6 @@ public class ResourceSkillRequestDTO {
     @NotNull(message = "Proficiency ID is required")
     private UUID proficiencyId;
     
-    private LocalDate lastUsedDate;
-    
-    private Boolean activeFlag;
     
     private List<SubSkillUpdateDTO> subSkills;
     
@@ -45,8 +41,5 @@ public class ResourceSkillRequestDTO {
         @NotNull(message = "Proficiency ID is required")
         private UUID proficiencyId;
         
-        private LocalDate lastUsedDate;
-        
-        private Boolean activeFlag;
     }
 }
