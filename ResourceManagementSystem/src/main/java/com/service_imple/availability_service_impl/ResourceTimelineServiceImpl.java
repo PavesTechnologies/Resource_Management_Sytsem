@@ -42,7 +42,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
         // Get all resources without date filtering - use full history mode with default parameters
         List<ResourceTimelineProjection> allResources = resourceTimelineRepository.getResourceTimelineFullHistory(
-                null, null, null, null, null, null, Integer.MAX_VALUE, 0, null);
+                null, null, null, null, null, null, null, null, Integer.MAX_VALUE, 0, null);
         
         return allResources.stream()
                 .map(this::convertToResourceTimelineDTO)
@@ -80,6 +80,8 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             String employmentType,
             String status,
             String search,
+            Integer allocationPercentage,
+            String project,
             Integer page,
             Integer size) {
         
@@ -111,17 +113,17 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         if (startDate != null && endDate != null) {
             // Window Mode - use date-specific queries
             filteredData = resourceTimelineRepository.getResourceTimelineWindow(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, size, page * size, status);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project, size, page * size, status);
             
             totalCount = resourceTimelineRepository.getResourceTimelineWindowCount(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, status);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, allocationPercentage, project, status);
         } else {
             // Full History Mode - use date-agnostic queries
             filteredData = resourceTimelineRepository.getResourceTimelineFullHistory(
-                    designation, location, employmentType, minExp, maxExp, search, size, page * size, status);
+                    designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project, size, page * size, status);
             
             totalCount = resourceTimelineRepository.getResourceTimelineFullHistoryCount(
-                    designation, location, employmentType, minExp, maxExp, status);
+                    designation, location, employmentType, minExp, maxExp, allocationPercentage, project, status);
         }
         
         // Fetch allocation timeline, current projects, current allocations, skills, and certifications for all resources

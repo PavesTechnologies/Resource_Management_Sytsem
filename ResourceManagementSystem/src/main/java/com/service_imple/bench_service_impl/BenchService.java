@@ -95,10 +95,9 @@ public class BenchService {
     @Transactional
     public void createOrUpdateBenchState(Long resourceId) {
         log.debug("Processing bench state for resource {}", resourceId);
-        validateBenchData(resourceId);
-        validateStateConsistency(resourceId);
-
-
+//        validateBenchData(resourceId);
+//        validateStateConsistency(resourceId);
+        
         // Fetch current active RESOURCE_STATE
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
         
@@ -651,14 +650,11 @@ public class BenchService {
     }
 
     public ResponseEntity<?> updateSubState(UpdateSubStateRequestDTO request, UserDTO userDTO) {
-        log.info("Updating resource {} sub-state from {} to {} by user {}",
-                request.getResourceId(), "current", request.getNewSubState(), userDTO.getName());
-
-        ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId())
-                .orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
-
+        ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
         SubState oldSubState = resourceState.getSubState();
         SubState newSubState = request.getNewSubState();
+//        validateBenchData(request.getResourceId());
+//        validateStateConsistency(request.getResourceId());
 
         if (oldSubState == newSubState) {
             return ResponseEntity.ok().body(new ApiResponse<>(false, "Resource State is already same. No updates performed.", null));
@@ -693,10 +689,6 @@ public class BenchService {
                 .build();
 
         benchDetectionRepository.save(newState);
-
-        log.info("Successfully updated resource {} sub-state from {} to {}",
-                request.getResourceId(), oldSubState, newSubState);
-
         return ResponseEntity.ok().body(new ApiResponse<>(true, "Resource State Updated Successfully.", newState));
     }
 

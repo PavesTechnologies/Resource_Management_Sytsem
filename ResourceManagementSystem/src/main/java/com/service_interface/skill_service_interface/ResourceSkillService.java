@@ -20,6 +20,18 @@ public interface ResourceSkillService {
     
     List<ResourceSkillProfileResponseDTO> getResourceSkillProfile(Long resourceId);
     
+    List<ResourceSkill> getAllResourceSkills(Long resourceId);
+    
+    List<ResourceSubSkill> getAllResourceSubSkills(Long resourceId);
+    
+    List<ResourceSkill> getAllResourceSkills();
+    
+    List<ResourceSubSkill> getAllResourceSubSkills();
+    
+    ResourceSkill getResourceSkillById(UUID resourceSkillId);
+    
+    ResourceSubSkill getResourceSubSkillById(UUID resourceSubSkillId);
+    
     ResourceSkill updateResourceSkill(UUID resourceSkillId, ResourceSkillRequestDTO dto);
     
     ResourceSubSkill updateResourceSubSkill(UUID resourceSubSkillId, ResourceSubSkillRequestDTO dto);

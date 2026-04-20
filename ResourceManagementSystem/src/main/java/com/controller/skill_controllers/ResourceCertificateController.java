@@ -87,4 +87,10 @@ public class ResourceCertificateController {
                         "attachment; filename=\"" + certificate.getFileName() + "\"")
                 .body(resource);
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse> deleteResourceCertificate(@PathVariable UUID id) {
+        String message = service.deleteResourceCertificate(id);
+        return ResponseEntity.ok(ApiResponse.success(message));
+    }
 }
