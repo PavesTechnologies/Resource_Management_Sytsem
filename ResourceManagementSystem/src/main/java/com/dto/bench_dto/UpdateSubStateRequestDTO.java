@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class UpdateSubStateRequestDTO {
     @NotNull(message = "Resource ID cannot be null")
     private Long resourceId;
+
     @NotNull(message = "New sub-state cannot be null")
     private SubState newSubState;
     @NotNull(message = "Reason cannot be null")

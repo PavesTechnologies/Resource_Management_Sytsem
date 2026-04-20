@@ -2,6 +2,7 @@ package com.dto.allocation_dto;
 
 import com.entity_enums.roleoff_enums.RoleOffType;
 import com.entity_enums.roleoff_enums.RoleOffReason;
+import com.entity_enums.roleoff_enums.ResourcePerformance;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -20,4 +21,7 @@ public class RoleOffRequestDTO {
     private RoleOffReason roleOffReason;
     private String emergencyReason;
     private Boolean confirmed = false; // Added for delivery impact confirmation
+    
+    // NEW FIELD from RoleOffEvent entity
+    private ResourcePerformance resourcePerformance;
 }

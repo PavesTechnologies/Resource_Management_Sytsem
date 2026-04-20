@@ -196,7 +196,7 @@ public class BenchController {
     }
 
     /**
-     * Get bench-to-demand matches
+     * Get bench-to-demand matches (high quality matches >70%)
      * GET /api/bench/matches
      */
     @GetMapping("/matches")
@@ -205,7 +205,7 @@ public class BenchController {
             @RequestParam(required = false) Integer minExp) {
 
         try {
-            log.info("Getting bench-demand matches with filters - skill: {}, minExp: {}", skill, minExp);
+            log.info("Getting bench-demand matches with filters - skill: {}, minExp: {} (APPROVED demands only)", skill, minExp);
 
             List<MatchResponse> matches;
 
@@ -214,9 +214,19 @@ public class BenchController {
             } else {
                 matches = benchDemandMatchingService.getMatches();
             }
+            
+            log.info("Total matches found: {}", matches.size());
+
+            // Filter for high-quality matches (>30% score)
+            List<MatchResponse> highQualityMatches = matches.stream()
+                    .filter(match -> match.getMatchScore() > 30.0)
+                    .collect(java.util.stream.Collectors.toList());
+
+            log.info("Found {} matches (>30%) out of {} total matches", 
+                    highQualityMatches.size(), matches.size());
 
             // Group matches by resource
-            Map<Long, List<MatchResponse>> groupedByResource = matches.stream()
+            Map<Long, List<MatchResponse>> groupedByResource = highQualityMatches.stream()
                     .collect(java.util.stream.Collectors.groupingBy(MatchResponse::getResourceId));
 
             List<ResourceMatchResponse> response = groupedByResource.entrySet().stream()
@@ -227,12 +237,20 @@ public class BenchController {
                         MatchResponse firstMatch = resourceMatches.get(0);
 
                         List<DemandMatch> demands = resourceMatches.stream()
-                                .map(match -> DemandMatch.builder()
-                                        .demandId(match.getDemandId())
-                                        .demandName(match.getDemandName())
-                                        .matchedSkills(match.getMatchedSkills())
-                                        .matchScore(match.getMatchScore())
-                                        .build())
+                                .map(match -> {
+                                    // Get demand details for dates and allocation percentage
+                                    var demandOpt = demandRepository.findById(match.getDemandId());
+                                    
+                                    return DemandMatch.builder()
+                                            .demandId(match.getDemandId())
+                                            .demandName(match.getDemandName())
+                                            .matchedSkills(match.getMatchedSkills())
+                                            .matchScore(match.getMatchScore())
+                                            .startDate(demandOpt.map(d -> d.getDemandStartDate()).orElse(null))
+                                            .endDate(demandOpt.map(d -> d.getDemandEndDate()).orElse(null))
+                                            .allocationPercentage(demandOpt.map(d -> d.getAllocationPercentage()).orElse(100))
+                                            .build();
+                                })
                                 .collect(java.util.stream.Collectors.toList());
 
                         return ResourceMatchResponse.builder()
@@ -245,7 +263,7 @@ public class BenchController {
                     })
                     .collect(java.util.stream.Collectors.toList());
 
-            return ResponseEntity.ok().body(new ApiResponse<>(true, "Matched Demands Retrived Successfully!", response));
+            return ResponseEntity.ok().body(new ApiResponse<>(true, "Matches (>30%) retrieved successfully!", response));
 
         } catch (Exception e) {
             log.error("Error getting bench-demand matches: {}", e.getMessage(), e);

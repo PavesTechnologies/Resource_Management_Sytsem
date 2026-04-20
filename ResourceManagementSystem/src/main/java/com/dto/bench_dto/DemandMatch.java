@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,4 +19,7 @@ public class DemandMatch {
     private String demandName;
     private List<String> matchedSkills;
     private double matchScore;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private Integer allocationPercentage;
 }

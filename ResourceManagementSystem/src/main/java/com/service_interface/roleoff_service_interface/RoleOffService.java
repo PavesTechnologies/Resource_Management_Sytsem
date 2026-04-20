@@ -3,9 +3,11 @@ package com.service_interface.roleoff_service_interface;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
+import com.dto.resource_dto.ResourceRemovalDTO;
 import com.entity.roleoff_entities.RoleOffEvent;
 import org.springframework.http.ResponseEntity;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,4 +95,14 @@ public interface RoleOffService {
      * Bulk reject role-off events by Delivery Manager with reason
      */
     ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, UserDTO userDTO);
+
+    /**
+     * Handles attrition for a resource by closing allocations and creating replacements
+     */
+    void handleAttrition(Long resourceId, LocalDate dateOfExit, Long userId);
+
+    /**
+     * Removes a resource from the organization with notice period handling
+     */
+    String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long userId);
 }

@@ -2236,4 +2236,76 @@ public class DemandServiceImpl implements DemandService {
         log.info("Getting open demands for bench matching");
         return demandRepository.findOpenDemands();
     }
+
+    @Override
+    public List<Demand> getApprovedDemands() {
+        log.info("Getting approved demands for bench matching");
+        List<Demand> approvedDemands = demandRepository.findOpenDemands();
+        log.info("Found {} approved demands out of all demands", approvedDemands.size());
+        
+        // Log the details of found demands for debugging
+        approvedDemands.forEach(demand -> 
+            log.debug("Approved Demand: ID={}, Name={}, Status={}", 
+                demand.getDemandId(), demand.getDemandName(), demand.getDemandStatus())
+        );
+        
+        return approvedDemands;
+    }
+
+    @Override
+    @Transactional
+    public void createReplacementDemandFromAllocation(ResourceAllocation allocation, LocalDate startDate, LocalDate endDate, Long createdBy) {
+        log.info("Creating internal replacement demand for resource: {} in project: {}", 
+                 allocation.getResource().getFullName(), allocation.getProject().getName());
+
+        Demand demand = new Demand();
+        demand.setProject(allocation.getProject());
+        
+        // Use role from original demand or fall back
+        if (allocation.getDemand() != null && allocation.getDemand().getRole() != null) {
+            demand.setRole(allocation.getDemand().getRole());
+            
+            // Copy minExp from original demand if available
+            if (allocation.getDemand().getMinExp() != null) {
+                demand.setMinExp(allocation.getDemand().getMinExp());
+            } else {
+                // Fallback to resource experience
+                demand.setMinExp(allocation.getResource().getExperiance() != null ? 
+                    allocation.getResource().getExperiance().doubleValue() : 0.0);
+            }
+        } else {
+            // Fallback to finding a suitable role if not linked to a demand (though RMS usually requires it)
+            // For now, if no role, we cannot create a valid demand
+            log.error("Cannot create replacement demand: No role found for allocation {}", allocation.getAllocationId());
+            return;
+        }
+
+        demand.setDemandName("ATTRITION REPLACEMENT: " + allocation.getResource().getFullName());
+        demand.setDemandType(DemandType.REPLACEMENT);
+        demand.setDemandStartDate(startDate);
+        demand.setDemandEndDate(endDate);
+        demand.setAllocationPercentage(allocation.getAllocationPercentage());
+        
+        // Priority = CRITICAL as per requirements
+        demand.setDemandPriority(PriorityLevel.CRITICAL);
+        
+        // Internal auto-approvals for attrition replacements
+        demand.setDemandStatus(DemandStatus.APPROVED);
+        demand.setDemandCommitment(DemandCommitment.CONFIRMED);
+        demand.setResourcesRequired(1);
+        demand.setOutgoingResource(allocation.getResource());
+        demand.setCreatedAt(LocalDateTime.now());
+        demand.setCreatedBy(createdBy);
+        
+        // Set justification
+        demand.setDemandJustification("Auto-created due to resource attrition (LWD: " + allocation.getResource().getDateOfExit() + ")");
+        
+        // Set delivery model from project or default
+        demand.setDeliveryModel(com.entity_enums.centralised_enums.DeliveryModel.ONSITE);
+        
+        Demand saved = demandRepository.save(demand);
+        mapSlaToDemand(saved);
+        
+        log.info("Replacement demand created successfully with ID: {}", saved.getDemandId());
+    }
 }

@@ -4,9 +4,11 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
 import com.entity.demand_entities.Demand;
+import com.entity.allocation_entities.ResourceAllocation;
 import com.security.CurrentUser;
 import org.springframework.http.ResponseEntity;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,4 +43,10 @@ public interface DemandService {
     
     // Method for bench-demand matching
     List<Demand> getOpenDemands();
+    List<Demand> getApprovedDemands();
+
+    /**
+     * Create a replacement demand specifically from an existing allocation during attrition
+     */
+    void createReplacementDemandFromAllocation(ResourceAllocation allocation, LocalDate startDate, LocalDate endDate, Long createdBy);
 }
