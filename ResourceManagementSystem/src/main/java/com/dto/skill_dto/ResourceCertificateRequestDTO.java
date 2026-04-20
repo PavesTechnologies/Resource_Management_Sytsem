@@ -15,6 +15,9 @@ public class ResourceCertificateRequestDTO {
     
     @JsonProperty("certificateId")
     private UUID certificateId;
+
+    @JsonProperty("customCertificateName")
+    private String customCertificateName;
     
     @JsonProperty("skillId")
     private UUID skillId; // certification skill

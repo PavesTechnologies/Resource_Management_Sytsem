@@ -19,4 +19,8 @@ public interface ResourceCertificateService {
     ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto, MultipartFile certificateFile);
     
     String deleteResourceCertificate(UUID resourceCertificateId);
+    
+    String rejectCertificate(UUID id);
+    String approveCertificate(UUID id);
+    
 }

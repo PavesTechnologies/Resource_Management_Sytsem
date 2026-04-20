@@ -34,5 +34,7 @@ public interface ResourceSkillService {
     
     ResourceSkill updateResourceSkill(UUID resourceSkillId, ResourceSkillRequestDTO dto);
     
-    ResourceSubSkill updateResourceSubSkill(UUID resourceSubSkillId, ResourceSubSkillRequestDTO dto);
+    String deleteResourceSkill(UUID resourceSkillId);
+    
+    String deleteResourceSubSkill(UUID resourceSubSkillId);
 }

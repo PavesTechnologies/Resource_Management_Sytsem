@@ -754,4 +754,41 @@ public class BenchService {
             throw new RuntimeException("Invalid State: Resource has no allocation but marked as PROJECT");
         }
     }
+
+    /**
+     * Emergency fix method - creates state for resource without any existing state
+     * This is a safety net for resources that fell through the cracks
+     */
+    @Transactional
+    public boolean emergencyStateFix(Long resourceId) {
+        log.info("Emergency state fix requested for resource {}", resourceId);
+        
+        try {
+            // Check if resource already has a state
+            Optional<ResourceState> existingState = benchDetectionRepository.findCurrentState(resourceId);
+            if (existingState.isPresent()) {
+                log.info("Resource {} already has state: {}", resourceId, existingState.get().getStateType());
+                return false;
+            }
+            
+            // Create emergency BENCH state
+            ResourceState emergencyState = ResourceState.builder()
+                    .resourceId(resourceId)
+                    .stateType(StateType.BENCH)
+                    .subState(SubState.READY)
+                    .effectiveFrom(LocalDate.now())
+                    .currentFlag(true)
+                    .createdBy("EMERGENCY_FIX")
+                    .benchStartDate(LocalDate.now())
+                    .build();
+            
+            benchDetectionRepository.save(emergencyState);
+            log.info("Emergency BENCH state created for resource {}", resourceId);
+            return true;
+            
+        } catch (Exception e) {
+            log.error("Emergency state fix failed for resource {}: {}", resourceId, e.getMessage(), e);
+            return false;
+        }
+    }
 }

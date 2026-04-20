@@ -80,11 +80,18 @@ public class ResourceSkillController {
         ResourceSkill updated = resourceSkillService.updateResourceSkill(resourceSkillId, dto);
         return ResponseEntity.ok(ApiResponse.success("Resource skill updated successfully", updated));
     }
-
     
-    @PutMapping("/subskill/{resourceSubSkillId}")
-    public ResponseEntity<ApiResponse<ResourceSubSkill>> updateResourceSubSkill(@PathVariable UUID resourceSubSkillId, @Valid @RequestBody ResourceSubSkillRequestDTO dto) {
-        ResourceSubSkill updated = resourceSkillService.updateResourceSubSkill(resourceSubSkillId, dto);
-        return ResponseEntity.ok(ApiResponse.success("Resource sub-skill updated successfully", updated));
+    @DeleteMapping("/skill/{resourceSkillId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<String>> deleteResourceSkill(@PathVariable UUID resourceSkillId) {
+        String result = resourceSkillService.deleteResourceSkill(resourceSkillId);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+    
+    @DeleteMapping("/subskill/{resourceSubSkillId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<String>> deleteResourceSubSkill(@PathVariable UUID resourceSubSkillId) {
+        String result = resourceSkillService.deleteResourceSubSkill(resourceSubSkillId);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 }
