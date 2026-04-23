@@ -5,6 +5,7 @@ import com.service_interface.availability_service_interface.DashboardKpiProjecti
 import com.repo.resource_repo.DashboardKpiRepository;
 import com.service_interface.availability_service_interface.DashboardKpiService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ public class DashboardKpiServiceImpl implements DashboardKpiService {
     private final DashboardKpiRepository dashboardKpiRepository;
 
     @Override
+    @Cacheable(value = "dashboard-kpis", key = "#fromDate + '-' + #toDate + '-' + #role + '-' + #location")
     public DashboardKpiDTO calculateKpis(
             LocalDate fromDate,
             LocalDate toDate,

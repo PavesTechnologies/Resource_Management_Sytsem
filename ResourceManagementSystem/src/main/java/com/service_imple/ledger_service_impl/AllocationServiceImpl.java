@@ -7,7 +7,6 @@ import com.dto.common.ExternalAllocationResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -33,21 +32,8 @@ public class AllocationServiceImpl implements AllocationService {
     private static final long ALLOCATION_API_HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
-    @Cacheable(value = "allocations", key = "#resourceId + '-' + #date", unless = "#result == null")
-    @Retryable(retryFor = {ResourceAccessException.class, HttpClientErrorException.class}, 
-               maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
-    public AllocationData getAllocationDataCached(Long resourceId, LocalDate date) {
-        return getAllocationDataInternal(resourceId, date);
-    }
-
-    @Override
     public AllocationData getAllocationDataForResourceAndDate(Long resourceId, LocalDate date) {
-        try {
-            return getAllocationDataCached(resourceId, date);
-        } catch (Exception ex) {
-            log.warn("Cache failure, falling back to DB for resource {} on date {}: {}", resourceId, date, ex.getMessage());
-            return getAllocationDataInternal(resourceId, date);
-        }
+        return getAllocationDataInternal(resourceId, date);
     }
 
     private AllocationData getAllocationDataInternal(Long resourceId, LocalDate date) {
@@ -93,21 +79,8 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    @Cacheable(value = "allocations", key = "#resourceId + '-' + #yearMonth", unless = "#result == null")
-    @Retryable(retryFor = {ResourceAccessException.class, HttpClientErrorException.class}, 
-               maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
-    public AllocationData getAllocationDataCachedForMonth(Long resourceId, YearMonth yearMonth) {
-        return getAllocationDataInternalForMonth(resourceId, yearMonth);
-    }
-
-    @Override
     public AllocationData getAllocationDataForResourceForMonth(Long resourceId, YearMonth yearMonth) {
-        try {
-            return getAllocationDataCachedForMonth(resourceId, yearMonth);
-        } catch (Exception ex) {
-            log.warn("Cache failure, falling back to DB for resource {} for month {}: {}", resourceId, yearMonth, ex.getMessage());
-            return getAllocationDataInternalForMonth(resourceId, yearMonth);
-        }
+        return getAllocationDataInternalForMonth(resourceId, yearMonth);
     }
 
     private AllocationData getAllocationDataInternalForMonth(Long resourceId, YearMonth yearMonth) {

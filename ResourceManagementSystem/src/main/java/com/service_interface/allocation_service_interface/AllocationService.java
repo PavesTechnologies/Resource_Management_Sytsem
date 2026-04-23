@@ -36,17 +36,6 @@ public interface AllocationService {
      */
     ResponseEntity<ApiResponse<?>> analyzeSkillGap(SkillGapAnalysisRequestDTO request);
     
-    /**
-     * Clear all skill-related caches
-     * Call this when any skill reference data is updated
-     */
-    void clearAllSkillCaches();
-    
-    /**
-     * Clear proficiency levels cache
-     * Call this when proficiency levels are updated
-     */
-    void clearProficiencyLevelsCache();
     
     // ==================== CONFLICT DETECTION METHODS ====================
     

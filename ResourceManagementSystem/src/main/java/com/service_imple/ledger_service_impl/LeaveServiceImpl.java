@@ -36,21 +36,9 @@ public class LeaveServiceImpl implements LeaveService {
     private static final long HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
-    @Cacheable(value = "leaves", key = "#resourceId + '-' + #year", unless = "#result == null || #result.isEmpty()")
-    @Retryable(retryFor = {ResourceAccessException.class, HttpClientErrorException.class}, 
-               maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
-    public Set<LocalDate> getApprovedLeaveCached(Long resourceId, int year) throws LeaveApiException {
-        return getApprovedLeaveInternal(resourceId, year);
-    }
-
-    @Override
+    @Cacheable(value = "leaves", key = "#resourceId + '-' + #year")
     public Set<LocalDate> getApprovedLeaveForEmployee(Long resourceId, int year) throws LeaveApiException {
-        try {
-            return getApprovedLeaveCached(resourceId, year);
-        } catch (Exception ex) {
-            log.warn("Cache failure, falling back to API for leave resource {} year {}: {}", resourceId, year, ex.getMessage());
-            return getApprovedLeaveInternal(resourceId, year);
-        }
+        return getApprovedLeaveInternal(resourceId, year);
     }
 
     private Set<LocalDate> getApprovedLeaveInternal(Long resourceId, int year) throws LeaveApiException {

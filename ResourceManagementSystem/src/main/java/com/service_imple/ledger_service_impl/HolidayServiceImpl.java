@@ -36,21 +36,9 @@ public class HolidayServiceImpl implements HolidayService {
     private static final long HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
-    @Cacheable(value = "holidays", key = "#year", unless = "#result == null || #result.isEmpty()")
-    @Retryable(value = {ResourceAccessException.class, HttpClientErrorException.class}, 
-               maxAttempts = 3, backoff = @org.springframework.retry.annotation.Backoff(delay = 1000, multiplier = 2))
-    public Set<LocalDate> getHolidaysCached(int year) throws HolidayApiException {
-        return getHolidaysInternal(year);
-    }
-
-    @Override
+    @Cacheable(value = "holidays", key = "#year")
     public Set<LocalDate> getHolidaysForYear(int year) throws HolidayApiException {
-        try {
-            return getHolidaysCached(year);
-        } catch (Exception ex) {
-            log.warn("Cache failure, falling back to API for holidays year {}: {}", year, ex.getMessage());
-            return getHolidaysInternal(year);
-        }
+        return getHolidaysInternal(year);
     }
 
     private Set<LocalDate> getHolidaysInternal(int year) throws HolidayApiException {

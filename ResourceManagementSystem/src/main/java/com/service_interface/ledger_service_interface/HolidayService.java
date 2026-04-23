@@ -5,10 +5,7 @@ import java.time.LocalDate;
 
 public interface HolidayService {
     
-    // Cached wrapper method (internal use)
-    Set<LocalDate> getHolidaysCached(int year) throws HolidayApiException;
     
-    // Safe public method (used by ledger calculation)
     Set<LocalDate> getHolidaysForYear(int year) throws HolidayApiException;
     
     boolean isApiHealthy();

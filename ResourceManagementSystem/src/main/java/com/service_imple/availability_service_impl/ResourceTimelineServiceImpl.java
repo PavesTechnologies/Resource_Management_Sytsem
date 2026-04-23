@@ -19,6 +19,7 @@ import com.repo.skill_repo.ResourceCertificateRepository;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
 import com.service_imple.external_api_impl.ExternalApiTokenService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +71,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "resource-timelines", key = "#startDate + '-' + #endDate + '-' + #designation + '-' + #location + '-' + #minExp + '-' + #maxExp + '-' + #employmentType + '-' + #status + '-' + #search + '-' + #allocationPercentage + '-' + #project + '-' + #page + '-' + #size")
     public ResourceTimelineApiResponse getResourceTimelineWindow(
             LocalDate startDate,
             LocalDate endDate,

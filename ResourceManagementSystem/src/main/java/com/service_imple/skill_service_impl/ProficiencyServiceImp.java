@@ -7,7 +7,6 @@ import com.repo.skill_repo.ProficiencyRepo;
 import com.service_interface.skill_service_interface.ProficiencyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +20,6 @@ public class ProficiencyServiceImp implements ProficiencyService {
     ProficiencyRepo proficiencyRepo;
 
     @Override
-    @CacheEvict(value = "proficiencyLevels", allEntries = true)
     public ResponseEntity<?> createProficiencyLevel(ProficiencyLevel proficiencyLevel) {
         log.info("Creating proficiency level: {}", proficiencyLevel.getProficiencyName());
         ProficiencyLevel proficiency = proficiencyRepo.save(proficiencyLevel);
@@ -30,7 +28,6 @@ public class ProficiencyServiceImp implements ProficiencyService {
     }
 
     @Override
-    @CacheEvict(value = "proficiencyLevels", allEntries = true)
     public ResponseEntity<?> updateProficiencyLevel(ProficiencyLevel proficiencyLevel, UUID id) {
         log.info("Updating proficiency level with ID: {}", id);
         proficiencyRepo.findById(id).orElseThrow(() -> ProficiencyExceptionHandler.notFound("Proficiency with the ID is Not found!"));
@@ -45,7 +42,6 @@ public class ProficiencyServiceImp implements ProficiencyService {
     }
 
     @Override
-    @CacheEvict(value = "proficiencyLevels", allEntries = true)
     public ResponseEntity<?> deleteProficiencyLevel(UUID id) {
         log.info("Deleting proficiency level with ID: {}", id);
         proficiencyRepo.findById(id).orElseThrow(() -> ProficiencyExceptionHandler.notFound("Proficiency with the ID is Not found!"));

@@ -21,6 +21,7 @@ import com.repo.bench_repo.ResourceCostRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -142,6 +143,7 @@ public class BenchService {
      * Get all bench resources for frontend display
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "bench-resources", key = "T(java.time.LocalDate).now().toString()")
     public List<BenchResourceDTO> getAllBenchResources() {
         log.debug("Fetching all bench resources for frontend");
         
@@ -473,6 +475,7 @@ public class BenchService {
      * Get bench resources for bench endpoint
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "bench-resources", key = "T(java.time.LocalDate).now().toString()")
     public List<BenchPoolResponseDTO> getBenchResources() {
 
         List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
@@ -493,6 +496,7 @@ public class BenchService {
      * Get pool resources for pool endpoint
      */
     @Transactional(readOnly = true)
+    @Cacheable(value = "bench-resources", key = "'pool-' + T(java.time.LocalDate).now().toString()")
     public List<BenchPoolResponseDTO> getPoolResources() {
 
         List<Object[]> poolResourcesData = benchDetectionRepository.findPoolResourcesWithDetails();
