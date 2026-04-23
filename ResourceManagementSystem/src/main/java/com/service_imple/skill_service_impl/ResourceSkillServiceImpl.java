@@ -25,6 +25,9 @@ import com.repo.skill_repo.SubSkillRepository;
 import com.repo.resource_repo.ResourceRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -47,6 +50,10 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", key = "#dto.resourceId"),
+        @CacheEvict(value = "resource-timelines", allEntries = true)
+    })
     public String addSkillsToResource(ResourceSkillBulkRequestDTO dto) {
         // Validate resource exists and is active before proceeding
         validateResourceExistsAndActive(dto.getResourceId());
@@ -362,6 +369,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     }
 
     @Override
+    @Cacheable(value = "resource-skills", key = "#resourceId")
     public List<ResourceSkill> getAllResourceSkills(Long resourceId) {
         return resourceSkillRepository.findByResourceId(resourceId);
     }
@@ -387,6 +395,10 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", key = "#dto.resourceId"),
+        @CacheEvict(value = "resource-timelines", allEntries = true)
+    })
     public ResourceSkill updateResourceSkill(UUID resourceSkillId, ResourceSkillRequestDTO dto) {
         // Find the existing resource skill
         ResourceSkill existingResourceSkill = resourceSkillRepository.findById(resourceSkillId)
@@ -504,6 +516,10 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true)
+    })
     public String deleteResourceSkill(UUID resourceSkillId) {
         // Find the existing resource skill
         ResourceSkill existingResourceSkill = resourceSkillRepository.findById(resourceSkillId)

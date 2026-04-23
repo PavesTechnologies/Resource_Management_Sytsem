@@ -26,8 +26,6 @@ public class ExternalApiTokenService {
     @Value("${external.auth.password}")
     private String password;
 
-    private String cachedToken;
-    private LocalDateTime tokenExpiry;
     private final RestTemplate restTemplate;
 
     public ExternalApiTokenService() {
@@ -35,101 +33,54 @@ public class ExternalApiTokenService {
     }
 
     public String getAccessToken() {
-        synchronized (this) {
-            // Return cached token if still valid (cache for 50 minutes)
-            if (cachedToken != null && tokenExpiry != null && tokenExpiry.isAfter(LocalDateTime.now().plusMinutes(10))) {
-                return cachedToken;
-            }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // Get new token
-            try {
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
+            Map<String, String> credentials = Map.of(
+                "email", email,
+                "password", password
+            );
 
-                Map<String, String> credentials = Map.of(
-                    "email", email,
-                    "password", password
-                );
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(credentials, headers);
+            
+            ResponseEntity<Map> response = restTemplate.exchange(
+                authUrl,
+                HttpMethod.POST,
+                request,
+                Map.class
+            );
 
-                HttpEntity<Map<String, String>> request = new HttpEntity<>(credentials, headers);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                String accessToken = (String) responseBody.get("access_token");
                 
-                ResponseEntity<Map> response = restTemplate.exchange(
-                    authUrl,
-                    HttpMethod.POST,
-                    request,
-                    Map.class
-                );
-
-                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                    Map<String, Object> responseBody = response.getBody();
-                    String accessToken = (String) responseBody.get("access_token");
-                    
-                    if (accessToken != null) {
-                        cachedToken = accessToken;
-                        tokenExpiry = LocalDateTime.now().plusMinutes(50); // Cache for 50 minutes
-                        return accessToken;
-                    }
+                if (accessToken != null) {
+                    return accessToken;
                 }
-            } catch (HttpClientErrorException e) {
-                logAuthenticationError(e);
-                if (e.getStatusCode().value() == 401) {
-                    // Authentication failed: Invalid credentials
-                } else if (e.getStatusCode().value() == 403) {
-                    // Authentication failed: Access forbidden
-                } else {
-                    // HTTP error during authentication
-                }
-            } catch (Exception e) {
-                // Failed to get access token
             }
-
-            return null;
+        } catch (HttpClientErrorException e) {
+            logAuthenticationError(e);
+            if (e.getStatusCode().value() == 401) {
+                // Authentication failed: Invalid credentials
+            } else if (e.getStatusCode().value() == 403) {
+                // Authentication failed: Access forbidden
+            } else {
+                // HTTP error during authentication
+            }
+        } catch (Exception e) {
+            // Failed to get access token
         }
+
+        return null;
     }
 
     public void invalidateToken() {
-        synchronized (this) {
-            cachedToken = null;
-            tokenExpiry = null;
-        }
+        // Token invalidation - no longer needed since tokens are not cached
     }
 
     private void logAuthenticationError(HttpClientErrorException e) {
         // Authentication error logged
     }
 
-    public Map<String, Object> getMonthlyUtilization(Long userId, Integer year, Integer month) {
-        try {
-            String accessToken = getAccessToken();
-            if (accessToken == null) {
-                return null;
-            }
-
-            String utilizationUrl = "http://13.202.204.204:5000/api/utilization/monthly/" + userId + "?year=" + year + "&month=" + month;
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(accessToken);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            
-            ResponseEntity<Map> response = restTemplate.exchange(
-                utilizationUrl,
-                HttpMethod.GET,
-                entity,
-                Map.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                return response.getBody();
-            }
-            
-        } catch (HttpClientErrorException e) {
-            // Log error but don't throw - we want to continue with null utilization
-        } catch (Exception e) {
-            // Log error but don't throw - we want to continue with null utilization
-        }
-        
-        return null;
-    }
 }

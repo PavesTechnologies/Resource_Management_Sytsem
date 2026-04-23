@@ -26,6 +26,9 @@ import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import com.service_imple.bench_service_impl.BenchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -57,6 +60,13 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true),
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> assignAllocation(AllocationRequestDTO allocationRequest) {
         try {
             validationService.validateRequest(allocationRequest);
@@ -104,6 +114,13 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Override
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true),
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> updateAllocation(UUID allocationId, AllocationRequestDTO allocationRequest) {
         try {
             Optional<ResourceAllocation> existingAllocation = allocationRepository.findById(allocationId);
@@ -368,15 +385,6 @@ public class AllocationServiceImpl implements AllocationService {
         return conflictService.getAllPendingConflicts();
     }
 
-    @Override
-    public void clearAllSkillCaches() {
-        skillGapService.clearAllSkillCaches();
-    }
-
-    @Override
-    public void clearProficiencyLevelsCache() {
-        skillGapService.clearProficiencyLevelsCache();
-    }
 
     @Override
     public ResponseEntity<?> getProjectResources(Long projectId) {
@@ -468,6 +476,13 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true),
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> closeAllocation(UUID allocationId, CloseAllocationDTO request) {
         Optional<ResourceAllocation> allocationOpt = allocationRepository.findById(allocationId);
         if (allocationOpt.isEmpty()) return ResponseEntity.notFound().build();
@@ -553,5 +568,13 @@ public class AllocationServiceImpl implements AllocationService {
             log.error("Error calculating remaining capacity for {}: {}", resourceId, e.getMessage());
             return 130;
         }
+    }
+
+    /**
+     * Cached service method wrapper for repository query
+     */
+    @Cacheable(value = "active-allocations", key = "#resourceId + '-' + #date")
+    public List<ResourceAllocation> findActiveAllocationsForResourceOnDate(Long resourceId, LocalDate date) {
+        return allocationRepository.findActiveAllocationsForResourceOnDate(resourceId, date);
     }
 }

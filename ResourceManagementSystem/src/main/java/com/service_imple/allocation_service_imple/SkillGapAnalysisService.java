@@ -11,8 +11,6 @@ import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.*;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -56,7 +54,7 @@ public class SkillGapAnalysisService {
 
         // Batch fetch all proficiency levels needed for this analysis
         Map<UUID, ProficiencyLevel> proficiencyLevelMap = getProficiencyLevelMap(resourceSkills, resourceSubSkills);
-        meterRegistry.counter("skill_gap_analysis_cache_hit_ratio", "cache", "proficiency_levels").increment();
+        meterRegistry.counter("skill_gap_analysis_proficiency_levels_loaded").increment();
 
         // Create lookup maps for O(1) access
         Map<UUID, ResourceSkill> resourceSkillMap = resourceSkills.stream()
@@ -409,9 +407,8 @@ public class SkillGapAnalysisService {
     }
 
     /**
-     * Get proficiency level map with caching
+     * Get proficiency level map
      */
-    @Cacheable(value = "proficiencyLevels", key = "'allActiveProficiencyLevels'")
     private Map<UUID, ProficiencyLevel> getProficiencyLevelMap(List<ResourceSkill> resourceSkills, List<ResourceSubSkill> resourceSubSkills) {
         // Collect all unique proficiency IDs needed
         Set<UUID> proficiencyIds = new HashSet<>();
@@ -422,7 +419,7 @@ public class SkillGapAnalysisService {
             return new HashMap<>();
         }
         
-        // Fetch all active proficiency levels (cached)
+        // Fetch all active proficiency levels
         List<ProficiencyLevel> allActiveProficiencyLevels = proficiencyLevelRepository.findAllActiveProficiencyLevels();
         
         // Filter to only needed proficiency levels and create map
@@ -431,21 +428,6 @@ public class SkillGapAnalysisService {
             .collect(Collectors.toMap(ProficiencyLevel::getProficiencyId, pl -> pl));
     }
 
-    /**
-     * Clear proficiency levels cache
-     */
-    @CacheEvict(value = "proficiencyLevels", allEntries = true)
-    public void clearProficiencyLevelsCache() {
-        // Cache cleared - next call will reload from database
-    }
-
-    /**
-     * Clear all skill-related caches
-     */
-    @CacheEvict(value = {"proficiencyLevels", "skills", "subSkills", "certificates"}, allEntries = true)
-    public void clearAllSkillCaches() {
-        // All skill-related caches cleared
-    }
 
     private boolean isActiveAndNotExpired(ResourceSkill resourceSkill) {
         return resourceSkill.getActiveFlag();

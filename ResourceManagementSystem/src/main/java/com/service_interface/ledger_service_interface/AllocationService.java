@@ -15,11 +15,7 @@ public interface AllocationService {
         private final int draftAllocationPercentage;
     }
     
-    // Cached wrapper methods (internal use)
-    AllocationData getAllocationDataCached(Long resourceId, LocalDate date);
-    AllocationData getAllocationDataCachedForMonth(Long resourceId, YearMonth yearMonth);
     
-    // Safe public methods (used by ledger calculation)
     AllocationData getAllocationDataForResourceAndDate(Long resourceId, LocalDate date);
     AllocationData getAllocationDataForResourceForMonth(Long resourceId, YearMonth yearMonth);
     
