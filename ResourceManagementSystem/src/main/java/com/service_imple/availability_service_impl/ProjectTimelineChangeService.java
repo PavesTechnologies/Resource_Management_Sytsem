@@ -1,7 +1,8 @@
 package com.service_imple.availability_service_impl;
 
+import com.entity.allocation_entities.ResourceAllocation;
 import com.repo.allocation_repo.AllocationRepository;
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,14 +19,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProjectTimelineChangeService {
 
-    private final AvailabilityCalculationService calculationService;
+    private final LedgerAvailabilityCalculationService calculationService;
     private final AllocationRepository allocationRepository;
 
     @Transactional
     public void handleProjectTimelineChange(Long projectId, LocalDateTime oldStartDate, LocalDateTime oldEndDate, 
                                            LocalDateTime newStartDate, LocalDateTime newEndDate) {
         try {
-            List<com.entity.allocation_entities.ResourceAllocation> allocations = allocationRepository.findByProject_PmsProjectId(projectId);
+            List<ResourceAllocation> allocations = allocationRepository.findByProject_PmsProjectId(projectId);
             
             if (allocations.isEmpty()) {
                 return;

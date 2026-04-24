@@ -1,5 +1,6 @@
 package com.entity.roleoff_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "role_off_event")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class RoleOffEvent {

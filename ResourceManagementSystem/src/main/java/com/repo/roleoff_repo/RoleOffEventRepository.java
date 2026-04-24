@@ -1,6 +1,6 @@
 package com.repo.roleoff_repo;
 
-import com.dto.roleoff_dto.ProjectRoleOffKPIDTO;
+import com.dto.roleoff_dto.RoleOffProjectDashboardKpiDataTransferObject;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity_enums.roleoff_enums.RoleOffReason;
@@ -191,7 +191,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     List<ResourceAllocation> findResources(Long projectId, Long managerId);
 
     @Query("""
-    SELECT new com.dto.roleoff_dto.ProjectRoleOffKPIDTO(
+    SELECT new com.dto.roleoff_dto.RoleOffProjectDashboardKpiDataTransferObject(
         (SELECT COUNT(ra) FROM ResourceAllocation ra 
          WHERE ra.project.pmsProjectId = :projectId 
          AND ra.allocationStatus = 'ACTIVE'),
@@ -205,7 +205,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
          AND roe.roleOffStatus = 'FULFILLED')
     )
 """)
-    ProjectRoleOffKPIDTO getProjectKPI(Long projectId);
+    RoleOffProjectDashboardKpiDataTransferObject getProjectKPI(Long projectId);
 
         /**
          * Find role-off events with effective date today for scheduler

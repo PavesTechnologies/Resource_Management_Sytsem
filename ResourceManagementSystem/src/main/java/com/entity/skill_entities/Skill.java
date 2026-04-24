@@ -1,6 +1,6 @@
 package com.entity.skill_entities;
 
-
+import com.audit.AuditEntityListener;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -22,6 +22,7 @@ import java.util.UUID;
                 )
         }
 )
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})

@@ -1,5 +1,6 @@
 package com.dto.client_dto;
 
+import com.entity.client_entities.ClientAssetSerial;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,7 +25,7 @@ public class SerialNumberDto {
      * @param serialNumber ClientAssetSerial entity
      * @return SerialNumberDto
      */
-    public static SerialNumberDto fromEntity(com.entity.client_entities.ClientAssetSerial serialNumber) {
+    public static SerialNumberDto fromEntity(ClientAssetSerial serialNumber) {
         return SerialNumberDto.builder()
                 .serialNumber(serialNumber.getSerialNumber())
                 .status(serialNumber.getStatus().name())

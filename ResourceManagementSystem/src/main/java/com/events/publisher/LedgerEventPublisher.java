@@ -3,7 +3,7 @@ package com.events.publisher;
 import com.events.ledger_events.AllocationChangedEvent;
 import com.events.ledger_events.BaseLedgerEvent;
 import com.events.ledger_events.ResourceCreatedEvent;
-import com.events.ledger_events.RoleOffEvent;
+import com.events.ledger_events.RoleOffLedgerEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -45,7 +45,7 @@ public class LedgerEventPublisher {
         }
     }
 
-    public void publishRoleOffEvent(RoleOffEvent event) {
+    public void publishRoleOffEvent(RoleOffLedgerEvent event) {
         try {
             if (event.getEventId() == null) {
                 event.setEventId(generateEventId());
@@ -139,8 +139,8 @@ public class LedgerEventPublisher {
         
         if (event instanceof AllocationChangedEvent) {
             publishAllocationChangedEvent((AllocationChangedEvent) event);
-        } else if (event instanceof RoleOffEvent) {
-            publishRoleOffEvent((RoleOffEvent) event);
+        } else if (event instanceof RoleOffLedgerEvent) {
+            publishRoleOffEvent((RoleOffLedgerEvent) event);
         } else if (event instanceof ResourceCreatedEvent) {
             publishResourceCreatedEvent((ResourceCreatedEvent) event);
         } else {

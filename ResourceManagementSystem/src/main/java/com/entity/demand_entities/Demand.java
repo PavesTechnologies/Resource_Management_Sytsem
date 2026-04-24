@@ -1,5 +1,6 @@
 package com.entity.demand_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.DeliveryRoleExpectation;
@@ -26,6 +27,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "demand")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class Demand {
