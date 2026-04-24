@@ -158,6 +158,20 @@
             <version>${debezium.version}</version>
         </dependency>
 
+        <!-- ShedLock core -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-spring</artifactId>
+            <version>5.13.0</version>
+        </dependency>
+
+        <!-- JDBC provider (since you're already using JdbcTemplate / JPA) -->
+        <dependency>
+            <groupId>net.javacrumbs.shedlock</groupId>
+            <artifactId>shedlock-provider-jdbc-template</artifactId>
+            <version>5.13.0</version>
+        </dependency>
+
 
 
     </dependencies>

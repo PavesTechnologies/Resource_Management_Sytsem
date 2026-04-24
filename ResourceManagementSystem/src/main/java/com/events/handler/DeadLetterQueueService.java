@@ -62,7 +62,7 @@ public class DeadLetterQueueService {
         }
     }
 
-    @Scheduled(fixedDelay = 15 * 60 * 1000) // Every 15 minutes
+//    @Scheduled(fixedDelay = 15 * 60 * 1000) // Every 15 minutes
     @Transactional
     public void processDeadLetterQueue() {
         try {
@@ -206,7 +206,7 @@ public class DeadLetterQueueService {
         }
     }
 
-    @Scheduled(cron = "0 0 2 * * ?") // Daily at 2 AM
+//    @Scheduled(cron = "0 0 2 * * ?") // Daily at 2 AM
     @Transactional
     public void cleanupOldEntries() {
         try {
