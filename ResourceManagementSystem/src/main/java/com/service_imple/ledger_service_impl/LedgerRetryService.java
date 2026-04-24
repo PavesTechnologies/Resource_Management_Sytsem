@@ -25,7 +25,7 @@ public class LedgerRetryService {
     private final DeadLetterQueueRepository deadLetterQueueRepository;
     private final AvailabilityCalculationService availabilityCalculationService;
 
-    @Scheduled(fixedRate = 900000)
+//    @Scheduled(fixedRate = 900000)
     @Transactional
     public void processFailedEvents() {
         try {
@@ -44,7 +44,7 @@ public class LedgerRetryService {
         }
     }
 
-    @Scheduled(fixedRate = 900000)
+//    @Scheduled(fixedRate = 900000)
     @Transactional
     public void processDeadLetterQueue() {
         try {
@@ -115,7 +115,7 @@ public class LedgerRetryService {
         return LocalDateTime.now().plusMinutes(delayMinutes);
     }
 
-    @Scheduled(cron = "0 0 2 * * ?")
+//    @Scheduled(cron = "0 0 2 * * ?")
     @Transactional
     public void cleanupOldDlqEntries() {
         try {
@@ -126,7 +126,7 @@ public class LedgerRetryService {
         }
     }
 
-    @Scheduled(cron = "0 30 2 * * ?")
+//    @Scheduled(cron = "0 30 2 * * ?")
     @Transactional
     public void cleanupOldEventLogs() {
         try {
