@@ -17,7 +17,7 @@ public class AllocationClosureScheduler {
 
     private final AllocationRepository allocationRepository;
 
-    @Scheduled(cron = "0 0 0 * * *") // Daily at midnight
+//    @Scheduled(cron = "0 0 0 * * *") // Daily at midnight
     @Transactional
     public void processAutoClosures() {
         try {
