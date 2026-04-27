@@ -206,10 +206,58 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         );
     }
 
+//    @Override
+//    public ResponseEntity<ApiResponse<?>> getProjectById(Long id) {
+//        Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
+//        ProjectDetailsDTO projectDetailsDTO = new ProjectDetailsDTO();
+//        projectDetailsDTO.setPmsProjectId(project.getPmsProjectId());
+//        projectDetailsDTO.setProjectName(project.getName());
+//        projectDetailsDTO.setClientId(project.getClientId());
+//        projectDetailsDTO.setClientName(project.getClient().getClientName());
+//        projectDetailsDTO.setProjectManagerId(project.getProjectManagerId());
+//        projectDetailsDTO.setDeliveryModel(project.getDeliveryModel());
+//        projectDetailsDTO.setPrimaryLocation(project.getPrimaryLocation());
+//        projectDetailsDTO.setRiskLevel(project.getRiskLevel());
+//        projectDetailsDTO.setStartDate(project.getStartDate());
+//        projectDetailsDTO.setEndDate(project.getEndDate());
+//        projectDetailsDTO.setProjectBudget(project.getProjectBudget());
+//        projectDetailsDTO.setProjectStatus(project.getProjectStatus());
+//        projectDetailsDTO.setLifecycleStage(project.getLifecycleStage());
+//        projectDetailsDTO.setHasOverlap(project.getHasOverlap());
+//        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", projectDetailsDTO));
+//    }
+
     @Override
     public ResponseEntity<ApiResponse<?>> getProjectById(Long id) {
-        Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new ProjectExceptionHandler(
+                        HttpStatus.NOT_FOUND, "404", "Project not Found!"
+                ));
+
+        ProjectDetailsDTO dto = mapToProjectDetailsDTO(project);
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(true, "Project fetched successfully", dto)
+        );
+    }
+
+    private ProjectDetailsDTO mapToProjectDetailsDTO(Project project) {
+        ProjectDetailsDTO dto = new ProjectDetailsDTO();
+        dto.setPmsProjectId(project.getPmsProjectId());
+        dto.setProjectName(project.getName());
+        dto.setClientId(project.getClientId());
+        dto.setClientName(project.getClient() != null ? project.getClient().getClientName() : null);
+        dto.setProjectManagerId(project.getProjectManagerId());
+        dto.setDeliveryModel(project.getDeliveryModel());
+        dto.setPrimaryLocation(project.getPrimaryLocation());
+        dto.setRiskLevel(project.getRiskLevel());
+        dto.setStartDate(project.getStartDate());
+        dto.setEndDate(project.getEndDate());
+        dto.setProjectBudget(project.getProjectBudget());
+        dto.setProjectStatus(project.getProjectStatus());
+        dto.setLifecycleStage(project.getLifecycleStage());
+        dto.setHasOverlap(project.getHasOverlap());
+        return dto;
     }
 
     @Override
