@@ -119,6 +119,7 @@ public class DemandServiceImpl implements DemandService {
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .demandCommitment(demand.getDemandCommitment())
                                 .demandStartDate(demand.getDemandStartDate())
                                 .demandEndDate(demand.getDemandEndDate())
                                 .priorityScore(calculatePriorityScore(demand))
@@ -253,6 +254,7 @@ public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long cre
                             .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
                             .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                             .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                            .demandCommitment(demand.getDemandCommitment())
                             .demandStartDate(demand.getDemandStartDate())
                             .demandEndDate(demand.getDemandEndDate())
                             .priorityScore(calculatePriorityScore(demand))
@@ -1391,6 +1393,7 @@ public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryMa
                                 .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : "UNKNOWN")
                                 .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : "UNKNOWN")
                                 .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .demandCommitment(demand.getDemandCommitment())
                                 .demandStartDate(demand.getDemandStartDate())
                                 .demandEndDate(demand.getDemandEndDate());
 

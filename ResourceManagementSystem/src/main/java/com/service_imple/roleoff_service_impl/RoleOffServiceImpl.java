@@ -1003,6 +1003,11 @@ public class RoleOffServiceImpl implements RoleOffService {
         List<ResourceAllocation> allocations = roleOffRepo.findResources(projectId, pmId);
         return buildResourcesResponse(allocations);
     }
+//
+//    @Override
+//    public ResponseEntity<?> getRoleOffKPI(Long projectId) {
+//        return null;
+//    }
 
     /**
      * Common method to build resources response with optimized data fetching
@@ -1098,11 +1103,43 @@ public class RoleOffServiceImpl implements RoleOffService {
                 ));
     }
 
-    @Override
-    public ResponseEntity<?> getRoleOffKPI(Long projectId) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off KPI retrived successfully!", roleOffRepo.getProjectKPI(projectId)));
-    }
+    public ResponseEntity<?> getRoleOffKPI(Long projectId, Long managerId) {
 
+        System.out.println("====== KPI DEBUG ======");
+        System.out.println("projectId received: " + projectId);
+        System.out.println("managerId received: " + managerId);
+
+        // Raw native query to confirm
+        List<Object[]> raw = roleOffRepo.debugCountByProject(projectId, managerId);
+        raw.forEach(r -> System.out.println("status=" + r[0] + " count=" + r[1]));
+
+        // 🔥 FIX: Get current active allocations first for consistent counting
+        List<ResourceAllocation> currentAllocations = roleOffRepo.findResources(projectId, managerId);
+        List<UUID> allocationIds = currentAllocations.stream()
+                .map(ResourceAllocation::getAllocationId)
+                .collect(Collectors.toList());
+        
+        Long active = roleOffRepo.countActive(projectId, managerId);
+        
+        // Count role-offs only for current active allocations
+        Long pending = 0L;
+        Long completed = 0L;
+        if (!allocationIds.isEmpty()) {
+            pending = roleOffRepo.countByAllocationIdsAndStatus(allocationIds, RoleOffStatus.PENDING);
+            completed = roleOffRepo.countByAllocationIdsAndStatus(allocationIds, RoleOffStatus.FULFILLED);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("activeAllocations", active);
+        data.put("pendingRoleOffs", pending);
+        data.put("totalRoleOff", completed);
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Role-off KPI retrieved successfully!",
+                "data", data
+        ));
+    }
     @Override
     public ResponseEntity<?> getRMRoleOffEvents(Long rmId) {
         List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffs(rmId, RoleOffStatus.PENDING);
@@ -1433,8 +1470,10 @@ public class RoleOffServiceImpl implements RoleOffService {
     @Override
     @Transactional
     public ResponseEntity<?> dlFulfill(UUID id, UserDTO userDTO) {
+
         RoleOffEvent event = roleOffRepo.findById(id)
-                .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
+                .orElseThrow(() -> new RuntimeException(
+                        "RoleOff event with ID " + id + " not found."));
 
         // RM must approve first
         if (event.getRmApproved() == null || !event.getRmApproved()) {
@@ -1448,18 +1487,23 @@ public class RoleOffServiceImpl implements RoleOffService {
         event.setDlApproved(true);
         event.setDlActionDate(LocalDate.now());
         event.setRoleOffStatus(RoleOffStatus.FULFILLED);
-        event.getAllocation().setAllocationEndDate(event.getEffectiveRoleOffDate());
 
-        // 🔥 IF DATE PASSED → EXECUTE IMMEDIATELY
-        if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
-            closeResourceAllocation(event);
-            roleOffRepo.save(event);
-            return ResponseEntity.ok("Executed immediately");
-        }
+        ResourceAllocation allocation = event.getAllocation();
 
-        // Wait for scheduler to execute on effective date
+        // ✅ ALWAYS set end date
+        allocation.setAllocationEndDate(event.getEffectiveRoleOffDate());
+
+        // 🔥 CRITICAL FIX → ALWAYS END allocation
+        allocation.setAllocationStatus(AllocationStatus.ENDED);
+
+        allocationRepository.save(allocation);
+
+        // Keep for ledger / async updates
+        closeResourceAllocation(event);
+
         roleOffRepo.save(event);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Fulfilled → waiting for execution on effective date", null));
+
+        return ResponseEntity.ok("Role-off fulfilled successfully");
     }
 
     @Override

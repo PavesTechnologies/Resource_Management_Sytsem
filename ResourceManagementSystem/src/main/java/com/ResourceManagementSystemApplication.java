@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @EnableScheduling
 @EnableAsync
-public class ResourceManagementSystemApplication {
+public class 	ResourceManagementSystemApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(ResourceManagementSystemApplication.class, args);
