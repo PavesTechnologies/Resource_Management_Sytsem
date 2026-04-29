@@ -25,6 +25,7 @@ import com.config.ProjectDemandRules;
 
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -262,8 +263,8 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> getProjectByClient(UUID id) {
-        List<Project> project =  projectRepository.findByClientId(id);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", project));
+        List<ProjectDetailsDTO> projects =  projectRepository.findByClientId(id).stream().map(this::mapToProjectDetailsDTO).toList();
+        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", projects));
     }
 
     @Override
