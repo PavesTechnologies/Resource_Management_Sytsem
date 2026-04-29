@@ -1,6 +1,6 @@
 package com.service_imple.availability_service_impl;
 
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import com.service_interface.availability_service_interface.AvailabilityTriggerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import java.time.YearMonth;
 @RequiredArgsConstructor
 public class AvailabilityTriggerServiceImpl implements AvailabilityTriggerService {
 
-    private final AvailabilityCalculationService calculationService;
+    private final LedgerAvailabilityCalculationService calculationService;
 
     @Override
     @Transactional

@@ -21,7 +21,7 @@ import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.service_interface.allocation_service_interface.AllocationService;
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import com.service_imple.bench_service_impl.BenchService;
 import lombok.RequiredArgsConstructor;
@@ -53,7 +53,7 @@ public class AllocationServiceImpl implements AllocationService {
     private final SkillGapAnalysisService skillGapService;
     private final AvailabilityLedgerAsyncServiceRefactored ledgerAsyncService;
     private final DemandSLARepository demandSLARepository;
-    private final AvailabilityCalculationService availabilityCalculationService;
+    private final LedgerAvailabilityCalculationService availabilityCalculationService;
     private final BenchService benchDetectionService;
     private final ResourceSkillUsageService resourceSkillUsageService;
     private final ResourceStateRepository resourceStateRepository;

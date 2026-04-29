@@ -1,5 +1,6 @@
 package com.entity.allocation_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.demand_entities.Demand;
 import com.entity.project_entities.Project;
 import com.entity.resource_entities.Resource;
@@ -32,6 +33,7 @@ import java.util.UUID;
                 )
         }
 )
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor

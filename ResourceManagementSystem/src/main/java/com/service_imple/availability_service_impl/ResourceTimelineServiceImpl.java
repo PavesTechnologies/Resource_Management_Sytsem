@@ -43,7 +43,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
         // Get all resources without date filtering - use full history mode with default parameters
         List<ResourceTimelineProjection> allResources = resourceTimelineRepository.getResourceTimelineFullHistory(
-                null, null, null, null, null, null, null, null, Integer.MAX_VALUE, 0, null);
+                null, null, null, null, null, null, null, null, Integer.MAX_VALUE, 0);
         
         return allResources.stream()
                 .map(this::convertToResourceTimelineDTO)
@@ -115,17 +115,17 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         if (startDate != null && endDate != null) {
             // Window Mode - use date-specific queries
             filteredData = resourceTimelineRepository.getResourceTimelineWindow(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project, size, page * size, status);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project, size, page * size);
             
             totalCount = resourceTimelineRepository.getResourceTimelineWindowCount(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, allocationPercentage, project, status);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project);
         } else {
             // Full History Mode - use date-agnostic queries
             filteredData = resourceTimelineRepository.getResourceTimelineFullHistory(
-                    designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project, size, page * size, status);
+                    designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project, size, page * size);
             
             totalCount = resourceTimelineRepository.getResourceTimelineFullHistoryCount(
-                    designation, location, employmentType, minExp, maxExp, allocationPercentage, project, status);
+                    designation, location, employmentType, minExp, maxExp, search, allocationPercentage, project);
         }
         
         // Fetch allocation timeline, current projects, current allocations, skills, and certifications for all resources
@@ -263,11 +263,11 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         if (startDate != null && endDate != null) {
             // Window Mode KPI
             kpiData = resourceTimelineRepository.getTimelineKPIWindow(
-                    startDate, endDate, designation, location, employmentType, minExp, maxExp, status);
+                    startDate, endDate, designation, location, employmentType, minExp, maxExp);
         } else {
             // Overall KPI
             kpiData = resourceTimelineRepository.getTimelineKPIFullHistory(
-                    designation, location, employmentType, minExp, maxExp, status);
+                    designation, location, employmentType, minExp, maxExp);
         }
         
         if (kpiData.isEmpty()) {

@@ -1,5 +1,6 @@
 package com.entity.client_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.client_enums.ContactRole;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -16,6 +17,7 @@ import java.util.UUID;
            @UniqueConstraint(columnNames = {"client_id", "email"}, 
                            name = "uk_client_contact_email")
        })
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
