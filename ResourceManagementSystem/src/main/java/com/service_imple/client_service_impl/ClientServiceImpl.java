@@ -398,4 +398,10 @@ public class ClientServiceImpl implements ClientService {
             return 0;
         }
     }
+
+    @Override
+    public ResponseEntity<ApiResponse<List<ActiveClientsPMSDTO>>> getActiveClientsPMS() {
+        List<ActiveClientsPMSDTO> clients = clientRepo.findByStatus(RecordStatus.ACTIVE).stream().map(c -> new ActiveClientsPMSDTO(c.getClientId(), c.getClientName())).toList();
+        return ResponseEntity.ok(new ApiResponse<>(true, "Fetched Active Clients Successfully", clients));
+    }
 }
