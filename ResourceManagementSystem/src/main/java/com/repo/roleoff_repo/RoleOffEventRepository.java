@@ -1,6 +1,6 @@
 package com.repo.roleoff_repo;
 
-import com.dto.roleoff_dto.ProjectRoleOffKPIDTO;
+import com.dto.roleoff_dto.RoleOffProjectDashboardKpiDataTransferObject;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity_enums.roleoff_enums.RoleOffReason;
