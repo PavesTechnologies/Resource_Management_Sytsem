@@ -3,8 +3,10 @@ package com.service_imple.client_service_impl;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
+import com.entity.project_entities.Project;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.project_enums.ProjectStatus;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientRepo;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.project_repo.ProjectEscalationRepo;
@@ -268,33 +270,43 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     public ResponseEntity<ApiResponse<Client>> updateClient(Client client) {
-        try {
-            return clientRepo.findById(client.getClientId())
-                    .map(existingClient -> {
-                        existingClient.setClientName(client.getClientName());
-                        existingClient.setClientType(client.getClientType());
-                        existingClient.setPriorityLevel(client.getPriorityLevel());
-                        existingClient.setDeliveryModel(client.getDeliveryModel());
-                        existingClient.setCountryName(client.getCountryName());
-                        existingClient.setDefaultTimezone(client.getDefaultTimezone());
-                        existingClient.setStatus(client.getStatus());
-                        existingClient.setSla(client.getSla());
-                        existingClient.setCompliance(client.getCompliance());
-                        existingClient.setEscalationContact(client.getEscalationContact());
-                        existingClient.setAssets(client.getAssets());
-                        existingClient.setUpdatedAt(LocalDateTime.now());
-                        
-                        Client updatedClient = clientRepo.save(existingClient);
-                        return ResponseEntity.ok(ApiResponse.<Client>success("Client updated successfully", updatedClient));
-                    })
-                    .orElse(ResponseEntity.badRequest()
-                            .body(ApiResponse.<Client>error("Client not found with ID: " + client.getClientId(), null)));
-
-        } catch (Exception e) {
-            log.error("Error updating client: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<Client>error("Failed to update client", null));
+        Client clientDetails = clientRepo.findById(client.getClientId()).orElseThrow(() -> new RuntimeException("Client not found"));
+        List<Project> project = projectRepository.findByClientId(clientDetails.getClientId());
+        for (Project project1 : project) {
+            if (project1.getProjectStatus().equals(ProjectStatus.ACTIVE)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.<Client>error("Client has active projects, cannot update", null));
+            }
         }
+        clientRepo.save(client);
+        return ResponseEntity.ok(ApiResponse.<Client>success("Client updated successfully", client));
+//        try {
+//            return clientRepo.findById(client.getClientId())
+//                    .map(existingClient -> {
+//                        existingClient.setClientName(client.getClientName());
+//                        existingClient.setClientType(client.getClientType());
+//                        existingClient.setPriorityLevel(client.getPriorityLevel());
+//                        existingClient.setDeliveryModel(client.getDeliveryModel());
+//                        existingClient.setCountryName(client.getCountryName());
+//                        existingClient.setDefaultTimezone(client.getDefaultTimezone());
+//                        existingClient.setStatus(client.getStatus());
+//                        existingClient.setSla(client.getSla());
+//                        existingClient.setCompliance(client.getCompliance());
+//                        existingClient.setEscalationContact(client.getEscalationContact());
+//                        existingClient.setAssets(client.getAssets());
+//                        existingClient.setUpdatedAt(LocalDateTime.now());
+//
+//                        Client updatedClient = clientRepo.save(existingClient);
+//                        return ResponseEntity.ok(ApiResponse.<Client>success("Client updated successfully", updatedClient));
+//                    })
+//                    .orElse(ResponseEntity.badRequest()
+//                            .body(ApiResponse.<Client>error("Client not found with ID: " + client.getClientId(), null)));
+//
+//        } catch (Exception e) {
+//            log.error("Error updating client: {}", e.getMessage());
+//            return ResponseEntity.internalServerError()
+//                    .body(ApiResponse.<Client>error("Failed to update client", null));
+//        }
     }
 
     @Override
@@ -302,6 +314,13 @@ public class ClientServiceImpl implements ClientService {
         try {
             return clientRepo.findById(id)
                     .map(client -> {
+                        // Check if client has associated projects
+                        Long projectCount = projectRepository.countTotalProjectsByClientId(id);
+                        if (projectCount > 0) {
+                            return ResponseEntity.badRequest()
+                                    .body(ApiResponse.<Void>error("Client has dependencies downstream. Cannot delete the Client.", null));
+                        }
+                        
                         clientRepo.delete(client);
                         return ResponseEntity.ok(ApiResponse.<Void>success("Client deleted successfully", null));
                     })
