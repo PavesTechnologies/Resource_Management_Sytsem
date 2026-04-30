@@ -44,10 +44,10 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         ApiResponse<ClientCompliance> apiResponse= new ApiResponse<>();
         if(Compliance!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Created Successfully",Compliance));
+            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Created Successfully",Compliance));
         }
         else {
-            throw new ClientExceptionHandler("Client Compliance creation Failed");
+            throw new ClientExceptionHandler("Client Pre-requisite creation Failed");
         }
     }
 
@@ -55,10 +55,10 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
     public ResponseEntity<ApiResponse<?>> updateClientCompliance(ClientCompliance clientCompliance) {
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         if(Compliance!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Updated Successfully",Compliance));
+            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Updated Successfully",Compliance));
         }
         else {
-            throw new ClientExceptionHandler("Clinet Compliance Update Failed");
+            throw new ClientExceptionHandler("Client Pre-requisite Update Failed");
         }
     }
 
@@ -66,10 +66,10 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
     public ResponseEntity<ApiResponse<?>> deleteClientCompliance(UUID id) {
         ClientCompliance Compliance=clientComplianceRepo.findById(id).get();
         if(Compliance!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Deleted Successfully",Compliance));
+            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Deleted Successfully",Compliance));
         }
         else {
-            throw new ClientExceptionHandler("Clinet Compliance Deletion Failed");
+            throw new ClientExceptionHandler("Client Pre-requisite Deletion Failed");
         }
     }
 
@@ -77,7 +77,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
     public ResponseEntity<ApiResponse<?>> getClientCompliance(UUID clientId) {
         List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Compliance"));
 
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Compliance Fentched Successfully",Compliance));
+        return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite fetched Successfully",Compliance));
 
     }
 }
