@@ -17,224 +17,260 @@ import java.util.UUID;
 @Repository
 public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID> {
 
-    
+
     RoleOffEvent findByAllocation_AllocationId(UUID allocationId);
-    
+
     List<RoleOffEvent> findByAllocation_AllocationIdIn(List<UUID> allocationIds);
 
-        /**
-         * Find role-off events by specific reason for analysis
-         */
-        List<RoleOffEvent> findByRoleOffReason(RoleOffReason roleOffReason);
+    /**
+     * Find role-off events by specific reason for analysis
+     */
+    List<RoleOffEvent> findByRoleOffReason(RoleOffReason roleOffReason);
 
-        /**
-         * Find role-off events within a date range for reporting
-         */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
-        List<RoleOffEvent> findByRoleOffDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * Find role-off events within a date range for reporting
+     */
+    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
+    List<RoleOffEvent> findByRoleOffDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-        /**
-         * Find role-off events by reason within date range for trend analysis
-         */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = :reason AND roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
-        List<RoleOffEvent> findByRoleOffReasonAndDateBetween(
-                @Param("reason") RoleOffReason reason,
-                @Param("startDate") LocalDate startDate,
-                @Param("endDate") LocalDate endDate
-        );
+    /**
+     * Find role-off events by reason within date range for trend analysis
+     */
+    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = :reason AND roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
+    List<RoleOffEvent> findByRoleOffReasonAndDateBetween(
+            @Param("reason") RoleOffReason reason,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
 
-        /**
-         * Count role-off events by reason for statistics
-         */
-        @Query("SELECT roe.roleOffReason, COUNT(roe) FROM RoleOffEvent roe WHERE roe.roleOffReason IS NOT NULL GROUP BY roe.roleOffReason")
-        List<Object[]> countByRoleOffReason();
+    /**
+     * Count role-off events by reason for statistics
+     */
+    @Query("SELECT roe.roleOffReason, COUNT(roe) FROM RoleOffEvent roe WHERE roe.roleOffReason IS NOT NULL GROUP BY roe.roleOffReason")
+    List<Object[]> countByRoleOffReason();
 
-        /**
-         * Get role-off trends by month and reason
-         */
-        @Query("SELECT FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate), roe.roleOffReason, COUNT(roe) " +
-                "FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
-                "GROUP BY FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate), roe.roleOffReason " +
-                "ORDER BY FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate)")
-        List<Object[]> getRoleOffTrendsByMonth(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * Get role-off trends by month and reason
+     */
+    @Query("SELECT FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate), roe.roleOffReason, COUNT(roe) " +
+            "FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate), roe.roleOffReason " +
+            "ORDER BY FUNCTION('YEAR', roe.effectiveRoleOffDate), FUNCTION('MONTH', roe.effectiveRoleOffDate)")
+    List<Object[]> getRoleOffTrendsByMonth(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-        /**
-         * Get role-off reasons by project for risk analysis
-         */
-        @Query("SELECT p.name, roe.roleOffReason, COUNT(roe) " +
-                "FROM RoleOffEvent roe JOIN roe.project p " +
-                "WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
-                "GROUP BY p.name, roe.roleOffReason " +
-                "ORDER BY COUNT(roe) DESC")
-        List<Object[]> getRoleOffReasonsByProject(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * Get role-off reasons by project for risk analysis
+     */
+    @Query("SELECT p.name, roe.roleOffReason, COUNT(roe) " +
+            "FROM RoleOffEvent roe JOIN roe.project p " +
+            "WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY p.name, roe.roleOffReason " +
+            "ORDER BY COUNT(roe) DESC")
+    List<Object[]> getRoleOffReasonsByProject(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-        /**
-         * Get role-off reasons by client for delivery risk assessment
-         */
-        @Query("SELECT c.clientName, roe.roleOffReason, COUNT(roe) " +
-                "FROM RoleOffEvent roe JOIN roe.project p JOIN p.client c " +
-                "WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
-                "GROUP BY c.clientName, roe.roleOffReason " +
-                "ORDER BY COUNT(roe) DESC")
-        List<Object[]> getRoleOffReasonsByClient(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * Get role-off reasons by client for delivery risk assessment
+     */
+    @Query("SELECT c.clientName, roe.roleOffReason, COUNT(roe) " +
+            "FROM RoleOffEvent roe JOIN roe.project p JOIN p.client c " +
+            "WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate " +
+            "GROUP BY c.clientName, roe.roleOffReason " +
+            "ORDER BY COUNT(roe) DESC")
+    List<Object[]> getRoleOffReasonsByClient(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-        /**
-         * Get performance-related role-offs for quality metrics
-         */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = 'PERFORMANCE' AND roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
-        List<RoleOffEvent> getPerformanceRelatedRoleOffs(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * Get performance-related role-offs for quality metrics
+     */
+    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason = 'PERFORMANCE' AND roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
+    List<RoleOffEvent> getPerformanceRelatedRoleOffs(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-        /**
-         * Find role-off events for a specific project
-         */
-        List<RoleOffEvent> findByProject_PmsProjectId(Long pmsProjectId);
+    /**
+     * Find role-off events for a specific project
+     */
+    List<RoleOffEvent> findByProject_PmsProjectId(Long pmsProjectId);
 
-        /**
-         * Find role-off events for a specific project (alternative method name for compatibility)
-         */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.project.pmsProjectId = :projectId")
-        List<RoleOffEvent> findByProject_ProjectId(@Param("projectId") Long projectId);
+    /**
+     * Find role-off events for a specific project (alternative method name for compatibility)
+     */
+    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.project.pmsProjectId = :projectId")
+    List<RoleOffEvent> findByProject_ProjectId(@Param("projectId") Long projectId);
 
-        /**
-         * Find role-off events for a specific resource
-         */
-        List<RoleOffEvent> findByResource_ResourceId(Long resourceId);
+    /**
+     * Find role-off events for a specific resource
+     */
+    List<RoleOffEvent> findByResource_ResourceId(Long resourceId);
 
-        /**
-         * Find role-off events with missing reason classification for governance
-         */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason IS NULL")
-        List<RoleOffEvent> findEventsWithMissingReason();
+    /**
+     * Find role-off events with missing reason classification for governance
+     */
+    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.roleOffReason IS NULL")
+    List<RoleOffEvent> findEventsWithMissingReason();
 
-        /**
-         * Count role-off events by reason for a specific client (via project)
-         */
-        @Query("SELECT roe.roleOffReason, COUNT(roe) FROM RoleOffEvent roe JOIN roe.project p JOIN p.client c WHERE c.clientId = :clientId AND roe.roleOffReason IS NOT NULL GROUP BY roe.roleOffReason")
-        List<Object[]> countByRoleOffReasonForClient(@Param("clientId") UUID clientId);
+    /**
+     * Count role-off events by reason for a specific client (via project)
+     */
+    @Query("SELECT roe.roleOffReason, COUNT(roe) FROM RoleOffEvent roe JOIN roe.project p JOIN p.client c WHERE c.clientId = :clientId AND roe.roleOffReason IS NOT NULL GROUP BY roe.roleOffReason")
+    List<Object[]> countByRoleOffReasonForClient(@Param("clientId") UUID clientId);
 
-        /**
-         * Count role-off events within a date range for trend analysis
-         */
-        @Query("SELECT COUNT(roe) FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
-        long countRoleOffsByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * Count role-off events within a date range for trend analysis
+     */
+    @Query("SELECT COUNT(roe) FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate BETWEEN :startDate AND :endDate")
+    long countRoleOffsByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-        /**
-         * Count open demand positions for a project (for delivery impact validation)
-         */
-        @Query("SELECT COUNT(d) FROM Demand d WHERE d.project.pmsProjectId = :projectId AND d.demandStatus IN ('REQUESTED', 'APPROVED')")
-        long countOpenDemandForProject(@Param("projectId") Long projectId);
+    /**
+     * Count open demand positions for a project (for delivery impact validation)
+     */
+    @Query("SELECT COUNT(d) FROM Demand d WHERE d.project.pmsProjectId = :projectId AND d.demandStatus IN ('REQUESTED', 'APPROVED')")
+    long countOpenDemandForProject(@Param("projectId") Long projectId);
 
-        /**
-         * Count active allocations for a project (for delivery impact validation)
-         */
-        @Query("SELECT COUNT(ra) FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId AND ra.allocationStatus = 'ACTIVE'")
-        long countActiveAllocationsForProject(@Param("projectId") Long projectId);
+    /**
+     * Count active allocations for a project (for delivery impact validation)
+     */
+    @Query("SELECT COUNT(ra) FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId AND ra.allocationStatus = 'ACTIVE'")
+    long countActiveAllocationsForProject(@Param("projectId") Long projectId);
 
-        /**
-         * Get required positions for a project (for delivery impact validation)
-         */
-        @Query("SELECT d.resourcesRequired FROM Demand d WHERE d.project.pmsProjectId = :projectId AND d.demandStatus IN ('REQUESTED', 'APPROVED')")
-        List<Integer> getRequiredPositionsForProject(@Param("projectId") Long projectId);
+    /**
+     * Get required positions for a project (for delivery impact validation)
+     */
+    @Query("SELECT d.resourcesRequired FROM Demand d WHERE d.project.pmsProjectId = :projectId AND d.demandStatus IN ('REQUESTED', 'APPROVED')")
+    List<Integer> getRequiredPositionsForProject(@Param("projectId") Long projectId);
 
-        /**
-         * Check if project is critical based on priority level
-         */
-        @Query("SELECT p.priorityLevel FROM Project p WHERE p.pmsProjectId = :projectId")
-        String getProjectPriorityLevel(@Param("projectId") Long projectId);
+    /**
+     * Check if project is critical based on priority level
+     */
+    @Query("SELECT p.priorityLevel FROM Project p WHERE p.pmsProjectId = :projectId")
+    String getProjectPriorityLevel(@Param("projectId") Long projectId);
 
-        /**
-         * Get current utilization percentage for a resource
-         */
-        @Query("SELECT ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
-        List<Integer> getCurrentUtilization(@Param("resourceId") Long resourceId);
+    /**
+     * Get current utilization percentage for a resource
+     */
+    @Query("SELECT ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
+    List<Integer> getCurrentUtilization(@Param("resourceId") Long resourceId);
 
-        /**
-         * Get total allocation percentage for a resource
-         */
-        @Query("SELECT COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
-        Integer getTotalCurrentUtilization(@Param("resourceId") Long resourceId);
+    /**
+     * Get total allocation percentage for a resource
+     */
+    @Query("SELECT COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
+    Integer getTotalCurrentUtilization(@Param("resourceId") Long resourceId);
 
-        /**
-         * Get total allocation percentage for multiple resources in batch
-         */
-        @Query("SELECT ra.resource.resourceId, COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE' GROUP BY ra.resource.resourceId")
-        List<Object[]> getTotalCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
+    /**
+     * Get total allocation percentage for multiple resources in batch
+     */
+    @Query("SELECT ra.resource.resourceId, COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE' GROUP BY ra.resource.resourceId")
+    List<Object[]> getTotalCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
 
-        /**
-         * Get current utilization percentage for multiple resources in batch
-         */
-        @Query("SELECT ra.resource.resourceId, ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE'")
-        List<Object[]> getCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
+    /**
+     * Get current utilization percentage for multiple resources in batch
+     */
+    @Query("SELECT ra.resource.resourceId, ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE'")
+    List<Object[]> getCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
 
-        /**
-         * Get resource availability percentage (100 - current utilization)
-         */
-        @Query("SELECT (100 - COALESCE(SUM(ra.allocationPercentage), 0)) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
-        Integer getResourceAvailability(@Param("resourceId") Long resourceId);
+    /**
+     * Get resource availability percentage (100 - current utilization)
+     */
+    @Query("SELECT (100 - COALESCE(SUM(ra.allocationPercentage), 0)) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
+    Integer getResourceAvailability(@Param("resourceId") Long resourceId);
 
     /**
      * Find role-off events with effective date today for scheduler
      */
 //    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate = :today AND roe.roleOffStatus = 'APPROVED'")
 //    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
-
     @Query("""
-    SELECT ra FROM ResourceAllocation ra
-    JOIN FETCH ra.resource r
-    LEFT JOIN FETCH ra.project p
-    LEFT JOIN FETCH p.client c
-    LEFT JOIN FETCH ra.demand d
-    WHERE p.pmsProjectId = :projectId
-    AND p.projectManagerId = :managerId
-    AND ra.allocationStatus = 'ACTIVE'
-    """)
+            SELECT ra FROM ResourceAllocation ra
+            JOIN FETCH ra.resource r
+            LEFT JOIN FETCH ra.project p
+            LEFT JOIN FETCH p.client c
+            LEFT JOIN FETCH ra.demand d
+            WHERE p.pmsProjectId = :projectId
+            AND p.projectManagerId = :managerId
+            AND ra.allocationStatus = 'ACTIVE'
+            """)
     List<ResourceAllocation> findResources(Long projectId, Long managerId);
 
     @Query("""
-    SELECT new com.dto.roleoff_dto.RoleOffProjectDashboardKpiDataTransferObject(
-        (SELECT COUNT(ra) FROM ResourceAllocation ra 
-         WHERE ra.project.pmsProjectId = :projectId 
-         AND ra.allocationStatus = 'ACTIVE'),
-
-        (SELECT COUNT(roe) FROM RoleOffEvent roe 
-         WHERE roe.project.pmsProjectId = :projectId 
-         AND roe.roleOffStatus <> 'FULFILLED'),
-
-        (SELECT COUNT(roe) FROM RoleOffEvent roe 
-         WHERE roe.project.pmsProjectId = :projectId 
-         AND roe.roleOffStatus = 'FULFILLED')
+    SELECT COUNT(ra.allocationId)
+    FROM ResourceAllocation ra
+    JOIN ra.project p
+    WHERE p.pmsProjectId = :projectId
+    AND p.projectManagerId = :managerId
+    AND ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE
+    AND NOT EXISTS (
+        SELECT roe FROM RoleOffEvent roe
+        WHERE roe.allocation = ra
+        AND roe.roleOffStatus IN (
+            com.entity_enums.roleoff_enums.RoleOffStatus.PENDING,
+            com.entity_enums.roleoff_enums.RoleOffStatus.APPROVED,
+            com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
+        )
     )
-""")
-    RoleOffProjectDashboardKpiDataTransferObject getProjectKPI(Long projectId);
+    """)
+    Long countActive(@Param("projectId") Long projectId, @Param("managerId") Long managerId);
 
-        /**
-         * Find role-off events with effective date today for scheduler
-         */
-        @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate <= :today AND roe.roleOffStatus = 'APPROVED'")
-        List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
-
-        @Query("""
-            SELECT r FROM RoleOffEvent r
-            JOIN FETCH r.allocation a
-            JOIN FETCH a.resource
-            JOIN FETCH r.project p
-            WHERE r.project.pmsProjectId IN (
-                SELECT p2.pmsProjectId FROM Project p2 WHERE p2.resourceManagerId = :rmId
-            )
-            AND r.roleOffStatus = :status
-        """)
-        List<RoleOffEvent> findPendingRoleOffs(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
     @Query("""
-            SELECT r FROM RoleOffEvent r
-            JOIN FETCH r.allocation a
-            JOIN FETCH a.resource
-            JOIN FETCH r.project p
-            WHERE r.project.pmsProjectId IN (
-                SELECT p2.pmsProjectId FROM Project p2 WHERE p2.deliveryOwnerId = :rmId
-            )
-            AND r.roleOffStatus = :status
-        """)
+    SELECT COUNT(roe.id)
+    FROM RoleOffEvent roe
+    JOIN roe.project p
+    WHERE p.pmsProjectId = :projectId
+    AND p.projectManagerId = :managerId
+    AND roe.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.PENDING
+    """)
+    Long countPending(@Param("projectId") Long projectId, @Param("managerId") Long managerId);
+
+
+    @Query("""
+    SELECT COUNT(roe.id)
+    FROM RoleOffEvent roe
+    JOIN roe.project p
+    WHERE p.pmsProjectId = :projectId
+    AND p.projectManagerId = :managerId
+    AND roe.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
+    """)
+    Long countCompleted(@Param("projectId") Long projectId, @Param("managerId") Long managerId);
+
+    @Query(value = """
+    SELECT roe.role_off_status, COUNT(*)
+    FROM role_off_event roe
+    JOIN project p ON roe.project_id = p.pms_project_id
+    WHERE p.pms_project_id = :projectId
+    AND p.project_manager_id = :managerId
+    GROUP BY roe.role_off_status
+    """, nativeQuery = true)
+    List<Object[]> debugCountByProject(
+            @Param("projectId") Long projectId,
+            @Param("managerId") Long managerId
+    );
+
+    /**
+     * Find role-off events with effective date today for scheduler
+     */
+    @Query("SELECT roe FROM RoleOffEvent roe WHERE roe.effectiveRoleOffDate <= :today AND roe.roleOffStatus = 'APPROVED'")
+    List<RoleOffEvent> findApprovedRoleOffsForToday(@Param("today") LocalDate today);
+
+    @Query("""
+                SELECT r FROM RoleOffEvent r
+                JOIN FETCH r.allocation a
+                JOIN FETCH a.resource
+                JOIN FETCH r.project p
+                WHERE r.project.pmsProjectId IN (
+                    SELECT p2.pmsProjectId FROM Project p2 WHERE p2.resourceManagerId = :rmId
+                )
+                AND r.roleOffStatus = :status
+            """)
+    List<RoleOffEvent> findPendingRoleOffs(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
+
+    @Query("""
+                SELECT r FROM RoleOffEvent r
+                JOIN FETCH r.allocation a
+                JOIN FETCH a.resource
+                JOIN FETCH r.project p
+                WHERE r.project.pmsProjectId IN (
+                    SELECT p2.pmsProjectId FROM Project p2 WHERE p2.deliveryOwnerId = :rmId
+                )
+                AND r.roleOffStatus = :status
+            """)
     List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
     List<RoleOffEvent> findByProject_PmsProjectIdAndProjectProjectManagerId(Long projectId, Long projectManagerId);
@@ -243,13 +279,13 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
      * Find role-off events with comprehensive filtering (4 filters only)
      */
     @Query("""
-        SELECT r FROM RoleOffEvent r
-        JOIN r.project p
-        WHERE r.effectiveRoleOffDate BETWEEN :startDate AND :endDate
-        AND (:projectIds IS NULL OR r.project.pmsProjectId IN :projectIds)
-        AND (:reasons IS NULL OR r.roleOffReasonEnum IN :reasons)
-        AND (:clientIds IS NULL OR p.clientId IN :clientIds)
-        """)
+            SELECT r FROM RoleOffEvent r
+            JOIN r.project p
+            WHERE r.effectiveRoleOffDate BETWEEN :startDate AND :endDate
+            AND (:projectIds IS NULL OR r.project.pmsProjectId IN :projectIds)
+            AND (:reasons IS NULL OR r.roleOffReasonEnum IN :reasons)
+            AND (:clientIds IS NULL OR p.clientId IN :clientIds)
+            """)
     List<RoleOffEvent> findFilteredRoleOffs(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
@@ -257,4 +293,15 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
             @Param("reasons") List<RoleOffReason> reasons,
             @Param("clientIds") List<UUID> clientIds
     );
+
+    /**
+     * Count role-offs by allocation IDs and status (for consistent KPI calculation)
+     */
+    @Query("""
+            SELECT COUNT(roe.id)
+            FROM RoleOffEvent roe
+            WHERE roe.allocation.allocationId IN :allocationIds
+            AND roe.roleOffStatus = :status
+            """)
+    Long countByAllocationIdsAndStatus(@Param("allocationIds") List<UUID> allocationIds, @Param("status") RoleOffStatus status);
 }
