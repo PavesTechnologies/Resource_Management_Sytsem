@@ -1664,10 +1664,118 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     }
 
     @Override
+    @Cacheable(value = "demands", key = "#demandId")
     public ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId) {
         try {
-            // Implementation for get demand by ID
-            return ResponseEntity.ok(ApiResponse.success("Demand retrieved successfully", null));
+            // Validate demand ID
+            if (demandId == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Demand ID is required"));
+            }
+
+            // Fetch demand from database
+            Optional<Demand> demandOpt = demandRepository.findById(demandId);
+            if (demandOpt.isEmpty()) {
+                return ResponseEntity.ok(ApiResponse.success("Demand not found", null));
+            }
+
+            Demand demand = demandOpt.get();
+
+            // Get SLA details for demand
+            Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+
+            DemandDetailNestedResponseDTO demandInfo = DemandDetailNestedResponseDTO.builder()
+                    // Basic Demand Info
+                    .demandId(demand.getDemandId())
+                    .demandName(demand.getDemandName())
+                    .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : null)
+                    .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : null)
+                    .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : null)
+                    .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : null)
+                    .demandStartDate(demand.getDemandStartDate())
+                    .demandEndDate(demand.getDemandEndDate())
+                    .minExp(demand.getMinExp())
+                    .resourceRequired(demand.getResourcesRequired())
+                    .allocation(demand.getAllocationPercentage())
+                    .demandJustification(demand.getDemandJustification())
+                    .priorityScore(calculatePriorityScore(demand))
+                    
+                    // Rejection Information
+                    .rejectionInfo(DemandDetailNestedResponseDTO.RejectionInfo.builder()
+                            .rejectionReason(null)
+                            .rmRejectionReason(demand.getRmRejectionReason())
+                            .dmRejectionReason(demand.getDmRejectionReason())
+                            .build())
+                    
+                    // Client Information
+                    .clientInfo(DemandDetailNestedResponseDTO.ClientInfo.builder()
+                            .clientName(demand.getProject().getClient() != null ?
+                                    demand.getProject().getClient().getClientName() : null)
+                            .build())
+                    
+                    // Project Information
+                    .projectInfo(DemandDetailNestedResponseDTO.ProjectInfo.builder()
+                            .projectId(demand.getProject().getPmsProjectId())
+                            .projectName(demand.getProject().getName())
+                            .deliveryModel(demand.getProject().getDeliveryModel() != null ? 
+                                    demand.getProject().getDeliveryModel().toString() : null)
+                            .location(demand.getProject().getPrimaryLocation())
+                            .lifecycle(demand.getProject().getLifecycleStage() != null ? 
+                                    demand.getProject().getLifecycleStage().toString() : null)
+                            .riskLevel(demand.getProject().getRiskLevel() != null ? 
+                                    demand.getProject().getRiskLevel().toString() : null)
+                            .staffingReadiness(demand.getProject().getStaffingReadinessStatus() != null ? 
+                                    demand.getProject().getStaffingReadinessStatus().toString() : null)
+                            .status(demand.getProject().getProjectStatus() != null ? 
+                                    demand.getProject().getProjectStatus().toString() : null)
+                            .build())
+                    
+                    // Skills and Requirements
+                    .DemandskillsRequirements(DemandDetailNestedResponseDTO.DemandskillsRequirements.builder()
+                            .requiredSkills(buildRequiredSkillsDTO(demand))
+                            .requiredCertificates(buildRequiredCertificatesDTO(demand))
+                            .deliveryRoleDetails(buildDeliveryRoleDetailsDTO(demand))
+                            .build())
+                    
+                    .build();
+
+            // Add SLA details if present
+            if (demandSLAOpt.isPresent()) {
+                DemandSLA demandSLA = demandSLAOpt.get();
+                LocalDate today = LocalDate.now();
+
+                DemandDetailNestedResponseDTO.SLAInfo slaInfo = DemandDetailNestedResponseDTO.SLAInfo.builder()
+                        .demandSlaId(demandSLA.getDemandSlaId())
+                        .slaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : null)
+                        .slaDurationDays(demandSLA.getSlaDurationDays())
+                        .warningThresholdDays(demandSLA.getWarningThresholdDays())
+                        .slaCreatedAt(demandSLA.getCreatedAt())
+                        .slaDueAt(demandSLA.getDueAt())
+                        .fulfillDate(demandSLA.getFulfillDate())
+                        .build();
+                
+                // Calculate SLA status
+                if(demandSLA.getActiveFlag() != null && demandSLA.getActiveFlag()) {
+                    if (demandSLA.getDueAt() != null) {
+                        if (today.isAfter(demandSLA.getDueAt())) {
+                            slaInfo.setSlaBreached(true);
+                            slaInfo.setOverdueDays(java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                            slaInfo.setRemainingDays(0L);
+                        } else {
+                            slaInfo.setSlaBreached(false);
+                            slaInfo.setRemainingDays(java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                            slaInfo.setOverdueDays(0L);
+                        }
+                    }
+                } else {
+                    slaInfo.setSlaBreached(false);
+                    slaInfo.setRemainingDays(0L);
+                    slaInfo.setOverdueDays(0L);
+                }
+                
+                demandInfo.setSlaInfo(slaInfo);
+            }
+
+            return ResponseEntity.ok(ApiResponse.success("Demand retrieved successfully", demandInfo));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Failed to retrieve demand: " + e.getMessage()));
         }
@@ -1682,5 +1790,57 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Failed to delete demand: " + e.getMessage()));
         }
+    }
+    
+    // Helper methods for building enhanced DTOs
+    
+    private List<DemandDetailNestedResponseDTO.SkillDTO> buildRequiredSkillsDTO(Demand demand) {
+        return demand.getRequiredSkills().stream()
+                .map(skill -> DemandDetailNestedResponseDTO.SkillDTO.builder()
+                        .skillName(skill.getName())
+                        .subSkillName(null)
+                        .proficiencyLevelName(null)
+                        .mandatoryFlag(null)
+                        .status(skill.getStatus())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    private List<DemandDetailNestedResponseDTO.CertificateDTO> buildRequiredCertificatesDTO(Demand demand) {
+        return demand.getRequiredCertificates().stream()
+                .map(certificate -> DemandDetailNestedResponseDTO.CertificateDTO.builder()
+                        .certificateName(certificate.getCertificateName())
+                        .issuingAuthority(certificate.getProviderName())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+    
+    private DemandDetailNestedResponseDTO.DeliveryRoleDetailDTO buildDeliveryRoleDetailsDTO(Demand demand) {
+        DeliveryRoleExpectation roleExpectation = demand.getRole();
+        return DemandDetailNestedResponseDTO.DeliveryRoleDetailDTO.builder()
+                .roleName(roleExpectation.getRole().getRoleName())
+                .roleSkills(buildRoleSkillsFromExpectation(roleExpectation))
+                .build();
+    }
+    
+    private List<DemandDetailNestedResponseDTO.RoleSkillDTO> buildRoleSkillsFromExpectation(DeliveryRoleExpectation roleExpectation) {
+        // Build skill details from the delivery role expectation
+        List<DemandDetailNestedResponseDTO.RoleSkillDTO> roleSkills = new java.util.ArrayList<>();
+        
+        // Add the main skill from the role expectation
+        DemandDetailNestedResponseDTO.RoleSkillDTO mainSkill = DemandDetailNestedResponseDTO.RoleSkillDTO.builder()
+                .skillName(roleExpectation.getSkill().getName())
+                .skillCategory(roleExpectation.getSkill().getCategory() != null ? 
+                        roleExpectation.getSkill().getCategory().getName(): null)
+                .subSkillName(roleExpectation.getSubSkill() != null ? 
+                        roleExpectation.getSubSkill().getName() : null)
+                .proficiencyLevelName(roleExpectation.getProficiencyLevel() != null ? 
+                        roleExpectation.getProficiencyLevel().getProficiencyName() : null)
+                .mandatoryFlag(roleExpectation.getMandatoryFlag())
+                .status(roleExpectation.getStatus())
+                .build();
+        
+        roleSkills.add(mainSkill);
+        return roleSkills;
     }
 }
