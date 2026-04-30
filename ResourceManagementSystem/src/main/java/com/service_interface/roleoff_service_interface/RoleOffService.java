@@ -63,7 +63,8 @@ public interface RoleOffService {
      */
     RoleOffEvent getRoleOffEventById(UUID id);
     public ResponseEntity<?> getResources(Long pmId, Long projectId);
-    public ResponseEntity<?> getRoleOffKPI(Long projectId);
+//    public ResponseEntity<?> getRoleOffKPI(Long projectId);
+    public ResponseEntity<?> getRoleOffKPI(Long projectId, Long managerId);
     ResponseEntity<?> getRMRoleOffEvents(Long rmId);
 
     // ========== SEPARATE APPROVE/REJECT METHODS FOR RESOURCE MANAGER ==========

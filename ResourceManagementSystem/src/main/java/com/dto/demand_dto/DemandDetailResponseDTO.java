@@ -1,6 +1,7 @@
 package com.dto.demand_dto;
 
 import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity_enums.demand_enums.DemandCommitment;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -34,6 +35,7 @@ public class DemandDetailResponseDTO {
     private String demandJustification;
     private String demandType;
     private String deliveryModel;
+    private DemandCommitment demandCommitment;
     private LocalDate demandStartDate;
     private LocalDate demandEndDate;
     private String rejectionReason;
