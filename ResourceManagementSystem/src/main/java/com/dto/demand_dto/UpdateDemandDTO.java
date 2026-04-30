@@ -18,6 +18,10 @@ public class UpdateDemandDTO {
 
     private DemandType demandType;
 
+    private String demandName;
+
+    private Double minExp;
+
     private Long outgoingResourceId;
 
     private String demandJustification;
