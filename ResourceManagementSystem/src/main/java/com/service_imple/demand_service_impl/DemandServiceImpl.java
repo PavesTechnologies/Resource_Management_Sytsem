@@ -1625,20 +1625,258 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.UPDATE)
     public ResponseEntity<ApiResponse<?>> updateDemand(UpdateDemandDTO dto) {
         try {
-            // Implementation for update demand
-            return ResponseEntity.ok(ApiResponse.success("Demand updated successfully", null));
+            // Validate input
+            if (dto == null || dto.getDemandId() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_INPUT",
+                        "Demand ID is required for update"
+                );
+            }
+
+            // Find existing demand
+            Demand demand = demandRepository.findById(dto.getDemandId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "DEMAND_NOT_FOUND",
+                            "Demand not found with ID: " + dto.getDemandId()
+                    ));
+
+            // Validate demand status for updates
+            if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot update fulfilled demand"
+                );
+            }
+
+            if (demand.getDemandStatus() == DemandStatus.CANCELLED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot update cancelled demand"
+                );
+            }
+
+            // Store original values for conflict detection
+            LocalDate originalStartDate = demand.getDemandStartDate();
+            LocalDate originalEndDate = demand.getDemandEndDate();
+            Integer originalAllocation = demand.getAllocationPercentage();
+
+            // Update fields if provided
+            if (dto.getDemandName() != null) {
+                demand.setDemandName(dto.getDemandName());
+            }
+            
+            if (dto.getDemandJustification() != null) {
+                demand.setDemandJustification(dto.getDemandJustification());
+            }
+            
+            if (dto.getDemandPriority() != null) {
+                demand.setDemandPriority(dto.getDemandPriority());
+            }
+            
+            if (dto.getDemandCommitment() != null) {
+                demand.setDemandCommitment(dto.getDemandCommitment());
+            }
+            
+            if (dto.getMinExp() != null) {
+                demand.setMinExp(dto.getMinExp());
+            }
+            
+            if (dto.getResourcesRequired() != null) {
+                demand.setResourcesRequired(dto.getResourcesRequired());
+            }
+            
+            if (dto.getAllocationPercentage() != null) {
+                demand.setAllocationPercentage(dto.getAllocationPercentage());
+            }
+            
+            if (dto.getDemandStartDate() != null) {
+                demand.setDemandStartDate(dto.getDemandStartDate());
+            }
+            
+            if (dto.getDemandEndDate() != null) {
+                demand.setDemandEndDate(dto.getDemandEndDate());
+            }
+            
+            if (dto.getDeliveryModel() != null) {
+                demand.setDeliveryModel(dto.getDeliveryModel());
+            }
+
+            // Validate date logic
+            if (demand.getDemandStartDate().isAfter(demand.getDemandEndDate())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_DATE_RANGE",
+                        "Start date cannot be after end date"
+                );
+            }
+
+            // Validate allocation percentage
+            if (demand.getAllocationPercentage() < 1 || demand.getAllocationPercentage() > 100) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_ALLOCATION",
+                        "Allocation percentage must be between 1 and 100"
+                );
+            }
+
+            // Validate resources required
+            if (demand.getResourcesRequired() < 1) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_RESOURCES_REQUIRED",
+                        "Resources required must be at least 1"
+                );
+            }
+
+            // Check for conflicts if timeline or allocation changed
+            boolean timelineChanged = !originalStartDate.equals(demand.getDemandStartDate()) || 
+                                   !originalEndDate.equals(demand.getDemandEndDate());
+            boolean allocationChanged = !originalAllocation.equals(demand.getAllocationPercentage());
+
+            if (timelineChanged || allocationChanged) {
+                detectAllocationConflicts(demand);
+                detectTimelineConflicts(demand);
+            }
+
+            // Save updated demand
+            Demand updatedDemand = demandRepository.save(demand);
+
+            // Map SLA if commitment changed to CONFIRMED
+            if (dto.getDemandCommitment() == DemandCommitment.CONFIRMED && 
+                demand.getDemandCommitment() == DemandCommitment.CONFIRMED) {
+                mapSlaToDemand(updatedDemand);
+            }
+
+            return ResponseEntity.ok(ApiResponse.success("Demand updated successfully", updatedDemand.getDemandId()));
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to update demand: " + e.getMessage()));
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to update demand: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId) {
         try {
-            // Implementation for get demand by project ID
-            return ResponseEntity.ok(ApiResponse.success("Demands retrieved successfully", null));
+            // Validate project ID
+            if (projectId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PROJECT_ID_REQUIRED",
+                        "Project ID is required"
+                );
+            }
+
+            // Validate project exists
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "PROJECT_NOT_FOUND",
+                            "Project not found with ID: " + projectId
+                    ));
+
+            // Fetch demands by project ID
+            List<Demand> demands = demandRepository.findByProject_PmsProjectId(projectId);
+
+            if (demands == null || demands.isEmpty()) {
+                return ResponseEntity.ok(ApiResponse.success("No demands found for this project", new ArrayList<>()));
+            }
+
+            // Format demands with SLA details
+            List<DemandDetailResponseDTO> formattedDemands = demands.stream()
+                    // Sort by priority score (descending)
+                    .sorted((d1, d2) -> Integer.compare(
+                            calculatePriorityScore(d2),
+                            calculatePriorityScore(d1)
+                    ))
+                    .map(demand -> {
+                        // Get SLA details for demand
+                        Optional<DemandSLA> demandSLAOpt = demandSLARepository
+                                .findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+
+                        DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
+                                .clientId(project.getClientId())
+                                .clientName(project.getClient() != null ?
+                                        project.getClient().getClientName() : "Unknown Client")
+                                .projectId(project.getPmsProjectId())
+                                .projectName(project.getName())
+                                .deliveryRole(demand.getRole().getRole().getRoleName())
+                                .demandJustification(demand.getDemandJustification())
+                                .minExp(demand.getMinExp())
+                                .resourceRequired(demand.getResourcesRequired())
+                                .allocation(demand.getAllocationPercentage())
+                                .demandId(demand.getDemandId())
+                                .demandName(demand.getDemandName() != null ? 
+                                        demand.getDemandName() : "Unnamed Demand")
+                                .demandPriority(demand.getDemandPriority() != null ? 
+                                        demand.getDemandPriority().toString() : "UNKNOWN")
+                                .demandStatus(demand.getDemandStatus() != null ? 
+                                        demand.getDemandStatus().toString() : "UNKNOWN")
+                                .demandType(demand.getDemandType() != null ? 
+                                        demand.getDemandType().toString() : "UNKNOWN")
+                                .deliveryModel(demand.getDeliveryModel() != null ? 
+                                        demand.getDeliveryModel().toString() : "UNKNOWN")
+                                .demandCommitment(demand.getDemandCommitment())
+                                .demandStartDate(demand.getDemandStartDate())
+                                .demandEndDate(demand.getDemandEndDate())
+                                .priorityScore(calculatePriorityScore(demand))
+                                .build();
+
+                        // Add SLA details if present
+                        if (demandSLAOpt.isPresent()) {
+                            DemandSLA demandSLA = demandSLAOpt.get();
+                            LocalDate today = LocalDate.now();
+
+                            demandInfo.setDemandSlaId(demandSLA.getDemandSlaId());
+                            demandInfo.setSlaType(demandSLA.getSlaType() != null ? 
+                                    demandSLA.getSlaType().toString() : "UNKNOWN");
+                            demandInfo.setSlaDurationDays(demandSLA.getSlaDurationDays());
+                            demandInfo.setWarningThresholdDays(demandSLA.getWarningThresholdDays());
+                            demandInfo.setSlaCreatedAt(demandSLA.getCreatedAt());
+                            demandInfo.setSlaDueAt(demandSLA.getDueAt());
+
+                            // Calculate SLA status
+                            if (demandSLA.getActiveFlag() != null && demandSLA.getActiveFlag()) {
+                                if (demandSLA.getDueAt() != null) {
+                                    if (today.isAfter(demandSLA.getDueAt())) {
+                                        demandInfo.setSlaBreached(true);
+                                        demandInfo.setOverdueDays(ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                                        demandInfo.setRemainingDays(0);
+                                    } else {
+                                        demandInfo.setSlaBreached(false);
+                                        demandInfo.setRemainingDays(ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                                        demandInfo.setOverdueDays(0);
+                                    }
+                                }
+                            } else {
+                                demandInfo.setFulfilledDate(demandSLA.getFulfillDate());
+                            }
+                        }
+
+                        return demandInfo;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Demands retrieved successfully",
+                    formattedDemands
+            ));
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to retrieve demands: " + e.getMessage()));
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to retrieve demands: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 
@@ -1647,10 +1885,219 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.CREATE)
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
         try {
-            // Implementation for create demand
-            return ResponseEntity.ok(ApiResponse.success("Demand created successfully", null));
+            // Validate input
+            if (dto == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_INPUT",
+                        "Demand data is required"
+                );
+            }
+
+            if (id == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "CREATED_BY_REQUIRED",
+                        "Created by user ID is required"
+                );
+            }
+
+            if (dto.getDeliveryRole() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DELIVERY_ROLE_REQUIRED",
+                        "Delivery role is required"
+                );
+            }
+
+            if (dto.getDemandStartDate() == null || dto.getDemandEndDate() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DATES_REQUIRED",
+                        "Start date and end date are required"
+                );
+            }
+
+            if (dto.getAllocationPercentage() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "ALLOCATION_REQUIRED",
+                        "Allocation percentage is required"
+                );
+            }
+
+            // Validate date logic
+            if (dto.getDemandStartDate().isAfter(dto.getDemandEndDate())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_DATE_RANGE",
+                        "Start date cannot be after end date"
+                );
+            }
+
+            // Validate allocation percentage
+            if (dto.getAllocationPercentage() < 1 || dto.getAllocationPercentage() > 100) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_ALLOCATION",
+                        "Allocation percentage must be between 1 and 100"
+                );
+            }
+
+            // Validate resources required
+            if (dto.getResourcesRequired() == null || dto.getResourcesRequired() < 1) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_RESOURCES_REQUIRED",
+                        "Resources required must be at least 1"
+                );
+            }
+
+            // Validate project exists
+            Project project = projectRepository.findById(dto.getProjectId())
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "PROJECT_NOT_FOUND",
+                            "Project not found with ID: " + dto.getProjectId()
+                    ));
+
+            // Validate role exists
+            DeliveryRoleExpectation role;
+            try {
+                role = roleRepository.findById(dto.getDeliveryRole())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "ROLE_NOT_FOUND",
+                                "Role not found with ID: " + dto.getDeliveryRole()
+                        ));
+            } catch (IllegalArgumentException e) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_ROLE_ID",
+                        "Invalid role ID format. Expected UUID format, received: " + dto.getDeliveryRole()
+                );
+            }
+
+            // Validate outgoing resource for replacement demands
+            Resource outgoingResource = null;
+            if (dto.getDemandType() == DemandType.REPLACEMENT) {
+                if (dto.getOutgoingResourceId() == null) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "OUTGOING_RESOURCE_REQUIRED",
+                            "Outgoing resource ID is required for replacement demands"
+                    );
+                }
+
+                outgoingResource = resourceRepository.findById(dto.getOutgoingResourceId())
+                        .orElseThrow(() -> new ProjectExceptionHandler(
+                                HttpStatus.NOT_FOUND,
+                                "OUTGOING_RESOURCE_NOT_FOUND",
+                                "Outgoing resource not found with ID: " + dto.getOutgoingResourceId()
+                        ));
+            }
+
+            // Validate business rules for demand type
+            if (dto.getDemandType() == DemandType.NET_NEW) {
+                if (dto.getDemandJustification() == null || dto.getDemandJustification().trim().length() < 20) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "INSUFFICIENT_JUSTIFICATION",
+                            "Net-New demand requires detailed business justification (minimum 20 characters)"
+                    );
+                }
+            }
+
+//            // Create temporary demand for conflict validation
+            Demand tempDemand = createTempDemand(dto, project, role);
+//
+//            // Run conflict validation
+//            ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse =
+//                    validateDemandConflicts(dto);
+//
+//            if (!validationResponse.getStatusCode().is2xxSuccessful()) {
+//                throw new ProjectExceptionHandler(
+//                        HttpStatus.BAD_REQUEST,
+//                        "VALIDATION_FAILED",
+//                        "Demand validation failed: " + validationResponse.getBody().getMessage()
+//                );
+//            }
+//
+//            DemandConflictValidationDTO validation = validationResponse.getBody().getData();
+            
+            // Check if demand has blocking conflicts
+//            if (validation != null && !validation.isCanSubmit()) {
+//                List<String> errorMessages = validation.getConflicts().stream()
+//                        .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
+//                        .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
+//                        .collect(java.util.stream.Collectors.toList());
+//
+//                throw new ProjectExceptionHandler(
+//                        HttpStatus.BAD_REQUEST,
+//                        "BLOCKING_CONFLICTS",
+//                        "Demand has blocking conflicts: " + String.join(", ", errorMessages)
+//                );
+//            }
+
+            // Check for exact duplicates
+            List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(dto.getProjectId());
+            for (Demand existing : existingDemands) {
+                if (isExactDuplicate(tempDemand, existing)) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.CONFLICT,
+                            "DUPLICATE_DEMAND",
+                            "Exact duplicate demand already exists"
+                    );
+                }
+            }
+
+            // Create and save the demand
+            Demand demand = new Demand();
+            demand.setProject(project);
+            demand.setRole(role);
+            demand.setDemandName(dto.getDemandName() != null ? dto.getDemandName() : 
+                    "Demand for " + role.getRole().getRoleName() + " in " + project.getName());
+            demand.setDemandType(dto.getDemandType());
+            demand.setDemandStatus(dto.getDemandStatus() != null ? dto.getDemandStatus() : DemandStatus.DRAFT);
+            demand.setDemandStartDate(dto.getDemandStartDate());
+            demand.setDemandEndDate(dto.getDemandEndDate());
+            demand.setAllocationPercentage(dto.getAllocationPercentage());
+            demand.setDeliveryModel(dto.getDeliveryModel() != null ? dto.getDeliveryModel() : DeliveryModel.ONSITE);
+            demand.setDemandJustification(dto.getDemandJustification());
+            demand.setDemandPriority(dto.getDemandPriority() != null ? dto.getDemandPriority() : PriorityLevel.MEDIUM);
+            demand.setMinExp(dto.getMinExp() != null ? dto.getMinExp() : 0.0);
+            demand.setResourcesRequired(dto.getResourcesRequired());
+            demand.setDemandCommitment(dto.getDemandCommitment() != null ? dto.getDemandCommitment() : DemandCommitment.SOFT);
+            demand.setRequiresAdditionalApproval(dto.getRequiresAdditionalApproval() != null ? dto.getRequiresAdditionalApproval() : false);
+            demand.setOutgoingResource(outgoingResource);
+            demand.setCreatedAt(LocalDateTime.now());
+            demand.setCreatedBy(id);
+
+            // Save demand
+            Demand savedDemand = demandRepository.save(demand);
+
+            // Map SLA if commitment is CONFIRMED
+            if (savedDemand.getDemandCommitment() == DemandCommitment.CONFIRMED) {
+                mapSlaToDemand(savedDemand);
+            }
+
+            // Run conflict detection and resolution
+//            detectAllocationConflicts(savedDemand);
+//            detectTimelineConflicts(savedDemand);
+//            detectSkillConflicts(savedDemand);
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Demand created successfully", 
+                    savedDemand.getDemandId()
+            ));
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to create demand: " + e.getMessage()));
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to create demand: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 
@@ -1659,10 +2106,81 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.DELETE)
     public ResponseEntity<ApiResponse<?>> deleteDemand(UUID demandId) {
         try {
-            // Implementation for delete demand
-            return ResponseEntity.ok(ApiResponse.success("Demand deleted successfully", null));
+            // Validate demand ID
+            if (demandId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DEMAND_ID_REQUIRED",
+                        "Demand ID is required"
+                );
+            }
+
+            // Find existing demand
+            Demand demand = demandRepository.findById(demandId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "DEMAND_NOT_FOUND",
+                            "Demand not found with ID: " + demandId
+                    ));
+
+            // Validate demand status for deletion
+            if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot delete fulfilled demand"
+                );
+            }
+
+            if (demand.getDemandStatus() == DemandStatus.APPROVED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot delete approved demand. Cancel it instead."
+                );
+            }
+
+            // Check for existing allocations
+            List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demandId);
+            if (!allocations.isEmpty()) {
+                long activeAllocations = allocations.stream()
+                        .filter(alloc -> alloc.getAllocationStatus() != AllocationStatus.ENDED &&
+                                alloc.getAllocationStatus() != AllocationStatus.CANCELLED)
+                        .count();
+
+                if (activeAllocations > 0) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "HAS_ACTIVE_ALLOCATIONS",
+                            "Cannot delete demand with active allocations. End allocations first."
+                    );
+                }
+            }
+
+            // Archive SLA if exists
+            Optional<DemandSLA> demandSLAOpt = demandSLARepository
+                    .findByDemand_DemandIdAndActiveFlagTrue(demandId);
+            if (demandSLAOpt.isPresent()) {
+                DemandSLA demandSLA = demandSLAOpt.get();
+                demandSLA.setActiveFlag(false);
+                demandSLARepository.save(demandSLA);
+            }
+
+            // Delete the demand
+            demandRepository.delete(demand);
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Demand deleted successfully", 
+                    demandId
+            ));
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to delete demand: " + e.getMessage()));
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to delete demand: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 
@@ -1788,10 +2306,89 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     @CacheEvict(value = "demands", allEntries = true)
     public ResponseEntity<ApiResponse<?>> deleteDemand(UUID demandId, UserDTO userDTO) {
         try {
-            // Implementation for delete demand
-            return ResponseEntity.ok(ApiResponse.success("Demand deleted successfully", null));
+            // Validate demand ID
+            if (demandId == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DEMAND_ID_REQUIRED",
+                        "Demand ID is required"
+                );
+            }
+
+            // Validate user
+            if (userDTO == null || userDTO.getId() == null) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "USER_REQUIRED",
+                        "User information is required for authorization"
+                );
+            }
+
+            // Find existing demand
+            Demand demand = demandRepository.findById(demandId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "DEMAND_NOT_FOUND",
+                            "Demand not found with ID: " + demandId
+                    ));
+
+            // Validate demand status for deletion
+            if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot delete fulfilled demand"
+                );
+            }
+
+            if (demand.getDemandStatus() == DemandStatus.APPROVED) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot delete approved demand. Cancel it instead."
+                );
+            }
+
+            // Check for existing allocations
+            List<ResourceAllocation> allocations = allocationRepository.findByDemand_DemandId(demandId);
+            if (!allocations.isEmpty()) {
+                long activeAllocations = allocations.stream()
+                        .filter(alloc -> alloc.getAllocationStatus() != AllocationStatus.ENDED &&
+                                alloc.getAllocationStatus() != AllocationStatus.CANCELLED)
+                        .count();
+
+                if (activeAllocations > 0) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "HAS_ACTIVE_ALLOCATIONS",
+                            "Cannot delete demand with active allocations. End allocations first."
+                    );
+                }
+            }
+
+            // Archive SLA if exists
+            Optional<DemandSLA> demandSLAOpt = demandSLARepository
+                    .findByDemand_DemandIdAndActiveFlagTrue(demandId);
+            if (demandSLAOpt.isPresent()) {
+                DemandSLA demandSLA = demandSLAOpt.get();
+                demandSLA.setActiveFlag(false);
+                demandSLARepository.save(demandSLA);
+            }
+            // Delete the demand
+            demandRepository.delete(demand);
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Demand deleted successfully", 
+                    demandId
+            ));
+
+        } catch (ProjectExceptionHandler e) {
+            return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to delete demand: " + e.getMessage()));
+            return new ResponseEntity<>(
+                    ApiResponse.error("Failed to delete demand: " + e.getMessage()),
+                    HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
     
