@@ -1,18 +1,47 @@
 package com.service_interface.roleoff_service_interface;
 
 import com.dto.centralised_dto.UserDTO;
-import com.dto.roleoff_dto.RoleOffRequestDTO;
+import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
 import com.dto.resource_dto.ResourceRemovalDTO;
 import com.entity.roleoff_entities.RoleOffEvent;
+import com.entity_enums.roleoff_enums.RoleOffReason;
 import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface RoleOffService {
     public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO);
+    
+    /**
+     * Create manual replacement demand for a role-off event
+     */
+    void manualReplacement(UUID roleOffEventId, Long userId);
+
+    /**
+     * Simple delivery impact validation before role-off confirmation
+     * Returns warning message if risks identified, null if no risks
+     */
+    String validateDeliveryImpact(com.dto.allocation_dto.RoleOffRequestDTO dto);
+
+    /**
+     * Gets description for a specific role-off reason
+     */
+    String getReasonDescription(RoleOffReason reason);
+
+    /**
+     * Calculate simple resource impact level (LOW/MEDIUM/HIGH)
+     * Returns impact level based on utilization, project criticality, and skill factors
+     */
+    String calculateResourceImpactLevel(Long resourceId, Long projectId);
+
+    /**
+     * Get impact score details (for debugging or detailed view)
+     */
+    Map<String, Object> getImpactScoreDetails(Long resourceId, Long projectId);
 
     /**
      * Get all role-off events with complete details
@@ -106,4 +135,9 @@ public interface RoleOffService {
      * Removes a resource from the organization with notice period handling
      */
     String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long userId);
+
+    /**
+     * Logs role-off decision for audit purposes
+     */
+    void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean confirmed, Long userId);
 }

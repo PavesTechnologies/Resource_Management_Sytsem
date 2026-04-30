@@ -1,5 +1,6 @@
 package com.entity.client_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.centralised_enums.DeliveryModel;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RecordStatus;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "client")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

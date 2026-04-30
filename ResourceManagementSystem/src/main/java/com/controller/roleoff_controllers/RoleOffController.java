@@ -1,7 +1,7 @@
 package com.controller.roleoff_controllers;
 
+import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.dto.centralised_dto.UserDTO;
-import com.dto.roleoff_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
 import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity_enums.roleoff_enums.RoleOffReason;
@@ -31,7 +31,7 @@ public class RoleOffController {
             @CurrentUser UserDTO userDTO)
     {
 
-        return roleOffServiceImpl.roleOff(dto, userDTO.getId());
+        return roleOffServiceImpl.roleOffByRM(dto, userDTO);
     }
 
     @PostMapping("/{id}/manual-replacement")

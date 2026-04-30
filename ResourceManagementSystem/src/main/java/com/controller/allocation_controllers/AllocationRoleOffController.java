@@ -4,7 +4,7 @@ import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.dto.resource_dto.ResourceRemovalDTO;
 import com.security.CurrentUser;
-import com.service_imple.roleoff_service_impl.RoleOffServiceImpl;
+import com.service_interface.roleoff_service_interface.RoleOffService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,7 +18,7 @@ import java.util.UUID;
 @RequestMapping("/allocation/role-off")
 @RequiredArgsConstructor
 public class AllocationRoleOffController {
-    private final RoleOffServiceImpl roleOffService;
+    private final RoleOffService roleOffService;
 
     @PostMapping
     public ResponseEntity<?> roleOff(
@@ -42,7 +42,7 @@ public class AllocationRoleOffController {
         roleOffService.logRoleOffDecision(dto, warning, confirmed, userDTO.getId());
         
         // 4. Proceed with role-off after confirmation
-        roleOffService.roleOff(dto, userDTO.getId());
+        roleOffService.roleOffByRM(dto, userDTO);
         return ResponseEntity.ok("Role-off processed successfully");
     }
 

@@ -1,5 +1,7 @@
 package com.service_imple.demand_service_impl;
 
+import com.audit.Audit;
+import com.audit.AuditConstants;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
@@ -1051,7 +1053,7 @@ public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
             demands = demandRepository.findAll();
         }
 
-        DashboardKpiDTO kpi = DashboardKpiDTO.builder()
+        DemandDashboardKpiDTO kpi = DemandDashboardKpiDTO.builder()
                 .total(0L)
                 .active(0L)
                 .fulfilled(0L)
@@ -1620,6 +1622,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     @Override
     @CacheEvict(value = "demands", allEntries = true)
+    @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.UPDATE)
     public ResponseEntity<ApiResponse<?>> updateDemand(UpdateDemandDTO dto) {
         try {
             // Implementation for update demand
@@ -1641,12 +1644,25 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     @Override
     @CacheEvict(value = "demands", allEntries = true)
+    @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.CREATE)
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
         try {
             // Implementation for create demand
             return ResponseEntity.ok(ApiResponse.success("Demand created successfully", null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Failed to create demand: " + e.getMessage()));
+        }
+    }
+
+
+    @CacheEvict(value = "demands", allEntries = true)
+    @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.DELETE)
+    public ResponseEntity<ApiResponse<?>> deleteDemand(UUID demandId) {
+        try {
+            // Implementation for delete demand
+            return ResponseEntity.ok(ApiResponse.success("Demand deleted successfully", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to delete demand: " + e.getMessage()));
         }
     }
 

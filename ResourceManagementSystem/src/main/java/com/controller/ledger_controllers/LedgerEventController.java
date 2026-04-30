@@ -5,9 +5,9 @@ import com.dto.ledger_dto.LedgerResourceCreatedRequest;
 import com.dto.ledger_dto.LedgerRoleOffEventRequest;
 import com.events.ledger_events.AllocationChangedEvent;
 import com.events.ledger_events.ResourceCreatedEvent;
-import com.events.ledger_events.RoleOffEvent;
+import com.events.ledger_events.RoleOffLedgerEvent;
 import com.events.publisher.EventPublishingService;
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,7 +32,7 @@ import java.time.LocalDateTime;
 public class LedgerEventController {
 
     private final EventPublishingService eventPublishingService;
-    private final AvailabilityCalculationService availabilityCalculationService;
+    private final LedgerAvailabilityCalculationService availabilityCalculationService;
 
     @PostMapping("/allocation-changed")
     @Operation(summary = "Trigger allocation changed event", description = "Publishes an allocation changed event to trigger ledger recalculation")
@@ -91,7 +91,7 @@ public class LedgerEventController {
             @RequestBody LedgerRoleOffEventRequest request) {
         
         try {
-            RoleOffEvent event = RoleOffEvent.builder()
+            RoleOffLedgerEvent event = RoleOffLedgerEvent.builder()
                     .eventId(request.getEventId())
                     .allocationId(request.getAllocationId())
                     .resourceId(request.getResourceId())

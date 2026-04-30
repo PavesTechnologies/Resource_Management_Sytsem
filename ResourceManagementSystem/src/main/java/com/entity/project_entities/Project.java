@@ -1,5 +1,6 @@
 package com.entity.project_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.client_entities.Client;
 import com.entity_enums.project_enums.ProjectDataStatus;
 import com.entity_enums.project_enums.ProjectStage;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "project")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class Project {
