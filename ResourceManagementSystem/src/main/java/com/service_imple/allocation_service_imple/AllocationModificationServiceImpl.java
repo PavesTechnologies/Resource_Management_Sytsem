@@ -294,8 +294,8 @@ public class AllocationModificationServiceImpl implements AllocationModification
         // Implementation depends on your user role system
         // This is a placeholder - adjust based on your actual role checking logic
         return user.getRoles() != null && 
-               (user.getRoles().contains("RESOURCE-MANAGER") || 
-                user.getRoles().contains("ADMIN") ||
+               (user.getRoles().contains("Resource_Manager") || 
+                user.getRoles().contains("Admin") ||
                 user.getRoles().contains("RM"));
     }
 

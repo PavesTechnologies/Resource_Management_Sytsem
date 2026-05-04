@@ -30,7 +30,7 @@ public class ResourceStateController {
      * Use this to fix "No value present" errors for individual resources
      */
     @PostMapping("/fix/{resourceId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> fixResourceState(
             @PathVariable Long resourceId,
             @CurrentUser UserDTO user) {
@@ -69,7 +69,7 @@ public class ResourceStateController {
      * Use this to fix system-wide resource state issues
      */
     @PostMapping("/initialize-all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> initializeAllResourceStates(@CurrentUser UserDTO user) {
         
         log.info("User {} requested to initialize all resource states", user.getName());
@@ -98,7 +98,7 @@ public class ResourceStateController {
      * Check if a resource has a proper state record
      */
     @GetMapping("/status/{resourceId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> getResourceStateStatus(@PathVariable Long resourceId) {
         
         try {

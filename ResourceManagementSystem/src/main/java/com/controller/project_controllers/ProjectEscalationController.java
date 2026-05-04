@@ -20,7 +20,7 @@ public class ProjectEscalationController {
     private final ProjectEscalationService projectEscalationService;
 
     @PostMapping("/escalations/save")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> addEscalationContact(@Valid @RequestBody ProjectEscalationResponseDTO escalation) {
         return projectEscalationService.addEscalationContact(escalation);
     }
