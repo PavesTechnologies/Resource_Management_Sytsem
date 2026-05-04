@@ -38,7 +38,7 @@ public class ClientSLAController {
     }
 
     @GetMapping("/clientSLA/{clientId}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<List<ClientSLA>>> getClientSLA(@PathVariable UUID clientId) {
         return clientSLAService.getClientSLA(clientId);
     }

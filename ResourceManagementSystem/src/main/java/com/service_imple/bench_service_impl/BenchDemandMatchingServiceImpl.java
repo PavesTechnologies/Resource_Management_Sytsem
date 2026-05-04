@@ -165,7 +165,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         LocalDate today = LocalDate.now();
         
         // Resource must be in bench status and allocation allowed
-        if (!resource.getAllocationAllowed() || !resource.getActiveFlag()) {
+        if (!resource.getActiveFlag()) {
             return 0; // Not available for allocation
         }
         
@@ -230,7 +230,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         LocalDate today = LocalDate.now();
         
         // Check resource basic availability
-        if (!resource.getAllocationAllowed() || !resource.getActiveFlag()) {
+        if (!resource.getActiveFlag()) {
             return "Not Available";
         }
         

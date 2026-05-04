@@ -3,9 +3,7 @@ package com.entity.resource_entities;
 import com.audit.AuditEntityListener;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.resource_enums.EmploymentType;
-import com.entity_enums.resource_enums.WorkforceCategory;
 import com.entity_enums.resource_enums.WorkingMode;
-import com.security.CurrentUser;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -36,21 +34,21 @@ public class Resource {
     @Column(name = "employment_type", nullable = false, length = 20)
     private EmploymentType employmentType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "workforce_category", nullable = false, length = 20)
-    private WorkforceCategory workforceCategory;
+//    @Enumerated(EnumType.STRING)
+//    @Column(name = "workforce_category", nullable = false, length = 20)
+//    private WorkforceCategory workforceCategory;
 
-    @Column(name = "vendor_name", length = 200)
-    private String vendorName;
+//    @Column(name = "vendor_name", length = 200)
+//    private String vendorName;
 
-    @Column(name = "grade", length = 50)
-    private String grade;
+//    @Column(name = "grade", length = 50)
+//    private String grade;
 
     @Column(name = "designation", length = 200)
     private String designation;
 
-    @Column(name = "primary_skill_group", length = 100)
-    private String primarySkillGroup;
+//    @Column(name = "primary_skill_group", length = 100)
+//    private String primarySkillGroup;
 
     @Column(name = "working_location", length = 100)
     private String workingLocation;
@@ -81,8 +79,8 @@ public class Resource {
     @Column(name = "notice_end_date")
     private LocalDate noticeEndDate;
 
-    @Column(name = "allocation_allowed", nullable = false)
-    private Boolean allocationAllowed;
+//    @Column(name = "allocation_allowed", nullable = false)
+//    private Boolean allocationAllowed;
 
     @Column(name = "annual_ctc", precision = 15, scale = 2)
     private BigDecimal annualCtc;
@@ -96,8 +94,8 @@ public class Resource {
     @Column(name = "hourly_cost_rate", precision = 10, scale = 2)
     private BigDecimal hourlyCostRate;
 
-    @Column(name = "status_effective_from")
-    private LocalDate statusEffectiveFrom;
+//    @Column(name = "status_effective_from")
+//    private LocalDate statusEffectiveFrom;
 
     @Column(name = "changed_by")
     private Long changedBy;
@@ -105,8 +103,8 @@ public class Resource {
     @Column(name = "changed_at")
     private LocalDateTime changedAt;
 
-    @Column(name = "hr_last_synced_at")
-    private LocalDateTime hrLastSyncedAt;
+//    @Column(name = "hr_last_synced_at")
+//    private LocalDateTime hrLastSyncedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

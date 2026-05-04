@@ -37,7 +37,7 @@ public class ClientContactController {
     }
 
     @GetMapping("/clientContact/{clientId}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getClientContact(@PathVariable UUID clientId) {
         return clientContactService.getClientContact(clientId);
     }

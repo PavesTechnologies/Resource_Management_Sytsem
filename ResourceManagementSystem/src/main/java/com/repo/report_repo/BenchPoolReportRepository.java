@@ -39,8 +39,7 @@ public interface BenchPoolReportRepository extends JpaRepository<Resource, Long>
         LEFT JOIN ResourceSkill rs ON r.resourceId = rs.resourceId AND rs.activeFlag = true
         LEFT JOIN Skill s ON rs.skill.id = s.id
         WHERE r.employmentStatus IN ('ACTIVE', 'ON_NOTICE')
-        AND r.allocationAllowed = true
-        AND (
+                AND (
             ra.allocationId IS NULL 
             OR ra.allocationEndDate < CURRENT_DATE
             OR ra.allocationStatus != 'ACTIVE'
@@ -75,8 +74,7 @@ public interface BenchPoolReportRepository extends JpaRepository<Resource, Long>
         LEFT JOIN ResourceSkill rs ON r.resourceId = rs.resourceId AND rs.activeFlag = true
         LEFT JOIN Skill s ON rs.skill.id = s.id
         WHERE r.employmentStatus IN ('ACTIVE', 'ON_NOTICE')
-        AND r.allocationAllowed = true
-        AND (
+                AND (
             ra.allocationId IS NULL 
             OR ra.allocationEndDate < CURRENT_DATE
             OR ra.allocationStatus != 'ACTIVE'
