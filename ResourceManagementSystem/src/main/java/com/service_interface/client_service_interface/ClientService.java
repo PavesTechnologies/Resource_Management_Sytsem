@@ -27,5 +27,6 @@ public interface ClientService {
 
     ResponseEntity<ApiResponse<Client>> updateClient(Client client);
     ResponseEntity<ApiResponse<Void>> deleteClient(UUID id);
+    ResponseEntity<ApiResponse<List<ActiveClientsPMSDTO>>> getActiveClientsPMS();
 
 }

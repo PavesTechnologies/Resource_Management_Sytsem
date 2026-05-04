@@ -1,5 +1,6 @@
 package com.entity.resource_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.resource_enums.EmploymentType;
 import com.entity_enums.resource_enums.WorkforceCategory;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "resource")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "fieldHandler"})
 public class Resource {

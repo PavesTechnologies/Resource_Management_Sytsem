@@ -4,7 +4,7 @@ import com.entity.ledger_entities.LedgerEventLog;
 import com.entity_enums.ledger_enums.EventStatus;
 import com.events.ledger_events.*;
 import com.repo.ledger_repo.LedgerEventLogRepository;
-import com.service_imple.ledger_service_impl.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
@@ -22,7 +22,7 @@ import java.util.Optional;
 public class LedgerEventHandler {
 
     private final LedgerEventLogRepository eventLogRepository;
-    private final AvailabilityCalculationService availabilityCalculationService;
+    private final LedgerAvailabilityCalculationService availabilityCalculationService;
     private final DeadLetterQueueService deadLetterQueueService;
 
     @EventListener
@@ -53,7 +53,7 @@ public class LedgerEventHandler {
     @EventListener
     @Async("ledgerEventHandlerExecutor")
     @Transactional
-    public void handleRoleOffEvent(RoleOffEvent event) {
+    public void handleRoleOffEvent(RoleOffLedgerEvent event) {
         try {
             if (!processEventWithIdempotency(event)) {
                 return;
@@ -149,8 +149,8 @@ public class LedgerEventHandler {
     private String generateEventHash(BaseLedgerEvent event) {
         if (event instanceof AllocationChangedEvent) {
             return ((AllocationChangedEvent) event).generateEventHash();
-        } else if (event instanceof RoleOffEvent) {
-            return ((RoleOffEvent) event).generateEventHash();
+        } else if (event instanceof RoleOffLedgerEvent) {
+            return ((RoleOffLedgerEvent) event).generateEventHash();
         } else if (event instanceof ResourceCreatedEvent) {
             return ((ResourceCreatedEvent) event).generateEventHash();
         }

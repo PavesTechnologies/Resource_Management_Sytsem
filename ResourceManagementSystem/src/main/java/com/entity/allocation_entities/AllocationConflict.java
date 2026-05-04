@@ -1,5 +1,6 @@
 package com.entity.allocation_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import jakarta.persistence.*;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "allocation_conflicts")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

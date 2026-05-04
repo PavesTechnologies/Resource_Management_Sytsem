@@ -7,7 +7,7 @@ import com.events.publisher.LedgerEventPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.repo.ledger_repo.DeadLetterQueueRepository;
 import com.repo.ledger_repo.LedgerEventLogRepository;
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,7 +28,7 @@ public class DeadLetterQueueService {
     private final LedgerEventLogRepository ledgerEventLogRepository;
     private final ObjectMapper objectMapper;
     private final LedgerEventPublisher ledgerEventPublisher;
-    private final AvailabilityCalculationService availabilityCalculationService;
+    private final LedgerAvailabilityCalculationService availabilityCalculationService;
 
     private static final int MAX_RETRY_COUNT = 3;
     private static final int RETRY_DELAY_MINUTES = 15;

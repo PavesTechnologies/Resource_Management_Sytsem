@@ -1,5 +1,6 @@
 package com.entity.allocation_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.allocation_enums.AllocationModificationStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "allocation_modification_request")
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor

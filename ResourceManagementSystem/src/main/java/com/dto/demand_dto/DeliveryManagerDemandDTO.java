@@ -1,5 +1,6 @@
 package com.dto.demand_dto;
 
+import com.entity_enums.demand_enums.DemandCommitment;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -35,6 +36,7 @@ public class DeliveryManagerDemandDTO {
     private String demandJustification;
     private String demandType;
     private String deliveryModel;
+    private DemandCommitment demandCommitment;
     private LocalDate demandStartDate;
     private LocalDate demandEndDate;
 

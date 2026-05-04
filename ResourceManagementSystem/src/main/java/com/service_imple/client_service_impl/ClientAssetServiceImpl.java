@@ -6,6 +6,7 @@ import com.dto.client_dto.SerialNumberDto;
 import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientAsset;
 import com.entity.client_entities.ClientAssetSerial;
+import com.entity_enums.client_enums.AssetCategory;
 import com.entity_enums.client_enums.AssetStatus;
 import com.repo.client_repo.ClientAssetAssignmentRepo;
 import com.repo.client_repo.ClientAssetRepository;
@@ -133,7 +134,7 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             ClientAsset asset = ClientAsset.builder()
                     .client(client)
                     .assetName(assetName)
-                    .assetCategory(com.entity_enums.client_enums.AssetCategory.valueOf(assetCategory.toUpperCase()))
+                    .assetCategory(AssetCategory.valueOf(assetCategory.toUpperCase()))
                     .assetType(assetType)
                     .description(description)
                     .quantity(quantity)

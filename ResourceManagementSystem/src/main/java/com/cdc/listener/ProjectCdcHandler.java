@@ -6,6 +6,7 @@ import com.cdc.util.CdcValueConverter;
 import com.cdc.util.DebeziumChangeDetector;
 import com.cdc.util.ReflectionUtil;
 import com.entity.project_entities.Project;
+import com.entity_enums.project_enums.ProjectDataStatus;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.repo.client_repo.ClientRepo;
 import com.repo.project_repo.ProjectRepository;
@@ -252,31 +253,31 @@ public class ProjectCdcHandler {
     /**
      * Calculate data status based on mandatory fields
      */
-    private com.entity_enums.project_enums.ProjectDataStatus calculateDataStatus(Project project) {
+    private ProjectDataStatus calculateDataStatus(Project project) {
         // Check mandatory fields
         if (project.getName() == null || project.getName().trim().isEmpty()) {
-            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+            return ProjectDataStatus.PENDING;
         }
         
         if (project.getClientId() == null) {
-            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+            return ProjectDataStatus.PENDING;
         }
         
         // Optional: Check other important fields that might be considered mandatory
         if (project.getProjectManagerId() == null) {
-            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+            return ProjectDataStatus.PENDING;
         }
         
         if (project.getStartDate() == null) {
-            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+            return ProjectDataStatus.PENDING;
         }
         
         if (project.getEndDate() == null) {
-            return com.entity_enums.project_enums.ProjectDataStatus.PENDING;
+            return ProjectDataStatus.PENDING;
         }
         
         // All mandatory fields are present
-        return com.entity_enums.project_enums.ProjectDataStatus.COMPLETE;
+        return ProjectDataStatus.COMPLETE;
     }
     
     /**

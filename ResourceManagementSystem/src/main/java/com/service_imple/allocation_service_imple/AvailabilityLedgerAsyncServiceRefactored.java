@@ -5,7 +5,7 @@ import com.entity.ledger_entities.DeadLetterQueue;
 import com.entity_enums.ledger_enums.DLQStatus;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.ledger_repo.DeadLetterQueueRepository;
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class AvailabilityLedgerAsyncServiceRefactored {
 
     private final AllocationRepository allocationRepository;
-    private final AvailabilityCalculationService availabilityCalculationService;
+    private final LedgerAvailabilityCalculationService availabilityCalculationService;
     private final DeadLetterQueueRepository deadLetterQueueRepository;
     private final ObjectMapper objectMapper;
 

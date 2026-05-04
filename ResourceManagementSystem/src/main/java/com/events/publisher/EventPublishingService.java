@@ -3,7 +3,7 @@ package com.events.publisher;
 import com.events.ledger_events.AllocationChangedEvent;
 import com.events.ledger_events.BaseLedgerEvent;
 import com.events.ledger_events.ResourceCreatedEvent;
-import com.events.ledger_events.RoleOffEvent;
+import com.events.ledger_events.RoleOffLedgerEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.annotation.Retryable;
@@ -36,7 +36,7 @@ public class EventPublishingService {
 
     @Async("ledgerEventExecutor")
     @Retryable(retryFor = {Exception.class}, maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public CompletableFuture<Void> publishRoleOffAsync(RoleOffEvent event) {
+    public CompletableFuture<Void> publishRoleOffAsync(RoleOffLedgerEvent event) {
         try {
             ledgerEventPublisher.publishRoleOffEvent(event);
             return CompletableFuture.completedFuture(null);
@@ -80,7 +80,7 @@ public class EventPublishingService {
         ledgerEventPublisher.publishAllocationChangedEvent(event);
     }
 
-    public void publishRoleOffSync(RoleOffEvent event) {
+    public void publishRoleOffSync(RoleOffLedgerEvent event) {
         ledgerEventPublisher.publishRoleOffEvent(event);
     }
 

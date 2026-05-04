@@ -6,7 +6,7 @@ import com.entity_enums.ledger_enums.DLQStatus;
 import com.entity_enums.ledger_enums.EventStatus;
 import com.repo.ledger_repo.LedgerEventLogRepository;
 import com.repo.ledger_repo.DeadLetterQueueRepository;
-import com.service_interface.ledger_service_interface.AvailabilityCalculationService;
+import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,7 +23,7 @@ public class LedgerRetryService {
 
     private final LedgerEventLogRepository ledgerEventLogRepository;
     private final DeadLetterQueueRepository deadLetterQueueRepository;
-    private final AvailabilityCalculationService availabilityCalculationService;
+    private final LedgerAvailabilityCalculationService availabilityCalculationService;
 
 //    @Scheduled(fixedRate = 900000)
     @Transactional

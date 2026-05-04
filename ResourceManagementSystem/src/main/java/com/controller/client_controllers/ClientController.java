@@ -83,4 +83,10 @@ public class ClientController {
     public ResponseEntity<ApiResponse<Void>> deleteClient(@PathVariable UUID clientId) {
         return clientService.deleteClient(clientId);
     }
+
+    @GetMapping("/get-active-clients")
+    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER','PROJECT-MANAGER')")
+    public ResponseEntity<ApiResponse<List<ActiveClientsPMSDTO>>> getActiveClientsPMS() {
+        return clientService.getActiveClientsPMS();
+    }
 }
