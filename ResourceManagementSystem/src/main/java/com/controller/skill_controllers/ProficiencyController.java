@@ -18,25 +18,25 @@ public class ProficiencyController {
     ProficiencyService proficiencyService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<?> createProficiencyLevel(@RequestBody ProficiencyLevel proficiencyLevel) {
         return proficiencyService.createProficiencyLevel(proficiencyLevel);
     }
 
     @PutMapping("/update/{proficiencyId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<?> updateProficiencyLevel(@RequestBody ProficiencyLevel proficiencyLevel, @PathVariable UUID proficiencyId) {
         return proficiencyService.updateProficiencyLevel(proficiencyLevel, proficiencyId);
     }
 
     @GetMapping("/get-all-proficiency-levels")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager')")
     public ResponseEntity<?> getAllProficiencyLevels() {
         return proficiencyService.getAllProficiencyLevels();
     }
 
     @DeleteMapping("/delete/{proficiencyId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<?> deleteProficiencyLevel(@PathVariable UUID proficiencyId) {
         return proficiencyService.deleteProficiencyLevel(proficiencyId);
     }

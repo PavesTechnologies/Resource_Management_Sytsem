@@ -106,7 +106,7 @@ public class EnumController {
             "Client",
             "Defines status of resource enablement assignments",
             new String[]{"REQUESTED", "ASSIGNED", "IN_USE", "REJECTED", "RETURNED", "LOST"},
-            "REQUESTED: Resource Manager requested enablement, ASSIGNED: Client/Admin assigned it, IN_USE: Asset is currently being used, REJECTED: Client rejected the request, RETURNED: Asset has been returned, LOST: Asset is lost"
+            "REQUESTED: Resource_Manager requested enablement, ASSIGNED: Client/Admin assigned it, IN_USE: Asset is currently being used, REJECTED: Client rejected the request, RETURNED: Asset has been returned, LOST: Asset is lost"
         ));
 
         enums.add(new EnumSpecificationDTO(
@@ -212,7 +212,7 @@ public class EnumController {
             "EmploymentStatus",
             "Resource",
             "Defines employment status of resources",
-            new String[]{"ACTIVE", "ON_NOTICE", "EXITED"},
+            new String[]{"ACTIVE", "ON_NOTICE", "EXITED", "PROBATION", "RESIGNED", "TERMINATED", "ABSCONDED"},
             "Used for resource employment tracking"
         ));
 
@@ -220,24 +220,16 @@ public class EnumController {
             "EmploymentType",
             "Resource",
             "Defines types of employment",
-            new String[]{"FTE", "CONTRACTOR", "VENDOR"},
+            new String[]{"CONTRACTOR", "FULL_TIME", "PART_TIME", "INTERN", "FREELANCE"},
             "Used for employment classification"
-        ));
-
-        enums.add(new EnumSpecificationDTO(
-            "WorkforceCategory",
-            "Resource",
-            "Defines workforce categories",
-            new String[]{"INTERNAL", "VENDOR", "SHADOW"},
-            "Used for workforce classification"
         ));
 
         enums.add(new EnumSpecificationDTO(
             "WorkingMode",
             "Resource",
             "Defines working modes for resources",
-            new String[]{"WFO", "WFH", "HYBRID"},
-            "WFO: Work From Office, WFH: Work From Home, HYBRID: Combination of both"
+            new String[]{"REMOTE", "OFFICE", "HYBRID"},
+            "REMOTE: Work from remote location, OFFICE: Work from office, HYBRID: Combination of both"
         ));
 
         // Skill Enums

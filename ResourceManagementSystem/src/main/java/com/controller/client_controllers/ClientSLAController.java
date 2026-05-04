@@ -20,25 +20,25 @@ public class ClientSLAController {
     ClientSLAService clientSLAService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<ClientSLA>> createClientSLA(@RequestBody ClientSLA clientSLA) {
         return clientSLAService.createClientSLA(clientSLA);
     }
 
     @PutMapping("/update")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<ClientSLA>> updateClientSLA(@RequestBody ClientSLA clientSLA) {
         return clientSLAService.updateClientSLA(clientSLA);
     }
 
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<ClientSLA>> deleteClientSLA(@PathVariable UUID id) {
         return clientSLAService.deleteClientSLA(id);
     }
 
     @GetMapping("/clientSLA/{clientId}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<ClientSLA>>> getClientSLA(@PathVariable UUID clientId) {
         return clientSLAService.getClientSLA(clientId);
     }

@@ -29,7 +29,6 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
           AND a.allocationStatus = 'ACTIVE'
         WHERE a.id IS NULL
           AND r.activeFlag = true
-          AND r.allocationAllowed = true
           AND (r.noticeStartDate IS NULL OR r.noticeStartDate > :currentDate)
         """)
     List<Long> findBenchEligibleResources(@Param("currentDate") LocalDate currentDate);
@@ -139,21 +138,6 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         ORDER BY rs.benchStartDate ASC
         """)
     List<Resource> findBenchResourcesByReason(@Param("benchReason") BenchReason benchReason);
-
-    /**
-     * Get bench resources by skill group
-     */
-    @Query("""
-        SELECT r
-        FROM ResourceState rs
-        JOIN Resource r ON rs.resourceId = r.resourceId
-        WHERE rs.stateType = 'BENCH'
-          AND rs.currentFlag = true
-          AND r.activeFlag = true
-          AND r.primarySkillGroup = :skillGroup
-        ORDER BY rs.benchStartDate ASC
-        """)
-    List<Resource> findBenchResourcesBySkillGroup(@Param("skillGroup") String skillGroup);
 
     /**
      * Get bench statistics

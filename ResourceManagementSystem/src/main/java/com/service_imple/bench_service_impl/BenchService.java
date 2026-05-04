@@ -183,20 +183,6 @@ public class BenchService {
     }
 
     /**
-     * Get bench resources by skill group
-     */
-    @Transactional(readOnly = true)
-    public List<BenchResourceDTO> getBenchResourcesBySkillGroup(String skillGroup) {
-        log.debug("Fetching bench resources by skill group: {}", skillGroup);
-        
-        List<Resource> benchResources = benchDetectionRepository.findBenchResourcesBySkillGroup(skillGroup);
-        
-        return benchResources.stream()
-                .map(this::convertToBenchResourceDTO)
-                .collect(Collectors.toList());
-    }
-
-    /**
      * Get bench statistics
      */
     @Transactional(readOnly = true)
@@ -284,11 +270,9 @@ public class BenchService {
                 .resourceName(resource.getFullName())
                 .email(resource.getEmail())
                 .designation(resource.getDesignation())
-                .primarySkillGroup(resource.getPrimarySkillGroup())
                 .experience(resource.getExperiance())
                 .workingLocation(resource.getWorkingLocation())
                 .employmentType(resource.getEmploymentType().toString())
-                .workforceCategory(resource.getWorkforceCategory().toString())
                 .benchStartDate(state.getBenchStartDate())
                 .benchReason(state.getBenchReason())
                 .subState(state.getSubState())
@@ -298,8 +282,6 @@ public class BenchService {
                 .totalBenchCost(totalCost)
                 .riskLevel(riskLevel)
                 .costMissing(costMissing)
-                .grade(resource.getGrade())
-                .vendorName(resource.getVendorName())
                 .dateOfJoining(resource.getDateOfJoining())
                 .hourlyCostRate(resource.getHourlyCostRate())
                 .currencyType(resource.getCurrencyType())

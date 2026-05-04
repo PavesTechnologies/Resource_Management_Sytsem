@@ -37,7 +37,7 @@ public class SkillGapMatchingController {
      * @return Comprehensive skill gap analysis with match scores, risk assessment, and detailed comparisons
      */
     @PostMapping("/skill-gap-analysis")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Project_Manager','Admin')")
     public ResponseEntity<?> analyzeSkillGap(
             @Valid @RequestBody SkillGapAnalysisRequestDTO request) {
 

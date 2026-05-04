@@ -29,7 +29,7 @@ public class DeliveryRoleExpectationController {
     private final DeliveryRoleExpectationService service;
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'PROJECT-MANAGER', 'DELIVERY-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Project_Manager', 'Delivery_Manager')")
     public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> createRoleExpectations(
             @Valid @RequestBody DeliveryRoleExpectationRequest request) {
         
@@ -53,7 +53,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @PutMapping("/{roleId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> updateRoleExpectations(
             @PathVariable UUID roleId,
             @Valid @RequestBody DeliveryRoleExpectationRequest request) {
@@ -77,7 +77,7 @@ public class DeliveryRoleExpectationController {
     }
 
 //    @PostMapping
-//    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('Admin')")
 //    public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> createOrUpdateRoleExpectations(
 //            @Valid @RequestBody DeliveryRoleExpectationRequest request) {
 //
@@ -100,7 +100,7 @@ public class DeliveryRoleExpectationController {
 //    }
 
     @GetMapping("/{roleName}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER', 'MANAGER', 'RESOURCE-USER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager', 'RESOURCE-USER')")
     public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> getRoleExpectations(
             @PathVariable String roleName) {
         
@@ -117,7 +117,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<DeliveryRoleExpectationResponse>>> getAllRoleExpectations() {
         
         log.info("Admin request to get all role expectations");
@@ -133,7 +133,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @GetMapping("/{roleName}/mandatory")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<RoleExpectationWithMandatoryResponse>> getRoleExpectationsWithMandatory(
             @PathVariable String roleName) {
         
@@ -150,7 +150,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @GetMapping("/{roleName}/eligibility")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<Boolean>> checkResourceEligibility(
             @PathVariable String roleName,
             @RequestParam List<UUID> resourceSkillIds) {
@@ -168,7 +168,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @GetMapping("/roles")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<RoleListResponse>> getAvailableRoles() {
         
         log.info("Admin request to get available roles");
@@ -184,7 +184,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @DeleteMapping("/{roleName}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<Void>> deleteRoleExpectations(
             @PathVariable String roleName) {
         
@@ -201,7 +201,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @GetMapping("/{roleName}/exists")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<Boolean>> hasRoleExpectations(
             @PathVariable String roleName) {
         

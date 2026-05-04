@@ -190,7 +190,7 @@ public class BenchController {
     }
 
     @PutMapping("/update-resource-state")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<?> updateResourceState(@Valid @RequestBody UpdateSubStateRequestDTO request, @CurrentUser UserDTO userDTO) {
         return benchDetectionService.updateSubState(request, userDTO);
     }
@@ -276,7 +276,7 @@ public class BenchController {
      * POST /api/bench/quick-allocate
      */
     @PostMapping("/quick-allocate")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> quickAllocate(
             @RequestParam Long resourceId,
             @RequestParam UUID demandId,

@@ -23,7 +23,7 @@ public class DemandController {
     private DemandService demandService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> createDemand(
             @RequestBody CreateDemandDTO dto,
             @CurrentUser UserDTO userDTO) {
@@ -32,13 +32,13 @@ public class DemandController {
     }
 
     @PutMapping("/update/pm")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> updateDemandByPM(@RequestBody UpdateDemandDTO dto) {
         return demandService.updateDemand(dto);
     }
 
     @DeleteMapping("/delete/pm/{demandId}")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> deleteDemandByPM(
             @PathVariable UUID demandId,
             @CurrentUser UserDTO userDTO) {
@@ -47,19 +47,19 @@ public class DemandController {
 
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> getDemandByProjectId(@PathVariable Long projectId) {
         return demandService.getDemandByProjectId(projectId);
     }
 
     @GetMapping("/{demandId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','DELIVERY-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Project_Manager','Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> getDemandById(@PathVariable UUID demandId) {
         return demandService.getDemandById(demandId);
     }
 
     @GetMapping("/debug/open-demands")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER','DELIVERY-MANAGER','MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Project_Manager','Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> getOpenDemandsDebug() {
         try {
             List<Demand> openDemands = demandService.getOpenDemands();
@@ -70,19 +70,19 @@ public class DemandController {
     }
 
     @GetMapping("/rm/demands")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerProjects(@CurrentUser UserDTO userDTO) {
         return demandService.getDemandsByResourceManagerId(userDTO.getId());
     }
 
     @GetMapping("/rm/kpi")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerProjects(@CurrentUser UserDTO userDTO) {
         return demandService.getDemandKpiByResourceManagerId(userDTO.getId());
     }
 
     @GetMapping("/pm/kpi")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> getDashboardKpi(
             @RequestParam(required = false) Long projectId) {
         return demandService.getDashboardKpi(projectId);
@@ -90,20 +90,20 @@ public class DemandController {
 
     // Delivery Manager KPI endpoint (uses token-based authentication)
     @GetMapping("/dm/kpi")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<DemandKpiDTO>> getDeliveryManagerKpi(@CurrentUser UserDTO userDTO) {
         return demandService.getDeliveryManagerKpi(userDTO);
     }
 
     // Delivery Manager demand details endpoint (uses token-based authentication)
     @GetMapping("/dm/demands")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(@CurrentUser UserDTO userDTO) {
         return demandService.getDeliveryManagerDemandDetails(userDTO);
     }
 
     @PutMapping("/dm/decision")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> processDemandDecision(
             @RequestBody DemandDecisionDTO dto,
             @CurrentUser UserDTO userDTO) {
@@ -112,7 +112,7 @@ public class DemandController {
     }
 
     @PutMapping("/rm/decision")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
             @RequestBody DemandDecisionDTO dto,
             @CurrentUser UserDTO userDTO) {

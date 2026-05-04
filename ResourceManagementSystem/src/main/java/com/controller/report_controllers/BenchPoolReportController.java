@@ -39,7 +39,7 @@ public class BenchPoolReportController {
     @GetMapping("/bench-pool")
     @Operation(summary = "Get bench pool report with risk evaluation", 
                description = "Fetches all resources with BENCH or INTERNAL_POOL status, calculates risk levels, and applies filters")
-    // @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RESOURCE_MANAGER', 'HR')")
+    // @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'HR')")
     public ResponseEntity<ApiResponse<Page<BenchPoolReportDTO>>> getBenchPoolReport(
             @Parameter(description = "Filter parameters for bench pool report")
             @Valid @ModelAttribute BenchPoolFilterDTO filters) {
@@ -66,7 +66,7 @@ public class BenchPoolReportController {
     @GetMapping("/bench-pool/export")
     @Operation(summary = "Export bench pool report to Excel", 
                description = "Exports the same data as the bench pool report API to an Excel file with formatting")
-    // @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RESOURCE_MANAGER', 'HR')")
+    // @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'HR')")
     public ResponseEntity<ByteArrayResource> exportBenchPoolReport(
             @Parameter(description = "Filter parameters for export (same as report API)")
             @Valid @ModelAttribute BenchPoolFilterDTO filters) {
@@ -101,7 +101,7 @@ public class BenchPoolReportController {
     @GetMapping("/bench-pool/filters")
     @Operation(summary = "Get available filter options", 
                description = "Returns available options for filters like skills, roles, regions")
-    // @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RESOURCE_MANAGER', 'HR')")
+    // @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'HR')")
     public ResponseEntity<ApiResponse<Object>> getFilterOptions() {
         
         log.info("Fetching filter options for bench pool report");

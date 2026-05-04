@@ -364,11 +364,6 @@ private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Lon
             // 3. SKILL CRITICALITY (0-20 points)
             Resource resource = resourcesMap.get(resourceId);
             if (resource != null) {
-                String primarySkill = resource.getPrimarySkillGroup();
-                if ("TECHNICAL".equals(primarySkill) || "LEAD".equals(primarySkill)) impactScore += 15;
-                else if ("SUPPORT".equals(primarySkill) || "ANALYST".equals(primarySkill)) impactScore += 10;
-                else impactScore += 5;
-
                 // Experience impact
                 Long experience = resource.getExperiance();
                 if (experience != null && experience >= 5) impactScore += 5;
@@ -436,12 +431,6 @@ public String calculateResourceImpactLevel(Long resourceId, Long projectId) {
         Resource resource = resourceRepo.findById(resourceId)
                 .orElseThrow(() -> new RuntimeException("Resource not found"));
 
-        // Primary skill impact
-        String primarySkill = resource.getPrimarySkillGroup();
-        if ("TECHNICAL".equals(primarySkill) || "LEAD".equals(primarySkill)) impactScore += 15;
-        else if ("SUPPORT".equals(primarySkill) || "ANALYST".equals(primarySkill)) impactScore += 10;
-        else impactScore += 5;
-
         // Experience impact
         Long experience = resource.getExperiance();
         if (experience != null && experience >= 5) impactScore += 5;
@@ -501,7 +490,6 @@ public Map<String, Object> getImpactScoreDetails(Long resourceId, Long projectId
 
         // Resource details
         Resource resource = resourceRepo.findById(resourceId).orElse(null);
-        details.put("primarySkill", resource.getPrimarySkillGroup());
         details.put("experience", resource.getExperiance());
 
         // Timeline details
@@ -998,7 +986,7 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
     event.setResource(resource);
     event.setRole(roleToSet);
     event.setRoleOffType(dto.getRoleOffType());
-    event.setRoleInitiatedBy("PROJECT-MANAGER");
+    event.setRoleInitiatedBy("Project_Manager");
     event.setCreatedBy(userId);
     event.setAllocation(allocation);
 
@@ -1185,7 +1173,7 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
     }
 
     event.setRoleOffStatus(RoleOffStatus.REJECTED);
-    event.setRejectedBy("RESOURCE-MANAGER");
+    event.setRejectedBy("Resource_Manager");
     event.setRejectionReason(rejectionReason.trim());
 
     roleOffRepo.save(event);
@@ -1253,7 +1241,7 @@ public ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userD
     }
 
     event.setRoleOffStatus(RoleOffStatus.REJECTED);
-    event.setRejectedBy("DELIVERY-MANAGER");
+    event.setRejectedBy("Delivery_Manager");
     event.setRejectionReason(rejectionReason.trim());
 
     roleOffRepo.save(event);
@@ -1380,7 +1368,7 @@ public ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO) {
                 Map.of(
                         "eventId", id,
                         "status", "DELETED",
-                        "cancelledBy", "PROJECT-MANAGER"
+                        "cancelledBy", "Project_Manager"
                 )));
 
     } catch (Exception e) {
@@ -1551,8 +1539,8 @@ private RoleOffEvent createBulkRoleOffEvent(BulkRoleOffRequestDTO bulkRequest, U
     event.setCreatedAt(LocalDate.now());
     event.setCreatedBy(userDTO.getId());
     event.setRoleInitiatedBy(
-            userDTO.getRoles().contains("PROJECT-MANAGER") ? "PROJECT-MANAGER" :
-                    userDTO.getRoles().contains("RESOURCE-MANAGER") ? "RESOURCE-MANAGER" : "Unknown"
+            userDTO.getRoles().contains("Project_Manager") ? "Project_Manager" :
+                    userDTO.getRoles().contains("Resource_Manager") ? "Resource_Manager" : "Unknown"
     );
 
     // Set role from allocation's demand if available
@@ -1698,7 +1686,7 @@ public ResponseEntity<?> bulkRmReject(List<UUID> ids, String rejectionReason, Us
             }
 
             event.setRoleOffStatus(RoleOffStatus.REJECTED);
-            event.setRejectedBy("RESOURCE-MANAGER");
+            event.setRejectedBy("Resource_Manager");
             event.setRejectionReason(rejectionReason.trim());
             rejectedEvents.add(event);
 
@@ -1819,7 +1807,7 @@ public ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, Us
             }
 
             event.setRoleOffStatus(RoleOffStatus.REJECTED);
-            event.setRejectedBy("DELIVERY-MANAGER");
+            event.setRejectedBy("Delivery_Manager");
             event.setRejectionReason(rejectionReason.trim());
             rejectedEvents.add(event);
 
@@ -1976,7 +1964,6 @@ public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long
         resource.setNoticeEndDate(removalDTO.getNoticePeriodEndDate());
         resource.setChangedBy(userId);
         resource.setChangedAt(java.time.LocalDateTime.now());
-        resource.setStatusEffectiveFrom(LocalDate.now());
 
         // Save the resource with notice period details
         resourceRepo.save(resource);

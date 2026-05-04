@@ -18,25 +18,25 @@ public class CompanyContactController {
     CompanyContactService companyContactService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> createCompanyContact(@Valid @RequestBody CompanyEscalationContact companyContact) {
         return companyContactService.createCompanyContact(companyContact);
     }
 
     @PutMapping("/update/{contactId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> updateCompanyContact(@PathVariable UUID contactId, @Valid @RequestBody CompanyEscalationContact companyContact) {
         return companyContactService.updateCompanyContact(contactId, companyContact);
     }
 
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> deleteCompanyContact(@PathVariable UUID id) {
         return companyContactService.deleteCompanyContact(id);
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> getAllContacts() {
         return companyContactService.getAllContacts();
     }

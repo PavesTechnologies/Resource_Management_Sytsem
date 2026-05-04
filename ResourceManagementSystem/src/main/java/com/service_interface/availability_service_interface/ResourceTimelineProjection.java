@@ -12,5 +12,4 @@ public interface ResourceTimelineProjection {
     Double getAvgAllocation();
     LocalDate getNoticeStartDate();
     LocalDate getNoticeEndDate();
-    Boolean getAllocationAllowed();
 }

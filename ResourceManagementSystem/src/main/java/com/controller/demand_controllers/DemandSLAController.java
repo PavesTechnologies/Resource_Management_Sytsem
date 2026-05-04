@@ -23,7 +23,7 @@ public class DemandSLAController {
     }
 
     @GetMapping("/get-by-demandId/{demandId}")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<?> getDemandSLAByDemandId(@PathVariable UUID demandId) {
         return demandSLAService.getDemandSLAById(demandId);
     }

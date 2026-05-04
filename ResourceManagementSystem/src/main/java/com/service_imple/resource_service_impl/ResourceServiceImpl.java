@@ -6,7 +6,6 @@ import com.dto.resource.ResourceNameDTO;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.resource_enums.EmploymentStatus;
-import com.entity_enums.resource_enums.WorkforceCategory;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.resource_repo.ResourceRepository;
@@ -49,11 +48,10 @@ public class ResourceServiceImpl implements ResourceService {
             }
 
             resource.setChangedAt(LocalDateTime.now());
-            resource.setHrLastSyncedAt(LocalDateTime.now());
+
             
             if (resource.getActiveFlag() == null) resource.setActiveFlag(true);
             if (resource.getEmploymentStatus() == null) resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
-            if (resource.getAllocationAllowed() == null) resource.setAllocationAllowed(true);
 
             Resource savedResource = resourceRepository.save(resource);
             benchDetectionService.initializeResourceState(savedResource.getResourceId());
@@ -139,10 +137,9 @@ public class ResourceServiceImpl implements ResourceService {
     public ResponseEntity<?> getAllResources() {
         List<String> uniqueLocations = resourceRepository.findDistinctLocations();
         List<String> uniqueDesignations = resourceRepository.findDistinctDesignations();
-        List<WorkforceCategory> workforceCategories = List.of(WorkforceCategory.values());
         Long maxExperience = resourceRepository.findMaxExperience();
         List<String> projectNames = projectRepo.findProjectNamesExceptStatus(ProjectStatus.COMPLETED);
-        ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, workforceCategories, uniqueDesignations, maxExperience, projectNames);
+        ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, uniqueDesignations, maxExperience, projectNames);
         return ResponseEntity.ok(new ApiResponse<>(true, "Resource Filters retrieved successfully", dto));
     }
 

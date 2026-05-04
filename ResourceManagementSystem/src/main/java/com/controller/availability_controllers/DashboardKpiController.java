@@ -21,7 +21,7 @@ public class DashboardKpiController {
     private final DashboardKpiService dashboardKpiService;
 
     @GetMapping("/kpis")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<DashboardKpiDTO>> getDashboardKpis(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)

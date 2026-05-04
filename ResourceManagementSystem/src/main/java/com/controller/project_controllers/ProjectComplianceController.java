@@ -21,13 +21,13 @@ public class ProjectComplianceController {
     private ProjectComplianceService projectComplianceService;
 
     @PostMapping("/save")
-    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Project_Manager') or hasRole('Admin')")
     public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> saveProjectCompliance(@RequestBody ProjectCompliance projectCompliance) {
         return projectComplianceService.createOrUpdateProjectCompliance(projectCompliance);
     }
 
     @PutMapping("/{projectComplianceId}")
-    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Project_Manager') or hasRole('Admin')")
     public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> updateProjectCompliance(
             @PathVariable UUID projectComplianceId, 
             @RequestBody ProjectCompliance projectCompliance) {
@@ -35,19 +35,19 @@ public class ProjectComplianceController {
     }
 
     @DeleteMapping("/{projectComplianceId}")
-    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Project_Manager') or hasRole('Admin')")
     public ResponseEntity<ApiResponse<Void>> deleteProjectCompliance(@PathVariable UUID projectComplianceId) {
         return projectComplianceService.deleteProjectCompliance(projectComplianceId);
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'ADMIN', 'RESOURCE-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('Project_Manager', 'Admin', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<List<ProjectComplianceResponseDTO>>> getProjectCompliances(@PathVariable Long projectId) {
         return projectComplianceService.getProjectComplianceByProjectId(projectId);
     }
 
     @GetMapping("/project/{projectId}/type/{complianceType}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'ADMIN', 'RESOURCE_MANAGER')")
+    @PreAuthorize("hasAnyRole('Project_Manager', 'Admin', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> getProjectComplianceByType(
             @PathVariable Long projectId,
             @PathVariable RequirementType complianceType) {
@@ -55,7 +55,7 @@ public class ProjectComplianceController {
     }
 
     @PostMapping("/inherit/{projectId}/type/{complianceType}")
-    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Project_Manager') or hasRole('Admin')")
     public ResponseEntity<ApiResponse<ProjectComplianceResponseDTO>> inheritClientCompliance(
             @PathVariable Long projectId,
             @PathVariable RequirementType complianceType) {
@@ -63,7 +63,7 @@ public class ProjectComplianceController {
     }
 
     @PostMapping("/save-all")
-    @PreAuthorize("hasRole('PROJECT-MANAGER') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Project_Manager') or hasRole('Admin')")
     public ResponseEntity<ApiResponse<List<ProjectComplianceResponseDTO>>> saveAllProjectCompliances(
             @RequestBody List<ProjectCompliance> projectCompliances) {
         return projectComplianceService.saveAll(projectCompliances);

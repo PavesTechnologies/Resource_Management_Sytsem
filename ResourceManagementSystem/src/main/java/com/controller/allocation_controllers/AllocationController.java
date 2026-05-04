@@ -23,7 +23,7 @@ public class AllocationController {
     private final AllocationService allocationService;
 
     @PostMapping("/assign")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> assignAllocation(
             @Valid @RequestBody AllocationRequestDTO allocationRequest, @CurrentUser UserDTO user) {
         allocationRequest.setCreatedBy(user.getName());
@@ -31,14 +31,14 @@ public class AllocationController {
     }
 
     @GetMapping("/{allocationId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> getAllocationById(
             @PathVariable UUID allocationId) {
         return allocationService.getAllocationById(allocationId);
     }
 
     @PutMapping("/{allocationId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> updateAllocation(
             @PathVariable UUID allocationId,
             @Valid @RequestBody AllocationRequestDTO allocationRequest) {
@@ -46,7 +46,7 @@ public class AllocationController {
     }
 
     @PostMapping("/{allocationId}/cancel")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<?>> cancelAllocation(
             @PathVariable UUID allocationId,
             @RequestParam String cancelledBy) {
@@ -54,52 +54,52 @@ public class AllocationController {
     }
 
     @GetMapping("/resource/{resourceId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByResource(
             @PathVariable Long resourceId) {
         return allocationService.getAllocationsByResource(resourceId);
     }
 
     @GetMapping("/demand/{demandId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(
             @PathVariable UUID demandId) {
         return allocationService.getAllocationsByDemand(demandId);
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN', 'DELIVERY-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin', 'Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByProject(
             @PathVariable Long projectId) {
         return allocationService.getAllocationsByProject(projectId);
     }
 
     @GetMapping("/get-all-resources/{projectId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN', 'PROJECT-MANAGER','HR-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<?> getAllResources(@PathVariable Long projectId) {
         return allocationService.getProjectResources(projectId);
     }
 
     @GetMapping("/overrides")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
         return allocationService.getOverrideAllocations();
     }
 
     @PostMapping("/{allocationId}/close")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Project_Manager')")
     public ResponseEntity<ApiResponse<?>> closeAllocation(
             @PathVariable UUID allocationId,
             @RequestBody CloseAllocationDTO request) {
         return allocationService.closeAllocation(allocationId, request);
     }
     @GetMapping("/approvals/pending")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> getPendingApprovals() {
         return allocationService.getPendingApprovals();
     }
     @PostMapping("/approvals/{allocationId}/approve")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> approve(
             @PathVariable UUID allocationId,
             @CurrentUser UserDTO user) {
@@ -107,7 +107,7 @@ public class AllocationController {
         return allocationService.approveAllocation(allocationId, user.getName());
     }
     @PostMapping("/approvals/{allocationId}/reject")
-    @PreAuthorize("hasRole('DELIVERY-MANAGER')")
+    @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> reject(
             @PathVariable UUID allocationId,
             @RequestBody InternalPoolAllocationApproval dto,
