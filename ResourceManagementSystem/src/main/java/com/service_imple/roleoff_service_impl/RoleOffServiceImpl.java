@@ -1312,7 +1312,8 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
                 allocation != null ? allocation.getAllocationId() : null,
                 impactLevelsMap.getOrDefault(resource != null ? resource.getResourceId() : null, "LOW"),
                 allocation != null ? allocation.getAllocationStatus() : null,
-                r.getRoleOffStatus(),
+                // For DL perspective, RM-approved role-offs should appear as PENDING
+                r.getRoleOffStatus() == RoleOffStatus.APPROVED ? RoleOffStatus.PENDING : r.getRoleOffStatus(),
                 allocation != null ? allocation.getAllocationPercentage() : null,
                 allocation != null ? allocation.getAllocationEndDate() : null,
                 r.getEffectiveRoleOffDate(),
