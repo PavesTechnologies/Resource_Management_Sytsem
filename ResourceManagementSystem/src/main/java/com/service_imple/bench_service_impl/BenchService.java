@@ -546,9 +546,9 @@ public class BenchService {
         long totalPoolResources = benchDetectionRepository.countPoolResources();
         log.debug("Total pool resources: {}", totalPoolResources);
         
-        // Get total ready now resources (READY sub-state in both Bench and Pool categories)
-        // Note: Both bench and pool resources use stateType = 'BENCH' in the database
-        long totalReadyNowResources = benchDetectionRepository.countByStateTypeAndSubState(StateType.BENCH, SubState.READY);
+        // Get total ready now resources (all bench sub-states: READY, NOT_AVAILABLE, LOW_UTILIZATION)
+        // Note: This matches the filter criteria used by bench-resources API
+        long totalReadyNowResources = benchDetectionRepository.countBenchResources();
         log.debug("Total ready now resources: {}", totalReadyNowResources);
         
         // Get total risk watch resources (>30 days in Bench or Pool)

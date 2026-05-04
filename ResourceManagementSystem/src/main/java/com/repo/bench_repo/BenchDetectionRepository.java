@@ -251,8 +251,10 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
     @Query("""
         SELECT COUNT(rs)
         FROM ResourceState rs
+        JOIN Resource r ON rs.resourceId = r.resourceId
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
+          AND r.activeFlag = true
           AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION')
           AND rs.benchStartDate <= :cutoffDate
         """)
@@ -264,8 +266,10 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
     @Query("""
         SELECT COUNT(rs)
         FROM ResourceState rs
+        JOIN Resource r ON rs.resourceId = r.resourceId
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
+          AND r.activeFlag = true
           AND rs.subState IN ('TRAINING_POOL', 'SHADOW', 'COE', 'RND', 'TRAINING')
           AND rs.benchStartDate <= :cutoffDate
         """)
@@ -277,8 +281,10 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
     @Query("""
         SELECT COUNT(rs)
         FROM ResourceState rs
+        JOIN Resource r ON rs.resourceId = r.resourceId
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
+          AND r.activeFlag = true
           AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION')
         """)
     long countBenchResources();
@@ -289,8 +295,10 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
     @Query("""
         SELECT COUNT(rs)
         FROM ResourceState rs
+        JOIN Resource r ON rs.resourceId = r.resourceId
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
+          AND r.activeFlag = true
           AND rs.subState IN ('TRAINING_POOL', 'SHADOW', 'COE', 'RND', 'TRAINING')
         """)
     long countPoolResources();
