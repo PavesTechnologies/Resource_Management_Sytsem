@@ -116,7 +116,7 @@ public class ResourceStateInitializationService {
 
     /**
      * Manual trigger to fix specific resource
-     * Can be called from admin endpoints or for troubleshooting
+     * Can be called from Admin endpoints or for troubleshooting
      */
     @Transactional
     public boolean fixResourceState(Long resourceId) {

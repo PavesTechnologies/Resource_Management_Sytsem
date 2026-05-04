@@ -56,7 +56,7 @@ public class AllocationRoleOffController {
     }
 
     @PostMapping("/resource-removal")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<?> removeResourceFromOrganization(
             @RequestBody ResourceRemovalDTO removalDTO,
             @CurrentUser UserDTO userDTO) {

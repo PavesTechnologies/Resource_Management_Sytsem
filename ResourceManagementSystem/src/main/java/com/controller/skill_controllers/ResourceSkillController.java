@@ -68,7 +68,7 @@ public class ResourceSkillController {
     }
 
     @GetMapping("/resource/{resourceId}/profile")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<ResourceSkillProfileResponseDTO>>> getResourceSkillProfile(@PathVariable Long resourceId) {
         List<ResourceSkillProfileResponseDTO> profile = resourceSkillService.getResourceSkillProfile(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource skill profile retrieved successfully", profile));
@@ -82,14 +82,14 @@ public class ResourceSkillController {
     }
     
     @DeleteMapping("/skill/{resourceSkillId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<String>> deleteResourceSkill(@PathVariable UUID resourceSkillId) {
         String result = resourceSkillService.deleteResourceSkill(resourceSkillId);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
     
     @DeleteMapping("/subskill/{resourceSubSkillId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<String>> deleteResourceSubSkill(@PathVariable UUID resourceSubSkillId) {
         String result = resourceSkillService.deleteResourceSubSkill(resourceSubSkillId);
         return ResponseEntity.ok(ApiResponse.success(result));

@@ -20,7 +20,7 @@ public class AllocationConflictController {
     private final AllocationService allocationService;
 
     @GetMapping("/resource/{resourceId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> getConflictsForResource(@PathVariable Long resourceId) {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.getPendingConflictsForResource(resourceId);
@@ -32,7 +32,7 @@ public class AllocationConflictController {
     }
 
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> getPendingConflicts() {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.getAllPendingConflicts();
@@ -44,7 +44,7 @@ public class AllocationConflictController {
     }
 
     @PostMapping("/detect/{resourceId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> detectConflictsForResource(@PathVariable Long resourceId) {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.detectAllocationConflicts(resourceId);
@@ -56,7 +56,7 @@ public class AllocationConflictController {
     }
 
     @PostMapping("/{conflictId}/resolve")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> resolveConflict(
             @PathVariable UUID conflictId,
             @RequestBody ConflictResolutionDTO resolution) {
@@ -65,7 +65,7 @@ public class AllocationConflictController {
     }
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> getConflictStats() {
         try {
             // This can be enhanced with actual stats from the service

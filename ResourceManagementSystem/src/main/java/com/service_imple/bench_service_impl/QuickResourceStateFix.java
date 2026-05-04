@@ -24,7 +24,7 @@ public class QuickResourceStateFix {
 
     /**
      * Quick fix for resource 47 - creates a BENCH state if missing
-     * This can be called manually or via admin endpoint
+     * This can be called manually or via Admin endpoint
      */
     @Transactional
     public boolean fixResource47() {

@@ -8,7 +8,7 @@ description: Resource Displacement Workflow for Priority-Based Allocation Manage
 This workflow allows Resource Managers to displace lower-priority soft allocations in favor of higher-priority client demands, ensuring critical work is protected.
 
 ## Prerequisites
-- User must have RESOURCE-MANAGER or ADMIN role
+- User must have Resource_Manager or Admin role
 - Resource must have existing allocations with conflicting priorities
 - Higher-priority demand must be confirmed/active
 

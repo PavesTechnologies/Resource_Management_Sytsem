@@ -21,14 +21,14 @@ public class ClientController {
     ClientService clientService;
 
     @PostMapping("create")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Admin')")
     public ResponseEntity<ApiResponse<Client>> createClient(@RequestBody Client client)
     {
         return clientService.createClient(client);
     }
 
     @GetMapping("search")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Admin')")
     public ApiResponse<PageResponse<ClientDTO>> searchClients(
             @ModelAttribute ClientFilterDTO filter,
             @RequestParam(defaultValue = "0") int page,
@@ -38,43 +38,43 @@ public class ClientController {
     }
 
     @GetMapping("/count")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager')")
     public ResponseEntity<ApiResponse<Void>> countClients() {
         return clientService.countClients();
     }
 
     @GetMapping("/get-all-clients")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager')")
     public ResponseEntity<ApiResponse<List<Client>>> getClientDetails() {
         return clientService.clientDetails();
     }
 
     @GetMapping("/active-clients")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER','PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager','Project_Manager')")
     public ResponseEntity<ApiResponse<List<ClientDTO>>> getActiveClients() {
         return clientService.getActiveClients();
     }
 
     @GetMapping("/get-admin-kpi")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager')")
     public ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPIDetials() {
         return clientService.getAdminKPI();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<Client>> getClientById(@PathVariable UUID id) {
         return clientService.getClientById(id);
     }
 
     @GetMapping("/{id}/page-data")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<ClientProjectStatisticsDTO>> getClientProjectStatistics(@PathVariable UUID id) {
         return clientService.getClientProjectStatistics(id);
     }
 
     @PutMapping("/update-client")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<Client>> updateClientDetails(@RequestBody Client clientDetails) {
         return clientService.updateClient(clientDetails);
     }
@@ -85,7 +85,7 @@ public class ClientController {
     }
 
     @GetMapping("/get-active-clients")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER','PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager','Project_Manager')")
     public ResponseEntity<ApiResponse<List<ActiveClientsPMSDTO>>> getActiveClientsPMS() {
         return clientService.getActiveClientsPMS();
     }

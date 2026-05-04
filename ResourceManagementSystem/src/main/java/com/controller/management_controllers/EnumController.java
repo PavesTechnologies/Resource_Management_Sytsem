@@ -106,7 +106,7 @@ public class EnumController {
             "Client",
             "Defines status of resource enablement assignments",
             new String[]{"REQUESTED", "ASSIGNED", "IN_USE", "REJECTED", "RETURNED", "LOST"},
-            "REQUESTED: Resource Manager requested enablement, ASSIGNED: Client/Admin assigned it, IN_USE: Asset is currently being used, REJECTED: Client rejected the request, RETURNED: Asset has been returned, LOST: Asset is lost"
+            "REQUESTED: Resource_Manager requested enablement, ASSIGNED: Client/Admin assigned it, IN_USE: Asset is currently being used, REJECTED: Client rejected the request, RETURNED: Asset has been returned, LOST: Asset is lost"
         ));
 
         enums.add(new EnumSpecificationDTO(

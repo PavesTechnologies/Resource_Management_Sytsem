@@ -19,25 +19,25 @@ public class ClientContactController {
     ClientContactService clientContactService;
 
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> createClientContact(@Valid @RequestBody ClientEscalationContact clientContact) {
         return clientContactService.createClientContact(clientContact);
     }
 
     @PutMapping("/update")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> updateClientContact(@Valid @RequestBody ClientEscalationContact clientContact) {
         return clientContactService.updateClientContact(clientContact);
     }
 
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('Admin')")
     public ResponseEntity<ApiResponse<?>> deleteClientContact(@PathVariable UUID id) {
         return clientContactService.deleteClientContact(id);
     }
 
     @GetMapping("/clientContact/{clientId}")
-    @PreAuthorize("hasAnyRole('ADMIN','RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<?>> getClientContact(@PathVariable UUID clientId) {
         return clientContactService.getClientContact(clientId);
     }
