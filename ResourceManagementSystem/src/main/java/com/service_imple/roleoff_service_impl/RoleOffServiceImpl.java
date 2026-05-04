@@ -364,11 +364,6 @@ private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Lon
             // 3. SKILL CRITICALITY (0-20 points)
             Resource resource = resourcesMap.get(resourceId);
             if (resource != null) {
-                String primarySkill = resource.getPrimarySkillGroup();
-                if ("TECHNICAL".equals(primarySkill) || "LEAD".equals(primarySkill)) impactScore += 15;
-                else if ("SUPPORT".equals(primarySkill) || "ANALYST".equals(primarySkill)) impactScore += 10;
-                else impactScore += 5;
-
                 // Experience impact
                 Long experience = resource.getExperiance();
                 if (experience != null && experience >= 5) impactScore += 5;
@@ -436,12 +431,6 @@ public String calculateResourceImpactLevel(Long resourceId, Long projectId) {
         Resource resource = resourceRepo.findById(resourceId)
                 .orElseThrow(() -> new RuntimeException("Resource not found"));
 
-        // Primary skill impact
-        String primarySkill = resource.getPrimarySkillGroup();
-        if ("TECHNICAL".equals(primarySkill) || "LEAD".equals(primarySkill)) impactScore += 15;
-        else if ("SUPPORT".equals(primarySkill) || "ANALYST".equals(primarySkill)) impactScore += 10;
-        else impactScore += 5;
-
         // Experience impact
         Long experience = resource.getExperiance();
         if (experience != null && experience >= 5) impactScore += 5;
@@ -501,7 +490,6 @@ public Map<String, Object> getImpactScoreDetails(Long resourceId, Long projectId
 
         // Resource details
         Resource resource = resourceRepo.findById(resourceId).orElse(null);
-        details.put("primarySkill", resource.getPrimarySkillGroup());
         details.put("experience", resource.getExperiance());
 
         // Timeline details
@@ -1975,7 +1963,6 @@ public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long
         resource.setNoticeEndDate(removalDTO.getNoticePeriodEndDate());
         resource.setChangedBy(userId);
         resource.setChangedAt(java.time.LocalDateTime.now());
-        resource.setStatusEffectiveFrom(LocalDate.now());
 
         // Save the resource with notice period details
         resourceRepo.save(resource);

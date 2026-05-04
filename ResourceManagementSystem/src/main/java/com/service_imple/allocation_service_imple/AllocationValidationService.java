@@ -344,15 +344,13 @@ public class AllocationValidationService {
             return null;
         }
         
-        if (resource.getActiveFlag() == null || !resource.getActiveFlag() || 
-            resource.getAllocationAllowed() == null || !resource.getAllocationAllowed()) {
+        if (resource.getActiveFlag() == null || !resource.getActiveFlag()) {
             throw new ProjectExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "RESOURCE_INELIGIBLE",
-                "Resource is not active or allocation not allowed"
+                "Resource is not active"
             );
         }
-        
         return resource;
     }
 

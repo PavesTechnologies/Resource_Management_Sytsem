@@ -348,8 +348,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         // Create notice info DTO
         NoticeInfoDTO noticeInfo = createNoticeInfoDTO(
             projection.getNoticeStartDate(), 
-            projection.getNoticeEndDate(), 
-            projection.getAllocationAllowed()
+            projection.getNoticeEndDate()
         );
         
         return ResourceTimelineResponseDTO.builder()
@@ -399,7 +398,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     /**
      * Creates NoticeInfoDTO from resource notice period data
      */
-    private NoticeInfoDTO createNoticeInfoDTO(LocalDate noticeStartDate, LocalDate noticeEndDate, Boolean allocationAllowed) {
+    private NoticeInfoDTO createNoticeInfoDTO(LocalDate noticeStartDate, LocalDate noticeEndDate) {
         LocalDate today = LocalDate.now();
         boolean isNoticePeriod = noticeStartDate != null && noticeEndDate != null 
             && !today.isBefore(noticeStartDate) && !today.isAfter(noticeEndDate);

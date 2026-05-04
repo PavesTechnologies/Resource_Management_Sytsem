@@ -61,7 +61,7 @@ public class AllocationController {
     }
 
     @GetMapping("/demand/{demandId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'DELIVERY-MANAGER')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(
             @PathVariable UUID demandId) {
         return allocationService.getAllocationsByDemand(demandId);
@@ -75,7 +75,7 @@ public class AllocationController {
     }
 
     @GetMapping("/get-all-resources/{projectId}")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN', 'PROJECT-MANAGER','HR-MANAGER')")
+    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'ADMIN', 'PROJECT-MANAGER')")
     public ResponseEntity<?> getAllResources(@PathVariable Long projectId) {
         return allocationService.getProjectResources(projectId);
     }

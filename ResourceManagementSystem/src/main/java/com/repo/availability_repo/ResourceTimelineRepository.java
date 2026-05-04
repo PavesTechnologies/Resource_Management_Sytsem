@@ -38,8 +38,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                 0
             ) AS avgAllocation,
             r.notice_start_date as noticeStartDate,
-            r.notice_end_date as noticeEndDate,
-            r.allocation_allowed as allocationAllowed
+            r.notice_end_date as noticeEndDate
         FROM resource r
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
@@ -106,8 +105,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
                 0
             ) AS avgAllocation,
             r.notice_start_date as noticeStartDate,
-            r.notice_end_date as noticeEndDate,
-            r.allocation_allowed as allocationAllowed
+            r.notice_end_date as noticeEndDate
         FROM resource r
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
