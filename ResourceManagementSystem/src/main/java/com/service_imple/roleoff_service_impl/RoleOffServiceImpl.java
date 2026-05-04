@@ -986,7 +986,7 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
     event.setResource(resource);
     event.setRole(roleToSet);
     event.setRoleOffType(dto.getRoleOffType());
-    event.setRoleInitiatedBy("PROJECT-MANAGER");
+    event.setRoleInitiatedBy("Project_Manager");
     event.setCreatedBy(userId);
     event.setAllocation(allocation);
 
@@ -1173,7 +1173,7 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
     }
 
     event.setRoleOffStatus(RoleOffStatus.REJECTED);
-    event.setRejectedBy("RESOURCE-MANAGER");
+    event.setRejectedBy("Resource_Manager");
     event.setRejectionReason(rejectionReason.trim());
 
     roleOffRepo.save(event);
@@ -1241,7 +1241,7 @@ public ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userD
     }
 
     event.setRoleOffStatus(RoleOffStatus.REJECTED);
-    event.setRejectedBy("DELIVERY-MANAGER");
+    event.setRejectedBy("Delivery_Manager");
     event.setRejectionReason(rejectionReason.trim());
 
     roleOffRepo.save(event);
@@ -1368,7 +1368,7 @@ public ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO) {
                 Map.of(
                         "eventId", id,
                         "status", "DELETED",
-                        "cancelledBy", "PROJECT-MANAGER"
+                        "cancelledBy", "Project_Manager"
                 )));
 
     } catch (Exception e) {
@@ -1539,8 +1539,8 @@ private RoleOffEvent createBulkRoleOffEvent(BulkRoleOffRequestDTO bulkRequest, U
     event.setCreatedAt(LocalDate.now());
     event.setCreatedBy(userDTO.getId());
     event.setRoleInitiatedBy(
-            userDTO.getRoles().contains("PROJECT-MANAGER") ? "PROJECT-MANAGER" :
-                    userDTO.getRoles().contains("RESOURCE-MANAGER") ? "RESOURCE-MANAGER" : "Unknown"
+            userDTO.getRoles().contains("Project_Manager") ? "Project_Manager" :
+                    userDTO.getRoles().contains("Resource_Manager") ? "Resource_Manager" : "Unknown"
     );
 
     // Set role from allocation's demand if available
@@ -1686,7 +1686,7 @@ public ResponseEntity<?> bulkRmReject(List<UUID> ids, String rejectionReason, Us
             }
 
             event.setRoleOffStatus(RoleOffStatus.REJECTED);
-            event.setRejectedBy("RESOURCE-MANAGER");
+            event.setRejectedBy("Resource_Manager");
             event.setRejectionReason(rejectionReason.trim());
             rejectedEvents.add(event);
 
@@ -1807,7 +1807,7 @@ public ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, Us
             }
 
             event.setRoleOffStatus(RoleOffStatus.REJECTED);
-            event.setRejectedBy("DELIVERY-MANAGER");
+            event.setRejectedBy("Delivery_Manager");
             event.setRejectionReason(rejectionReason.trim());
             rejectedEvents.add(event);
 

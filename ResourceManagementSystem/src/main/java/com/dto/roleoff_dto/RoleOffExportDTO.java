@@ -66,10 +66,10 @@ public class RoleOffExportDTO {
     private static String formatInitiatorForExport(String initiator) {
         if (initiator == null) return "";
         switch (initiator.toUpperCase()) {
-            case "PROJECT-MANAGER": return "Project Manager";
-            case "RESOURCE_MANAGER": return "Resource Manager";
-            case "DELIVERY_LEAD": return "Delivery Lead";
-            case "ADMIN": return "Admin";
+            case "Project_Manager": return "Project Manager";
+            case "Resource_Manager": return "Resource Manager";
+            case "Delivery_Manager": return "Delivery Manager";
+            case "Admin": return "Admin";
             case "HR": return "HR";
             case "CLIENT_REQUEST": return "Client";
             default: return initiator;

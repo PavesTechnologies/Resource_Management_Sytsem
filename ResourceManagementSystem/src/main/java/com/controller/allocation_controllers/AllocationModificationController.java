@@ -74,7 +74,7 @@ public class AllocationModificationController {
      * }
      */
     @PostMapping("/pm")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> createModification(
             @RequestBody CreateAllocationModificationDTO dto,
             @CurrentUser UserDTO userDTO) {
@@ -105,7 +105,7 @@ public class AllocationModificationController {
      * }
      */
     @PutMapping("/{id}/rm/decision")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> processModificationDecision(
             @PathVariable UUID id,
             @RequestBody UnifiedDecisionDTO decisionDTO,
@@ -123,27 +123,27 @@ public class AllocationModificationController {
      * Get pending approvals for Resource Manager
      */
     @GetMapping("/rm/pending-approvals")
-    @PreAuthorize("hasRole('RESOURCE-MANAGER')")
+    @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> getPendingApprovals(@CurrentUser UserDTO rmUser) {
         return unifiedModificationService.getPendingApprovals(rmUser);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Project_Manager', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<AllocationModificationResponseDTO>> getModificationById(
             @PathVariable UUID id) {
         return allocationModificationService.getModificationById(id);
     }
 
     @GetMapping("/demand/{demandId}")
-    @PreAuthorize("hasAnyRole('PROJECT-MANAGER', 'RESOURCE-MANAGER')")
+    @PreAuthorize("hasAnyRole('Project_Manager', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<List<AllocationModificationResponseDTO>>> getModificationsByDemand(
             @PathVariable UUID demandId) {
         return allocationModificationService.getModificationsByDemand(demandId);
     }
 
     @DeleteMapping("/{id}/pm")
-    @PreAuthorize("hasRole('PROJECT-MANAGER')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> deleteModification(
             @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {

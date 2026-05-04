@@ -75,7 +75,7 @@ public class AvailabilityController {
     }
 
     @GetMapping("/timeline")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<ResourceTimelineDTO>>> getAllResourceTimelines() {
                 List<ResourceTimelineDTO> timelines = resourceTimelineService.getAllResourceTimelines();
                 ApiResponse<List<ResourceTimelineDTO>> response = new ApiResponse<>();
@@ -86,7 +86,7 @@ public class AvailabilityController {
     }
 
     @GetMapping("/timeline/window")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ResourceTimelineApiResponse> getResourceTimelineWindow(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             
@@ -133,7 +133,7 @@ public class AvailabilityController {
     }
 
     @GetMapping("/timeline/window/kpi")
-    @PreAuthorize("hasAnyRole('RESOURCE-MANAGER', 'PROJECT-MANAGER')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<ResourceTimelineResponseDTO.ResourceTimelineKpi>> getTimelineKPI(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             
