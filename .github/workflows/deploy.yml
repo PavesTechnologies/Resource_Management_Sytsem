@@ -3,7 +3,7 @@ name: Build Push and Deploy
 on:
   push:
     branches:
-      - rms_tms
+      - main
   workflow_dispatch:
 
 jobs:
