@@ -41,6 +41,44 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
             );
         }
 
+        // Check for duplicate requirement name within the same client
+        if (clientCompliance.getClient() != null && clientCompliance.getRequirementName() != null) {
+            if (clientComplianceRepo.existsByClient_ClientIdAndRequirementName(
+                    clientCompliance.getClient().getClientId(), clientCompliance.getRequirementName())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "Requirement name already exists for this client",
+                        null
+                );
+            }
+        }
+
+        // Check for duplicate certificate within the same client
+        if (clientCompliance.getRequirementType() == RequirementType.CERTIFICATION 
+                && clientCompliance.getClient() != null && clientCompliance.getCertificate() != null) {
+            if (clientComplianceRepo.existsByClient_ClientIdAndCertificate(
+                    clientCompliance.getClient().getClientId(), clientCompliance.getCertificate())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "Certificate already exists for this client",
+                        null
+                );
+            }
+        }
+
+        // Check for duplicate skill within the same client
+        if (clientCompliance.getRequirementType() == RequirementType.SKILL 
+                && clientCompliance.getClient() != null && clientCompliance.getSkill() != null) {
+            if (clientComplianceRepo.existsByClient_ClientIdAndSkill(
+                    clientCompliance.getClient().getClientId(), clientCompliance.getSkill())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "Skill already exists for this client",
+                        null
+                );
+            }
+        }
+
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         ApiResponse<ClientCompliance> apiResponse= new ApiResponse<>();
         if(Compliance!=null) {
@@ -53,6 +91,50 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> updateClientCompliance(ClientCompliance clientCompliance) {
+        // Check for duplicate requirement name (excluding current compliance)
+        if (clientCompliance.getClient() != null && clientCompliance.getRequirementName() != null) {
+            if (clientComplianceRepo.findByRequirementNameExcludingId(
+                    clientCompliance.getClient().getClientId(), 
+                    clientCompliance.getRequirementName(),
+                    clientCompliance.getComplianceId()).isPresent()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "Requirement name already exists for this client",
+                        null
+                );
+            }
+        }
+
+        // Check for duplicate certificate (excluding current compliance)
+        if (clientCompliance.getRequirementType() == RequirementType.CERTIFICATION 
+                && clientCompliance.getClient() != null && clientCompliance.getCertificate() != null) {
+            if (clientComplianceRepo.findByCertificateExcludingId(
+                    clientCompliance.getClient().getClientId(), 
+                    clientCompliance.getCertificate(),
+                    clientCompliance.getComplianceId()).isPresent()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "Certificate already exists for this client",
+                        null
+                );
+            }
+        }
+
+        // Check for duplicate skill (excluding current compliance)
+        if (clientCompliance.getRequirementType() == RequirementType.SKILL 
+                && clientCompliance.getClient() != null && clientCompliance.getSkill() != null) {
+            if (clientComplianceRepo.findBySkillExcludingId(
+                    clientCompliance.getClient().getClientId(), 
+                    clientCompliance.getSkill(),
+                    clientCompliance.getComplianceId()).isPresent()) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "Skill already exists for this client",
+                        null
+                );
+            }
+        }
+
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         if(Compliance!=null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Updated Successfully",Compliance));
@@ -64,12 +146,14 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> deleteClientCompliance(UUID id) {
-        ClientCompliance Compliance=clientComplianceRepo.findById(id).get();
-        if(Compliance!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Deleted Successfully",Compliance));
-        }
-        else {
-            throw new ClientExceptionHandler("Client Pre-requisite Deletion Failed");
+        ClientCompliance compliance = clientComplianceRepo.findById(id)
+                .orElseThrow(() -> new ClientExceptionHandler("Client Pre-requisite not found"));
+        
+        try {
+            clientComplianceRepo.delete(compliance);
+            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Deleted Successfully",compliance));
+        } catch (Exception e) {
+            throw new ClientExceptionHandler("Client Pre-requisite Deletion Failed: " + e.getMessage());
         }
     }
 
