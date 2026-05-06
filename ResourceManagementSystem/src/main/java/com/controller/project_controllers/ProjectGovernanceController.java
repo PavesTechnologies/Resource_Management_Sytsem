@@ -170,8 +170,14 @@ public class ProjectGovernanceController {
     @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
         try {
-            // Total Projects count
-            Long totalProjects = projectRepository.count();
+            // Total Projects count (excluding completed projects)
+            List<ProjectStatus> nonCompletedStatuses = List.of(
+                ProjectStatus.ACTIVE,
+                ProjectStatus.APPROVED,
+                ProjectStatus.ARCHIVED,
+                ProjectStatus.PLANNING
+            );
+            Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
 
             // Active Projects count
             Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);

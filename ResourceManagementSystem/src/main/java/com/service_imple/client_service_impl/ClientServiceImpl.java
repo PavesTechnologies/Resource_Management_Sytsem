@@ -200,7 +200,7 @@ public class ClientServiceImpl implements ClientService {
         try {
             return clientRepo.findById(clientId)
                     .map(client -> {
-                        Long totalProjects = projectRepository.countTotalProjectsByClientId(clientId);
+                        Long totalProjects = projectRepository.countNonCompletedProjectsByClientId(clientId);
                         Long activeProjects = projectRepository.countProjectsByClientIdAndStatus(clientId, ProjectStatus.ACTIVE);
                         BigDecimal totalSpend = projectRepository.sumProjectBudgetByClientId(clientId);
                         
