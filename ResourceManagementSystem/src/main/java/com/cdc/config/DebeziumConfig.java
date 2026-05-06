@@ -1,6 +1,7 @@
 package com.cdc.config;
 
 import io.debezium.config.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 
 import java.nio.file.Files;
@@ -10,58 +11,108 @@ import java.nio.file.Paths;
 @org.springframework.context.annotation.Configuration
 public class DebeziumConfig {
 
-    private static final String CDC_BASE_DIR =
-            System.getProperty("user.home") + "/rms-cdc";
+    @Value("${cdc.base.directory}")
+    private String cdcBaseDir;
+
+    @Value("${cdc.database.type}")
+    private String dbType;
+
+    @Value("${cdc.connector.class}")
+    private String connectorClass;
+
+    @Value("${cdc.database.hostname}")
+    private String dbHostname;
+
+    @Value("${cdc.database.port}")
+    private String dbPort;
+
+    @Value("${cdc.database.user}")
+    private String dbUser;
+
+    @Value("${cdc.database.password}")
+    private String dbPassword;
+
+    @Value("${cdc.database.name}")
+    private String dbName;
+
+    @Value("${cdc.database.include.list}")
+    private String databaseIncludeList;
+
+    @Value("${cdc.table.include.list}")
+    private String tableIncludeList;
+
+    @Value("${cdc.server.name}")
+    private String serverName;
+
+    @Value("${cdc.topic.prefix}")
+    private String topicPrefix;
 
     @Bean
     public Configuration debeziumConfiguration() {
 
-        createDirIfMissing(CDC_BASE_DIR);
+        createDirIfMissing(cdcBaseDir);
 
-        return Configuration.create()
+        Configuration.Builder configBuilder = Configuration.create()
 
+                // Essential CDC configuration (from properties)
                 .with("name", "pms-project-cdc")
+                .with("connector.class", connectorClass)
 
-                .with("connector.class",
-                        "io.debezium.connector.mysql.MySqlConnector")
+                // Database connection (configurable based on type)
+                .with("database.hostname", dbHostname)
+                .with("database.port", dbPort)
+                .with("database.user", dbUser)
+                .with("database.password", dbPassword)
 
-                // PMS MySQL
-                .with("database.hostname", "pms-db-service-ruchithacloud-9d59.c.aivencloud.com")
-                .with("database.port", "14189")
-                .with("database.user", "avnadmin")
-                .with("database.password", "AVNS_GAUyWTQz-MGNiSAVpPS")
-
-                //.with("database.server.id", "607724949")
+                // Server configuration (configurable)
                 .with("database.server.id",
                         String.valueOf(Math.abs(new java.util.Random().nextInt(100_000)) + 5000))
-                .with("database.server.name", "pms_mysql")
-                .with("topic.prefix", "pms")
+                .with("database.server.name", serverName)
+                .with("topic.prefix", topicPrefix)
 
-                // Capture ONLY required table
-                .with("database.include.list", "ajay")
-                .with("table.include.list", "ajay.projects")
+                // Table capture (configurable)
+                .with("database.include.list", databaseIncludeList)
+                .with("table.include.list", tableIncludeList)
 
-                // ✅ PERMANENT FIX
+                // Fixed CDC settings (rarely change)
                 .with("snapshot.mode", "when_needed")
-
-                // Offset storage (dynamic & team-safe)
-                .with("offset.storage",
-                        "org.apache.kafka.connect.storage.FileOffsetBackingStore")
+                .with("offset.storage", "org.apache.kafka.connect.storage.FileOffsetBackingStore")
                 .with("offset.storage.file.filename",
-                        CDC_BASE_DIR + "/pms-project-offsets.dat")
-
-                // Schema history (file-based, no Kafka)
-                .with("schema.history.internal",
-                        "io.debezium.storage.file.history.FileSchemaHistory")
+                        cdcBaseDir + "/pms-project-offsets.dat")
+                .with("schema.history.internal", "io.debezium.storage.file.history.FileSchemaHistory")
                 .with("schema.history.internal.file.filename",
-                        CDC_BASE_DIR + "/pms-schema-history.dat")
-
+                        cdcBaseDir + "/pms-schema-history.dat")
                 .with("schema.history.internal.store.only.captured.tables.ddl", "true")
                 .with("schema.history.internal.skip.unparseable.ddl", "true")
+                .with("include.schema.changes", "false");
 
-                .with("include.schema.changes", "false")
+        // Add database-specific configuration
+        addDatabaseSpecificConfig(configBuilder);
 
-                .build();
+        return configBuilder.build();
+    }
+
+    private void addDatabaseSpecificConfig(Configuration.Builder configBuilder) {
+        switch (dbType.toLowerCase()) {
+            case "mysql":
+                configBuilder.with("database.dbname", dbName);
+                break;
+            case "postgresql":
+            case "postgres":
+                configBuilder.with("database.dbname", dbName);
+                configBuilder.with("plugin.name", "pgoutput");
+                break;
+            case "sqlserver":
+                configBuilder.with("database.dbname", dbName);
+                break;
+            case "oracle":
+                configBuilder.with("database.dbname", dbName);
+                configBuilder.with("database.pdb.name", dbName);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported database type: " + dbType + 
+                    ". Supported types: mysql, postgresql, sqlserver, oracle");
+        }
     }
 
     private void createDirIfMissing(String dir) {
