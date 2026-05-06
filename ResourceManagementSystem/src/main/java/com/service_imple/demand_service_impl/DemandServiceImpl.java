@@ -1309,10 +1309,11 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
 
         demand.setDemandStatus(DemandStatus.FULFILLED);
         demand.setRmRejectionReason(null);
-        DemandSLA demandSLAOpt = demandSLA.get();
-        demandSLAOpt.setFulfillDate(LocalDate.now());
-        demandSLAOpt.setActiveFlag(false);
-        DemandSLA savedDemandSLA = demandSLARepository.save(demandSLAOpt);
+        demandSLA.ifPresent(sla -> {
+            sla.setFulfillDate(LocalDate.now());
+            sla.setActiveFlag(false);
+            demandSLARepository.save(sla);
+        });
     }
 
     // -------- REJECTED --------

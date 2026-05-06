@@ -132,8 +132,7 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         );
 
         Specification<Project> spec =
-                Specification.where(ProjectSpecification.byManager(managerId))
-                        .and(ProjectSpecification.search(search))
+                Specification.where(ProjectSpecification.search(search))
                         .and(ProjectSpecification.readinessStatus(readinessStatus))
                         .and(ProjectSpecification.projectStatus(projectStatus))
                         .and(ProjectSpecification.priority(priorityLevel))
