@@ -7,7 +7,7 @@ public interface AvailabilityTriggerService {
     
     void triggerMonthlySync(YearMonth yearMonth);
     
-    void triggerResourceRecalculation(Long resourceId, YearMonth yearMonth);
+    void triggerResourceRecalculation(String resourceId, YearMonth yearMonth);
     
     void triggerBulkRecalculation(YearMonth startMonth, YearMonth endMonth);
     
@@ -16,5 +16,5 @@ public interface AvailabilityTriggerService {
     void handleProjectTimelineChange(Long projectId, java.time.LocalDateTime oldStartDate, java.time.LocalDateTime oldEndDate, 
                                    java.time.LocalDateTime newStartDate, java.time.LocalDateTime newEndDate);
 
-    void triggerRangeRecalculation(Long resourceId, LocalDate startDate, LocalDate endDate);
+    void triggerRangeRecalculation(String resourceId, LocalDate startDate, LocalDate endDate);
 }

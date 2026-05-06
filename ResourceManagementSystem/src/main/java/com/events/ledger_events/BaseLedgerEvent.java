@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 public abstract class BaseLedgerEvent {
 
     protected String eventId;
-    protected Long resourceId;
+    protected String resourceId;
     protected LocalDateTime eventTimestamp;
     protected String eventType;
     protected String eventSource;
@@ -23,7 +23,7 @@ public abstract class BaseLedgerEvent {
     
     public abstract String getEventId();
     
-    public abstract Long getResourceId();
+    public abstract String getResourceId();
     
     public abstract LocalDateTime getEventTimestamp();
     

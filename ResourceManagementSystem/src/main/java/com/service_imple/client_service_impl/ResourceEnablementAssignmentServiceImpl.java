@@ -71,7 +71,7 @@ public class ResourceEnablementAssignmentServiceImpl implements ResourceEnableme
     }
 
     @Override
-    public ApiResponse<?> getAssignmentsByResource(Long resourceId) {
+    public ApiResponse<?> getAssignmentsByResource(String resourceId) {
         return ApiResponse.<List<ResourceEnablementAssignment>>success(
                 "Enablement assignments fetched successfully.",
                 repository.findByResourceId(resourceId)

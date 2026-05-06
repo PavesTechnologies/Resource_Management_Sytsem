@@ -45,7 +45,7 @@ public class AllocationConflictService {
      * Detects priority conflicts for a new allocation request
      */
     @Transactional(readOnly = true)
-    public ConflictDetectionResult detectPriorityConflicts(AllocationRequestDTO allocationRequest, Long resourceId) {
+    public ConflictDetectionResult detectPriorityConflicts(AllocationRequestDTO allocationRequest, String resourceId) {
         try {
             // Fetch existing allocations for the specified resource
             List<ResourceAllocation> existingAllocations = allocationRepository.findByResource_ResourceId(resourceId);
@@ -105,7 +105,7 @@ public class AllocationConflictService {
     @Transactional(readOnly = true)
     public ConflictDetectionResult detectPriorityConflictsOptimized(
             AllocationRequestDTO allocationRequest, 
-            Long resourceId, 
+            String resourceId, 
             List<ResourceAllocation> existingAllocations) {
         
         try {
@@ -160,7 +160,7 @@ public class AllocationConflictService {
     /**
      * Gets pending conflicts for a resource
      */
-    public List<AllocationConflictDTO> getPendingConflictsForResource(Long resourceId) {
+    public List<AllocationConflictDTO> getPendingConflictsForResource(String resourceId) {
         List<AllocationConflict> conflicts = conflictRepository.findByResource_ResourceIdAndResolutionStatus(resourceId, "PENDING");
         return conflicts.stream()
                 .map(this::convertToDTO)
@@ -180,7 +180,7 @@ public class AllocationConflictService {
     /**
      * Detects allocation conflicts for a resource
      */
-    public List<AllocationConflictDTO> detectAllocationConflicts(Long resourceId) {
+    public List<AllocationConflictDTO> detectAllocationConflicts(String resourceId) {
         List<ResourceAllocation> allocations = allocationRepository.findByResource_ResourceId(resourceId);
         List<AllocationConflict> conflicts = new ArrayList<>();
 
@@ -345,7 +345,7 @@ public class AllocationConflictService {
     private ConflictDetectionResult.PriorityConflictDetail createConflictDetail(
             AllocationRequestDTO allocationRequest, 
             ResourceAllocation existingAlloc, 
-            Long resourceId,
+            String resourceId,
             PriorityLevel newClientPriority, 
             PriorityLevel existingClientPriority) {
         
@@ -385,7 +385,7 @@ public class AllocationConflictService {
         }
     }
 
-    private String getResourceName(Long resourceId) {
+    private String getResourceName(String resourceId) {
         try {
             var resourceOptional = resourceRepository.findById(resourceId);
             return resourceOptional.map(resource -> resource.getFullName()).orElse("Resource " + resourceId);

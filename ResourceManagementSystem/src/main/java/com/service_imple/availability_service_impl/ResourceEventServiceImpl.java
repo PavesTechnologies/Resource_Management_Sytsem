@@ -18,7 +18,7 @@ public class ResourceEventServiceImpl implements ResourceEventService {
     private final LedgerAvailabilityCalculationService calculationService;
     
     @Async
-    public void triggerLedgerCalculationAfterCreate(Long resourceId) {
+    public void triggerLedgerCalculationAfterCreate(String resourceId) {
         try {
             LocalDate today = LocalDate.now();
             LocalDate endOfYear = LocalDate.of(today.getYear(), 12, 31);
@@ -29,7 +29,7 @@ public class ResourceEventServiceImpl implements ResourceEventService {
     }
     
     @Async
-    public void triggerLedgerCalculationAfterUpdate(Long resourceId) {
+    public void triggerLedgerCalculationAfterUpdate(String resourceId) {
         try {
             LocalDate today = LocalDate.now();
             calculationService.recalculateForSingleDate(resourceId, today);
@@ -39,7 +39,7 @@ public class ResourceEventServiceImpl implements ResourceEventService {
     }
     
     @Async
-    public void triggerLedgerCleanupAfterDelete(Long resourceId) {
+    public void triggerLedgerCleanupAfterDelete(String resourceId) {
         try {
             calculationService.cleanupOldEntries(LocalDate.now());
         } catch (Exception e) {
@@ -58,7 +58,7 @@ public class ResourceEventServiceImpl implements ResourceEventService {
     }
     
     @Override
-    public void publishResourceDeleted(Long resourceId) {
+    public void publishResourceDeleted(String resourceId) {
         triggerLedgerCleanupAfterDelete(resourceId);
     }
 }

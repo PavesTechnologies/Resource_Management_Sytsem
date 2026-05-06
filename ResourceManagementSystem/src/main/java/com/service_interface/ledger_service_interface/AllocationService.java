@@ -16,14 +16,14 @@ public interface AllocationService {
     }
     
     
-    AllocationData getAllocationDataForResourceAndDate(Long resourceId, LocalDate date);
-    AllocationData getAllocationDataForResourceForMonth(Long resourceId, YearMonth yearMonth);
+    AllocationData getAllocationDataForResourceAndDate(String resourceId, LocalDate date);
+    AllocationData getAllocationDataForResourceForMonth(String resourceId, YearMonth yearMonth);
     
     boolean isApiHealthy();
     
-    LocalDate getMaxAllocationEndDate(Long resourceId);
+    LocalDate getMaxAllocationEndDate(String resourceId);
     
-    LocalDate getMaxAllocationEndDateAfter(Long resourceId, LocalDate baseDate);
+    LocalDate getMaxAllocationEndDateAfter(String resourceId, LocalDate baseDate);
     
-    LocalDate getResourceExitDate(Long resourceId);
+    LocalDate getResourceExitDate(String resourceId);
 }

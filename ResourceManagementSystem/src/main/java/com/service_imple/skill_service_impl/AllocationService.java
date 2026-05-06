@@ -18,7 +18,7 @@ public class AllocationService {
     public String allocate(AllocationRequestDTO dto) {
 
         // 🔴 FINAL GOVERNANCE GATE - Validate all resources
-        for (Long resourceId : dto.getResourceId()) {
+        for (String resourceId : dto.getResourceId()) {
             AllocationValidationRequestDTO validationDto = new AllocationValidationRequestDTO(
                 resourceId,
                 null, // skillRequirements - needs to be populated based on demand/project

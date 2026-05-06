@@ -226,12 +226,12 @@ public class BenchController {
                     highQualityMatches.size(), matches.size());
 
             // Group matches by resource
-            Map<Long, List<MatchResponse>> groupedByResource = highQualityMatches.stream()
+            Map<String, List<MatchResponse>> groupedByResource = highQualityMatches.stream()
                     .collect(java.util.stream.Collectors.groupingBy(MatchResponse::getResourceId));
 
             List<ResourceMatchResponse> response = groupedByResource.entrySet().stream()
                     .map(entry -> {
-                        Long resourceId = entry.getKey();
+                        String resourceId = entry.getKey();
                         List<MatchResponse> resourceMatches = entry.getValue();
 
                         MatchResponse firstMatch = resourceMatches.get(0);
@@ -278,7 +278,7 @@ public class BenchController {
     @PostMapping("/quick-allocate")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<?>> quickAllocate(
-            @RequestParam Long resourceId,
+            @RequestParam String resourceId,
             @RequestParam UUID demandId,
             @RequestParam(defaultValue = "100") Integer allocationPercentage,
             @CurrentUser UserDTO user) {

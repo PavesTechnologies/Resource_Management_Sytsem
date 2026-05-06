@@ -18,22 +18,22 @@ import java.util.Optional;
 public interface ResourceAvailabilityLedgerDailyRepository extends JpaRepository<ResourceAvailabilityLedgerDaily, Long>, 
                                                                    JpaSpecificationExecutor<ResourceAvailabilityLedgerDaily> {
 
-    Optional<ResourceAvailabilityLedgerDaily> findByResourceIdAndDate(Long resourceId, LocalDate date);
+    Optional<ResourceAvailabilityLedgerDaily> findByResourceIdAndDate(String resourceId, LocalDate date);
 
-    List<ResourceAvailabilityLedgerDaily> findByResourceIdAndDateBetween(Long resourceId, LocalDate startDate, LocalDate endDate);
+    List<ResourceAvailabilityLedgerDaily> findByResourceIdAndDateBetween(String resourceId, LocalDate startDate, LocalDate endDate);
 
-    List<ResourceAvailabilityLedgerDaily> findByResourceIdInAndDateBetween(List<Long> resourceIds, LocalDate startDate, LocalDate endDate);
+    List<ResourceAvailabilityLedgerDaily> findByResourceIdInAndDateBetween(List<String> resourceIds, LocalDate startDate, LocalDate endDate);
 
-    Page<ResourceAvailabilityLedgerDaily> findByResourceId(Long resourceId, Pageable pageable);
+    Page<ResourceAvailabilityLedgerDaily> findByResourceId(String resourceId, Pageable pageable);
 
     @Query("SELECT rald FROM ResourceAvailabilityLedgerDaily rald WHERE rald.date = :date AND rald.resourceId = :resourceId")
-    Optional<ResourceAvailabilityLedgerDaily> findByResourceAndDateOptimized(@Param("resourceId") Long resourceId, @Param("date") LocalDate date);
+    Optional<ResourceAvailabilityLedgerDaily> findByResourceAndDateOptimized(@Param("resourceId") String resourceId, @Param("date") LocalDate date);
 
     @Query("SELECT rald FROM ResourceAvailabilityLedgerDaily rald WHERE rald.date BETWEEN :startDate AND :endDate AND rald.availabilityTrustFlag = false")
     List<ResourceAvailabilityLedgerDaily> findUntrustworthyEntriesInDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query("SELECT COUNT(rald) FROM ResourceAvailabilityLedgerDaily rald WHERE rald.resourceId = :resourceId AND rald.date BETWEEN :startDate AND :endDate AND rald.isOverallocated = true")
-    Long countOverallocatedDaysForResource(@Param("resourceId") Long resourceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    Long countOverallocatedDaysForResource(@Param("resourceId") String resourceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query("SELECT rald FROM ResourceAvailabilityLedgerDaily rald WHERE rald.date < :cutoffDate")
     List<ResourceAvailabilityLedgerDaily> findEntriesOlderThan(@Param("cutoffDate") LocalDate cutoffDate);
@@ -43,14 +43,14 @@ public interface ResourceAvailabilityLedgerDailyRepository extends JpaRepository
     int deleteEntriesOlderThan(@Param("cutoffDate") LocalDate cutoffDate);
 
     @Query("SELECT DISTINCT rald.resourceId FROM ResourceAvailabilityLedgerDaily rald WHERE rald.date BETWEEN :startDate AND :endDate")
-    List<Long> findActiveResourceIdsInDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    List<String> findActiveResourceIdsInDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query("SELECT rald FROM ResourceAvailabilityLedgerDaily rald WHERE rald.lastEventId = :eventId")
     List<ResourceAvailabilityLedgerDaily> findByLastEventId(@Param("eventId") String eventId);
 
     @Modifying
     @Query("UPDATE ResourceAvailabilityLedgerDaily rald SET rald.availabilityTrustFlag = false WHERE rald.resourceId = :resourceId AND rald.date BETWEEN :startDate AND :endDate")
-    int markAsUntrustworthy(@Param("resourceId") Long resourceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    int markAsUntrustworthy(@Param("resourceId") String resourceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
     @Query(value = "INSERT INTO resource_availability_ledger_daily (resource_id, date, standard_hours, holiday_hours, leave_hours, confirmed_alloc_hours, draft_alloc_hours, total_allocation_percentage, available_percentage, is_overallocated, over_allocation_percentage, availability_trust_flag, calculation_version, last_event_id, created_at, updated_at, version) " +
            "VALUES (:resourceId, :date, :standardHours, :holidayHours, :leaveHours, :confirmedAllocHours, :draftAllocHours, :totalAllocationPercentage, :availablePercentage, :isOverallocated, :overAllocationPercentage, :availabilityTrustFlag, :calculationVersion, :lastEventId, :createdAt, :updatedAt, :version) " +
@@ -70,7 +70,7 @@ public interface ResourceAvailabilityLedgerDailyRepository extends JpaRepository
            "updated_at = VALUES(updated_at), " +
            "version = version + 1", nativeQuery = true)
     void upsertLedgerEntry(
-        @Param("resourceId") Long resourceId,
+        @Param("resourceId") String resourceId,
         @Param("date") LocalDate date,
         @Param("standardHours") Integer standardHours,
         @Param("holidayHours") Integer holidayHours,

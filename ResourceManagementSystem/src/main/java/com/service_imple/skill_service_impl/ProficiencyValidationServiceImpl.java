@@ -15,7 +15,7 @@ public class ProficiencyValidationServiceImpl implements ProficiencyValidationSe
     private final ResourceSkillRepository resourceSkillRepository;
 
     @Override
-    public void validateProficiency(Long resourceId, UUID skillId, UUID requiredProficiencyId) {
+    public void validateProficiency(String resourceId, UUID skillId, UUID requiredProficiencyId) {
         ResourceSkill rs =
                 resourceSkillRepository
                         .findByResourceIdAndSkillIdAndActiveFlagTrue(

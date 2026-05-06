@@ -13,7 +13,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class ExternalAllocationDto {
     private Long allocationId;
-    private Long resourceId;
+    private String resourceId;
     private Long projectId;
     private LocalDate startDate;
     private LocalDate endDate;

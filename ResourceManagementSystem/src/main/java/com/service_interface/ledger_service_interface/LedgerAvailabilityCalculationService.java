@@ -8,20 +8,20 @@ import java.util.Optional;
 
 public interface LedgerAvailabilityCalculationService {
     
-    void recalculateForDateRange(Long resourceId, LocalDate startDate, LocalDate endDate);
+    void recalculateForDateRange(String resourceId, LocalDate startDate, LocalDate endDate);
     
-    void recalculateForSingleDate(Long resourceId, LocalDate date);
+    void recalculateForSingleDate(String resourceId, LocalDate date);
     
-    void markAsUntrustworthy(Long resourceId, LocalDate startDate, LocalDate endDate);
+    void markAsUntrustworthy(String resourceId, LocalDate startDate, LocalDate endDate);
     
-    List<ResourceAvailabilityLedgerDaily> getAvailabilityForDateRange(Long resourceId, LocalDate startDate, LocalDate endDate);
+    List<ResourceAvailabilityLedgerDaily> getAvailabilityForDateRange(String resourceId, LocalDate startDate, LocalDate endDate);
     
-    Optional<ResourceAvailabilityLedgerDaily> getAvailabilityForDate(Long resourceId, LocalDate date);
+    Optional<ResourceAvailabilityLedgerDaily> getAvailabilityForDate(String resourceId, LocalDate date);
     
     void cleanupOldEntries(LocalDate cutoffDate);
     
-    Map<String, Object> getAvailabilitySummary(Long resourceId, LocalDate startDate, LocalDate endDate);
+    Map<String, Object> getAvailabilitySummary(String resourceId, LocalDate startDate, LocalDate endDate);
 
     // For LedgerRetryService
-    void recalculateDailyWithIdempotency(Long resourceId, LocalDate date, String eventId);
+    void recalculateDailyWithIdempotency(String resourceId, LocalDate date, String eventId);
 }

@@ -15,7 +15,7 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder
 public class BenchPoolResponseDTO {
-    private Long employeeId;
+    private String employeeId;
     private String resourceName;
     private String designation;
     private List<Map<String, String>> skillGroups;
@@ -25,5 +25,5 @@ public class BenchPoolResponseDTO {
     private Double costPerDay;
     private LocalDate lastAllocationDate;
     private String location;
-    private Long experience;
+    private Double experience;
 }

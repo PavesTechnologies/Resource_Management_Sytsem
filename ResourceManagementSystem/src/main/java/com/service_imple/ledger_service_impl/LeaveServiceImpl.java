@@ -37,15 +37,15 @@ public class LeaveServiceImpl implements LeaveService {
 
     @Override
     @Cacheable(value = "leaves", key = "#resourceId + '-' + #year")
-    public Set<LocalDate> getApprovedLeaveForEmployee(Long resourceId, int year) throws LeaveApiException {
+    public Set<LocalDate> getApprovedLeaveForEmployee(String resourceId, int year) throws LeaveApiException {
         return getApprovedLeaveInternal(resourceId, year);
     }
 
-    private Set<LocalDate> getApprovedLeaveInternal(Long resourceId, int year) throws LeaveApiException {
+    private Set<LocalDate> getApprovedLeaveInternal(String resourceId, int year) throws LeaveApiException {
         try {
             checkApiHealth();
             
-            String url = leaveApiBaseUrl + leaveEmployeeEndpoint.replace("{employeeId}", String.valueOf(resourceId)).replace("{year}", String.valueOf(year));
+            String url = leaveApiBaseUrl + leaveEmployeeEndpoint.replace("{employeeId}", resourceId).replace("{year}", String.valueOf(year));
             LeaveApiResponse response = restTemplate.getForObject(url, LeaveApiResponse.class);
             
             if (response == null || response.getLeaves() == null) {
@@ -99,7 +99,7 @@ public class LeaveServiceImpl implements LeaveService {
     }
 
     @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
-    public CompletableFuture<Set<LocalDate>> getApprovedLeaveForEmployeeAsync(Long resourceId, int year) {
+    public CompletableFuture<Set<LocalDate>> getApprovedLeaveForEmployeeAsync(String resourceId, int year) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 return getApprovedLeaveForEmployee(resourceId, year);
@@ -111,14 +111,14 @@ public class LeaveServiceImpl implements LeaveService {
 
     public static class LeaveApiResponse {
         private Set<ExternalLeaveDto> leaves;
-        private Long resourceId;
+        private String resourceId;
         private int year;
         private String lastUpdated;
 
         public Set<ExternalLeaveDto> getLeaves() { return leaves; }
         public void setLeaves(Set<ExternalLeaveDto> leaves) { this.leaves = leaves; }
-        public Long getResourceId() { return resourceId; }
-        public void setResourceId(Long resourceId) { this.resourceId = resourceId; }
+        public String getResourceId() { return resourceId; }
+        public void setResourceId(String resourceId) { this.resourceId = resourceId; }
         public int getYear() { return year; }
         public void setYear(int year) { this.year = year; }
         public String getLastUpdated() { return lastUpdated; }

@@ -104,7 +104,7 @@ public class LedgerEventHandler {
         try {
             String eventId = event.getEventId();
             String eventHash = generateEventHash(event);
-            Long resourceId = event.getResourceId();
+            String resourceId = event.getResourceId();
             String eventType = event.getEventType();
 
             Optional<LedgerEventLog> existingEvent = eventLogRepository.findByEventId(eventId);

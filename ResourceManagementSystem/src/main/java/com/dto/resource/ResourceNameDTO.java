@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ResourceNameDTO {
     private String resourceName;
-    private Long resourceId;
+    private String resourceId;
     private String resourceRole;
 }

@@ -13,6 +13,6 @@ import java.util.Set;
 @AllArgsConstructor
 public class ExternalAllocationResponse {
     private Set<ExternalAllocationDto> allocations;
-    private Long resourceId;
+    private String resourceId;
     private LocalDate date;
 }

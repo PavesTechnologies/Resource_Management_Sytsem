@@ -38,7 +38,7 @@ public class AvailabilityController {
 
     @PostMapping("/recalculate/resource/{resourceId}")
     public ResponseEntity<ApiResponse<String>> recalculateForResource(
-                        @PathVariable Long resourceId,
+                        @PathVariable String resourceId,
                         @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth) {
         
                 triggerService.triggerResourceRecalculation(resourceId, yearMonth);

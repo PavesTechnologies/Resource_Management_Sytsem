@@ -22,8 +22,8 @@ public class ResourceCost {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID resourceCostId;
 
-    @Column(nullable = false)
-    private Long resourceId;
+    @Column(nullable = false, length = 20)
+    private String resourceId;
 
     @Column(nullable = false)
     private BigDecimal costPerDay;

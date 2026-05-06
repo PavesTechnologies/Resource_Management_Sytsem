@@ -58,8 +58,8 @@ public class DeadLetterQueue {
     @Column(name = "original_event_type", length = 50)
     private String originalEventType;
 
-    @Column(name = "resource_id")
-    private Long resourceId;
+    @Column(name = "resource_id", length = 20)
+    private String resourceId;
 
     @Column(name = "event_date")
     private LocalDateTime eventDate;

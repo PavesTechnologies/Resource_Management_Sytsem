@@ -6,7 +6,7 @@ import java.time.LocalDate;
 public interface LeaveService {
     
     
-    Set<LocalDate> getApprovedLeaveForEmployee(Long employeeId, int year) throws LeaveApiException;
+    Set<LocalDate> getApprovedLeaveForEmployee(String employeeId, int year) throws LeaveApiException;
     
     boolean isApiHealthy();
     

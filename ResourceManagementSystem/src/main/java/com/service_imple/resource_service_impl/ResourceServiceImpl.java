@@ -68,7 +68,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<?>> getResourceById(Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getResourceById(String resourceId) {
         try {
             Resource resource = resourceRepository.findById(resourceId)
                     .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
@@ -115,7 +115,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<?>> deleteResource(Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> deleteResource(String resourceId) {
         try {
             Resource existing = resourceRepository.findById(resourceId)
                     .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));

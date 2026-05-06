@@ -23,8 +23,8 @@ public class ResourceState {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID resourceStateId;
 
-    @Column(nullable = false)
-    private Long resourceId;
+    @Column(nullable = false, length = 20)
+    private String resourceId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

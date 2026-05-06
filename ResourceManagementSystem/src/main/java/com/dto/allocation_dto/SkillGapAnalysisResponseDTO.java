@@ -20,7 +20,7 @@ import java.util.UUID;
 public class SkillGapAnalysisResponseDTO {
     
     private UUID demandId;
-    private Long resourceId;
+    private String resourceId;
     private Double matchPercentage;
     private Boolean allocationAllowed;
     private String riskLevel; // LOW, MEDIUM, HIGH

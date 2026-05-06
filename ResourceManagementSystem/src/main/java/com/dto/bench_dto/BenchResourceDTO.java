@@ -19,11 +19,11 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class BenchResourceDTO {
     
-    private Long resourceId;
+    private String resourceId;
     private String resourceName;
     private String email;
     private String designation;
-    private Long experience;
+    private double experience;
     private String workingLocation;
     private String employmentType;
     

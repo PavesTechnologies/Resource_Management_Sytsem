@@ -15,7 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 public class BenchPoolReportDTO {
     
-    private Long resourceId;
+    private String resourceId;
     private String name;
     private String status;
     private List<String> skills;

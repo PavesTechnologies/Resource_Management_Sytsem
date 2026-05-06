@@ -182,11 +182,11 @@ public class AllocationValidationService {
      * Preloads all allocation data to prevent N+1 queries during parallel validation
      */
     public AllocationPreloadedData preloadAllocationData(AllocationRequestDTO request, Demand demand) {
-        List<Long> resourceIds = request.getResourceId();
+        List<String> resourceIds = request.getResourceId();
         
         // 1. Batch fetch all resources
         List<Resource> resources = resourceRepository.findAllById(resourceIds);
-        Map<Long, Resource> resourceMap = resources.stream()
+        Map<String, Resource> resourceMap = resources.stream()
                 .collect(Collectors.toMap(Resource::getResourceId, r -> r));
         
         // 2. Batch fetch conflicting allocations for all resources
@@ -195,11 +195,11 @@ public class AllocationValidationService {
                 request.getAllocationStartDate(), 
                 request.getAllocationEndDate()
         );
-        Map<Long, List<ResourceAllocation>> allocationsByResource = conflictingAllocations.stream()
+        Map<String, List<ResourceAllocation>> allocationsByResource = conflictingAllocations.stream()
                 .collect(Collectors.groupingBy(ra -> ra.getResource().getResourceId()));
         
         // 3. Batch fetch resource skills if demand exists
-        Map<Long, List<ResourceSkill>> skillsByResource = new HashMap<>();
+        Map<String, List<ResourceSkill>> skillsByResource = new HashMap<>();
         if (demand != null && demand.getRequiredSkills() != null && !demand.getRequiredSkills().isEmpty()) {
             List<ResourceSkill> allResourceSkills = resourceSkillRepository.findByResourceIdInAndActiveFlagTrue(resourceIds);
             skillsByResource = allResourceSkills.stream()
@@ -207,7 +207,7 @@ public class AllocationValidationService {
         }
         
         // 4. Batch fetch resource certificates if demand exists
-        Map<Long, List<ResourceCertificate>> certificatesByResource = new HashMap<>();
+        Map<String, List<ResourceCertificate>> certificatesByResource = new HashMap<>();
         if (demand != null && demand.getRequiredCertificates() != null && !demand.getRequiredCertificates().isEmpty()) {
             List<ResourceCertificate> allResourceCertificates = resourceCertificateRepository.findCertificatesForResources(
                     resourceIds, java.time.LocalDate.now());
@@ -330,7 +330,7 @@ public class AllocationValidationService {
     /**
      * Gets resource name from preloaded data map
      */
-    private String getResourceName(Long resourceId, Map<Long, Resource> resourceMap) {
+    private String getResourceName(String resourceId, Map<String, Resource> resourceMap) {
         Resource resource = resourceMap.get(resourceId);
         return resource != null ? resource.getFullName() : "Resource " + resourceId;
     }
@@ -338,7 +338,7 @@ public class AllocationValidationService {
     /**
      * Validates resource existence and eligibility
      */
-    private Resource validateResource(Long resourceId, Map<Long, Resource> resourceMap) {
+    private Resource validateResource(String resourceId, Map<String, Resource> resourceMap) {
         Resource resource = resourceMap.get(resourceId);
         if (resource == null) {
             return null;
@@ -361,7 +361,7 @@ public class AllocationValidationService {
             AllocationRequestDTO request, 
             Demand demand, 
             Project project, 
-            Long resourceId, 
+            String resourceId, 
             AllocationPreloadedData preloadedData) {
         
         // Validate demand exists and is approved (already done in validateDemandOrProject)
@@ -409,7 +409,7 @@ public class AllocationValidationService {
     /**
      * Validates skill compliance using existing methods
      */
-    private void validateSkillCompliance(Long resourceId, Demand demand, AllocationRequestDTO request) {
+    private void validateSkillCompliance(String resourceId, Demand demand, AllocationRequestDTO request) {
         if (demand == null) {
             return; // Skip skill validation for project allocations
         }
@@ -444,7 +444,7 @@ public class AllocationValidationService {
     /**
      * Validates capacity using timeline segmentation algorithm
      */
-    public boolean validateCapacity(Long resourceId,
+    public boolean validateCapacity(String resourceId,
                                      AllocationRequestDTO request,
                                      AllocationPreloadedData preloadedData) {
 

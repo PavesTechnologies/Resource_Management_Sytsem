@@ -32,7 +32,7 @@ public class ConflictDetectionResult {
     @Builder
     public static class PriorityConflictDetail {
         private UUID conflictId;
-        private Long resourceId;
+        private String resourceId;
         private String resourceName;
         private UUID existingAllocationId;
         private AllocationRequestSummary newAllocationRequest;
@@ -58,7 +58,7 @@ public class ConflictDetectionResult {
     public static class AllocationRequestSummary {
         private UUID demandId;
         private Long projectId;
-        private Long resourceId;
+        private String resourceId;
         private String allocationStatus; // "PLANNED", "ACTIVE"
         private LocalDate allocationStartDate;
         private LocalDate allocationEndDate;

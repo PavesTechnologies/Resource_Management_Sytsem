@@ -186,7 +186,7 @@ public class LedgerEventController {
     @PostMapping("/recalculate")
     @Operation(summary = "Manual recalculation", description = "Manually trigger availability recalculation for a resource")
     public CompletableFuture<ResponseEntity<Map<String, Object>>> triggerManualRecalculation(
-            @RequestParam @Parameter(description = "Resource ID") Long resourceId,
+            @RequestParam @Parameter(description = "Resource ID") String resourceId,
             @RequestParam @Parameter(description = "Start date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @Parameter(description = "End date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         
@@ -217,7 +217,7 @@ public class LedgerEventController {
     @PostMapping("/incremental-update")
     @Operation(summary = "Trigger incremental update", description = "Trigger incremental availability update based on event date")
     public CompletableFuture<ResponseEntity<Map<String, Object>>> triggerIncrementalUpdate(
-            @RequestParam @Parameter(description = "Resource ID") Long resourceId,
+            @RequestParam @Parameter(description = "Resource ID") String resourceId,
             @RequestParam @Parameter(description = "Event date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate eventDate,
             @RequestParam @Parameter(description = "Event type") String eventType) {
         
@@ -247,7 +247,7 @@ public class LedgerEventController {
     @GetMapping("/availability/{resourceId}")
     @Operation(summary = "Get availability data", description = "Get availability data for a resource within date range")
     public ResponseEntity<Map<String, Object>> getAvailabilityData(
-            @PathVariable @Parameter(description = "Resource ID") Long resourceId,
+            @PathVariable @Parameter(description = "Resource ID") String resourceId,
             @RequestParam @Parameter(description = "Start date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @Parameter(description = "End date") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         

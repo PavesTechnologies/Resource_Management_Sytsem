@@ -16,5 +16,5 @@ public interface ResourceCostRepository extends JpaRepository<ResourceCost, Long
         AND rc.effectiveFrom <= :today
         AND (rc.effectiveTo IS NULL OR rc.effectiveTo >= :today)
         """)
-    Optional<ResourceCost> findActiveCost(Long resourceId, LocalDate today);
+    Optional<ResourceCost> findActiveCost(String resourceId, LocalDate today);
 }

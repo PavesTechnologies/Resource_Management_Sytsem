@@ -98,7 +98,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     /**
      * Find role-off events for a specific resource
      */
-    List<RoleOffEvent> findByResource_ResourceId(Long resourceId);
+    List<RoleOffEvent> findByResource_ResourceId(String resourceId);
 
     /**
      * Find role-off events with missing reason classification for governance
@@ -146,31 +146,31 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
      * Get current utilization percentage for a resource
      */
     @Query("SELECT ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
-    List<Integer> getCurrentUtilization(@Param("resourceId") Long resourceId);
+    List<Integer> getCurrentUtilization(@Param("resourceId") String resourceId);
 
     /**
      * Get total allocation percentage for a resource
      */
     @Query("SELECT COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
-    Integer getTotalCurrentUtilization(@Param("resourceId") Long resourceId);
+    Integer getTotalCurrentUtilization(@Param("resourceId") String resourceId);
 
     /**
      * Get total allocation percentage for multiple resources in batch
      */
     @Query("SELECT ra.resource.resourceId, COALESCE(SUM(ra.allocationPercentage), 0) FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE' GROUP BY ra.resource.resourceId")
-    List<Object[]> getTotalCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
+    List<Object[]> getTotalCurrentUtilizationBatch(@Param("resourceIds") List<String> resourceIds);
 
     /**
      * Get current utilization percentage for multiple resources in batch
      */
     @Query("SELECT ra.resource.resourceId, ra.allocationPercentage FROM ResourceAllocation ra WHERE ra.resource.resourceId IN :resourceIds AND ra.allocationStatus = 'ACTIVE'")
-    List<Object[]> getCurrentUtilizationBatch(@Param("resourceIds") List<Long> resourceIds);
+    List<Object[]> getCurrentUtilizationBatch(@Param("resourceIds") List<String> resourceIds);
 
     /**
      * Get resource availability percentage (100 - current utilization)
      */
     @Query("SELECT (100 - COALESCE(SUM(ra.allocationPercentage), 0)) FROM ResourceAllocation ra WHERE ra.resource.resourceId = :resourceId AND ra.allocationStatus = 'ACTIVE'")
-    Integer getResourceAvailability(@Param("resourceId") Long resourceId);
+    Integer getResourceAvailability(@Param("resourceId") String resourceId);
 
     /**
      * Find role-off events with effective date today for scheduler

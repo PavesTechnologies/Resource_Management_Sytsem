@@ -14,7 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MatchResponse {
     
-    private Long resourceId;
+    private String resourceId;
     private String resourceName;
     private Integer resourceExperience;
     private double matchScore;

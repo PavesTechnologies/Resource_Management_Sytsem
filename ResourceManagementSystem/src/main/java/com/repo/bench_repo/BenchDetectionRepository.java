@@ -31,12 +31,12 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
           AND r.activeFlag = true
           AND (r.noticeStartDate IS NULL OR r.noticeStartDate > :currentDate)
         """)
-    List<Long> findBenchEligibleResources(@Param("currentDate") LocalDate currentDate);
+    List<String> findBenchEligibleResources(@Param("currentDate") LocalDate currentDate);
 
     /**
      * Find current active state for a resource by resourceId and currentFlag
      */
-    Optional<ResourceState> findByResourceIdAndCurrentFlagTrue(Long resourceId);
+    Optional<ResourceState> findByResourceIdAndCurrentFlagTrue(String resourceId);
 
     /**
      * Find current active state for a resource
@@ -47,7 +47,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE rs.resourceId = :resourceId
           AND rs.currentFlag = true
         """)
-    Optional<ResourceState> findCurrentState(@Param("resourceId") Long resourceId);
+    Optional<ResourceState> findCurrentState(@Param("resourceId") String resourceId);
 
     /**
      * Find current bench state for a resource
@@ -59,7 +59,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
           AND rs.currentFlag = true
           AND rs.stateType = 'BENCH'
         """)
-    Optional<ResourceState> findCurrentBenchState(@Param("resourceId") Long resourceId);
+    Optional<ResourceState> findCurrentBenchState(@Param("resourceId") String resourceId);
 
     /**
      * Find all resources currently in bench state
@@ -70,7 +70,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
         """)
-    List<Long> findResourcesInBench();
+    List<String> findResourcesInBench();
 
     /**
      * Check if resource has any active allocations
@@ -81,7 +81,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE a.resource.resourceId = :resourceId
           AND a.allocationStatus = 'ACTIVE'
         """)
-    boolean hasActiveAllocations(@Param("resourceId") Long resourceId);
+    boolean hasActiveAllocations(@Param("resourceId") String resourceId);
 
     /**
      * Get current project state for a resource
@@ -93,7 +93,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
           AND rs.currentFlag = true
           AND rs.stateType = 'PROJECT'
         """)
-    Optional<ResourceState> findCurrentProjectState(@Param("resourceId") Long resourceId);
+    Optional<ResourceState> findCurrentProjectState(@Param("resourceId") String resourceId);
 
     /**
      * Get all bench resources with complete resource details for frontend

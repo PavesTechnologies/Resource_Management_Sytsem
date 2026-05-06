@@ -17,7 +17,7 @@ import java.util.UUID;
 public class QuickAllocationDTO {
 
     @NotNull(message = "Resource ID is required")
-    private Long resourceId;
+    private String resourceId;
 
     @NotNull(message = "Demand ID is required")
     private UUID demandId;
