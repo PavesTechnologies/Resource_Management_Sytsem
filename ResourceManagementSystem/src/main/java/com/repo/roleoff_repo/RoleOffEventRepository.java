@@ -270,6 +270,8 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
                     SELECT p2.pmsProjectId FROM Project p2 WHERE p2.deliveryOwnerId = :rmId
                 )
                 AND r.roleOffStatus = :status
+                AND r.rmApproved = true
+                AND (r.dlApproved IS NULL OR r.dlApproved = false)
             """)
     List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
@@ -304,4 +306,9 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
             AND roe.roleOffStatus = :status
             """)
     Long countByAllocationIdsAndStatus(@Param("allocationIds") List<UUID> allocationIds, @Param("status") RoleOffStatus status);
+
+    /**
+     * Find role-offs approved today by delivery manager for KPI tracking
+     */
+    List<RoleOffEvent> findByDlApprovedTrueAndDlActionDate(LocalDate date);
 }
