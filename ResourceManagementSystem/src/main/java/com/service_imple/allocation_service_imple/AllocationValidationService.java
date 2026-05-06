@@ -233,8 +233,8 @@ public class AllocationValidationService {
         final Demand finalDemand = demandProjectData.getDemand();
         final Project finalProject = demandProjectData.getProject();
         
-        // Parallel resource validation using preloaded data
-        request.getResourceId().parallelStream().forEach(resourceId -> {
+        // Sequential resource validation using preloaded data to avoid Hibernate concurrency issues
+        request.getResourceId().forEach(resourceId -> {
             try {
                 // Validate resource existence and eligibility
                 Resource resource = validateResource(resourceId, preloadedData.getResourceMap());
@@ -303,9 +303,17 @@ public class AllocationValidationService {
                     validateSkillCompliance(resourceId, finalDemand, request);
                 }
                 
+                // Validate that at least one of demand or project is present
+                if (finalDemand == null && finalProject == null) {
+                    throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "MISSING_DEMAND_OR_PROJECT",
+                        "Allocation must have either a demand or project associated with it"
+                    );
+                }
+                
                 // Create allocation object if all validations pass
                 ResourceAllocation allocation = new ResourceAllocation();
-                allocation.setAllocationId(UUID.randomUUID());
                 allocation.setResource(resource);
                 allocation.setDemand(finalDemand);
                 allocation.setProject(finalProject);
@@ -314,7 +322,6 @@ public class AllocationValidationService {
                 allocation.setAllocationPercentage(request.getAllocationPercentage());
                 allocation.setAllocationStatus(request.getAllocationStatus());
                 allocation.setCreatedBy(request.getCreatedBy());
-                allocation.setCreatedAt(LocalDateTime.now());
                 allocation.setRequestBeyondCapacityApproval(request.getRequestBeyondCapacityApproval());
                 
                 validAllocations.add(allocation);
