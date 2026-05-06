@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -71,14 +72,16 @@ public class GlobalExceptionHandler{
 
     @ExceptionHandler(ProjectExceptionHandler.class)
     public ResponseEntity<?> handleProjectException(ProjectExceptionHandler ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("errorCode", ex.getErrorCode());
+        response.put("message", ex.getMessage());
+        response.put("timestamp", LocalDateTime.now());
+        response.put("data", null);
 
         return ResponseEntity
                 .status(ex.getStatus())
-                .body(Map.of(
-                        "errorCode", ex.getErrorCode(),
-                        "message", ex.getMessage(),
-                        "timestamp", LocalDateTime.now()
-                ));
+                .body(response);
     }
 
     @ExceptionHandler(AuthenticationException.class)

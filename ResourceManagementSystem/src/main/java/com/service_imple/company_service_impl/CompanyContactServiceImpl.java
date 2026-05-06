@@ -3,6 +3,7 @@ package com.service_imple.company_service_impl;
 import com.dto.centralised_dto.ApiResponse;
 import com.entity.company_entities.Company;
 import com.entity.company_entities.CompanyEscalationContact;
+import com.entity_enums.client_enums.ContactRole;
 import com.global_exception_handler.CompanyExceptionHandler;
 import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.company_repo.CompanyContactRepo;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -27,131 +29,139 @@ public class CompanyContactServiceImpl implements CompanyContactService {
     @Autowired
     private ApiResponse apiResponse;
 
+    /**
+     * Find or create default company
+     */
+    private Company findOrCreateDefaultCompany() {
+        // First try to find existing default companies
+        List<Company> existingDefaults = companyRepo.findByCompanyName("Default Company");
+        
+        if (!existingDefaults.isEmpty()) {
+            // Use the first existing default company
+            Company firstDefault = existingDefaults.get(0);
+            System.out.println("DEBUG: Found existing default company (using first of " + existingDefaults.size() + "): " + firstDefault.getCompanyId());
+            return firstDefault;
+        }
+        
+        // Create new default company if not found
+        Company defaultCompany = Company.builder()
+                .companyName("Default Company")
+                .companyCode("DEFAULT001")
+                .priorityLevel(com.entity_enums.centralised_enums.PriorityLevel.MEDIUM)
+                .countryName("Default")
+                .defaultTimezone("UTC")
+                .status(com.entity_enums.centralised_enums.RecordStatus.ACTIVE)
+                .escalationContact(true)
+                .build();
+        
+        Company savedDefault = companyRepo.save(defaultCompany);
+        System.out.println("DEBUG: Created new default company: " + savedDefault.getCompanyId());
+        return savedDefault;
+    }
+
     @Override
     public ResponseEntity<ApiResponse<?>> createCompanyContact(CompanyEscalationContact companyContact) {
+        // Debug logging
+        System.out.println("DEBUG: companyContact.getCompany() = " + companyContact.getCompany());
+        if (companyContact.getCompany() != null) {
+            System.out.println("DEBUG: companyContact.getCompany().getCompanyId() = " + companyContact.getCompany().getCompanyId());
+        }
+        
         // Validate required fields
-        if (companyContact.getCompany() == null || companyContact.getCompany().getCompanyId() == null) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.BAD_REQUEST,
-                "INVALID_COMPANY",
-                "Company is required"
-            );
+        UUID companyId = null;
+        Company company = null;
+        
+        // Try to get companyId from existing company object
+        if (companyContact.getCompany() != null && companyContact.getCompany().getCompanyId() != null) {
+            companyId = companyContact.getCompany().getCompanyId();
+            System.out.println("DEBUG: Extracted companyId from company object: " + companyId);
         }
         
-        // Check for duplicate email
-        if (companyContact.getEmail() != null && 
-            companyContactRepo.existsByEmailAndCompany_CompanyId(
-                companyContact.getEmail(), 
-                companyContact.getCompany().getCompanyId())) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.CONFLICT,
-                "DUPLICATE_EMAIL",
-                "Email already exists for this company"
-            );
+        // If companyId exists, try to find the company
+        if (companyId != null) {
+            company = companyRepo.findById(companyId).orElse(null);
         }
         
-        // Check for duplicate contact name
-        if (companyContact.getContactName() != null && 
-            companyContactRepo.existsByContactNameAndCompany_CompanyId(
-                companyContact.getContactName(), 
-                companyContact.getCompany().getCompanyId())) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.CONFLICT,
-                "DUPLICATE_CONTACT_NAME",
-                "Contact name already exists for this company"
-            );
-        }
-        
-        // Handle the company entity - fetch by companyId if provided, create default if not
-        Company company = companyContact.getCompany();
-        
-        // Check if we have a companyId but no full company object
+        // If company doesn't exist, try to auto-create it or use default
         if (company == null) {
-            // Create a default company when none is provided
-            company = new Company();
-            company.setCompanyName("Default Company");
-            company.setCompanyCode("DEF" + System.currentTimeMillis() % 10000); // Generate unique code
-            company.setStatus(com.entity_enums.centralised_enums.RecordStatus.ACTIVE);
-            company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
-            company.setCountryName("United States");
-            company.setDefaultTimezone("UTC");
-            company.setEscalationContact(true);
-            company = companyRepo.save(company);
-        } else {
-            // If only companyId is provided, fetch the full company
-            if (company.getCompanyId() != null && company.getCompanyName() == null) {
-                final UUID companyId = company.getCompanyId();
-                company = companyRepo.findById(companyId).orElse(null);
+            System.out.println("DEBUG: Company not found, checking for auto-creation or default...");
+            
+            // If company name and code are provided, create specific company
+            if ((companyContact.getCompanyName() != null && !companyContact.getCompanyName().trim().isEmpty()) &&
+                (companyContact.getCompanyCode() != null && !companyContact.getCompanyCode().trim().isEmpty())) {
                 
-                if (company == null) {
-                    // Company not found, create a new one with the provided ID
-                    company = new Company();
-                    company.setCompanyId(companyId);
-                    company.setCompanyName("Default Company");
-                    company.setCompanyCode("DEF" + System.currentTimeMillis() % 10000);
-                    company.setStatus(com.entity_enums.centralised_enums.RecordStatus.ACTIVE);
-                    company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
-                    company.setCountryName("United States");
-                    company.setDefaultTimezone("UTC");
-                    company.setEscalationContact(true);
-                    company = companyRepo.save(company);
-                } else {
-                    // Check if required fields are missing and populate them
-                    if (company.getPriorityLevel() == null) {
-                        company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
-                    }
-                    if (company.getCountryName() == null) {
-                        company.setCountryName("United States");
-                    }
-                    if (company.getDefaultTimezone() == null) {
-                        company.setDefaultTimezone("UTC");
-                    }
-                    if (company.getEscalationContact() == null) {
-                        company.setEscalationContact(true);
-                    }
-                    if (company.getStatus() == null) {
-                        company.setStatus(com.entity_enums.centralised_enums.RecordStatus.ACTIVE);
-                    }
-                    
-                    // Only save if we updated missing required fields
-                    if (company.getCountryName() != null && company.getDefaultTimezone() != null && 
-                        company.getPriorityLevel() != null && company.getEscalationContact() != null) {
-                        company = companyRepo.save(company);
-                    }
+                // Check if company code already exists
+                if (companyRepo.existsByCompanyCode(companyContact.getCompanyCode())) {
+                    throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_COMPANY_CODE", "Company code already exists");
                 }
+                
+                // Create new company with provided values
+                Company newCompany = Company.builder()
+                        .companyName(companyContact.getCompanyName())
+                        .companyCode(companyContact.getCompanyCode())
+                        .priorityLevel(com.entity_enums.centralised_enums.PriorityLevel.MEDIUM)
+                        .countryName("Default")
+                        .defaultTimezone("UTC")
+                        .status(com.entity_enums.centralised_enums.RecordStatus.ACTIVE)
+                        .escalationContact(true)
+                        .build();
+                
+                company = companyRepo.save(newCompany);
+                System.out.println("DEBUG: Auto-created specific company with ID: " + company.getCompanyId());
             } else {
-                // Set default values for required fields if not provided
-                if (company.getStatus() == null) {
-                    company.setStatus(com.entity_enums.centralised_enums.RecordStatus.ACTIVE);
-                }
-                if (company.getPriorityLevel() == null) {
-                    company.setPriorityLevel(com.entity_enums.centralised_enums.PriorityLevel.LOW);
-                }
-                if (company.getCountryName() == null) {
-                    company.setCountryName("United States");
-                }
-                if (company.getDefaultTimezone() == null) {
-                    company.setDefaultTimezone("UTC");
-                }
-                if (company.getEscalationContact() == null) {
-                    company.setEscalationContact(true);
-                }
-                // Ensure company code exists if not provided
-                if (company.getCompanyCode() == null || company.getCompanyCode().trim().isEmpty()) {
-                    company.setCompanyCode("DEF" + System.currentTimeMillis() % 10000);
-                }
-                // Save new or updated company
-                company = companyRepo.save(company);
+                // Use default company
+                company = findOrCreateDefaultCompany();
+                System.out.println("DEBUG: Using default company: " + company.getCompanyId());
             }
         }
         
-        companyContact.setCompany(company);
-        
-        CompanyEscalationContact contact = companyContactRepo.save(companyContact);
-        if(contact != null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Contact Created Successfully", contact));
+        companyId = company.getCompanyId();
+        System.out.println("DEBUG: Using company ID: " + companyId);
+
+        // Step 2: All duplicate checks AFTER confirming company is real
+        if (companyContact.getEmail() != null &&
+                companyContactRepo.existsByEmailAndCompany_CompanyId(companyContact.getEmail(), companyId)) {
+            throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists for this company");
         }
-        else {
+
+        if (companyContact.getContactName() != null &&
+                companyContactRepo.existsByContactNameAndCompany_CompanyId(companyContact.getContactName(), companyId)) {
+            throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_CONTACT_NAME", "Contact name already exists for this company");
+        }
+
+        // Step 3: Enhanced role+level duplicate check - THIS IS THE KEY PART
+        if (companyContact.getContactRole() != null && companyContact.getEscalationLevel() != null) {
+            System.out.println("DEBUG: Checking for duplicate - companyId: " + companyId);
+            System.out.println("DEBUG: Checking for duplicate - contactRole: " + companyContact.getContactRole());
+            System.out.println("DEBUG: Checking for duplicate - escalationLevel: " + companyContact.getEscalationLevel());
+            
+            Long count = companyContactRepo.countByCompanyIdAndContactRoleAndEscalationLevel(
+                    companyId,
+                    companyContact.getContactRole(),
+                    companyContact.getEscalationLevel()
+            );
+            
+            System.out.println("DEBUG: Duplicate count found: " + count);
+            
+            if (count > 0) {
+                System.out.println("DEBUG: DUPLICATE FOUND! Throwing exception...");
+                throw new ProjectExceptionHandler(
+                        HttpStatus.CONFLICT, "DUPLICATE_ROLE_LEVEL",
+                        "Contact role '" + companyContact.getContactRole() + "' and escalation level '" + companyContact.getEscalationLevel() + "' already exists for this company");
+            } else {
+                System.out.println("DEBUG: No duplicate found, proceeding with creation...");
+            }
+        } else {
+            System.out.println("DEBUG: Skipping duplicate check - contactRole or escalationLevel is null");
+        }
+
+        // Step 4: Set real company object
+        companyContact.setCompany(company);
+
+        CompanyEscalationContact contact = companyContactRepo.save(companyContact);
+        if (contact != null) {
+            return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Contact Created Successfully", contact));
+        } else {
             throw new CompanyExceptionHandler("Company Contact creation Failed");
         }
     }
@@ -196,6 +206,24 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             }
         }
 
+        // Check for duplicate contact role and escalation level combination (excluding current contact)
+        if (companyContact.getContactRole() != null && companyContact.getEscalationLevel() != null && existingContact.getCompany() != null) {
+            var existingRoleLevelContact = companyContactRepo.findByCompanyIdAndContactRoleAndEscalationLevelExcludingId(
+                existingContact.getCompany().getCompanyId(),
+                companyContact.getContactRole(),
+                companyContact.getEscalationLevel(),
+                contactId
+            );
+            
+            if (existingRoleLevelContact.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_ROLE_LEVEL",
+                    "Contact role and escalation level combination already exists for this company"
+                );
+            }
+        }
+
         // Update all fields from the request
         if (companyContact.getContactName() != null) {
             existingContact.setContactName(companyContact.getContactName());
@@ -215,18 +243,17 @@ public class CompanyContactServiceImpl implements CompanyContactService {
         if (companyContact.getEscalationLevel() != null) {
             existingContact.setEscalationLevel(companyContact.getEscalationLevel());
         }
-        
-        // Handle company update if provided
+
         if (companyContact.getCompany() != null) {
-            Company company = companyContact.getCompany();
-            if (company.getCompanyId() != null) {
-                final UUID companyId = company.getCompanyId();
-                final Company companyToSave = company;
-                company = companyRepo.findById(companyId)
-                        .orElseGet(() -> companyRepo.save(companyToSave));
-            } else {
-                company = companyRepo.save(company);
-            }
+            UUID companyId = companyContact.getCompany().getCompanyId();
+
+            Company company = companyRepo.findById(companyId)
+                    .orElseThrow(() -> new ProjectExceptionHandler(
+                            HttpStatus.NOT_FOUND,
+                            "COMPANY_NOT_FOUND",
+                            "Company not found"
+                    ));
+
             existingContact.setCompany(company);
         }
 
