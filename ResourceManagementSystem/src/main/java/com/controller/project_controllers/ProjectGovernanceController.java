@@ -118,13 +118,13 @@ public class ProjectGovernanceController {
     }
 
     @GetMapping("/get-project-by-id/{id}")
-    @PreAuthorize("hasAnyRole('Resource_Manager','Delivery_Manager')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Delivery_Manager','Project_Manager')")
     public ResponseEntity<ApiResponse<?>> getProjectById(@PathVariable Long id) {
         return projectGovernanceService.getProjectById(id);
     }
 
     @GetMapping("/check-demand-creation/{pmsProjectId}")
-    @PreAuthorize("hasAnyRole('Resource_Manager','Delivery_Manager')")
+    @PreAuthorize("hasAnyRole('Resource_Manager','Delivery_Manager','Project_Manager')")
     public ResponseEntity<ApiResponse<?>> checkDemandCreation(@PathVariable Long pmsProjectId) {
         return projectGovernanceService.checkDemandCreation(pmsProjectId);
     }
