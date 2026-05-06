@@ -3,6 +3,7 @@ package com.service_imple.client_service_impl;
 import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.ClientSLA;
 import com.entity.project_entities.ProjectSLA;
+import com.entity_enums.client_enums.SLAType;
 import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.client_repo.ClientSLARepo;
 import com.repo.project_repo.ProjectSLARepo;
@@ -27,6 +28,28 @@ public class ClientSLAServiceImpl implements ClientSLAService {
 
     @Override
     public ResponseEntity<ApiResponse<ClientSLA>> createClientSLA(ClientSLA clientSLA) {
+        // Validate duration days > warning threshold days
+        if (clientSLA.getSlaDurationDays() != null && clientSLA.getWarningThresholdDays() != null) {
+            if (clientSLA.getWarningThresholdDays() >= clientSLA.getSlaDurationDays()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Warning threshold days must be less than duration days", null));
+            }
+        }
+        
+        // Check for duplicate SLA types (NET_NEW, REPLACEMENT, EMERGENCY)
+        if (clientSLA.getClient() != null && clientSLA.getSlaType() != null) {
+            SLAType slaType = clientSLA.getSlaType();
+            if (slaType == SLAType.NET_NEW || slaType == SLAType.REPLACEMENT || slaType == SLAType.EMERGENCY || slaType == SLAType.BACKFILL) {
+                java.util.Optional<ClientSLA> existingSLA = clientSLARepo.findByClient_ClientIdAndSlaType(
+                        clientSLA.getClient().getClientId(), slaType);
+                
+                if (existingSLA.isPresent()) {
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.error("SLA type " + slaType + " already exists for this client. Only one instance allowed.", null));
+                }
+            }
+        }
+        
         ClientSLA sla = clientSLARepo.save(clientSLA);
         if (sla != null) {
             return ResponseEntity.ok(ApiResponse.success("Client SLA Created Successfully", sla));
@@ -37,6 +60,29 @@ public class ClientSLAServiceImpl implements ClientSLAService {
 
     @Override
     public ResponseEntity<ApiResponse<ClientSLA>> updateClientSLA(ClientSLA clientSLA) {
+        // Validate duration days > warning threshold days
+        if (clientSLA.getSlaDurationDays() != null && clientSLA.getWarningThresholdDays() != null) {
+            if (clientSLA.getWarningThresholdDays() >= clientSLA.getSlaDurationDays()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Warning threshold days must be less than duration days", null));
+            }
+        }
+        
+        // Check for duplicate SLA types (NET_NEW, REPLACEMENT, EMERGENCY) during update
+        if (clientSLA.getClient() != null && clientSLA.getSlaType() != null) {
+            SLAType slaType = clientSLA.getSlaType();
+            if (slaType == SLAType.NET_NEW || slaType == SLAType.REPLACEMENT || slaType == SLAType.EMERGENCY || slaType == SLAType.BACKFILL) {
+                java.util.Optional<ClientSLA> existingSLA = clientSLARepo.findByClient_ClientIdAndSlaType(
+                        clientSLA.getClient().getClientId(), slaType);
+                
+                // If there's an existing SLA and it's not the same one being updated
+                if (existingSLA.isPresent() && !existingSLA.get().getSlaId().equals(clientSLA.getSlaId())) {
+                    return ResponseEntity.badRequest()
+                            .body(ApiResponse.error("SLA type " + slaType + " already exists for this client. Only one instance allowed.", null));
+                }
+            }
+        }
+        
         ClientSLA sla = clientSLARepo.save(clientSLA);
         if (sla != null) {
             return ResponseEntity.ok(ApiResponse.success("Client SLA Updated Successfully", sla));

@@ -3,6 +3,7 @@ package com.service_imple.client_service_impl;
 import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.Client;
 import com.entity.client_entities.ClientEscalationContact;
+import com.entity_enums.client_enums.ContactRole;
 import com.repo.client_repo.ClientContactRepo;
 import com.repo.client_repo.ClientRepo;
 import com.service_interface.client_service_interface.ClientContactService;
@@ -45,6 +46,13 @@ public class ClientContactServiceImpl implements ClientContactService {
                         .body(new ApiResponse<>(false, "Contact name already exists for this client", null));
             }
 
+            // Check for duplicate contact role and escalation level combination within the same client
+            if (clientContactRepo.existsByClient_ClientIdAndContactRoleAndEscalationLevel(
+                    client.getClientId(), clientContact.getContactRole(), clientContact.getEscalationLevel())) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false, "Contact role and escalation level combination already exists for this client", null));
+            }
+
             clientContact.setClient(client);
 
             ClientEscalationContact savedContact = clientContactRepo.save(clientContact);
@@ -85,6 +93,13 @@ public class ClientContactServiceImpl implements ClientContactService {
                     clientContact.getContactName(), client.getClientId(), clientContact.getContactId()).isPresent()) {
                 return ResponseEntity.badRequest()
                         .body(new ApiResponse<>(false, "Contact name already exists for this client", null));
+            }
+
+            // Check for duplicate contact role and escalation level combination (excluding current contact)
+            if (clientContactRepo.findByClient_ClientIdAndContactRoleAndEscalationLevelExcludingId(
+                    client.getClientId(), clientContact.getContactRole(), clientContact.getEscalationLevel(), clientContact.getContactId()).isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false, "Contact role and escalation level combination already exists for this client", null));
             }
 
             // Update fields

@@ -1,6 +1,7 @@
 package com.repo.client_repo;
 
 import com.entity.client_entities.ClientEscalationContact;
+import com.entity_enums.client_enums.ContactRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,5 +50,20 @@ public interface ClientContactRepo extends JpaRepository<ClientEscalationContact
     Optional<ClientEscalationContact> findByContactNameAndClientIdExcludingId(
             @Param("contactName") String contactName, 
             @Param("clientId") UUID clientId,
+            @Param("excludeId") UUID excludeId);
+
+    boolean existsByClient_ClientIdAndContactRoleAndEscalationLevel(UUID clientId, ContactRole contactRole, String escalationLevel);
+
+    @Query("""
+       SELECT c FROM ClientEscalationContact c
+       WHERE c.client.clientId = :clientId
+       AND c.contactRole = :contactRole
+       AND c.escalationLevel = :escalationLevel
+       AND c.contactId != :excludeId
+       """)
+    Optional<ClientEscalationContact> findByClient_ClientIdAndContactRoleAndEscalationLevelExcludingId(
+            @Param("clientId") UUID clientId,
+            @Param("contactRole") ContactRole contactRole,
+            @Param("escalationLevel") String escalationLevel,
             @Param("excludeId") UUID excludeId);
 }

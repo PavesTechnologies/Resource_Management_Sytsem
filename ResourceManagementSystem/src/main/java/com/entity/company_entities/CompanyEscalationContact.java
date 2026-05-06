@@ -14,11 +14,19 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "company_escalation_contact", 
-       uniqueConstraints = {
-           @UniqueConstraint(columnNames = {"company_id", "email"}, 
-                           name = "uk_company_contact_email")
-       })
+@Table(
+        name = "company_escalation_contact",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        columnNames = {"company_id", "email"},
+                        name = "uk_company_contact_email"
+                ),
+                @UniqueConstraint(
+                        columnNames = {"company_id", "contact_role", "escalation_level"},
+                        name = "uk_company_role_level"
+                )
+        }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -70,20 +78,39 @@ public class CompanyEscalationContact {
     // Custom setter to handle companyId from JSON
     @JsonProperty("companyId")
     public void setCompanyId(UUID companyId) {
+        System.out.println("DEBUG: setCompanyId called with: " + companyId);
         // When companyId is set, create a partial company object
         if (companyId != null) {
             if (this.company == null) {
                 this.company = new Company();
             }
             this.company.setCompanyId(companyId);
+            System.out.println("DEBUG: Set company ID to: " + this.company.getCompanyId());
         }
     }
 
     // Custom setter to handle clientId from JSON (alternative field name)
     @JsonProperty("clientId")
     public void setClientId(UUID clientId) {
+        System.out.println("DEBUG: setClientId called with: " + clientId);
         // Delegate to setCompanyId to avoid code duplication
         setCompanyId(clientId);
+    }
+
+    // Fields for auto-creating company if it doesn't exist
+    @JsonProperty("companyName")
+    private String companyName;
+
+    @JsonProperty("companyCode") 
+    private String companyCode;
+
+    // Getters for company creation fields
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public String getCompanyCode() {
+        return companyCode;
     }
 
     // @ElementCollection
