@@ -1,6 +1,7 @@
 package com.repo.company_repo;
 
 import com.entity.company_entities.CompanyEscalationContact;
+import com.entity_enums.client_enums.ContactRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,5 +50,31 @@ public interface CompanyContactRepo extends JpaRepository<CompanyEscalationConta
     Optional<CompanyEscalationContact> findByContactNameAndCompanyIdExcludingId(
             @Param("contactName") String contactName, 
             @Param("companyId") UUID companyId,
+            @Param("excludeId") UUID excludeId);
+
+    // Instead of COUNT(c) > 0 (invalid boolean JPQL), use COUNT(c)
+    @Query("""
+   SELECT COUNT(c) FROM CompanyEscalationContact c
+   WHERE c.company.companyId = :companyId
+   AND c.contactRole = :contactRole
+   AND c.escalationLevel = :escalationLevel
+   """)
+    Long countByCompanyIdAndContactRoleAndEscalationLevel(
+            @Param("companyId") UUID companyId,
+            @Param("contactRole") ContactRole contactRole,
+            @Param("escalationLevel") String escalationLevel);
+
+    // Find duplicate contact role and escalation level combination excluding current contact
+    @Query("""
+       SELECT c FROM CompanyEscalationContact c
+       WHERE c.company.companyId = :companyId
+       AND c.contactRole = :contactRole
+       AND c.escalationLevel = :escalationLevel
+       AND c.contactId != :excludeId
+       """)
+    Optional<CompanyEscalationContact> findByCompanyIdAndContactRoleAndEscalationLevelExcludingId(
+            @Param("companyId") UUID companyId,
+            @Param("contactRole") ContactRole contactRole,
+            @Param("escalationLevel") String escalationLevel,
             @Param("excludeId") UUID excludeId);
 }

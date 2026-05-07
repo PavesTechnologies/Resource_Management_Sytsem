@@ -741,6 +741,11 @@ private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> alloca
                         .effectiveDate(event != null ? event.getEffectiveRoleOffDate() : null)
                         .rejectedBy(event != null ? event.getRejectedBy() : null)
                         .rejectionReason(event != null ? event.getRejectionReason() : null)
+                        // Delivery manager approval details for KPI tracking
+                        .dlApproved(event != null ? event.getDlApproved() : null)
+                        .dlActionDate(event != null ? event.getDlActionDate() : null)
+                        .createdAt(event != null ? event.getCreatedAt() : null)
+                        .updatedAt(event != null ? event.getUpdatedAt() : null)
                         .build();
             })
             .collect(Collectors.toList());
@@ -800,6 +805,89 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
                 "data", data
         ));
     }
+
+    @Override
+    public ResponseEntity<?> getRoleOffsApprovedToday(Long projectId, Long managerId) {
+        try {
+            LocalDate today = LocalDate.now();
+            
+            // Get role-offs approved today by delivery manager
+            List<RoleOffEvent> approvedToday = roleOffRepo.findByDlApprovedTrueAndDlActionDate(today);
+            
+            // Filter by project and manager if specified
+            if (projectId != null) {
+                approvedToday = approvedToday.stream()
+                        .filter(r -> r.getProject() != null && r.getProject().getPmsProjectId().equals(projectId))
+                        .toList();
+            }
+            
+            if (managerId != null) {
+                approvedToday = approvedToday.stream()
+                        .filter(r -> r.getProject() != null && r.getProject().getProjectManagerId().equals(managerId))
+                        .toList();
+            }
+            
+            // Convert to DTOs with complete details
+            List<ResourcesDTO> dtos = approvedToday.stream().map(r -> {
+                var allocation = r.getAllocation();
+                var resource = r.getResource();
+                var project = r.getProject();
+                var client = project != null ? project.getClient() : null;
+                var demand = allocation != null ? allocation.getDemand() : null;
+                var role = demand != null ? demand.getRole() : null;
+
+                // Skills List
+                List<String> skills = role != null && role.getSkill() != null
+                        ? List.of(role.getSkill().getName())
+                        : Collections.emptyList();
+
+                // SubSkills List
+                List<String> subSkills = role != null && role.getSubSkill() != null
+                        ? List.of(role.getSubSkill().getName())
+                        : Collections.emptyList();
+
+                return new ResourcesDTO(
+                        r.getId(),
+                        resource != null ? resource.getResourceId() : null,
+                        resource != null ? resource.getFullName() : "N/A",
+                        resource != null ? resource.getDesignation() : "N/A",
+                        project != null ? project.getName() : "N/A",
+                        client != null ? client.getClientName() : "N/A",
+                        role != null ? role.getId() : null,
+                        demand != null ? demand.getDemandName() : null,
+                        skills,
+                        subSkills,
+                        allocation != null ? allocation.getAllocationId() : null,
+                        "HIGH", // Default impact for approved role-offs
+                        allocation != null ? allocation.getAllocationStatus() : null,
+                        r.getRoleOffStatus(),
+                        allocation != null ? allocation.getAllocationPercentage() : null,
+                        allocation != null ? allocation.getAllocationEndDate() : null,
+                        r.getEffectiveRoleOffDate(),
+                        r.getRejectedBy(),
+                        r.getRejectionReason(),
+                        // Delivery manager approval details for KPI tracking
+                        r.getDlApproved(),
+                        r.getDlActionDate(),
+                        r.getCreatedAt(),
+                        r.getUpdatedAt()
+                );
+            }).toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("approvedToday", dtos);
+            response.put("count", dtos.size());
+            response.put("date", today);
+
+            return ResponseEntity.ok(new ApiResponse<>(true, "Role-offs approved today retrieved successfully!", response));
+
+        } catch (Exception e) {
+            throw new ProjectExceptionHandler(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "APPROVED_TODAY_FETCH_FAILED",
+                    "Failed to fetch role-offs approved today: " + e.getMessage());
+        }
+    }
     @Override
     public ResponseEntity<?> getRMRoleOffEvents(Long rmId) {
         List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffs(rmId, RoleOffStatus.PENDING);
@@ -857,7 +945,12 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
                 allocation != null ? allocation.getAllocationEndDate() : null,
                 r.getEffectiveRoleOffDate(),
                 r.getRejectedBy(),
-                r.getRejectionReason()
+                r.getRejectionReason(),
+                // Delivery manager approval details for KPI tracking
+                r.getDlApproved(),
+                r.getDlActionDate(),
+                r.getCreatedAt(),
+                r.getUpdatedAt()
         );
 
     }).toList();
@@ -1218,7 +1311,26 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
 
         roleOffRepo.save(event);
 
-        return ResponseEntity.ok("Role-off fulfilled successfully");
+        // Build comprehensive response with approval details
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Role-off fulfilled successfully");
+        response.put("roleOffId", event.getId());
+        response.put("approvalDetails", Map.of(
+                "dlApproved", true,
+                "dlActionDate", event.getDlActionDate(),
+                "approvedBy", userDTO.getName(),
+                "approvedAt", LocalDate.now(),
+                "roleOffStatus", event.getRoleOffStatus()
+        ));
+        response.put("resourceDetails", Map.of(
+                "resourceId", event.getResource().getResourceId(),
+                "resourceName", event.getResource().getFullName(),
+                "projectName", event.getProject().getName(),
+                "clientName", event.getProject().getClient().getClientName()
+        ));
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off fulfilled successfully", response));
     }
 
 @Override
@@ -1241,11 +1353,30 @@ public ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userD
     }
 
     event.setRoleOffStatus(RoleOffStatus.REJECTED);
-    event.setRejectedBy("Delivery_Manager");
+    event.setRejectedBy(userDTO.getName() + " (Delivery_Manager)");
     event.setRejectionReason(rejectionReason.trim());
 
     roleOffRepo.save(event);
-    return ResponseEntity.ok(new ApiResponse<>(true, "Rejected by DL", null));
+
+    // Build comprehensive response with rejection details
+    Map<String, Object> response = new HashMap<>();
+    response.put("success", true);
+    response.put("message", "Role-off rejected successfully");
+    response.put("roleOffId", event.getId());
+    response.put("rejectionDetails", Map.of(
+            "rejectedBy", event.getRejectedBy(),
+            "rejectionReason", event.getRejectionReason(),
+            "rejectedAt", LocalDate.now(),
+            "roleOffStatus", event.getRoleOffStatus()
+    ));
+    response.put("resourceDetails", Map.of(
+            "resourceId", event.getResource().getResourceId(),
+            "resourceName", event.getResource().getFullName(),
+            "projectName", event.getProject().getName(),
+            "clientName", event.getProject().getClient().getClientName()
+    ));
+
+    return ResponseEntity.ok(new ApiResponse<>(true, "Role-off rejected successfully", response));
 }
 
 @Override
@@ -1306,12 +1437,44 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
                 allocation != null ? allocation.getAllocationEndDate() : null,
                 r.getEffectiveRoleOffDate(),
                 r.getRejectedBy(),
-                r.getRejectionReason()
+                r.getRejectionReason(),
+                // Delivery manager approval details for KPI tracking
+                r.getDlApproved(),
+                r.getDlActionDate(),
+                r.getCreatedAt(),
+                r.getUpdatedAt()
         );
 
     }).toList();
 
-    return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", dtos));
+    // Build enterprise-level response
+    Map<String, Object> metadata = new HashMap<>();
+    metadata.put("totalRecords", dtos.size());
+    metadata.put("deliveryManagerId", dmId);
+    metadata.put("retrievedAt", LocalDate.now());
+    metadata.put("status", "APPROVED_RM_PENDING_DL");
+    metadata.put("filters", Map.of(
+            "deliveryManager", dmId,
+            "status", "APPROVED",
+            "rmApproved", true,
+            "dlApproved", false
+    ));
+
+    Map<String, Object> enterpriseResponse = new HashMap<>();
+    enterpriseResponse.put("roleOffEvents", dtos);
+    enterpriseResponse.put("metadata", metadata);
+    enterpriseResponse.put("summary", Map.of(
+            "pendingAction", dtos.size(),
+            "requiresAttention", dtos.size() > 0,
+            "urgencyLevel", dtos.stream()
+                    .anyMatch(dto -> "HIGH".equals(dto.getImpact())) ? "HIGH" : "NORMAL"
+    ));
+
+    return ResponseEntity.ok(new ApiResponse<>(
+            true, 
+            "Delivery Manager role-off events retrieved successfully", 
+            enterpriseResponse
+    ));
 }
 
 @Override

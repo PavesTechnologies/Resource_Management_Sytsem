@@ -140,4 +140,9 @@ public interface RoleOffService {
      * Logs role-off decision for audit purposes
      */
     void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean confirmed, Long userId);
+
+    /**
+     * Get role-offs approved today by delivery manager for KPI tracking
+     */
+    ResponseEntity<?> getRoleOffsApprovedToday(Long projectId, Long managerId);
 }

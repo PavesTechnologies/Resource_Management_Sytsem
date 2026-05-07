@@ -90,7 +90,9 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     @Override
     public ApiResponse<List<ProjectListDTO>> getEligibleProjects() {
 
-        List<ProjectListDTO> eligibleProjects = projectRepository.findAll().stream()
+        List<ProjectListDTO> eligibleProjects = projectRepository.findAll(
+                Specification.where(ProjectSpecification.excludeCompleted())
+        ).stream()
                 .map(this::mapWithEligibility)
                 .filter(ProjectListDTO::eligibleForDemand)
                 .toList();
@@ -102,7 +104,9 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     @Override
     public ApiResponse<List<ProjectListDTO>> getAllProjectsWithVisibility() {
 
-        List<ProjectListDTO> projects = projectRepository.findAll().stream()
+        List<ProjectListDTO> projects = projectRepository.findAll(
+                Specification.where(ProjectSpecification.excludeCompleted())
+        ).stream()
                 .map(this::mapWithEligibility)
                 .toList();
 
@@ -128,12 +132,12 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         );
 
         Specification<Project> spec =
-                Specification.where(ProjectSpecification.byManager(managerId))
-                        .and(ProjectSpecification.search(search))
+                Specification.where(ProjectSpecification.search(search))
                         .and(ProjectSpecification.readinessStatus(readinessStatus))
                         .and(ProjectSpecification.projectStatus(projectStatus))
                         .and(ProjectSpecification.priority(priorityLevel))
-                        .and(ProjectSpecification.risk(riskLevel));
+                        .and(ProjectSpecification.risk(riskLevel))
+                        .and(ProjectSpecification.excludeCompleted());
 
         Page<Project> projects = projectRepository.findAll(spec, pageable);
 
