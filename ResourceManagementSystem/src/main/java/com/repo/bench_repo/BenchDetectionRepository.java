@@ -185,7 +185,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE rs.stateType = 'BENCH'
           AND rs.currentFlag = true
           AND r.activeFlag = true
-          AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION')
+          AND rs.subState IN ('READY', 'NOT_AVAILABLE', 'LOW_UTILIZATION', 'SHADOW')
         ORDER BY rs.benchStartDate ASC
         """)
     List<Object[]> findBenchResourcesWithDetails();
