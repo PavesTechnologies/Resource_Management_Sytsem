@@ -9,8 +9,9 @@ import org.apache.kafka.connect.source.SourceRecord;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -27,7 +28,7 @@ import java.util.function.Consumer;
  */
 public class UnifiedDebeziumRunner {
 
-    private final Executor executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor;
     private DebeziumEngine<RecordChangeEvent<SourceRecord>> engine;
 
     private final io.debezium.config.Configuration config;
@@ -47,32 +48,47 @@ public class UnifiedDebeziumRunner {
         this.config = config;
         this.eventHandler = eventHandler;
         this.runnerName = runnerName;
+        this.executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "debezium-engine-" + runnerName);
+            t.setUncaughtExceptionHandler((thread, ex) ->
+                System.err.println("[" + runnerName + "] Debezium engine thread died unexpectedly: " + ex.getMessage()));
+            return t;
+        });
     }
 
-    /**
-     * Start the Debezium engine with the configured handler.
-     */
     @PostConstruct
     public void start() {
         engine = DebeziumEngine
                 .create(ChangeEventFormat.of(Connect.class))
                 .using(config.asProperties())
                 .notifying(eventHandler)
+                .using((success, message, error) -> {
+                    if (error != null) {
+                        System.err.println("[" + runnerName + "] Debezium engine completed with error: " + error.getMessage());
+                    } else {
+                        System.out.println("[" + runnerName + "] Debezium engine completed. Success=" + success + " " + message);
+                    }
+                })
                 .build();
 
         executor.execute(engine);
-        
-        System.out.println(runnerName + " Debezium Engine started successfully");
+        System.out.println("[" + runnerName + "] Debezium engine started");
     }
 
-    /**
-     * Stop the Debezium engine gracefully.
-     */
     @PreDestroy
     public void stop() throws IOException {
         if (engine != null) {
             engine.close();
-            System.out.println(runnerName + " Debezium Engine stopped successfully");
         }
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        System.out.println("[" + runnerName + "] Debezium engine stopped");
     }
 }

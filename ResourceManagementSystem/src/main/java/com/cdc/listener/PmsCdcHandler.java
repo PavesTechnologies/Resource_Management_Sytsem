@@ -88,8 +88,9 @@ public class PmsCdcHandler {
         Struct value = (Struct) event.record().value();
         if (value == null) return;
 
-        String op = value.getString("op");
-        if ("r".equals(op)) return; // Skip snapshot records (EOS pattern)
+        String rawOp = value.getString("op");
+        // "r" = snapshot read — treat the same as insert so we catch up after CDC downtime
+        final String op = "r".equals(rawOp) ? "c" : rawOp;
 
         Struct before = value.getStruct("before");
         Struct after  = value.getStruct("after");

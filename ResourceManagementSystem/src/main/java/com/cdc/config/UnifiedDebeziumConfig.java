@@ -101,6 +101,12 @@ public class UnifiedDebeziumConfig {
     @Value("${eos.cdc.connector.name}")
     private String eosConnectorName;
 
+    @Value("${cdc.database.ssl.mode:required}")
+    private String pmsSslMode;
+
+    @Value("${eos.cdc.database.ssl.mode:required}")
+    private String eosSslMode;
+
     /**
      * PMS Debezium configuration bean.
      * Uses PMS-specific properties.
@@ -127,7 +133,8 @@ public class UnifiedDebeziumConfig {
                 15000, // Replica server ID range start
                 "pms-project-offsets.dat",
                 "pms-schema-history.dat",
-                "always" // Snapshot mode
+                "initial", // Snapshot once on first start; stream from binlog after
+                pmsSslMode
         );
     }
 
@@ -156,7 +163,8 @@ public class UnifiedDebeziumConfig {
                 35000, // Replica server ID range start (different from PMS)
                 "eos-offsets.dat",
                 "eos-schema-history.dat",
-                "when_needed" // Snapshot mode (different from PMS)
+                "when_needed", // Snapshot mode (different from PMS)
+                eosSslMode
         );
     }
 
@@ -183,7 +191,8 @@ public class UnifiedDebeziumConfig {
             int replicaServerIdStart,
             String offsetFileName,
             String schemaHistoryFileName,
-            String snapshotMode
+            String snapshotMode,
+            String sslMode
     ) {
         createDirIfMissing(baseDir);
 
@@ -232,7 +241,10 @@ public class UnifiedDebeziumConfig {
 
                 // Disable JMX metrics to avoid registration conflicts
                 .with("metrics.enabled", "false")
-                .with("metrics.jmx.enabled", "false");
+                .with("metrics.jmx.enabled", "false")
+
+                // SSL - required for Aiven MySQL; plaintext connections are rejected
+                .with("database.ssl.mode", sslMode);
 
         // Add database-specific configuration
         addDatabaseSpecificConfig(configBuilder, dbType, dbName);

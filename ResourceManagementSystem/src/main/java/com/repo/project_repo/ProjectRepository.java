@@ -71,13 +71,15 @@ public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpe
             Pageable pageable
     );
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Transactional
     @Query(value = """
         INSERT INTO project (pms_project_id, name, last_synced_at, project_status, client_id)
         VALUES (:id, :name, :now, 'ACTIVE', :clientId)
         ON DUPLICATE KEY UPDATE
-            last_synced_at = :now
+            last_synced_at = :now,
+            name = VALUES(name),
+            client_id = COALESCE(VALUES(client_id), client_id)
         """, nativeQuery = true)
     void upsertSkeleton(
             @Param("id") Long id,

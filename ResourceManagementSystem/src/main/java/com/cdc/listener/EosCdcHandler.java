@@ -99,8 +99,9 @@ public class EosCdcHandler {
         Struct value = (Struct) event.record().value();
         if (value == null) return;
 
-        String op = value.getString("op");
-        if ("r".equals(op)) return; // Skip snapshot records
+        String rawOp = value.getString("op");
+        // "r" = snapshot read — treat the same as insert so we catch up after CDC downtime
+        final String op = "r".equals(rawOp) ? "c" : rawOp;
 
         Struct before = value.getStruct("before");
         Struct after = value.getStruct("after");
@@ -111,16 +112,15 @@ public class EosCdcHandler {
         String operation = "c".equals(op) ? "CREATE" : "u".equals(op) ? "UPDATE" : "DELETE";
         String payload = event.record().toString();
 
-        // CRITICAL: Schema evolution tolerance processing
-        final Struct finalBefore = before;
-        final Struct finalAfter = after;
-        
+        // CRITICAL: Schema evolution tolerance — apply BEFORE capturing finals for the lambda
         if (before != null) {
             before = schemaEvolutionToleranceService.processSchemaEvolution(tableName, before.schema(), before);
         }
         if (after != null) {
             after = schemaEvolutionToleranceService.processSchemaEvolution(tableName, after.schema(), after);
         }
+        final Struct finalBefore = before;
+        final Struct finalAfter = after;
 
         // CRITICAL: Replay throttling check to prevent storm conditions
         String entityType = "EOS-" + tableName;
