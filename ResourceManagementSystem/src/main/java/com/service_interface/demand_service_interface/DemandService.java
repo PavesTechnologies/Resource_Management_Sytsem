@@ -14,7 +14,7 @@ import java.util.UUID;
 
 public interface DemandService {
 
-    ResponseEntity<ApiResponse<?>> updateDemand(UpdateDemandDTO dto);
+    ResponseEntity<ApiResponse<?>> updateDemand(UpdateDemandDTO dto, UserDTO userDTO);
     ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId);
 
     ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id);

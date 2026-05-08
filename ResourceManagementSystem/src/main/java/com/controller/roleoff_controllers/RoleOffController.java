@@ -141,6 +141,17 @@ public class RoleOffController {
     }
 
     /**
+     * Get fulfilled role-offs for delivery manager
+     */
+    @GetMapping("/fulfilled-dm-action")
+    @PreAuthorize("hasRole('Delivery_Manager')")
+    public ResponseEntity<?> getFulfilledRoleOffsForDM(
+            @CurrentUser UserDTO userDTO) {
+
+        return roleOffService.getFulfilledRoleOffEvents(userDTO.getId());
+    }
+
+    /**
      * Get role-offs approved today by delivery manager for KPI tracking
      */
     @GetMapping("/approved-today")

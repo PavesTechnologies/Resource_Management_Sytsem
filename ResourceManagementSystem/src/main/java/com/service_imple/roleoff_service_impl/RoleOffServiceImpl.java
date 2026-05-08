@@ -1477,6 +1477,78 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
     ));
 }
 
+    @Override
+    public ResponseEntity<?> getFulfilledRoleOffEvents(Long dmId) {
+
+        List<RoleOffEvent> roleOffEvents =
+                roleOffRepo.findFulfilledRoleOffsForDM(dmId);
+
+        if (roleOffEvents.isEmpty()) {
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Fulfilled role-off events retrieved successfully!",
+                            List.of()
+                    )
+            );
+        }
+
+        List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
+
+            var allocation = r.getAllocation();
+            var resource = r.getResource();
+            var project = r.getProject();
+            var client = project != null ? project.getClient() : null;
+            var demand = allocation != null ? allocation.getDemand() : null;
+            var role = demand != null ? demand.getRole() : null;
+
+            List<String> skills =
+                    role != null && role.getSkill() != null
+                            ? List.of(role.getSkill().getName())
+                            : Collections.emptyList();
+
+            List<String> subSkills =
+                    role != null && role.getSubSkill() != null
+                            ? List.of(role.getSubSkill().getName())
+                            : Collections.emptyList();
+
+            return new ResourcesDTO(
+                    r.getId(),
+                    resource != null ? resource.getResourceId() : null,
+                    resource != null ? resource.getFullName() : "N/A",
+                    resource != null ? resource.getDesignation() : "N/A",
+                    project != null ? project.getName() : "N/A",
+                    client != null ? client.getClientName() : "N/A",
+                    role != null ? role.getId() : null,
+                    demand != null ? demand.getDemandName() : null,
+                    skills,
+                    subSkills,
+                    allocation != null ? allocation.getAllocationId() : null,
+                    "LOW",
+                    allocation != null ? allocation.getAllocationStatus() : null,
+                    r.getRoleOffStatus(),
+                    allocation != null ? allocation.getAllocationPercentage() : null,
+                    allocation != null ? allocation.getAllocationEndDate() : null,
+                    r.getEffectiveRoleOffDate(),
+                    r.getRejectedBy(),
+                    r.getRejectionReason(),
+                    r.getDlApproved(),
+                    r.getDlActionDate(),
+                    r.getCreatedAt(),
+                    r.getUpdatedAt()
+            );
+
+        }).toList();
+
+        return ResponseEntity.ok(
+                new ApiResponse<>(
+                        true,
+                        "Fulfilled role-off events retrieved successfully!",
+                        dtos
+                )
+        );
+    }
+
 @Override
 public ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO) {
     // ========== VALIDATION ==========
