@@ -50,5 +50,10 @@ public class ProjectSpecification {
                 risk == null ? null :
                         cb.equal(root.get("riskLevel"), risk);
     }
+
+    public static Specification<Project> excludeCompleted() {
+        return (root, query, cb) ->
+                cb.notEqual(root.get("projectStatus"), ProjectStatus.COMPLETED);
+    }
 }
 

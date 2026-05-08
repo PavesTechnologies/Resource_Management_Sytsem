@@ -35,4 +35,9 @@ public class ResourcesDTO {
     private LocalDate effectiveDate;
     private String rejectedBy;
     private String rejectionReason;
+    // Delivery manager approval fields for KPI tracking
+    private Boolean dlApproved;
+    private LocalDate dlActionDate;
+    private LocalDate createdAt;
+    private LocalDate updatedAt;
 }

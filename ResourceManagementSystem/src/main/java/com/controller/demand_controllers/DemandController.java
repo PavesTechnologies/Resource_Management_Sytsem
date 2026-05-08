@@ -33,8 +33,10 @@ public class DemandController {
 
     @PutMapping("/update/pm")
     @PreAuthorize("hasRole('Project_Manager')")
-    public ResponseEntity<ApiResponse<?>> updateDemandByPM(@RequestBody UpdateDemandDTO dto) {
-        return demandService.updateDemand(dto);
+    public ResponseEntity<ApiResponse<?>> updateDemandByPM(
+            @RequestBody UpdateDemandDTO dto,
+            @CurrentUser UserDTO userDTO) {
+        return demandService.updateDemand(dto, userDTO);
     }
 
     @DeleteMapping("/delete/pm/{demandId}")

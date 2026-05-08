@@ -190,54 +190,54 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
     List<ResourceAllocation> findResources(Long projectId, Long managerId);
 
     @Query("""
-    SELECT COUNT(ra.allocationId)
-    FROM ResourceAllocation ra
-    JOIN ra.project p
-    WHERE p.pmsProjectId = :projectId
-    AND p.projectManagerId = :managerId
-    AND ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE
-    AND NOT EXISTS (
-        SELECT roe FROM RoleOffEvent roe
-        WHERE roe.allocation = ra
-        AND roe.roleOffStatus IN (
-            com.entity_enums.roleoff_enums.RoleOffStatus.PENDING,
-            com.entity_enums.roleoff_enums.RoleOffStatus.APPROVED,
-            com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
-        )
-    )
-    """)
+            SELECT COUNT(ra.allocationId)
+            FROM ResourceAllocation ra
+            JOIN ra.project p
+            WHERE p.pmsProjectId = :projectId
+            AND p.projectManagerId = :managerId
+            AND ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE
+            AND NOT EXISTS (
+                SELECT roe FROM RoleOffEvent roe
+                WHERE roe.allocation = ra
+                AND roe.roleOffStatus IN (
+                    com.entity_enums.roleoff_enums.RoleOffStatus.PENDING,
+                    com.entity_enums.roleoff_enums.RoleOffStatus.APPROVED,
+                    com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
+                )
+            )
+            """)
     Long countActive(@Param("projectId") Long projectId, @Param("managerId") Long managerId);
 
 
     @Query("""
-    SELECT COUNT(roe.id)
-    FROM RoleOffEvent roe
-    JOIN roe.project p
-    WHERE p.pmsProjectId = :projectId
-    AND p.projectManagerId = :managerId
-    AND roe.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.PENDING
-    """)
+            SELECT COUNT(roe.id)
+            FROM RoleOffEvent roe
+            JOIN roe.project p
+            WHERE p.pmsProjectId = :projectId
+            AND p.projectManagerId = :managerId
+            AND roe.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.PENDING
+            """)
     Long countPending(@Param("projectId") Long projectId, @Param("managerId") Long managerId);
 
 
     @Query("""
-    SELECT COUNT(roe.id)
-    FROM RoleOffEvent roe
-    JOIN roe.project p
-    WHERE p.pmsProjectId = :projectId
-    AND p.projectManagerId = :managerId
-    AND roe.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
-    """)
+            SELECT COUNT(roe.id)
+            FROM RoleOffEvent roe
+            JOIN roe.project p
+            WHERE p.pmsProjectId = :projectId
+            AND p.projectManagerId = :managerId
+            AND roe.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
+            """)
     Long countCompleted(@Param("projectId") Long projectId, @Param("managerId") Long managerId);
 
     @Query(value = """
-    SELECT roe.role_off_status, COUNT(*)
-    FROM role_off_event roe
-    JOIN project p ON roe.project_id = p.pms_project_id
-    WHERE p.pms_project_id = :projectId
-    AND p.project_manager_id = :managerId
-    GROUP BY roe.role_off_status
-    """, nativeQuery = true)
+            SELECT roe.role_off_status, COUNT(*)
+            FROM role_off_event roe
+            JOIN project p ON roe.project_id = p.pms_project_id
+            WHERE p.pms_project_id = :projectId
+            AND p.project_manager_id = :managerId
+            GROUP BY roe.role_off_status
+            """, nativeQuery = true)
     List<Object[]> debugCountByProject(
             @Param("projectId") Long projectId,
             @Param("managerId") Long managerId
@@ -270,6 +270,8 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
                     SELECT p2.pmsProjectId FROM Project p2 WHERE p2.deliveryOwnerId = :rmId
                 )
                 AND r.roleOffStatus = :status
+                AND r.rmApproved = true
+                AND (r.dlApproved IS NULL OR r.dlApproved = false)
             """)
     List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
@@ -304,4 +306,27 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
             AND roe.roleOffStatus = :status
             """)
     Long countByAllocationIdsAndStatus(@Param("allocationIds") List<UUID> allocationIds, @Param("status") RoleOffStatus status);
+
+    /**
+     * Find role-offs approved today by delivery manager for KPI tracking
+     */
+    List<RoleOffEvent> findByDlApprovedTrueAndDlActionDate(LocalDate date);
+
+    /**
+     * Find fulfilled role-offs by delivery manager
+     */
+    @Query("""
+                SELECT r
+                FROM RoleOffEvent r
+                LEFT JOIN FETCH r.allocation a
+                LEFT JOIN FETCH a.resource
+                LEFT JOIN FETCH r.project p
+                LEFT JOIN FETCH p.client c
+                LEFT JOIN FETCH a.demand d
+                LEFT JOIN FETCH d.role
+                WHERE r.roleOffStatus = com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
+                AND r.project.deliveryOwnerId = :dmId
+                ORDER BY r.updatedAt DESC
+            """)
+    List<RoleOffEvent> findFulfilledRoleOffsForDM(@Param("dmId") Long dmId);
 }
