@@ -82,7 +82,7 @@ public class ProjectAvailabilityService {
     }
 
     @Transactional
-    public void handleAllocationChangeForResource(Long resourceId, LocalDateTime startDate, LocalDateTime endDate) {
+    public void handleAllocationChangeForResource(String resourceId, LocalDateTime startDate, LocalDateTime endDate) {
         try {
             if (startDate == null || endDate == null) {
                 return;
@@ -99,14 +99,14 @@ public class ProjectAvailabilityService {
             return;
         }
         
-        Set<Long> resourceIds = allocations.stream()
+        Set<String> resourceIds = allocations.stream()
             .map(allocation -> allocation.getResource().getResourceId())
             .collect(Collectors.toSet());
         
         LocalDate start = startDate.toLocalDate();
         LocalDate end = endDate.toLocalDate();
         
-        for (Long resourceId : resourceIds) {
+        for (String resourceId : resourceIds) {
             try {
                 calculationService.recalculateForDateRange(resourceId, start, end);
             } catch (Exception e) {

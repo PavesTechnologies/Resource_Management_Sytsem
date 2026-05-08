@@ -18,7 +18,7 @@ import java.util.UUID;
 public class ResourceSkillRequestDTO {
     
     @NotNull(message = "Resource ID is required")
-    private Long resourceId;
+    private String resourceId;
     
     @NotNull(message = "Skill ID is required")
     private UUID skillId;

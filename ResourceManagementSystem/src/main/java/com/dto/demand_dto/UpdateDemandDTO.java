@@ -22,7 +22,7 @@ public class UpdateDemandDTO {
 
     private Double minExp;
 
-    private Long outgoingResourceId;
+    private String outgoingResourceId;
 
     private UUID deliveryRole;
 

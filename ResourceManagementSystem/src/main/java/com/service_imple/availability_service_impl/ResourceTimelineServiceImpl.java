@@ -129,17 +129,17 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         }
         
         // Fetch allocation timeline, current projects, current allocations, skills, and certifications for all resources
-        final Map<Long, List<AllocationTimelineItem>> allocationTimelineMap;
-        final Map<Long, List<String>> currentProjectMap;
-        final Map<Long, Integer> currentAllocationMap;
-        final Map<Long, List<String>> resourceSkillsMap;
-        final Map<Long, List<String>> resourceSubSkillsMap;
-        final Map<Long, List<SkillInfoDTO>> resourceSkillDetailsMap;
-        final Map<Long, List<SkillInfoDTO>> resourceSubSkillDetailsMap;
-        final Map<Long, List<CertificationInfoDTO>> resourceCertificationsMap;
+        final Map<String, List<AllocationTimelineItem>> allocationTimelineMap;
+        final Map<String, List<String>> currentProjectMap;
+        final Map<String, Integer> currentAllocationMap;
+        final Map<String, List<String>> resourceSkillsMap;
+        final Map<String, List<String>> resourceSubSkillsMap;
+        final Map<String, List<SkillInfoDTO>> resourceSkillDetailsMap;
+        final Map<String, List<SkillInfoDTO>> resourceSubSkillDetailsMap;
+        final Map<String, List<CertificationInfoDTO>> resourceCertificationsMap;
         
         if (!filteredData.isEmpty()) {
-            List<Long> resourceIds = filteredData.stream()
+        List<String> resourceIds = filteredData.stream()
                     .map(ResourceTimelineProjection::getId)
                     .distinct()
                     .collect(Collectors.toList());
@@ -168,21 +168,21 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             // Fetch resource skills
             resourceSkillsMap = resourceSkillRepository.findResourceIdAndSkillNames(resourceIds).stream()
                     .collect(Collectors.groupingBy(
-                            result -> (Long) result[0], // resource ID is first element
+                            result -> (String) result[0], // resource ID is first element
                             Collectors.mapping(result -> (String) result[1], Collectors.toList()) // skill name is second element
                     ));
             
             // Fetch resource sub-skills
             resourceSubSkillsMap = resourceSubSkillRepository.findResourceIdAndSubSkillNames(resourceIds).stream()
                     .collect(Collectors.groupingBy(
-                            result -> (Long) result[0], // resource ID is first element
+                            result -> (String) result[0], // resource ID is first element
                             Collectors.mapping(result -> (String) result[1], Collectors.toList()) // sub-skill name is second element
                     ));
             
             // Fetch resource skill details with proficiency and last used date
             resourceSkillDetailsMap = resourceSkillRepository.findResourceIdAndSkillDetails(resourceIds).stream()
                     .collect(Collectors.groupingBy(
-                            result -> (Long) result[0], // resource ID is first element
+                            result -> (String) result[0], // resource ID is first element
                             Collectors.mapping(result -> SkillInfoDTO.from(
                                     (String) result[1], // skill name
                                     (String) result[2], // proficiency name
@@ -193,7 +193,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             // Fetch resource sub-skill details with proficiency and last used date
             resourceSubSkillDetailsMap = resourceSubSkillRepository.findResourceIdAndSubSkillDetails(resourceIds).stream()
                     .collect(Collectors.groupingBy(
-                            result -> (Long) result[0], // resource ID is first element
+                            result -> (String) result[0], // resource ID is first element
                             Collectors.mapping(result -> SkillInfoDTO.from(
                                     (String) result[1], // sub-skill name
                                     (String) result[2], // proficiency name
@@ -205,7 +205,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
             LocalDate currentDate = LocalDate.now();
             resourceCertificationsMap = resourceCertificateRepository.findResourceIdAndCertificateDetails(resourceIds, currentDate).stream()
                     .collect(Collectors.groupingBy(
-                            result -> (Long) result[0], // resource ID is first element
+                            result -> (String) result[0], // resource ID is first element
                             Collectors.mapping(result -> CertificationInfoDTO.builder()
                                     .certificateName((String) result[1]) // certificate name from skill
                                     .providerName((String) result[2]) // provider name
@@ -296,14 +296,14 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     private ResourceTimelineResponseDTO mapToFullResponseDTO(
             ResourceTimelineProjection projection,
-            Map<Long, List<AllocationTimelineItem>> allocationTimelineMap,
-            Map<Long, List<String>> currentProjectMap,
-            Map<Long, Integer> currentAllocationMap,
-            Map<Long, List<String>> resourceSkillsMap,
-            Map<Long, List<String>> resourceSubSkillsMap,
-            Map<Long, List<SkillInfoDTO>> resourceSkillDetailsMap,
-            Map<Long, List<SkillInfoDTO>> resourceSubSkillDetailsMap,
-            Map<Long, List<CertificationInfoDTO>> resourceCertificationsMap) {
+            Map<String, List<AllocationTimelineItem>> allocationTimelineMap,
+            Map<String, List<String>> currentProjectMap,
+            Map<String, Integer> currentAllocationMap,
+            Map<String, List<String>> resourceSkillsMap,
+            Map<String, List<String>> resourceSubSkillsMap,
+            Map<String, List<SkillInfoDTO>> resourceSkillDetailsMap,
+            Map<String, List<SkillInfoDTO>> resourceSubSkillDetailsMap,
+            Map<String, List<CertificationInfoDTO>> resourceCertificationsMap) {
         
         List<AllocationTimelineItem> allocationTimeline = allocationTimelineMap.getOrDefault(
                 projection.getId(), List.of());

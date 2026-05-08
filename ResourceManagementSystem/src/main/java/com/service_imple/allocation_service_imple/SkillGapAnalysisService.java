@@ -39,7 +39,7 @@ public class SkillGapAnalysisService {
     /**
      * Performs comprehensive skill gap analysis for a demand and resource
      */
-    public SkillGapAnalysisResponseDTO performSkillGapAnalysis(Demand demand, Long resourceId) {
+    public SkillGapAnalysisResponseDTO performSkillGapAnalysis(Demand demand, String resourceId) {
         LocalDate currentDate = LocalDate.now();
 
         // Single queries to fetch all resource data (performance optimization)
@@ -148,7 +148,7 @@ public class SkillGapAnalysisService {
      * Validates that the resource has all required skills and certificates for the demand
      * Also validates allocation percentage matches demand requirement
      */
-    public void validateAllocationRequirements(Long resourceId, Demand demand, AllocationRequestDTO request) {
+    public void validateAllocationRequirements(String resourceId, Demand demand, AllocationRequestDTO request) {
         // 🔹 Validate Allocation Percentage Match
         if (request != null && demand != null) {
             Integer requestPercentage = request.getAllocationPercentage();

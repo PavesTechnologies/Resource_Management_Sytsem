@@ -13,9 +13,9 @@ import java.util.UUID;
 @Repository
 public interface AllocationConflictRepository extends JpaRepository<AllocationConflict, UUID> {
 
-    List<AllocationConflict> findByResource_ResourceId(Long resourceId);
+    List<AllocationConflict> findByResource_ResourceId(String resourceId);
     
-    List<AllocationConflict> findByResource_ResourceIdAndResolutionStatus(Long resourceId, String resolutionStatus);
+    List<AllocationConflict> findByResource_ResourceIdAndResolutionStatus(String resourceId, String resolutionStatus);
     
     List<AllocationConflict> findByResolutionStatus(String resolutionStatus);
     

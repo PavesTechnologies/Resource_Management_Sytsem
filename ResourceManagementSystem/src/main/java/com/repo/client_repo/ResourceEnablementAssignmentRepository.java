@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ResourceEnablementAssignmentRepository extends JpaRepository<ResourceEnablementAssignment, UUID> {
-    List<ResourceEnablementAssignment> findByResourceId(Long resourceId);
+    List<ResourceEnablementAssignment> findByResourceId(String resourceId);
 
     List<ResourceEnablementAssignment> findByStatus(EnablementAssignmentStatus status);
 }

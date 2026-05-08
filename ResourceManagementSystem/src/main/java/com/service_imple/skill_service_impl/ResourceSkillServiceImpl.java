@@ -140,7 +140,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         }
     }
     
-    private void validateSubSkill(Long resourceId, UUID skillId, SubSkillDTO subSkillDTO, 
+    private void validateSubSkill(String resourceId, UUID skillId, SubSkillDTO subSkillDTO, 
                                  ProficiencyLevel skillProficiency) {
         // Validate subSkill exists
         SubSkill subSkill = subSkillRepository.findById(subSkillDTO.getSubSkillId())
@@ -191,7 +191,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     }
 
     @Override
-    public List<ResourceSkillProfileResponseDTO> getResourceSkillProfile(Long resourceId) {
+    public List<ResourceSkillProfileResponseDTO> getResourceSkillProfile(String resourceId) {
         List<ResourceSkill> skills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
         List<ResourceSubSkill> subSkills = resourceSubSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
         
@@ -347,7 +347,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
      * @param resourceId The resource ID to validate
      * @throws SkillTaxonomyExceptionHandler if resource doesn't exist or is not active
      */
-    private void validateResourceExistsAndActive(Long resourceId) {
+    private void validateResourceExistsAndActive(String resourceId) {
         Resource resource = resourceRepository.findById(resourceId)
                 .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
                         "Resource not found with ID: " + resourceId));
@@ -370,12 +370,12 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Cacheable(value = "resource-skills", key = "#resourceId")
-    public List<ResourceSkill> getAllResourceSkills(Long resourceId) {
+    public List<ResourceSkill> getAllResourceSkills(String resourceId) {
         return resourceSkillRepository.findByResourceId(resourceId);
     }
 
     @Override
-    public List<ResourceSubSkill> getAllResourceSubSkills(Long resourceId) {
+    public List<ResourceSubSkill> getAllResourceSubSkills(String resourceId) {
         return resourceSubSkillRepository.findByResourceId(resourceId);
     }
 
@@ -458,7 +458,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         return resourceSkillRepository.save(existingResourceSkill);
     }
     
-    private void updateSubSkillsForResourceSkill(Long resourceId, UUID skillId, 
+    private void updateSubSkillsForResourceSkill(String resourceId, UUID skillId, 
             List<ResourceSkillRequestDTO.SubSkillUpdateDTO> subSkillUpdates) {
         
         for (ResourceSkillRequestDTO.SubSkillUpdateDTO subSkillDTO : subSkillUpdates) {

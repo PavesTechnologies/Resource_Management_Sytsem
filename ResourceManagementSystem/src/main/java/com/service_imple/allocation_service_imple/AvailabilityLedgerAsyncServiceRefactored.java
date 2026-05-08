@@ -29,7 +29,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
     @Async
     public void updateLedgerAsync(ResourceAllocation allocation) {
         try {
-            Long resourceId = allocation.getResource().getResourceId();
+            String resourceId = allocation.getResource().getResourceId();
             LocalDate startDate = allocation.getAllocationStartDate();
             LocalDate endDate = allocation.getAllocationEndDate();
             
@@ -44,7 +44,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
     }
 
     @Async
-    public void updateLedger(Long resourceId, LocalDate startDate, LocalDate endDate) {
+    public void updateLedger(String resourceId, LocalDate startDate, LocalDate endDate) {
         try {
             availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
         } catch (Exception e) {
@@ -55,7 +55,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
     }
 
     @Async
-    public void triggerLedgerUpdateForResource(Long resourceId) {
+    public void triggerLedgerUpdateForResource(String resourceId) {
         LocalDate currentDate = LocalDate.now();
         LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
         try {
@@ -67,7 +67,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
         }
     }
 
-    private LocalDate calculateHorizonEnd(Long resourceId, LocalDate currentDate) {
+    private LocalDate calculateHorizonEnd(String resourceId, LocalDate currentDate) {
         LocalDate maxAllocationEnd = allocationRepository
                 .findMaxAllocationEndDateForResource(resourceId)
                 .orElse(currentDate.plusMonths(3));
@@ -81,7 +81,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
     }
 
     @Async
-    public void synchronizeAvailabilityAcrossModules(Long resourceId, LocalDate roleOffDate) {
+    public void synchronizeAvailabilityAcrossModules(String resourceId, LocalDate roleOffDate) {
         LocalDate currentDate = LocalDate.now();
         LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
         try {
@@ -93,7 +93,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
         }
     }
 
-    private void saveToDeadLetterQueue(String eventType, Long resourceId, LocalDate startDate, LocalDate endDate, Exception exception) {
+    private void saveToDeadLetterQueue(String eventType, String resourceId, LocalDate startDate, LocalDate endDate, Exception exception) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("resourceId", resourceId);

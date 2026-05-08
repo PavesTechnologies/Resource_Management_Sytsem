@@ -18,7 +18,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ResourceTimelineResponseDTO {
     
-    private Long resourceId;
+    private String resourceId;
     private String name;
     private String avatar;
     private String role;

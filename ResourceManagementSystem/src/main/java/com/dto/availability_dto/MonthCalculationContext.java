@@ -9,7 +9,7 @@ import java.util.Set;
 @Data
 @Builder
 public class MonthCalculationContext {
-    private Long resourceId;
+    private String resourceId;
     private LocalDate periodStart;
     private LocalDate periodEnd;
     private LocalDate dateOfJoining;

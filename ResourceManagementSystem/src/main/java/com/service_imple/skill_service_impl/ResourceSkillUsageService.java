@@ -134,7 +134,7 @@ public class ResourceSkillUsageService {
      * Gets skill IDs that are associated with both the resource and the project.
      * This ensures we only update skills that are relevant to the project.
      */
-    private List<UUID> getProjectSkillIdsForResource(Long resourceId, Long projectId) {
+    private List<UUID> getProjectSkillIdsForResource(String resourceId, Long projectId) {
         // Find active allocations for this resource in this project
         List<ResourceAllocation> allocations = allocationRepository
                 .findAllByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
@@ -162,7 +162,7 @@ public class ResourceSkillUsageService {
     /**
      * Updates ResourceSkill lastUsedDate using batch JPQL for performance
      */
-    private void updateResourceSkillLastUsedDate(Long resourceId, List<UUID> skillIds, LocalDate effectiveDate) {
+    private void updateResourceSkillLastUsedDate(String resourceId, List<UUID> skillIds, LocalDate effectiveDate) {
         if (skillIds.isEmpty()) {
             return;
         }
@@ -177,7 +177,7 @@ public class ResourceSkillUsageService {
     /**
      * Updates ResourceSubSkill lastUsedDate using batch JPQL for performance
      */
-    private void updateResourceSubSkillLastUsedDate(Long resourceId, List<UUID> skillIds, LocalDate effectiveDate) {
+    private void updateResourceSubSkillLastUsedDate(String resourceId, List<UUID> skillIds, LocalDate effectiveDate) {
         if (skillIds.isEmpty()) {
             return;
         }

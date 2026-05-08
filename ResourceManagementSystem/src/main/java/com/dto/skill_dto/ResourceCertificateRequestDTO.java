@@ -11,7 +11,7 @@ import java.util.UUID;
 @Setter
 public class ResourceCertificateRequestDTO {
     @JsonProperty("resourceId")
-    private Long resourceId;
+    private String resourceId;
     
     @JsonProperty("certificateId")
     private UUID certificateId;

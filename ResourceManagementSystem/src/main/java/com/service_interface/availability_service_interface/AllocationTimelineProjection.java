@@ -1,10 +1,12 @@
 package com.service_interface.availability_service_interface;
 
+import java.time.LocalDate;
+
 public interface AllocationTimelineProjection {
-    Long getResourceId();
+    String getResourceId();
     String getProject();
-    java.time.LocalDate getStartDate();
-    java.time.LocalDate getEndDate();
+    LocalDate getStartDate();
+    LocalDate getEndDate();
     Integer getAllocation();
     String getAllocationStatus();
 }

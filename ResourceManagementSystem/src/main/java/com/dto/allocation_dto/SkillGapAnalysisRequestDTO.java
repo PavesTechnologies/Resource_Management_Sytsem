@@ -23,5 +23,5 @@ public class SkillGapAnalysisRequestDTO {
     private UUID demandId;
     
     @NotNull(message = "Resource ID is required")
-    private Long resourceId;
+    private String resourceId;
 }

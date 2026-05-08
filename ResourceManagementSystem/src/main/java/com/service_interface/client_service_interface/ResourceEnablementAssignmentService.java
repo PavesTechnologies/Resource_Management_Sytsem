@@ -15,5 +15,5 @@ public interface ResourceEnablementAssignmentService {
             String remarks
     );
 
-    ApiResponse<?> getAssignmentsByResource(Long resourceId);
+    ApiResponse<?> getAssignmentsByResource(String resourceId);
 }

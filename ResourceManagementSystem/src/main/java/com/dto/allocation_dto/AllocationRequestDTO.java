@@ -20,7 +20,7 @@ public class AllocationRequestDTO {
 
 
     @NotNull(message = "Resource ID is required")
-    private List<Long> resourceId;
+    private List<String> resourceId;
 
     private UUID demandId;
 

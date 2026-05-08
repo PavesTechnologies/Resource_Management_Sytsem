@@ -22,7 +22,7 @@ public class DemandResponseDTO {
     private DemandType demandType;
     private DemandStatus demandStatus;
 
-    private Long outgoingResourceId;
+    private String outgoingResourceId;
 
     private Boolean requiresAdditionalApproval;
 

@@ -67,12 +67,12 @@ public class BenchService {
         
         try {
             // Fetch eligible resourceIds (no active allocation + eligibility criteria)
-            List<Long> eligibleResourceIds = benchDetectionRepository.findBenchEligibleResources(LocalDate.now());
+            List<String> eligibleResourceIds = benchDetectionRepository.findBenchEligibleResources(LocalDate.now());
             
             log.info("Found {} resources eligible for bench detection", eligibleResourceIds.size());
             
             // Process each eligible resource
-            for (Long resourceId : eligibleResourceIds) {
+            for (String resourceId : eligibleResourceIds) {
                 try {
                     createOrUpdateBenchState(resourceId);
                 } catch (Exception e) {
@@ -94,7 +94,7 @@ public class BenchService {
      * @param resourceId the resource ID to process
      */
     @Transactional
-    public void createOrUpdateBenchState(Long resourceId) {
+    public void createOrUpdateBenchState(String resourceId) {
         log.debug("Processing bench state for resource {}", resourceId);
 //        validateBenchData(resourceId);
 //        validateStateConsistency(resourceId);
@@ -125,7 +125,7 @@ public class BenchService {
      * @param allocationId the allocation ID
      */
     @Transactional
-    public void moveToProject(Long resourceId, UUID allocationId) {
+    public void moveToProject(String resourceId, UUID allocationId) {
         log.debug("Moving resource {} to PROJECT state with allocation {}", resourceId, allocationId);
         
         // Close current BENCH state if exists
@@ -325,7 +325,7 @@ public class BenchService {
      * @param resourceId the resource ID
      * @return new ResourceState entity
      */
-    private ResourceState createBenchState(Long resourceId) {
+    private ResourceState createBenchState(String resourceId) {
         return ResourceState.builder()
                 .resourceId(resourceId)
                 .stateType(StateType.BENCH)
@@ -345,7 +345,7 @@ public class BenchService {
      * @param allocationId the allocation ID
      * @return new ResourceState entity
      */
-    private ResourceState createProjectState(Long resourceId, UUID allocationId) {
+    private ResourceState createProjectState(String resourceId, UUID allocationId) {
         return ResourceState.builder()
                 .resourceId(resourceId)
                 .stateType(StateType.PROJECT)
@@ -363,7 +363,7 @@ public class BenchService {
      * @return true if state is consistent
      */
     @Transactional(readOnly = true)
-    public boolean validateResourceState(Long resourceId) {
+    public boolean validateResourceState(String resourceId) {
         // Check if resource has active allocations
         boolean hasActiveAllocations = benchDetectionRepository.hasActiveAllocations(resourceId);
         
@@ -396,7 +396,7 @@ public class BenchService {
      * @param resourceId the resource ID to initialize state for
      */
     @Transactional
-    public void initializeResourceState(Long resourceId) {
+    public void initializeResourceState(String resourceId) {
         log.info("Initializing resource state for new resource: {}", resourceId);
         
         try {
@@ -440,7 +440,7 @@ public class BenchService {
      * @param resourceId the resource ID
      * @return new ResourceState entity
      */
-    private ResourceState createTrainingBenchState(Long resourceId) {
+    private ResourceState createTrainingBenchState(String resourceId) {
         return ResourceState.builder()
                 .resourceId(resourceId)
                 .stateType(StateType.BENCH)
@@ -461,13 +461,13 @@ public class BenchService {
     public List<BenchPoolResponseDTO> getBenchResources() {
 
         List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
-        List<Long> resourceIds = benchResourcesData.stream()
+        List<String> resourceIds = benchResourcesData.stream()
                 .map(arr -> ((Resource) arr[0]).getResourceId())
                 .collect(Collectors.toList());
 
         // Get skill details for all resources
         List<Object[]> skillDetails = resourceSkillRepository.findResourceIdAndSkillDetails(resourceIds);
-        Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
+        Map<String, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
 
         return benchResourcesData.stream()
                 .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], (SubState) arr[2], skillsMap))
@@ -482,13 +482,13 @@ public class BenchService {
     public List<BenchPoolResponseDTO> getPoolResources() {
 
         List<Object[]> poolResourcesData = benchDetectionRepository.findPoolResourcesWithDetails();
-        List<Long> resourceIds = poolResourcesData.stream()
+        List<String> resourceIds = poolResourcesData.stream()
                 .map(arr -> ((Resource) arr[0]).getResourceId())
                 .collect(Collectors.toList());
 
         // Get skill details for all resources
         List<Object[]> skillDetails = resourceSkillRepository.findResourceIdAndSkillDetails(resourceIds);
-        Map<Long, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
+        Map<String, List<Map<String, String>>> skillsMap = groupSkillsByResource(skillDetails);
 
         return poolResourcesData.stream()
                 .map(arr -> convertToBenchPoolResponseDTO((Resource) arr[0], (LocalDate) arr[1], (SubState) arr[2], skillsMap))
@@ -498,11 +498,11 @@ public class BenchService {
     /**
      * Group skills by resource and format as skill->subskill:proficiency map
      */
-    private Map<Long, List<Map<String, String>>> groupSkillsByResource(List<Object[]> skillDetails) {
-        Map<Long, List<Map<String, String>>> skillsMap = new HashMap<>();
+    private Map<String, List<Map<String, String>>> groupSkillsByResource(List<Object[]> skillDetails) {
+        Map<String, List<Map<String, String>>> skillsMap = new HashMap<>();
 
         for (Object[] detail : skillDetails) {
-            Long resourceId = (Long) detail[0];
+            String resourceId = (String) detail[0];
             String skillName = (String) detail[1];
             String proficiency = (String) detail[2];
 
@@ -575,7 +575,7 @@ public class BenchService {
      * @param resourceId the resource ID
      * @return available allocation percentage (0-100)
      */
-    private int calculateResourceAvailability(Long resourceId) {
+    private int calculateResourceAvailability(String resourceId) {
         try {
             // Get all active allocations for this resource
             List<ResourceAllocation> activeAllocations = allocationRepository
@@ -601,7 +601,7 @@ public class BenchService {
      * Convert Resource entity to BenchPoolResponseDTO
      */
     private BenchPoolResponseDTO convertToBenchPoolResponseDTO(Resource resource, LocalDate benchStartDate, SubState subState,
-                                                               Map<Long, List<Map<String, String>>> skillsMap) {
+                                                               Map<String, List<Map<String, String>>> skillsMap) {
         // Calculate aging (days in bench/pool)
         long agingDays = ChronoUnit.DAYS.between(benchStartDate, LocalDate.now());
 
@@ -703,7 +703,7 @@ public class BenchService {
             log.info("Resource moving within Bench sub-states");
         }
     }
-    public void validateBenchData(Long resourceId) {
+    public void validateBenchData(String resourceId) {
 
         // ✅ Skill validation
         var skills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
@@ -723,7 +723,7 @@ public class BenchService {
             throw new RuntimeException("Validation Failed: Invalid cost per day");
         }
     }
-    public void validateStateConsistency(Long resourceId) {
+    public void validateStateConsistency(String resourceId) {
 
         boolean hasActiveAllocations = benchDetectionRepository.hasActiveAllocations(resourceId);
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
@@ -746,7 +746,7 @@ public class BenchService {
      * This is a safety net for resources that fell through the cracks
      */
     @Transactional
-    public boolean emergencyStateFix(Long resourceId) {
+    public boolean emergencyStateFix(String resourceId) {
         log.info("Emergency state fix requested for resource {}", resourceId);
         
         try {

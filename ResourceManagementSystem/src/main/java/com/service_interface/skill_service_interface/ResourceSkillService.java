@@ -18,11 +18,11 @@ public interface ResourceSkillService {
     
     String addSingleSubSkillToResource(ResourceSubSkillRequestDTO dto);
     
-    List<ResourceSkillProfileResponseDTO> getResourceSkillProfile(Long resourceId);
+    List<ResourceSkillProfileResponseDTO> getResourceSkillProfile(String resourceId);
     
-    List<ResourceSkill> getAllResourceSkills(Long resourceId);
+    List<ResourceSkill> getAllResourceSkills(String resourceId);
     
-    List<ResourceSubSkill> getAllResourceSubSkills(Long resourceId);
+    List<ResourceSubSkill> getAllResourceSubSkills(String resourceId);
     
     List<ResourceSkill> getAllResourceSkills();
     

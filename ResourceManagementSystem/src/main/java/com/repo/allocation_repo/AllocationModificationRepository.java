@@ -66,7 +66,7 @@ public interface AllocationModificationRepository extends JpaRepository<Allocati
             AND am.overrideAt <= :endOfMonth
             """)
     long countMonthlyOverrides(
-            @Param("resourceId") Long resourceId,
+            @Param("resourceId") String resourceId,
             @Param("startOfMonth") LocalDateTime startOfMonth,
             @Param("endOfMonth") LocalDateTime endOfMonth
     );

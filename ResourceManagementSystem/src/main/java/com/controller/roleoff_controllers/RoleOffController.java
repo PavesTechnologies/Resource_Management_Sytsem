@@ -177,7 +177,7 @@ public class RoleOffController {
      */
     @GetMapping("/resource/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
-    public ResponseEntity<List<RoleOffEvent>> getRoleOffEventsByResource(@PathVariable Long resourceId) {
+    public ResponseEntity<List<RoleOffEvent>> getRoleOffEventsByResource(@PathVariable String resourceId) {
         List<RoleOffEvent> events = roleOffService.getRoleOffEventsByResource(resourceId);
         return ResponseEntity.ok(events);
     }

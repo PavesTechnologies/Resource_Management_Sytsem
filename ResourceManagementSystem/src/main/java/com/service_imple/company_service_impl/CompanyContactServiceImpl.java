@@ -26,8 +26,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
     @Autowired
     private CompanyRepo companyRepo;
 
-    @Autowired
-    private ApiResponse apiResponse;
+    private final ApiResponse apiResponse = new ApiResponse();
 
     /**
      * Find or create default company
