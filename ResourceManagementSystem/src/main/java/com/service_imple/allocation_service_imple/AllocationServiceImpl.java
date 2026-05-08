@@ -414,22 +414,28 @@ public class AllocationServiceImpl implements AllocationService {
 
             if (currentProject == null) currentProject = 0;
 
-            int available = 100 - (internal + currentProject);
-
             int requested = allocation.getAllocationPercentage();
+            int totalAllocation = internal + currentProject + requested;
 
-            // ✅ WITHIN CAPACITY
-            if (requested <= available) {
-
+            // ✅ WITHIN NORMAL CAPACITY (<=100%)
+            if (totalAllocation <= 100) {
                 allocation.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
                 allocation.setAllocationStatus(AllocationStatus.ACTIVE);
             }
-
-            // ⚠ EXCEEDS → PENDING
+            // ⚠ EXCEEDS 100% BUT <=130% (SPECIAL CONDITIONS)
+            else if (totalAllocation <= 130) {
+                // Check if beyond capacity approval is granted
+                if (Boolean.TRUE.equals(allocation.getRequestBeyondCapacityApproval())) {
+                    allocation.setApprovalStatus(ApprovalStatus.APPROVED);
+                    allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+                } else {
+                    allocation.setApprovalStatus(ApprovalStatus.PENDING);
+                    allocation.setAllocationStatus(AllocationStatus.PLANNED);
+                }
+            }
+            // ❌ EXCEEDS 130% - SHOULD NOT REACH HERE DUE TO VALIDATION
             else {
-
-                allocation.setApprovalStatus(ApprovalStatus.PENDING);
-                allocation.setAllocationStatus(AllocationStatus.PLANNED);
+                throw new RuntimeException("Allocation exceeds 130% limit - this should have been caught in validation");
             }
 
             finalList.add(allocation);
@@ -467,10 +473,28 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     private void validateResourceCapacityForUpdate(UUID allocationId, AllocationRequestDTO request) {
-        int existing = allocationRepository.findConflictingAllocationsForResources(request.getResourceId(), request.getAllocationStartDate(), request.getAllocationEndDate())
+        // Get existing conflicting allocations excluding the current one
+        int existingProjectAllocations = allocationRepository.findConflictingAllocationsForResources(request.getResourceId(), request.getAllocationStartDate(), request.getAllocationEndDate())
                 .stream().filter(a -> !a.getAllocationId().equals(allocationId)).mapToInt(ResourceAllocation::getAllocationPercentage).sum();
-        if (existing + request.getAllocationPercentage() > 100) {
-            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "OVER_ALLOCATION", "Exceeds resource capacity");
+        
+        // Get internal pool allocation
+        ResourceState state = resourceStateRepository
+                .findByResourceIdAndCurrentFlagTrue(request.getResourceId().get(0))
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "RESOURCE_STATE_MISSING", "Resource state not found"));
+        
+        int internalAllocation = state.getInternalAllocationPercentage() != null ? state.getInternalAllocationPercentage() : 0;
+        int requested = request.getAllocationPercentage();
+        int totalAllocation = internalAllocation + existingProjectAllocations + requested;
+        
+        if (totalAllocation > 130) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "MAX_ALLOCATION_EXCEEDED", 
+                String.format("Total allocation would be %d%% (Internal: %d%%, Project: %d%%, Requested: %d%%) which exceeds the maximum allowed limit of 130%%",
+                    totalAllocation, internalAllocation, existingProjectAllocations, requested));
+        }
+        
+        if (totalAllocation > 100 && !Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "CAPACITY_APPROVAL_REQUIRED", 
+                "Allocation exceeds 100% and requires special condition approval");
         }
     }
 

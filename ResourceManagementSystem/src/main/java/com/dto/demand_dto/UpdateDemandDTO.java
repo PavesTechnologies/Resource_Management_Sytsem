@@ -24,6 +24,10 @@ public class UpdateDemandDTO {
 
     private String outgoingResourceId;
 
+    private UUID deliveryRole;
+
+//    private String deliveryRoleName;
+
     private String demandJustification;
 
     private LocalDate demandStartDate;

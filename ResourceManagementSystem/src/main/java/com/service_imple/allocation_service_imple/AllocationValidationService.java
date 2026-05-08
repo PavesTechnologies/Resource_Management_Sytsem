@@ -93,12 +93,23 @@ public class AllocationValidationService {
             );
         }
         
-        if (request.getAllocationPercentage() <= 0 || request.getAllocationPercentage() > 130) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.BAD_REQUEST,
-                "INVALID_PERCENTAGE",
-                "Allocation percentage must be between 1 and 130"
-            );
+        if (request.getAllocationPercentage() <= 0 || request.getAllocationPercentage() > 100) {
+            // Check if this is a special condition request for >100% allocation
+            if (request.getAllocationPercentage() > 100 && request.getAllocationPercentage() <= 130) {
+                if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
+                    throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "SPECIAL_CONDITION_APPROVAL_REQUIRED",
+                        "Allocation percentage above 100% requires special condition approval. Maximum allowed is 130% with approval."
+                    );
+                }
+            } else {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_PERCENTAGE",
+                    "Allocation percentage must be between 1 and 100 normally, or up to 130% with special condition approval"
+                );
+            }
         }
     }
 
@@ -233,8 +244,8 @@ public class AllocationValidationService {
         final Demand finalDemand = demandProjectData.getDemand();
         final Project finalProject = demandProjectData.getProject();
         
-        // Parallel resource validation using preloaded data
-        request.getResourceId().parallelStream().forEach(resourceId -> {
+        // Sequential resource validation using preloaded data to avoid Hibernate concurrency issues
+        request.getResourceId().forEach(resourceId -> {
             try {
                 // Validate resource existence and eligibility
                 Resource resource = validateResource(resourceId, preloadedData.getResourceMap());
@@ -249,49 +260,8 @@ public class AllocationValidationService {
                 boolean override = false;
 
                 if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
-
-                    // 🔹 EXISTING CAPACITY LOGIC
+                    // 🔹 CONSOLIDATED CAPACITY VALIDATION
                     override = validateCapacity(resourceId, request, preloadedData);
-
-                    // 🔥 NEW: INTERNAL POOL CHECK
-                    ResourceState state = resourceStateRepository
-                            .findByResourceIdAndCurrentFlagTrue(resourceId)
-                            .orElseThrow(() -> new ProjectExceptionHandler(
-                                    HttpStatus.BAD_REQUEST,
-                                    "RESOURCE_STATE_MISSING",
-                                    "Resource " + resourceId + " has no state record. Please initialize resource state first."
-                            ));
-
-                    int internal = state.getInternalAllocationPercentage() != null
-                            ? state.getInternalAllocationPercentage()
-                            : 0;
-
-                    int currentProject = preloadedData.getAllocationsByResource()
-                            .getOrDefault(resourceId, new ArrayList<>())
-                            .stream()
-                            .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE
-                                    || a.getAllocationStatus() == AllocationStatus.PLANNED)
-                            .mapToInt(ResourceAllocation::getAllocationPercentage)
-                            .sum();
-
-                    int available = 100 - (currentProject + internal);
-
-                    int requested = request.getAllocationPercentage();
-
-                    // 🔴 EXCEEDS INTERNAL CAPACITY
-                    if (requested > available) {
-
-                        if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
-
-                            throw new ProjectExceptionHandler(
-                                    HttpStatus.BAD_REQUEST,
-                                    "INTERNAL_CAPACITY_EXCEEDED",
-                                    "Allocation exceeds available capacity due to internal pool. Approval required."
-                            );
-                        }
-
-                        // ✅ allow → will be PENDING later
-                    }
                 }
 
                 // Skip only skill compliance validation if skipValidation is true
@@ -303,9 +273,17 @@ public class AllocationValidationService {
                     validateSkillCompliance(resourceId, finalDemand, request);
                 }
                 
+                // Validate that at least one of demand or project is present
+                if (finalDemand == null && finalProject == null) {
+                    throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "MISSING_DEMAND_OR_PROJECT",
+                        "Allocation must have either a demand or project associated with it"
+                    );
+                }
+                
                 // Create allocation object if all validations pass
                 ResourceAllocation allocation = new ResourceAllocation();
-                allocation.setAllocationId(UUID.randomUUID());
                 allocation.setResource(resource);
                 allocation.setDemand(finalDemand);
                 allocation.setProject(finalProject);
@@ -314,7 +292,6 @@ public class AllocationValidationService {
                 allocation.setAllocationPercentage(request.getAllocationPercentage());
                 allocation.setAllocationStatus(request.getAllocationStatus());
                 allocation.setCreatedBy(request.getCreatedBy());
-                allocation.setCreatedAt(LocalDateTime.now());
                 allocation.setRequestBeyondCapacityApproval(request.getRequestBeyondCapacityApproval());
                 
                 validAllocations.add(allocation);
@@ -442,7 +419,7 @@ public class AllocationValidationService {
     }
 
     /**
-     * Validates capacity using timeline segmentation algorithm
+     * Validates capacity using timeline segmentation algorithm with internal pool consideration
      */
     public boolean validateCapacity(String resourceId,
                                      AllocationRequestDTO request,
@@ -482,11 +459,26 @@ public class AllocationValidationService {
         }
 
     /*
-     STEP 2 — Calculate TOTAL ACTIVE allocation
-     (ignore overlaps)
+     STEP 2 — Get internal pool allocation
     */
 
-        int currentTotalAllocation = existingAllocations.stream()
+        ResourceState state = resourceStateRepository
+                .findByResourceIdAndCurrentFlagTrue(resourceId)
+                .orElseThrow(() -> new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "RESOURCE_STATE_MISSING",
+                        "Resource " + resourceId + " has no state record. Please initialize resource state first."
+                ));
+
+        int internalAllocation = state.getInternalAllocationPercentage() != null
+                ? state.getInternalAllocationPercentage()
+                : 0;
+
+    /*
+     STEP 3 — Calculate current project allocations (ACTIVE + PLANNED)
+    */
+
+        int currentProjectAllocation = existingAllocations.stream()
                 .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE
                         || a.getAllocationStatus() == AllocationStatus.PLANNED)
                 .mapToInt(ResourceAllocation::getAllocationPercentage)
@@ -494,61 +486,71 @@ public class AllocationValidationService {
 
         int requested = request.getAllocationPercentage();
 
-        int resultingTotal = currentTotalAllocation + requested;
-
     /*
-     STEP 3 — Max 130% rule
+     STEP 4 — Calculate total allocation (Internal + Project + Requested)
     */
 
-        if (resultingTotal > 130) {
+        int totalAllocation = internalAllocation + currentProjectAllocation + requested;
+
+    /*
+     STEP 5 — Enforce 130% maximum limit
+    */
+
+        if (totalAllocation > 130) {
 
             throw new ProjectExceptionHandler(
                     HttpStatus.BAD_REQUEST,
-                    "MAX_OVERRIDE_EXCEEDED",
-                    "Current allocation is " + currentTotalAllocation +
-                            "%, requested allocation is " + requested +
-                            "%, resulting total would be " + resultingTotal +
-                            "% which exceeds the maximum allowed limit of 130%"
+                    "MAX_ALLOCATION_EXCEEDED",
+                    String.format("Total allocation would be %d%% (Internal: %d%%, Project: %d%%, Requested: %d%%) which exceeds the maximum allowed limit of 130%%",
+                            totalAllocation, internalAllocation, currentProjectAllocation, requested)
             );
         }
 
     /*
-     STEP 4 — Normal allocation
+     STEP 6 — Check if special conditions apply for >100% allocation
     */
 
-        if (resultingTotal <= 100) {
-            return false;
+        if (totalAllocation > 100) {
+            // Check if request has approval for beyond capacity allocation
+            if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
+                throw new ProjectExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "CAPACITY_APPROVAL_REQUIRED",
+                        String.format("Allocation exceeds 100%% (Total would be %d%%). Approval for beyond-capacity allocation required.", totalAllocation)
+                );
+            }
+
+            // Additional validation for 130% special conditions
+            if (totalAllocation > 120) {
+                if (request.getOverrideJustification() == null || request.getOverrideJustification().isBlank()) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "HIGH_OVERRIDE_JUSTIFICATION_REQUIRED",
+                            "Allocation above 120% requires detailed justification for special conditions."
+                    );
+                }
+
+                // Check duration limit for high allocations
+                long overrideDays = ChronoUnit.DAYS.between(
+                        request.getAllocationStartDate(),
+                        request.getAllocationEndDate()
+                ) + 1;
+
+                if (overrideDays > 14) {
+                    throw new ProjectExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "HIGH_OVERRIDE_DURATION_EXCEEDED",
+                            "Allocation above 120% allowed only for maximum 14 days"
+                    );
+                }
+            }
         }
 
     /*
-     STEP 5 — Override validation
+     STEP 7 — Return override status
     */
 
-        if (request.getOverrideJustification() == null ||
-                request.getOverrideJustification().isBlank()) {
-
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "OVERRIDE_REQUIRED",
-                    "Allocation exceeds 100%. Override justification required."
-            );
-        }
-
-        long overrideDays = ChronoUnit.DAYS.between(
-                request.getAllocationStartDate(),
-                request.getAllocationEndDate()
-        ) + 1;
-
-        if (overrideDays > 14) {
-
-            throw new ProjectExceptionHandler(
-                    HttpStatus.BAD_REQUEST,
-                    "OVERRIDE_DURATION_EXCEEDED",
-                    "Over-allocation above 100% allowed only for 14 days"
-            );
-        }
-
-        return true; // override allowed
+        return totalAllocation > 100; // true if override is used
     }
 
     /**

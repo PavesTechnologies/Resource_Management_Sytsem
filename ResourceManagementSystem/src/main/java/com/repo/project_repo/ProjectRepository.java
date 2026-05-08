@@ -27,6 +27,9 @@ public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpe
     @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId")
     Long countTotalProjectsByClientId(@Param("clientId") UUID clientId);
 
+    @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.projectStatus <> 'COMPLETED'")
+    Long countNonCompletedProjectsByClientId(@Param("clientId") UUID clientId);
+
     @Query("SELECT COUNT(p) FROM Project p WHERE p.clientId = :clientId AND p.projectStatus = :status")
     Long countProjectsByClientIdAndStatus(@Param("clientId") UUID clientId, @Param("status") ProjectStatus status);
 

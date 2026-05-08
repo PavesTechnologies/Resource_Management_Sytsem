@@ -132,13 +132,34 @@ public class RoleOffController {
     }
 
     /**
-     * Get role-off events by resource ID
+     * Get role-offs pending delivery manager action
      */
-    @GetMapping("/resource/{resourceId}")
-    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
-    public ResponseEntity<List<RoleOffEvent>> getRoleOffEventsByResource(@PathVariable String resourceId) {
-        List<RoleOffEvent> events = roleOffService.getRoleOffEventsByResource(resourceId);
-        return ResponseEntity.ok(events);
+    @GetMapping("/pending-dm-action")
+    @PreAuthorize("hasRole('Delivery_Manager')")
+    public ResponseEntity<?> getRoleOffsPendingDMAction(@CurrentUser UserDTO userDTO) {
+        return roleOffService.getDMRoleOffEvents(userDTO.getId());
+    }
+
+    /**
+     * Get fulfilled role-offs for delivery manager
+     */
+    @GetMapping("/fulfilled-dm-action")
+    @PreAuthorize("hasRole('Delivery_Manager')")
+    public ResponseEntity<?> getFulfilledRoleOffsForDM(
+            @CurrentUser UserDTO userDTO) {
+
+        return roleOffService.getFulfilledRoleOffEvents(userDTO.getId());
+    }
+
+    /**
+     * Get role-offs approved today by delivery manager for KPI tracking
+     */
+    @GetMapping("/approved-today")
+    @PreAuthorize("hasAnyRole('Delivery_Manager', 'Resource_Manager', 'Admin')")
+    public ResponseEntity<?> getRoleOffsApprovedToday(
+            @RequestParam(required = false) Long projectId,
+            @CurrentUser UserDTO userDTO) {
+        return roleOffService.getRoleOffsApprovedToday(projectId, userDTO.getId());
     }
 
     /**
@@ -149,6 +170,16 @@ public class RoleOffController {
     public ResponseEntity<RoleOffEvent> getRoleOffEventById(@PathVariable UUID id) {
         RoleOffEvent event = roleOffService.getRoleOffEventById(id);
         return ResponseEntity.ok(event);
+    }
+
+    /**
+     * Get role-off events by resource ID
+     */
+    @GetMapping("/resource/{resourceId}")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
+    public ResponseEntity<List<RoleOffEvent>> getRoleOffEventsByResource(@PathVariable String resourceId) {
+        List<RoleOffEvent> events = roleOffService.getRoleOffEventsByResource(resourceId);
+        return ResponseEntity.ok(events);
     }
 
     @GetMapping("/get-role-off-rm")
