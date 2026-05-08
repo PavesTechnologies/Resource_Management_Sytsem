@@ -27,12 +27,15 @@ public class RedisHealthController {
             status.put("redis", "UP");
             status.put("status", "Connected");
             status.put("message", "Redis connection is working");
+            status.put("cacheEnabled", true);
             return ApiResponse.success("Redis is healthy", status);
         } catch (Exception e) {
             status.put("redis", "DOWN");
             status.put("status", "Disconnected");
             status.put("error", e.getMessage());
-            status.put("message", "Redis connection failed");
+            status.put("message", "Redis connection failed - application running in degraded mode");
+            status.put("cacheEnabled", false);
+            status.put("impact", "Application will continue without caching");
             return ApiResponse.success("Redis is down", status);
         }
     }

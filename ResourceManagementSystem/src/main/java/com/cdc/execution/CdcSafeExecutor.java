@@ -2,10 +2,12 @@ package com.cdc.execution;
 
 import com.cdc.failure.FailureRecorder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class CdcSafeExecutor {
 
     private final FailureRecorder failureRecorder;

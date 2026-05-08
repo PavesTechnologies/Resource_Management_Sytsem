@@ -2,6 +2,7 @@ package com.cdc.mapping;
 
 import com.cdc.parsing.SafeEnumParsingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ import java.util.UUID;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class CdcValueConverter {
 
     private final SafeEnumParsingService safeEnumParsingService;
@@ -58,8 +60,8 @@ public class CdcValueConverter {
             };
         } catch (Exception e) {
             // Log conversion error and return null or default
-            System.err.println("Failed to convert value '" + value + "' to type " + type + 
-                             " for context " + context + ": " + e.getMessage());
+            log.error("Failed to convert value '{}' to type {} for context {}: {}", 
+                     value, type, context, e.getMessage());
             return getDefaultValueForType(type, enumClass);
         }
     }
@@ -74,7 +76,7 @@ public class CdcValueConverter {
         try {
             return Long.parseLong(value.toString());
         } catch (NumberFormatException e) {
-            System.err.println("Invalid Long value '" + value + "' for context " + context + ": " + e.getMessage());
+            log.error("Invalid Long value '{}' for context {}: {}", value, context, e.getMessage());
             return 0L;
         }
     }
@@ -86,7 +88,7 @@ public class CdcValueConverter {
         try {
             return UUID.fromString(value.toString());
         } catch (IllegalArgumentException e) {
-            System.err.println("Invalid UUID value '" + value + "' for context " + context + ": " + e.getMessage());
+            log.error("Invalid UUID value '{}' for context {}: {}", value, context, e.getMessage());
             return null;
         }
     }
@@ -98,7 +100,7 @@ public class CdcValueConverter {
         try {
             return new BigDecimal(value.toString());
         } catch (NumberFormatException e) {
-            System.err.println("Invalid BigDecimal value '" + value + "' for context " + context + ": " + e.getMessage());
+            log.error("Invalid BigDecimal value '{}' for context {}: {}", value, context, e.getMessage());
             return BigDecimal.ZERO;
         }
     }
@@ -113,7 +115,7 @@ public class CdcValueConverter {
         try {
             return Double.parseDouble(value.toString());
         } catch (NumberFormatException e) {
-            System.err.println("Invalid Double value '" + value + "' for context " + context + ": " + e.getMessage());
+            log.error("Invalid Double value '{}' for context {}: {}", value, context, e.getMessage());
             return 0.0;
         }
     }
@@ -137,7 +139,7 @@ public class CdcValueConverter {
                     return LocalDate.ofEpochDay(days);
                 }
             } catch (Exception e2) {
-                System.err.println("Invalid LocalDate value '" + value + "' for context " + context + ": " + e2.getMessage());
+                log.error("Invalid LocalDate value '{}' for context {}: {}", value, context, e2.getMessage());
                 return LocalDate.now();
             }
         }
@@ -161,7 +163,7 @@ public class CdcValueConverter {
                     java.time.ZoneOffset.UTC
                 );
             } catch (Exception e2) {
-                System.err.println("Invalid LocalDateTime value '" + value + "' for context " + context + ": " + e2.getMessage());
+                log.error("Invalid LocalDateTime value '{}' for context {}: {}", value, context, e2.getMessage());
                 return LocalDateTime.now();
             }
         }

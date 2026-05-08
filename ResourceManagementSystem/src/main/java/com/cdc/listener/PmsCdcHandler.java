@@ -282,9 +282,17 @@ public class PmsCdcHandler {
             Object rawValue = after.schema().field(pmsColumn) != null ? after.get(pmsColumn) : null;
             Object converted = cdcValueConverter.convert(rawValue, mapping.getFieldType(), mapping.getEnumClass());
 
+            // Guard FK: only set client_id if that client actually exists in RMS
+            if ("client_id".equals(pmsColumn) && converted instanceof java.util.UUID) {
+                if (!clientRepo.existsById((java.util.UUID) converted)) {
+                    System.out.println("Skipping client_id mapping - client not in RMS yet: " + converted);
+                    continue;
+                }
+            }
+
             try {
                 Object currentValue = ReflectionUtil.getFieldValue(project, mapping.getRmsField());
-                
+
                 // Skip if value hasn't changed (EOS pattern)
                 if (Objects.equals(currentValue, converted)) {
                     continue;

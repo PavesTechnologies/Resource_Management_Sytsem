@@ -2,6 +2,7 @@ package com.cdc.throttling;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -91,16 +92,21 @@ public class ReplayThrottlingService {
             // Update processing metrics
             String metricsKey = REPLAY_RATE_PREFIX + entityType + ":metrics";
             String metrics = String.format("%d:%d", System.currentTimeMillis(), processingTimeMs);
-            
+
             // Use Redis list for recent metrics (keep last 100 entries)
-            redisTemplate.opsForList().rightPush(metricsKey, metrics);
-            redisTemplate.opsForList().trim(metricsKey, 0, 99);
-            
-            // Set expiration
-            redisTemplate.expire(metricsKey, Duration.ofHours(1));
-            
+            try {
+                redisTemplate.opsForList().rightPush(metricsKey, metrics);
+                redisTemplate.opsForList().trim(metricsKey, 0, 99);
+
+                // Set expiration
+                redisTemplate.expire(metricsKey, Duration.ofHours(1));
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for metrics recording - continuing without caching: {}", redisEx.getMessage());
+            } catch (Exception e) {
+                log.error("Error recording replay completion for {}: {}", entityType, e.getMessage(), e);
+            }
         } catch (Exception e) {
-            log.error("Error recording replay completion for {}: {}", entityType, e.getMessage(), e);
+            log.error("Unexpected error in recordReplayCompletion for {}: {}", entityType, e.getMessage(), e);
         }
     }
 
@@ -112,11 +118,14 @@ public class ReplayThrottlingService {
     public void resetThrottlingCounters(String entityType) {
         try {
             String rateKey = REPLAY_RATE_PREFIX + entityType;
-            redisTemplate.delete(rateKey);
-            
-            // Close circuit breaker if open
             String circuitKey = CIRCUIT_BREAKER_PREFIX + entityType;
-            redisTemplate.delete(circuitKey);
+            
+            try {
+                redisTemplate.delete(rateKey);
+                redisTemplate.delete(circuitKey);
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for throttling reset - continuing without caching: {}", redisEx.getMessage());
+            }
             
             log.info("Reset throttling counters for {}", entityType);
             
@@ -137,9 +146,18 @@ public class ReplayThrottlingService {
             String stormKey = STORM_DETECTION_PREFIX + entityType;
             String circuitKey = CIRCUIT_BREAKER_PREFIX + entityType;
             
-            Long currentRate = parseLong(redisTemplate.opsForValue().get(rateKey));
-            Long stormCount = parseLong(redisTemplate.opsForValue().get(stormKey));
-            Boolean circuitOpen = redisTemplate.hasKey(circuitKey);
+            Long currentRate = null;
+            Long stormCount = null;
+            Boolean circuitOpen = null;
+            
+            try {
+                currentRate = parseLong(redisTemplate.opsForValue().get(rateKey));
+                stormCount = parseLong(redisTemplate.opsForValue().get(stormKey));
+                circuitOpen = redisTemplate.hasKey(circuitKey);
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for throttling check - returning default statistics: {}", redisEx.getMessage());
+                return ThrottlingStatistics.empty(entityType);
+            }
             
             return ThrottlingStatistics.builder()
                 .entityType(entityType)
@@ -162,15 +180,20 @@ public class ReplayThrottlingService {
         try {
             String rateKey = REPLAY_RATE_PREFIX + entityType;
             
-            // Use Redis INCR with expiration for atomic rate limiting
-            Long currentCount = redisTemplate.opsForValue().increment(rateKey);
-            
-            if (currentCount == 1) {
-                // Set expiration for first increment
-                redisTemplate.expire(rateKey, THROTTLE_WINDOW);
+            try {
+                // Use Redis INCR with expiration for atomic rate limiting
+                Long currentCount = redisTemplate.opsForValue().increment(rateKey);
+                
+                if (currentCount == 1) {
+                    // Set expiration for first increment
+                    redisTemplate.expire(rateKey, THROTTLE_WINDOW);
+                }
+                
+                return currentCount > DEFAULT_REPLAY_RATE_LIMIT;
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for rate limiting - allowing replay: {}", redisEx.getMessage());
+                return false; // Allow replay when Redis is down
             }
-            
-            return currentCount > DEFAULT_REPLAY_RATE_LIMIT;
             
         } catch (Exception e) {
             log.error("Error checking rate limit for {}: {}", entityType, e.getMessage(), e);
@@ -212,7 +235,12 @@ public class ReplayThrottlingService {
     private boolean isCircuitBreakerOpen(String entityType) {
         try {
             String circuitKey = CIRCUIT_BREAKER_PREFIX + entityType;
-            return redisTemplate.hasKey(circuitKey);
+            try {
+                return redisTemplate.hasKey(circuitKey);
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for circuit breaker check - allowing replay: {}", redisEx.getMessage());
+                return false; // Allow replay when Redis is down
+            }
             
         } catch (Exception e) {
             log.error("Error checking circuit breaker for {}: {}", entityType, e.getMessage(), e);
@@ -226,7 +254,11 @@ public class ReplayThrottlingService {
     private void triggerCircuitBreaker(String entityType) {
         try {
             String circuitKey = CIRCUIT_BREAKER_PREFIX + entityType;
-            redisTemplate.opsForValue().set(circuitKey, "OPEN", CIRCUIT_BREAKER_TIMEOUT);
+            try {
+                redisTemplate.opsForValue().set(circuitKey, "OPEN", CIRCUIT_BREAKER_TIMEOUT);
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for circuit breaker trigger - continuing without caching: {}", redisEx.getMessage());
+            }
             
             log.warn("Circuit breaker triggered for {} - timeout: {}", entityType, CIRCUIT_BREAKER_TIMEOUT);
             
@@ -242,8 +274,12 @@ public class ReplayThrottlingService {
         try {
             // Update storm detection counter
             String stormKey = STORM_DETECTION_PREFIX + entityType;
-            redisTemplate.opsForValue().increment(stormKey);
-            redisTemplate.expire(stormKey, THROTTLE_WINDOW);
+            try {
+                redisTemplate.opsForValue().increment(stormKey);
+                redisTemplate.expire(stormKey, THROTTLE_WINDOW);
+            } catch (RedisConnectionFailureException redisEx) {
+                log.warn("Redis unavailable for storm detection - continuing without caching: {}", redisEx.getMessage());
+            }
             
         } catch (Exception e) {
             log.error("Error incrementing replay counters for {}: {}", entityType, e.getMessage(), e);

@@ -4,6 +4,7 @@ import io.debezium.embedded.Connect;
 import io.debezium.engine.DebeziumEngine;
 import io.debezium.engine.RecordChangeEvent;
 import io.debezium.engine.format.ChangeEventFormat;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import jakarta.annotation.PostConstruct;
@@ -25,7 +26,9 @@ import java.util.function.Consumer;
  * - Configurable handler injection
  * - Shared lifecycle management
  * - Single source of truth for Debezium engine management
+ * - Enterprise observability and logging
  */
+@Slf4j
 public class UnifiedDebeziumRunner {
 
     private final ExecutorService executor;
@@ -51,44 +54,55 @@ public class UnifiedDebeziumRunner {
         this.executor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "debezium-engine-" + runnerName);
             t.setUncaughtExceptionHandler((thread, ex) ->
-                System.err.println("[" + runnerName + "] Debezium engine thread died unexpectedly: " + ex.getMessage()));
+                log.error("[{}] Debezium engine thread died unexpectedly: {}", runnerName, ex.getMessage(), ex));
             return t;
         });
     }
 
     @PostConstruct
     public void start() {
+        log.info("ENTERPRISE CDC ENGINE STARTUP - Connector: {}", runnerName);
+        
         engine = DebeziumEngine
                 .create(ChangeEventFormat.of(Connect.class))
                 .using(config.asProperties())
                 .notifying(eventHandler)
                 .using((success, message, error) -> {
                     if (error != null) {
-                        System.err.println("[" + runnerName + "] Debezium engine completed with error: " + error.getMessage());
+                        log.error("[{}] Debezium engine completed with error: {}", runnerName, error.getMessage(), error);
                     } else {
-                        System.out.println("[" + runnerName + "] Debezium engine completed. Success=" + success + " " + message);
+                        if (success && message.contains("snapshot")) {
+                            log.info("[{}] Initial snapshot completed successfully: {}", runnerName, message);
+                            log.info("[{}] Connector switched to realtime CDC streaming", runnerName);
+                        } else {
+                            log.info("[{}] Debezium engine completed. Success={} {}", runnerName, success, message);
+                        }
                     }
                 })
                 .build();
 
         executor.execute(engine);
-        System.out.println("[" + runnerName + "] Debezium engine started");
+        log.info("[{}] Debezium engine started successfully", runnerName);
     }
 
     @PreDestroy
     public void stop() throws IOException {
+        log.info("ENTERPRISE CDC ENGINE SHUTDOWN - Connector: {}", runnerName);
+        
         if (engine != null) {
             engine.close();
         }
         executor.shutdown();
         try {
             if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                log.warn("[{}] Debezium engine shutdown timeout, forcing shutdown", runnerName);
                 executor.shutdownNow();
             }
         } catch (InterruptedException e) {
+            log.warn("[{}] Debezium engine shutdown interrupted", runnerName);
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
-        System.out.println("[" + runnerName + "] Debezium engine stopped");
+        log.info("[{}] Debezium engine stopped successfully", runnerName);
     }
 }

@@ -1,6 +1,7 @@
 package com.cdc.config;
 
 import io.debezium.config.Configuration;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -21,6 +22,7 @@ import java.nio.file.Paths;
  * - Shared database-specific configuration logic
  * - Single source of truth for Debezium settings
  */
+@Slf4j
 @org.springframework.context.annotation.Configuration
 public class UnifiedDebeziumConfig {
 
@@ -104,17 +106,38 @@ public class UnifiedDebeziumConfig {
     @Value("${cdc.database.ssl.mode:required}")
     private String pmsSslMode;
 
+    @Value("${cdc.snapshot.mode:initial}")
+    private String pmsSnapshotMode;
+
     @Value("${eos.cdc.database.ssl.mode:required}")
     private String eosSslMode;
 
+    @Value("${eos.cdc.snapshot.mode:initial}")
+    private String eosSnapshotMode;
+
     /**
      * PMS Debezium configuration bean.
-     * Uses PMS-specific properties.
+     * Uses PMS-specific properties with enterprise observability.
      */
     @Bean
     @Primary
     public Configuration debeziumConfiguration() {
-        return createConfiguration(
+        // ENTERPRISE FIRST-RUN DETECTION
+        String pmsOffsetFile = pmsCdcBaseDir + "/pms-project-offsets.dat";
+        String pmsSchemaFile = pmsCdcBaseDir + "/pms-schema-history.dat";
+        
+        boolean isFirstRun = !Files.exists(Paths.get(pmsOffsetFile)) && 
+                          !Files.exists(Paths.get(pmsSchemaFile));
+        
+        if (isFirstRun) {
+            log.info("ENTERPRISE SNAPSHOT START - PMS: No existing offsets/schema history detected");
+            log.info("Starting initial snapshot for PMS connector: pms-project-cdc");
+        } else {
+            log.info("ENTERPRISE INCREMENTAL CDC - PMS: Existing offsets detected, skipping snapshot");
+            log.info("Existing offsets detected - skipping snapshot for PMS connector");
+        }
+        
+        Configuration config = createConfiguration(
                 "pms-project-cdc",
                 pmsConnectorClass,
                 pmsCdcBaseDir,
@@ -133,18 +156,42 @@ public class UnifiedDebeziumConfig {
                 15000, // Replica server ID range start
                 "pms-project-offsets.dat",
                 "pms-schema-history.dat",
-                "initial", // Snapshot once on first start; stream from binlog after
+                pmsSnapshotMode, // Configurable snapshot mode: initial/never/when_needed
                 pmsSslMode
         );
+        
+        // LOG CONFIGURATION COMPLETION
+        if (isFirstRun) {
+            log.info("PMS CDC configuration completed - Initial snapshot will be executed");
+        } else {
+            log.info("PMS CDC configuration completed - Incremental CDC will resume from offsets");
+        }
+        
+        return config;
     }
 
     /**
      * EOS Debezium configuration bean.
-     * Uses EOS-specific properties.
+     * Uses EOS-specific properties with enterprise observability.
      */
     @Bean("eosDebeziumConfiguration")
     public Configuration eosDebeziumConfiguration() {
-        return createConfiguration(
+        // ENTERPRISE FIRST-RUN DETECTION
+        String eosOffsetFile = eosCdcBaseDir + "/eos-offsets.dat";
+        String eosSchemaFile = eosCdcBaseDir + "/eos-schema-history.dat";
+        
+        boolean isFirstRun = !Files.exists(Paths.get(eosOffsetFile)) && 
+                          !Files.exists(Paths.get(eosSchemaFile));
+        
+        if (isFirstRun) {
+            log.info("ENTERPRISE SNAPSHOT START - EOS: No existing offsets/schema history detected");
+            log.info("Starting initial snapshot for EOS connector: eos-cdc");
+        } else {
+            log.info("ENTERPRISE INCREMENTAL CDC - EOS: Existing offsets detected, skipping snapshot");
+            log.info("Existing offsets detected - skipping snapshot for EOS connector");
+        }
+        
+        Configuration config = createConfiguration(
                 eosConnectorName,
                 eosConnectorClass,
                 eosCdcBaseDir,
@@ -163,9 +210,18 @@ public class UnifiedDebeziumConfig {
                 35000, // Replica server ID range start (different from PMS)
                 "eos-offsets.dat",
                 "eos-schema-history.dat",
-                "when_needed", // Snapshot mode (different from PMS)
+                eosSnapshotMode, // Configurable snapshot mode: initial/never/when_needed
                 eosSslMode
         );
+        
+        // LOG CONFIGURATION COMPLETION
+        if (isFirstRun) {
+            log.info("EOS CDC configuration completed - Initial snapshot will be executed");
+        } else {
+            log.info("EOS CDC configuration completed - Incremental CDC will resume from offsets");
+        }
+        
+        return config;
     }
 
     /**
