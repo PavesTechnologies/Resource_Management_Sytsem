@@ -1,10 +1,12 @@
 package com.service_imple.ledger_service_impl;
 
 import com.entity.ledger_entities.ResourceAvailabilityLedgerDaily;
+import com.entity.resource_entities.Resource;
 import com.entity.resource_entities.ResourceAvailabilityLedger;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.repo.ledger_repo.ResourceAvailabilityLedgerDailyRepository;
-import com.service_interface.ledger_service_interface.AllocationService;
+import com.repo.resource_repo.ResourceRepository;
+import com.service_interface.ledger_service_interface.LedgerAllocationDataService;
 import com.service_interface.ledger_service_interface.HolidayService;
 import com.service_interface.ledger_service_interface.LeaveService;
 import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
@@ -29,18 +31,19 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
     private final HolidayService holidayService;
     private final LeaveService leaveService;
-    
+
     @Qualifier("ledgerAllocationService")
-    private final AllocationService allocationService;
-    
+    private final LedgerAllocationDataService allocationService;
+
     private final ResourceAvailabilityLedgerDailyRepository dailyLedgerRepository;
+    private final ResourceRepository resourceRepository;
 
     private static final int HOURS_PER_WORKING_DAY = 8;
     private static final Set<DayOfWeek> WEEKEND_DAYS = Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
 
     @Override
     @Transactional
-    public void recalculateForDateRange(Long resourceId, LocalDate startDate, LocalDate endDate) {
+    public void recalculateForDateRange(String resourceId, LocalDate startDate, LocalDate endDate) {
         try {
             YearMonth startMonth = YearMonth.from(startDate);
             YearMonth endMonth = YearMonth.from(endDate);
@@ -57,7 +60,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
     }
 
     @Transactional
-    public ResourceAvailabilityLedger calculateMonthlyAvailability(Long resourceId, YearMonth yearMonth) {
+    public ResourceAvailabilityLedger calculateMonthlyAvailability(String resourceId, YearMonth yearMonth) {
         try {
             LocalDate monthStart = yearMonth.atDay(1);
             LocalDate monthEnd = yearMonth.atEndOfMonth();
@@ -75,7 +78,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
                 .filter(workingDays::contains)
                 .count() * HOURS_PER_WORKING_DAY;
             
-            AllocationService.AllocationData allocationData = allocationService.getAllocationDataForResourceForMonth(resourceId, yearMonth);
+            LedgerAllocationDataService.AllocationData allocationData = allocationService.getAllocationDataForResourceForMonth(resourceId, yearMonth);
             int confirmedAllocHours = (allocationData.getConfirmedAllocationPercentage() * standardHours) / 100;
             int draftAllocHours = (allocationData.getDraftAllocationPercentage() * standardHours) / 100;
             
@@ -87,11 +90,15 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
             boolean availabilityTrustFlag = holidayService.isApiHealthy() && leaveService.isApiHealthy();
             
             Optional<ResourceAvailabilityLedger> existing = ledgerRepository.findByResourceIdAndPeriodStart(resourceId, monthStart);
-            ResourceAvailabilityLedger ledger = existing.orElseGet(() -> ResourceAvailabilityLedger.builder()
-                .resource(null) // Will be set by repository
-                .periodStart(monthStart)
-                .periodEnd(monthEnd)
-                .build());
+            ResourceAvailabilityLedger ledger = existing.orElseGet(() -> {
+                Resource resource = resourceRepository.findById(resourceId)
+                        .orElseThrow(() -> new RuntimeException("Resource not found: " + resourceId));
+                return ResourceAvailabilityLedger.builder()
+                        .resource(resource)
+                        .periodStart(monthStart)
+                        .periodEnd(monthEnd)
+                        .build();
+            });
             
             ledger.setStandardHours(standardHours);
             ledger.setHolidayHours(holidayHours);
@@ -115,14 +122,14 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
 
     @Override
     @Transactional
-    public void recalculateDailyWithIdempotency(Long resourceId, LocalDate date, String eventId) {
+    public void recalculateDailyWithIdempotency(String resourceId, LocalDate date, String eventId) {
         YearMonth month = YearMonth.from(date);
         calculateMonthlyAvailability(resourceId, month);
         deriveDailyFromMonthly(resourceId, month);
     }
 
     @Transactional
-    public void deriveDailyFromMonthly(Long resourceId, YearMonth month) {
+    public void deriveDailyFromMonthly(String resourceId, YearMonth month) {
         try {
             Optional<ResourceAvailabilityLedger> monthlyLedger = ledgerRepository.findByResourceIdAndPeriodStart(resourceId, month.atDay(1));
             if (monthlyLedger.isEmpty()) {
@@ -145,6 +152,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
             }
             
             if (!dailyEntries.isEmpty()) {
+                dailyLedgerRepository.deleteByResourceIdAndDateBetween(resourceId, monthStart, monthEnd);
                 dailyLedgerRepository.saveAll(dailyEntries);
             }
         } catch (Exception e) {
@@ -152,12 +160,12 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
         }
     }
     
-    private ResourceAvailabilityLedgerDaily createDailyFromMonthly(Long resourceId, LocalDate date, ResourceAvailabilityLedger monthly) {
+    private ResourceAvailabilityLedgerDaily createDailyFromMonthly(String resourceId, LocalDate date, ResourceAvailabilityLedger monthly) {
         int workingDaysInMonth = getWorkingDaysInRange(monthly.getPeriodStart(), monthly.getPeriodEnd()).size();
         
         int dailyStandardHours = HOURS_PER_WORKING_DAY;
         int dailyHolidayHours = isHoliday(date) ? HOURS_PER_WORKING_DAY : 0;
-        int dailyLeaveHours = isLeave(date) && !isHoliday(date) ? HOURS_PER_WORKING_DAY : 0;
+        int dailyLeaveHours = isLeave(resourceId, date) && !isHoliday(date) ? HOURS_PER_WORKING_DAY : 0;
         
         int dailyConfirmedAllocHours = monthly.getConfirmedAllocHours() / workingDaysInMonth;
         int dailyDraftAllocHours = monthly.getDraftAllocHours() / workingDaysInMonth;
@@ -204,7 +212,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
         }
     }
     
-    private Set<LocalDate> getLeavesForResourceForMonth(Long resourceId, int year) {
+    private Set<LocalDate> getLeavesForResourceForMonth(String resourceId, int year) {
         try {
             return leaveService.getApprovedLeaveForEmployee(resourceId, year);
         } catch (Exception e) {
@@ -220,9 +228,9 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
         }
     }
     
-    private boolean isLeave(LocalDate date) {
+    private boolean isLeave(String resourceId, LocalDate date) {
         try {
-            return leaveService.getApprovedLeaveForEmployee(0L, date.getYear()).contains(date);
+            return leaveService.getApprovedLeaveForEmployee(resourceId, date.getYear()).contains(date);
         } catch (Exception e) {
             return false;
         }
@@ -234,13 +242,13 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
 
     @Override
     @Transactional
-    public void recalculateForSingleDate(Long resourceId, LocalDate date) {
+    public void recalculateForSingleDate(String resourceId, LocalDate date) {
         recalculateDailyWithIdempotency(resourceId, date, null);
     }
 
     @Override
     @Transactional
-    public void markAsUntrustworthy(Long resourceId, LocalDate startDate, LocalDate endDate) {
+    public void markAsUntrustworthy(String resourceId, LocalDate startDate, LocalDate endDate) {
         try {
             ledgerRepository.markDatesUntrustworthy(resourceId, startDate, endDate, LocalDateTime.now());
         } catch (Exception e) {
@@ -250,7 +258,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
 
     @Override
     @Transactional(readOnly = true)
-    public List<ResourceAvailabilityLedgerDaily> getAvailabilityForDateRange(Long resourceId, LocalDate startDate, LocalDate endDate) {
+    public List<ResourceAvailabilityLedgerDaily> getAvailabilityForDateRange(String resourceId, LocalDate startDate, LocalDate endDate) {
         try {
             return dailyLedgerRepository.findByResourceIdAndDateBetween(resourceId, startDate, endDate);
         } catch (Exception e) {
@@ -262,7 +270,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<ResourceAvailabilityLedgerDaily> getAvailabilityForDate(Long resourceId, LocalDate date) {
+    public Optional<ResourceAvailabilityLedgerDaily> getAvailabilityForDate(String resourceId, LocalDate date) {
         try {
             return dailyLedgerRepository.findByResourceIdAndDate(resourceId, date);
         } catch (Exception e) {
@@ -284,7 +292,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
 
     @Override
     @Transactional(readOnly = true)
-    public Map<String, Object> getAvailabilitySummary(Long resourceId, LocalDate startDate, LocalDate endDate) {
+    public Map<String, Object> getAvailabilitySummary(String resourceId, LocalDate startDate, LocalDate endDate) {
         try {
             List<ResourceAvailabilityLedgerDaily> entries = dailyLedgerRepository.findByResourceIdAndDateBetween(resourceId, startDate, endDate);
             

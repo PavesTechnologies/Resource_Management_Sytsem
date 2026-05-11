@@ -6,7 +6,7 @@ import java.time.LocalDate;
 @Data
 public class LedgerResourceCreatedRequest {
     private String eventId;
-    private Long resourceId;
+    private String resourceId;
     private String employeeId;
     private String firstName;
     private String lastName;

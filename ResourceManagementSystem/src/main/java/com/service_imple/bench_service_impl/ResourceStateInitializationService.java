@@ -35,14 +35,14 @@ public class ResourceStateInitializationService {
         
         try {
             // Find all resources that should have states but don't
-            List<Long> resourcesWithoutStates = findResourcesWithoutStates();
+            List<String> resourcesWithoutStates = findResourcesWithoutStates();
             
             log.info("Found {} resources without state records", resourcesWithoutStates.size());
             
             int successCount = 0;
             int failureCount = 0;
             
-            for (Long resourceId : resourcesWithoutStates) {
+            for (String resourceId : resourcesWithoutStates) {
                 try {
                     benchService.createOrUpdateBenchState(resourceId);
                     successCount++;
@@ -76,12 +76,12 @@ public class ResourceStateInitializationService {
         log.info("Starting daily resource state check");
         
         try {
-            List<Long> resourcesWithoutStates = findResourcesWithoutStates();
+            List<String> resourcesWithoutStates = findResourcesWithoutStates();
             
             if (!resourcesWithoutStates.isEmpty()) {
                 log.info("Found {} resources without states during daily check", resourcesWithoutStates.size());
                 
-                for (Long resourceId : resourcesWithoutStates) {
+                for (String resourceId : resourcesWithoutStates) {
                     try {
                         benchService.createOrUpdateBenchState(resourceId);
                         log.info("Fixed missing state for resource {} during daily check", resourceId);
@@ -103,7 +103,7 @@ public class ResourceStateInitializationService {
      * Find resources that should have states but don't
      * These are eligible resources that are missing from resource_state table
      */
-    private List<Long> findResourcesWithoutStates() {
+    private List<String> findResourcesWithoutStates() {
         // Find resources eligible for bench but without any state record
         return benchDetectionRepository.findBenchEligibleResources(LocalDate.now())
                 .stream()
@@ -119,7 +119,7 @@ public class ResourceStateInitializationService {
      * Can be called from Admin endpoints or for troubleshooting
      */
     @Transactional
-    public boolean fixResourceState(Long resourceId) {
+    public boolean fixResourceState(String resourceId) {
         log.info("Attempting to fix state for resource {}", resourceId);
         
         try {

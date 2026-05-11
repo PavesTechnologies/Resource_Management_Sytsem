@@ -173,7 +173,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     }
 
     @Override
-    public List<ResourceCertificate> getCertificatesByResourceId(Long resourceId) {
+    public List<ResourceCertificate> getCertificatesByResourceId(String resourceId) {
         return resourceCertificateRepository.findByResourceIdAndActiveFlagTrue(resourceId);
     }
 
@@ -193,7 +193,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
      * @param resourceId The resource ID to validate
      * @throws CertificationComplianceException if resource doesn't exist or is not active
      */
-    private void validateResourceExistsAndActive(Long resourceId) {
+    private void validateResourceExistsAndActive(String resourceId) {
         Resource resource = resourceRepository.findById(resourceId)
                 .orElseThrow(() -> new CertificationComplianceException(
                         "Resource not found with ID: " + resourceId));

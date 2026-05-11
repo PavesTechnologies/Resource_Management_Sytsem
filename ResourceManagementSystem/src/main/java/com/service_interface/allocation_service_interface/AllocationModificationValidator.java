@@ -63,7 +63,7 @@ public class AllocationModificationValidator {
         // Override duration validation (only if override is needed)
         if (overrideRequired) {
             // Check if total allocation will exceed 100%
-            Long resourceId = allocation.getResource().getResourceId();
+            String resourceId = allocation.getResource().getResourceId();
             List<ResourceAllocation> activeAllocations = allocationRepository
                     .findActiveAllocationsForResourceOnDate(resourceId, effectiveDate);
             

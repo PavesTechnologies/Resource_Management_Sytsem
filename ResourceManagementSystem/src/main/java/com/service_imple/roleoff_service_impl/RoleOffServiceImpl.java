@@ -35,7 +35,7 @@ import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
-import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncServiceRefactored;
+import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -72,7 +72,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final BenchService benchService;
-    private final AvailabilityLedgerAsyncServiceRefactored availabilityLedgerAsyncService;
+    private final AvailabilityLedgerAsyncService availabilityLedgerAsyncService;
     private final ResourceSkillUsageService resourceSkillUsageService;
 
     // Role-off reason descriptions for governance purposes
@@ -184,7 +184,7 @@ public List<RoleOffEvent> getRoleOffEventsByProject(Long projectId) {
 }
 
 @Override
-public List<RoleOffEvent> getRoleOffEventsByResource(Long resourceId) {
+public List<RoleOffEvent> getRoleOffEventsByResource(String resourceId) {
     return roleOffRepo.findByResource_ResourceId(resourceId);
 }
 
@@ -299,36 +299,36 @@ private String getValidReasonsString() {
 /**
  * Batch calculate impact levels for multiple resources to avoid N+1 queries
  */
-private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Long projectId) {
+private Map<String, String> calculateBatchImpactLevels(List<String> resourceIds, Long projectId) {
     if (resourceIds.isEmpty()) {
         return new HashMap<>();
     }
 
-    Map<Long, String> impactLevelsMap = new HashMap<>();
+    Map<String, String> impactLevelsMap = new HashMap<>();
 
     try {
         // Batch fetch all required data
-        Map<Long, Integer> totalUtilizations = new HashMap<>();
-        Map<Long, List<Integer>> projectAllocationsMap = new HashMap<>();
+        Map<String, Integer> totalUtilizations = new HashMap<>();
+        Map<String, List<Integer>> projectAllocationsMap = new HashMap<>();
 
         // Fetch utilization data for all resources in batch
         List<Object[]> totalUtilData = roleOffRepo.getTotalCurrentUtilizationBatch(resourceIds);
         for (Object[] row : totalUtilData) {
-            Long resourceId = (Long) row[0];
+            String resourceId = (String) row[0];
             Integer utilization = (Integer) row[1];
             totalUtilizations.put(resourceId, utilization);
         }
 
         List<Object[]> projectAllocData = roleOffRepo.getCurrentUtilizationBatch(resourceIds);
         for (Object[] row : projectAllocData) {
-            Long resourceId = (Long) row[0];
+            String resourceId = (String) row[0];
             Integer allocation = (Integer) row[1];
             projectAllocationsMap.computeIfAbsent(resourceId, k -> new ArrayList<>()).add(allocation);
         }
 
         // Fetch all resources in batch
         List<Resource> resources = resourceRepo.findAllById(resourceIds);
-        Map<Long, Resource> resourcesMap = resources.stream()
+        Map<String, Resource> resourcesMap = resources.stream()
                 .collect(Collectors.toMap(Resource::getResourceId, r -> r));
 
         // Fetch project data once
@@ -339,7 +339,7 @@ private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Lon
         int gapAfterRoleOff = Math.max(0, totalRequired - (int)(currentAllocations - resourceIds.size()));
 
         // Calculate impact for each resource
-        for (Long resourceId : resourceIds) {
+        for (String resourceId : resourceIds) {
             int impactScore = 0;
 
             // 1. UTILIZATION IMPACT (0-40 points)
@@ -365,7 +365,7 @@ private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Lon
             Resource resource = resourcesMap.get(resourceId);
             if (resource != null) {
                 // Experience impact
-                Long experience = resource.getExperiance();
+                Double experience = resource.getExperiance();
                 if (experience != null && experience >= 5) impactScore += 5;
                 else if (experience != null && experience >= 2) impactScore += 3;
             }
@@ -384,7 +384,7 @@ private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Lon
 
     } catch (Exception e) {
         // Fallback to LOW impact for all resources if calculation fails
-        for (Long resourceId : resourceIds) {
+        for (String resourceId : resourceIds) {
             impactLevelsMap.put(resourceId, "LOW");
         }
     }
@@ -396,7 +396,7 @@ private Map<Long, String> calculateBatchImpactLevels(List<Long> resourceIds, Lon
  * Calculate simple resource impact level (LOW/MEDIUM/HIGH)
  * Returns impact level based on utilization, project criticality, and skill factors
  */
-public String calculateResourceImpactLevel(Long resourceId, Long projectId) {
+public String calculateResourceImpactLevel(String resourceId, Long projectId) {
     try {
         int impactScore = 0;
 
@@ -432,7 +432,7 @@ public String calculateResourceImpactLevel(Long resourceId, Long projectId) {
                 .orElseThrow(() -> new RuntimeException("Resource not found"));
 
         // Experience impact
-        Long experience = resource.getExperiance();
+        Double experience = resource.getExperiance();
         if (experience != null && experience >= 5) impactScore += 5;
         else if (experience != null && experience >= 2) impactScore += 3;
 
@@ -463,7 +463,7 @@ public String calculateResourceImpactLevel(Long resourceId, Long projectId) {
 /**
  * Get impact score details (for debugging or detailed view)
  */
-public Map<String, Object> getImpactScoreDetails(Long resourceId, Long projectId) {
+public Map<String, Object> getImpactScoreDetails(String resourceId, Long projectId) {
     Map<String, Object> details = new HashMap<>();
 
     try {
@@ -683,7 +683,7 @@ private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> alloca
             .map(ResourceAllocation::getAllocationId)
             .collect(Collectors.toList());
 
-    List<Long> resourceIds = allocations.stream()
+    List<String> resourceIds = allocations.stream()
             .map(ra -> ra.getResource().getResourceId())
             .collect(Collectors.toList());
 
@@ -713,13 +713,13 @@ private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> alloca
             .orElse(null);
 
     // Impact calculation
-    Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
+    Map<String, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
 
     // DTO Mapping
     List<ResourcesDTO> dtos = allocations.stream()
             .map(ra -> {
                 RoleOffEvent event = roleOffMap.get(ra.getAllocationId());
-                Long resId = ra.getResource().getResourceId();
+                String resId = ra.getResource().getResourceId();
 
                 return ResourcesDTO.builder()
                         .roleOffId(event != null ? event.getId() : null)
@@ -897,7 +897,7 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
         }
 
     // Batch fetch resource IDs for impact calculation
-    List<Long> resourceIds = roleOffEvents.stream()
+    List<String> resourceIds = roleOffEvents.stream()
             .map(r -> r.getResource().getResourceId())
             .distinct()
             .toList();
@@ -906,7 +906,7 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
     Long projectId = roleOffEvents.get(0).getProject().getPmsProjectId();
 
     // Batch calculate impact levels for all resources
-    Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
+    Map<String, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
 
     List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
         var allocation = r.getAllocation();
@@ -1388,7 +1388,7 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
     }
 
     // Batch fetch resource IDs for impact calculation
-    List<Long> resourceIds = roleOffEvents.stream()
+    List<String> resourceIds = roleOffEvents.stream()
             .map(r -> r.getResource().getResourceId())
             .distinct()
             .toList();
@@ -1397,7 +1397,7 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
     Long projectId = roleOffEvents.get(0).getProject().getPmsProjectId();
 
     // Batch calculate impact levels for all resources
-    Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
+    Map<String, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, projectId);
 
     List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
         var allocation = r.getAllocation();
@@ -1794,11 +1794,11 @@ private ResponseEntity<?> generateBulkImpactPreview(BulkRoleOffRequestDTO bulkRe
                                                     Project project, List<ResourceAllocation> allocations) {
 
     // Calculate impact for all resources
-    List<Long> resourceIds = allocations.stream()
+    List<String> resourceIds = allocations.stream()
             .map(a -> a.getResource().getResourceId())
             .toList();
 
-    Map<Long, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, project.getPmsProjectId());
+    Map<String, String> impactLevelsMap = calculateBatchImpactLevels(resourceIds, project.getPmsProjectId());
 
     // Build preview response
     List<Map<String, Object>> resourceImpacts = new ArrayList<>();
@@ -1806,7 +1806,7 @@ private ResponseEntity<?> generateBulkImpactPreview(BulkRoleOffRequestDTO bulkRe
     int highImpactCount = 0;
 
     for (ResourceAllocation allocation : allocations) {
-        Long resourceId = allocation.getResource().getResourceId();
+        String resourceId = allocation.getResource().getResourceId();
         String impactLevel = impactLevelsMap.getOrDefault(resourceId, "LOW");
 
         Map<String, Object> impact = new HashMap<>();
@@ -2070,7 +2070,7 @@ public ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, Us
 
 @Override
 @Transactional
-public void handleAttrition(Long resourceId, LocalDate dateOfExit, Long userId) {
+public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId) {
     log.info("Processing attrition for resource ID: {} with exit date: {}", resourceId, dateOfExit);
 
     // Step 1: Fetch resource and check status

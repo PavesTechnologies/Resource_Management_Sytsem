@@ -23,9 +23,9 @@ public interface LedgerEventLogRepository extends JpaRepository<LedgerEventLog, 
 
     boolean existsByEventHash(String eventHash);
 
-    List<LedgerEventLog> findByResourceId(Long resourceId);
+    List<LedgerEventLog> findByResourceId(String resourceId);
 
-    List<LedgerEventLog> findByResourceIdAndStatus(Long resourceId, EventStatus status);
+    List<LedgerEventLog> findByResourceIdAndStatus(String resourceId, EventStatus status);
 
     List<LedgerEventLog> findByStatus(EventStatus status);
 
@@ -37,7 +37,7 @@ public interface LedgerEventLogRepository extends JpaRepository<LedgerEventLog, 
     List<LedgerEventLog> findRetryableEvents(@Param("status") EventStatus status, @Param("maxRetries") int maxRetries, @Param("since") LocalDateTime since);
 
     @Query("SELECT COUNT(lel) FROM LedgerEventLog lel WHERE lel.resourceId = :resourceId AND lel.status = :status AND lel.createdAt BETWEEN :startTime AND :endTime")
-    Long countEventsByResourceAndStatusInTimeRange(@Param("resourceId") Long resourceId, @Param("status") EventStatus status, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
+    Long countEventsByResourceAndStatusInTimeRange(@Param("resourceId") String resourceId, @Param("status") EventStatus status, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 
     @Query("SELECT lel FROM LedgerEventLog lel WHERE lel.processingStartedAt IS NOT NULL AND lel.processingCompletedAt IS NULL AND lel.processingStartedAt < :timeoutThreshold")
     List<LedgerEventLog> findStalledProcessingEvents(@Param("timeoutThreshold") LocalDateTime timeoutThreshold);

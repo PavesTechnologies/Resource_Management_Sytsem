@@ -9,7 +9,7 @@ import java.util.UUID;
 public class AllocationOverrideReportDTO {
 
     private UUID allocationId;
-    private Long resourceId;
+    private String resourceId;
     private Integer allocationPercentage;
     private String overrideJustification;
     private String overrideBy;

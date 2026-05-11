@@ -1,6 +1,6 @@
 package com.service_imple.ledger_service_impl;
 
-import com.service_interface.ledger_service_interface.AllocationService;
+import com.service_interface.ledger_service_interface.LedgerAllocationDataService;
 import com.dto.common.ApiHealthResponse;
 import com.dto.common.ExternalAllocationDto;
 import com.dto.common.ExternalAllocationResponse;
@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 @Service("ledgerAllocationService")
 @RequiredArgsConstructor
 @Slf4j
-public class LedgerAllocationServiceImpl implements AllocationService {
+public class LedgerAllocationServiceImpl implements LedgerAllocationDataService {
 
     private final RestTemplate restTemplate;
     
@@ -32,15 +32,15 @@ public class LedgerAllocationServiceImpl implements AllocationService {
     private static final long ALLOCATION_API_HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
-    public AllocationData getAllocationDataForResourceAndDate(Long resourceId, LocalDate date) {
+    public AllocationData getAllocationDataForResourceAndDate(String resourceId, LocalDate date) {
         return getAllocationDataInternal(resourceId, date);
     }
 
-    private AllocationData getAllocationDataInternal(Long resourceId, LocalDate date) {
+    private AllocationData getAllocationDataInternal(String resourceId, LocalDate date) {
         try {
             checkApiHealth();
             
-            String url = String.format("%s/resources/%d/allocations?date=%s", 
+            String url = String.format("%s/resources/%s/allocations?date=%s",
                     allocationApiBaseUrl, resourceId, date);
             ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
             
@@ -79,15 +79,15 @@ public class LedgerAllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    public AllocationData getAllocationDataForResourceForMonth(Long resourceId, YearMonth yearMonth) {
+    public AllocationData getAllocationDataForResourceForMonth(String resourceId, YearMonth yearMonth) {
         return getAllocationDataInternalForMonth(resourceId, yearMonth);
     }
 
-    private AllocationData getAllocationDataInternalForMonth(Long resourceId, YearMonth yearMonth) {
+    private AllocationData getAllocationDataInternalForMonth(String resourceId, YearMonth yearMonth) {
         try {
             checkApiHealth();
             
-            String url = String.format("%s/resources/%d/allocations?month=%s-%s", 
+            String url = String.format("%s/resources/%s/allocations?month=%s-%s", 
                     allocationApiBaseUrl, resourceId, yearMonth.getYear(), yearMonth.getMonthValue());
             ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
             
@@ -152,14 +152,14 @@ public class LedgerAllocationServiceImpl implements AllocationService {
     }
 
     @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
-    public CompletableFuture<AllocationData> getAllocationDataForResourceAndDateAsync(Long resourceId, LocalDate date) {
+    public CompletableFuture<AllocationData> getAllocationDataForResourceAndDateAsync(String resourceId, LocalDate date) {
         return CompletableFuture.supplyAsync(() -> getAllocationDataForResourceAndDate(resourceId, date));
     }
 
     @Override
-    public LocalDate getMaxAllocationEndDate(Long resourceId) {
+    public LocalDate getMaxAllocationEndDate(String resourceId) {
         try {
-            String url = String.format("%s/resources/%d/allocations/max-end-date", allocationApiBaseUrl, resourceId);
+            String url = String.format("%s/resources/%s/allocations/max-end-date", allocationApiBaseUrl, resourceId);
             MaxEndDateResponse response = restTemplate.getForObject(url, MaxEndDateResponse.class);
             return (response != null) ? response.getMaxEndDate() : null;
         } catch (Exception e) {
@@ -169,9 +169,9 @@ public class LedgerAllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    public LocalDate getMaxAllocationEndDateAfter(Long resourceId, LocalDate baseDate) {
+    public LocalDate getMaxAllocationEndDateAfter(String resourceId, LocalDate baseDate) {
         try {
-            String url = String.format("%s/resources/%d/allocations/max-end-date?after=%s", 
+            String url = String.format("%s/resources/%s/allocations/max-end-date?after=%s", 
                     allocationApiBaseUrl, resourceId, baseDate);
             MaxEndDateResponse response = restTemplate.getForObject(url, MaxEndDateResponse.class);
             return (response != null) ? response.getMaxEndDate() : null;
@@ -182,9 +182,9 @@ public class LedgerAllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    public LocalDate getResourceExitDate(Long resourceId) {
+    public LocalDate getResourceExitDate(String resourceId) {
         try {
-            String url = String.format("%s/resources/%d/exit-date", allocationApiBaseUrl, resourceId);
+            String url = String.format("%s/resources/%s/exit-date", allocationApiBaseUrl, resourceId);
             ResourceExitDateResponse response = restTemplate.getForObject(url, ResourceExitDateResponse.class);
             return (response != null) ? response.getExitDate() : null;
         } catch (Exception e) {

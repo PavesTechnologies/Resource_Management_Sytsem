@@ -34,8 +34,8 @@ public class ResourceAvailabilityLedgerDaily {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "resource_id", nullable = false)
-    private Long resourceId;
+    @Column(name = "resource_id", nullable = false, length = 20)
+    private String resourceId;
 
     @Column(name = "date", nullable = false)
     private LocalDate date;

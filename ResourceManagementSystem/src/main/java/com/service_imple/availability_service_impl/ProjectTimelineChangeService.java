@@ -49,11 +49,11 @@ public class ProjectTimelineChangeService {
             LocalDate start = earliestDate.toLocalDate();
             LocalDate end = latestDate.toLocalDate();
             
-            Set<Long> resourceIds = allocations.stream()
+            Set<String> resourceIds = allocations.stream()
                 .map(allocation -> allocation.getResource().getResourceId())
                 .collect(Collectors.toSet());
             
-            for (Long resourceId : resourceIds) {
+            for (String resourceId : resourceIds) {
                 try {
                     calculationService.recalculateForDateRange(resourceId, start, end);
                 } catch (Exception e) {

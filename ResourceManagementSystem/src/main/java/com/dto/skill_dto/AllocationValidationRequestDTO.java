@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AllocationValidationRequestDTO {
-    private Long resourceId;
+    private String resourceId;
     private List<SkillRequirementDTO> skillRequirements;
     private List<UUID> requiredCertificationSkillIds;
 }

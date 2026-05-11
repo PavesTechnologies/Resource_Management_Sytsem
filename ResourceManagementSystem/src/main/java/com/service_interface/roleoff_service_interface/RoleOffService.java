@@ -36,12 +36,12 @@ public interface RoleOffService {
      * Calculate simple resource impact level (LOW/MEDIUM/HIGH)
      * Returns impact level based on utilization, project criticality, and skill factors
      */
-    String calculateResourceImpactLevel(Long resourceId, Long projectId);
+    String calculateResourceImpactLevel(String resourceId, Long projectId);
 
     /**
      * Get impact score details (for debugging or detailed view)
      */
-    Map<String, Object> getImpactScoreDetails(Long resourceId, Long projectId);
+    Map<String, Object> getImpactScoreDetails(String resourceId, Long projectId);
 
     /**
      * Get all role-off events with complete details
@@ -56,7 +56,7 @@ public interface RoleOffService {
     /**
      * Get role-off events by resource ID
      */
-    List<RoleOffEvent> getRoleOffEventsByResource(Long resourceId);
+    List<RoleOffEvent> getRoleOffEventsByResource(String resourceId);
 
     /**
      * Get role-off event by specific ID
@@ -129,7 +129,7 @@ public interface RoleOffService {
     /**
      * Handles attrition for a resource by closing allocations and creating replacements
      */
-    void handleAttrition(Long resourceId, LocalDate dateOfExit, Long userId);
+    void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId);
 
     /**
      * Removes a resource from the organization with notice period handling

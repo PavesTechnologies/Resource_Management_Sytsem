@@ -27,12 +27,12 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "LEFT JOIN FETCH ra.project proj " +
            "LEFT JOIN FETCH proj.client " +
            "WHERE ra.resource.resourceId = :resourceId")
-    List<ResourceAllocation> findByResource_ResourceId(Long resourceId);
+    List<ResourceAllocation> findByResource_ResourceId(String resourceId);
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus = 'ACTIVE'")
-    Optional<ResourceAllocation> findActiveByResourceId(@Param("resourceId") Long resourceId);
+    Optional<ResourceAllocation> findActiveByResourceId(@Param("resourceId") String resourceId);
 
     /**
      * Find all active allocations for a specific resource
@@ -41,7 +41,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus = :status")
     List<ResourceAllocation> findByResource_ResourceIdAndAllocationStatus(
-            @Param("resourceId") Long resourceId, 
+            @Param("resourceId") String resourceId, 
             @Param("status") AllocationStatus status);
     
     @Query("SELECT ra FROM ResourceAllocation ra " +
@@ -79,7 +79,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStartDate <= :endDate " +
            "AND ra.allocationEndDate >= :startDate")
     List<ResourceAllocation> findConflictingAllocations(
-            @Param("resourceId") Long resourceId,
+            @Param("resourceId") String resourceId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
     
@@ -95,7 +95,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStartDate <= :endDate " +
            "AND ra.allocationEndDate >= :startDate")
     List<ResourceAllocation> findConflictingAllocationsForResources(
-            @Param("resourceIds") List<Long> resourceIds,
+            @Param("resourceIds") List<String> resourceIds,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
     
@@ -111,7 +111,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStartDate <= :date " +
            "AND ra.allocationEndDate >= :date")
     List<ResourceAllocation> findActiveAllocationsForResourceOnDate(
-            @Param("resourceId") Long resourceId,
+            @Param("resourceId") String resourceId,
             @Param("date") LocalDate date);
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
@@ -149,20 +149,20 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStartDate <= :date " +
            "AND ra.allocationEndDate >= :date")
     List<ResourceAllocation> findByResource_ResourceIdAndAllocationStartDateLessThanEqualAndAllocationEndDateGreaterThanEqual(
-            @Param("resourceId") Long resourceId,
+            @Param("resourceId") String resourceId,
             @Param("date") LocalDate date);
 
     List<ResourceAllocation>
     findAllByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
             Long projectId,
-            Long resourceId,
+            String resourceId,
             AllocationStatus status
     );
 
     Optional<ResourceAllocation>
     findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatus(
             Long projectId,
-            Long resourceId,
+            String resourceId,
             AllocationStatus status
     );
 
@@ -175,7 +175,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
 
     List<ResourceAllocation> findByProject_PmsProjectIdAndResource_ResourceIdAndAllocationStatusAndAllocationEndDateAfter(
             Long projectId,
-            Long resourceId,
+            String resourceId,
             AllocationStatus status,
             LocalDate endDate
     );
@@ -184,24 +184,24 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "WHERE ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED') " +
            "AND ra.allocationStartDate <= :endDate " +
            "AND ra.allocationEndDate >= :startDate")
-    List<Long> findResourcesWithAllocationsInDateRange(@Param("startDate") LocalDate startDate,
+    List<String> findResourcesWithAllocationsInDateRange(@Param("startDate") LocalDate startDate,
                                                      @Param("endDate") LocalDate endDate);
 
     @Query("SELECT DISTINCT ra.resource.resourceId FROM ResourceAllocation ra " +
            "WHERE ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED') " +
            "AND ra.allocationStartDate <= :date " +
            "AND ra.allocationEndDate >= :date")
-    Set<Long> findActiveResourcesForDate(@Param("date") LocalDate date);
+    Set<String> findActiveResourcesForDate(@Param("date") LocalDate date);
 
     @Query("SELECT MAX(ra.allocationEndDate) FROM ResourceAllocation ra " +
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED')")
-    java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") Long resourceId);
+    java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") String resourceId);
 
     @Query("SELECT MAX(ra.allocationStartDate) FROM ResourceAllocation ra " +
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED', 'ENDED')")
-    java.util.Optional<java.time.LocalDate> findLastAllocationDateForResource(@Param("resourceId") Long resourceId);
+    java.util.Optional<java.time.LocalDate> findLastAllocationDateForResource(@Param("resourceId") String resourceId);
 
     @Query("""
     SELECT COALESCE(SUM(a.allocationPercentage), 0)
@@ -210,7 +210,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     AND a.allocationStatus IN ('ACTIVE', 'PLANNED')
     AND :date BETWEEN a.allocationStartDate AND a.allocationEndDate
 """)
-    Integer getActiveAllocationPercentage(Long resourceId, LocalDate date);
+    Integer getActiveAllocationPercentage(String resourceId, LocalDate date);
 
     List<ResourceAllocation> findByApprovalStatus(ApprovalStatus status);
 }

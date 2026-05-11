@@ -16,13 +16,13 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
 
     @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart = :periodStart")
-    Optional<ResourceAvailabilityLedger> findByResourceIdAndPeriodStart(@Param("resourceId") Long resourceId, 
+    Optional<ResourceAvailabilityLedger> findByResourceIdAndPeriodStart(@Param("resourceId") String resourceId, 
                                                                       @Param("periodStart") LocalDate periodStart);
 
     @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart BETWEEN :startDate AND :endDate ORDER BY ral.periodStart")
     List<ResourceAvailabilityLedger> findByResourceIdAndPeriodStartBetweenOrderByPeriodStart(
-            @Param("resourceId") Long resourceId, 
+            @Param("resourceId") String resourceId, 
             @Param("startDate") LocalDate startDate, 
             @Param("endDate") LocalDate endDate);
 
@@ -30,7 +30,7 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
 
     @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart <= :date AND ral.periodEnd >= :date")
-    Optional<ResourceAvailabilityLedger> findByResourceIdAndDate(@Param("resourceId") Long resourceId, @Param("date") LocalDate date);
+    Optional<ResourceAvailabilityLedger> findByResourceIdAndDate(@Param("resourceId") String resourceId, @Param("date") LocalDate date);
 
     @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.availabilityTrustFlag = false " +
            "AND ral.lastCalculatedAt < :cutoffTime")
@@ -43,7 +43,7 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
     @Modifying
     @Query("DELETE FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart = :periodStart")
-    void deleteByResourceIdAndPeriodStart(@Param("resourceId") Long resourceId, 
+    void deleteByResourceIdAndPeriodStart(@Param("resourceId") String resourceId, 
                                           @Param("periodStart") LocalDate periodStart);
 
     /**
@@ -55,7 +55,7 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
            "    ral.lastCalculatedAt = :updatedAt " +
            "WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart BETWEEN :startDate AND :endDate")
-    int markDatesUntrustworthy(@Param("resourceId") Long resourceId,
+    int markDatesUntrustworthy(@Param("resourceId") String resourceId,
                                @Param("startDate") LocalDate startDate,
                                @Param("endDate") LocalDate endDate,
                                @Param("updatedAt") java.time.LocalDateTime updatedAt);
@@ -69,7 +69,7 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
            "    ral.lastCalculatedAt = :updatedAt " +
            "WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart BETWEEN :startDate AND :endDate")
-    int markDatesTrustworthy(@Param("resourceId") Long resourceId,
+    int markDatesTrustworthy(@Param("resourceId") String resourceId,
                             @Param("startDate") LocalDate startDate,
                             @Param("endDate") LocalDate endDate,
                             @Param("updatedAt") java.time.LocalDateTime updatedAt);
@@ -80,15 +80,15 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
     @Query("SELECT MAX(ra.allocationEndDate) FROM ResourceAllocation ra " +
            "WHERE ra.resource.resourceId = :resourceId " +
            "AND ra.allocationStatus IN ('ACTIVE', 'APPROVED', 'PLANNED')")
-    java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") Long resourceId);
+    java.util.Optional<java.time.LocalDate> findMaxAllocationEndDateForResource(@Param("resourceId") String resourceId);
 
     @Modifying
     @Query("DELETE FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart >= :startDate")
-    void deleteByResourceIdAndPeriodStartGreaterThanOrEqual(@Param("resourceId") Long resourceId, 
+    void deleteByResourceIdAndPeriodStartGreaterThanOrEqual(@Param("resourceId") String resourceId, 
                                                           @Param("startDate") LocalDate startDate);
 
     @Modifying
     @Query("DELETE FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId")
-    void deleteByResourceId(@Param("resourceId") Long resourceId);
+    void deleteByResourceId(@Param("resourceId") String resourceId);
 }

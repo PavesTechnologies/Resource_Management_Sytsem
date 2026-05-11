@@ -16,5 +16,16 @@ public class ReflectionUtil {
         }
     }
 
+    public static Object getFieldValue(Object target, String fieldName) {
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (Exception e) {
+            // Field doesn't exist or is not accessible
+            return null;
+        }
+    }
+
     private ReflectionUtil() {}
 }

@@ -11,32 +11,32 @@ import java.util.UUID;
 
 public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSkill, UUID> {
 
-    List<ResourceSubSkill> findByResourceId(Long resourceId);
+    List<ResourceSubSkill> findByResourceId(String resourceId);
 
     boolean existsByResourceIdAndSubSkillIdAndActiveFlagTrue(
-            Long resourceId, UUID subSkillId);
+            String resourceId, UUID subSkillId);
 
     boolean existsByResourceIdAndSubSkillId(
-            Long resourceId, UUID subSkillId);
+            String resourceId, UUID subSkillId);
 
     java.util.Optional<ResourceSubSkill> findByResourceIdAndSubSkillId(
-            Long resourceId, UUID subSkillId);
+            String resourceId, UUID subSkillId);
 
-    boolean existsByResourceIdAndSubSkillIdAndIdNot(Long resourceId, UUID subSkillId, UUID id);
+    boolean existsByResourceIdAndSubSkillIdAndIdNot(String resourceId, UUID subSkillId, UUID id);
 
     @Query("SELECT rss FROM ResourceSubSkill rss WHERE rss.resourceId = :resourceId AND rss.activeFlag = true")
-    List<ResourceSubSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") Long resourceId);
+    List<ResourceSubSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") String resourceId);
 
     @Query("SELECT rss FROM ResourceSubSkill rss WHERE rss.resourceId = :resourceId AND rss.subSkill.id IN :subSkillIds AND rss.activeFlag = true")
     List<ResourceSubSkill> findByResourceIdAndSubSkillIdsAndActiveFlagTrue(
-            @Param("resourceId") Long resourceId, 
+            @Param("resourceId") String resourceId, 
             @Param("subSkillIds") List<UUID> subSkillIds);
 
     @Query("SELECT rss.resourceId, ss.name FROM ResourceSubSkill rss JOIN rss.subSkill ss WHERE rss.resourceId IN :resourceIds AND rss.activeFlag = true")
-    List<Object[]> findResourceIdAndSubSkillNames(@Param("resourceIds") List<Long> resourceIds);
+    List<Object[]> findResourceIdAndSubSkillNames(@Param("resourceIds") List<String> resourceIds);
 
     @Query("SELECT rss.resourceId, ss.name, pl.proficiencyName, rss.lastUsedDate FROM ResourceSubSkill rss JOIN rss.subSkill ss JOIN com.entity.skill_entities.ProficiencyLevel pl ON rss.proficiencyId = pl.proficiencyId WHERE rss.resourceId IN :resourceIds AND rss.activeFlag = true")
-    List<Object[]> findResourceIdAndSubSkillDetails(@Param("resourceIds") List<Long> resourceIds);
+    List<Object[]> findResourceIdAndSubSkillDetails(@Param("resourceIds") List<String> resourceIds);
 
     @Query("""
     SELECT rss.resourceId, rss.subSkill.name
@@ -44,7 +44,7 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
     WHERE rss.resourceId IN :resourceIds
     AND rss.activeFlag = true
 """)
-    List<Object[]> findSubSkillsByResourceIds(List<Long> resourceIds);
+    List<Object[]> findSubSkillsByResourceIds(List<String> resourceIds);
 
     @Query("SELECT rss FROM ResourceSubSkill rss LEFT JOIN FETCH rss.subSkill")
     List<ResourceSubSkill> findAllWithSubSkills();
@@ -58,7 +58,7 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
            "AND rss.subSkill.id IN :skillIds " +
            "AND rss.activeFlag = true")
     int updateLastUsedDateByResourceIdAndSkillIds(
-            @Param("resourceId") Long resourceId, 
+            @Param("resourceId") String resourceId, 
             @Param("skillIds") List<UUID> skillIds, 
             @Param("effectiveDate") LocalDate effectiveDate);
 }

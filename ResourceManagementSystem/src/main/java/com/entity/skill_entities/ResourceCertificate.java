@@ -26,8 +26,8 @@ public class ResourceCertificate {
     @Column(name = "id")
     private UUID id;
 
-    @Column(name = "resource_id", nullable = false)
-    private Long resourceId;
+    @Column(name = "resource_id", nullable = false, length = 20)
+    private String resourceId;
 
     @Column(name = "certificate_id", nullable = true)
     private UUID certificateId;

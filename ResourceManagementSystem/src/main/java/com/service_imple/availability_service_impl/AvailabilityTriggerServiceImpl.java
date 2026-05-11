@@ -31,7 +31,7 @@ public class AvailabilityTriggerServiceImpl implements AvailabilityTriggerServic
 
     @Override
     @Transactional
-    public void triggerResourceRecalculation(Long resourceId, YearMonth yearMonth) {
+    public void triggerResourceRecalculation(String resourceId, YearMonth yearMonth) {
         try {
             calculationService.recalculateForDateRange(resourceId, yearMonth.atDay(1), yearMonth.atEndOfMonth());
         } catch (Exception e) {
@@ -64,7 +64,7 @@ public class AvailabilityTriggerServiceImpl implements AvailabilityTriggerServic
 
     @Override
     @Transactional
-    public void triggerRangeRecalculation(Long resourceId, LocalDate startDate, LocalDate endDate) {
+    public void triggerRangeRecalculation(String resourceId, LocalDate startDate, LocalDate endDate) {
         try {
             calculationService.recalculateForDateRange(resourceId, startDate, endDate);
         } catch (Exception e) {

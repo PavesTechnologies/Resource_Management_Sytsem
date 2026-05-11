@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -20,7 +23,9 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Configuration
+@EnableCaching
 public class RedisConfig {
 
     @Bean
@@ -31,7 +36,7 @@ public class RedisConfig {
 
         LettuceClientConfiguration clientConfig =
                 LettuceClientConfiguration.builder()
-                        .commandTimeout(Duration.ofSeconds(5))
+                        .commandTimeout(Duration.ofSeconds(2))
                         .shutdownTimeout(Duration.ofMillis(100))
                         .build();
 
@@ -40,6 +45,14 @@ public class RedisConfig {
 
         factory.setShareNativeConnection(false);
         factory.setValidateConnection(false); // IMPORTANT: avoid blocking validation
+
+        // Test connection and log status
+        try {
+            factory.getConnection().ping();
+            log.info("Redis connection established successfully");
+        } catch (Exception e) {
+            log.warn("Redis connection failed - application will run in degraded mode without caching: {}", e.getMessage());
+        }
 
         return factory;
     }
@@ -82,9 +95,36 @@ public class RedisConfig {
         configs.put("resource-timelines", config.entryTtl(Duration.ofMinutes(5)));
         configs.put("demands", config.entryTtl(Duration.ofHours(1)));
 
-        return RedisCacheManager.builder(factory)
-                .cacheDefaults(config)
-                .withInitialCacheConfigurations(configs)
+        try {
+            RedisCacheManager cacheManager = RedisCacheManager.builder(factory)
+                    .cacheDefaults(config)
+                    .withInitialCacheConfigurations(configs)
+                    .build();
+            
+            log.info("Redis CacheManager initialized successfully");
+            return cacheManager;
+            
+        } catch (RedisConnectionFailureException e) {
+            log.warn("Redis CacheManager initialization failed - caching will be disabled: {}", e.getMessage());
+            // Return a no-op cache manager that doesn't actually cache
+            return createNoOpCacheManager();
+        } catch (Exception e) {
+            log.error("Unexpected error initializing Redis CacheManager - caching will be disabled: {}", e.getMessage());
+            return createNoOpCacheManager();
+        }
+    }
+    
+    /**
+     * Create a no-op cache manager for graceful degradation when Redis is unavailable.
+     */
+    private RedisCacheManager createNoOpCacheManager() {
+        log.warn("Creating no-op cache manager - application will run without caching");
+        
+        // Return a cache manager that doesn't actually cache anything
+        return RedisCacheManager.builder()
+                .cacheDefaults(RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofSeconds(1)) // Very short TTL
+                        .disableCachingNullValues())
                 .build();
     }
 

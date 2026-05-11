@@ -19,7 +19,7 @@ import java.util.UUID;
 public class AllocationConflictDTO {
     
     private UUID conflictId;
-    private Long resourceId;
+    private String resourceId;
     private String resourceName;
     private AllocationDetails lowerPriorityAllocation;
     private AllocationDetails higherPriorityAllocation;

@@ -21,7 +21,7 @@ public class AllocationConflictController {
 
     @GetMapping("/resource/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
-    public ResponseEntity<ApiResponse<?>> getConflictsForResource(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getConflictsForResource(@PathVariable String resourceId) {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.getPendingConflictsForResource(resourceId);
             return ResponseEntity.ok(new ApiResponse<>(true, "Conflicts retrieved successfully", conflicts));
@@ -45,7 +45,7 @@ public class AllocationConflictController {
 
     @PostMapping("/detect/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
-    public ResponseEntity<ApiResponse<?>> detectConflictsForResource(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> detectConflictsForResource(@PathVariable String resourceId) {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.detectAllocationConflicts(resourceId);
             return ResponseEntity.ok(new ApiResponse<>(true, "Conflict detection completed", conflicts));

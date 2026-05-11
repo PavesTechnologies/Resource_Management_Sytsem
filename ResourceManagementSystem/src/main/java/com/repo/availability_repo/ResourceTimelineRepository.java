@@ -241,7 +241,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND CURRENT_DATE BETWEEN ra.allocation_start_date AND ra.allocation_end_date
         ORDER BY ra.resource_id, p.name
         """, nativeQuery = true)
-    List<CurrentProjectProjection> getCurrentProjects(@Param("resourceIds") List<Long> resourceIds);
+    List<CurrentProjectProjection> getCurrentProjects(@Param("resourceIds") List<String> resourceIds);
 
     // Get current allocation for resources (sum of allocations active TODAY)
     @Query(value = """
@@ -254,7 +254,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
         GROUP BY ra.resource_id
         """, nativeQuery = true)
-    List<CurrentAllocationProjection> getCurrentAllocations(@Param("resourceIds") List<Long> resourceIds);
+    List<CurrentAllocationProjection> getCurrentAllocations(@Param("resourceIds") List<String> resourceIds);
 
     // Allocation Timeline Query
     @Query(value = """
@@ -271,7 +271,7 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
         ORDER BY ra.resource_id, ra.allocation_start_date
         """, nativeQuery = true)
-    List<AllocationTimelineProjection> getAllocationTimeline(@Param("resourceIds") List<Long> resourceIds);
+    List<AllocationTimelineProjection> getAllocationTimeline(@Param("resourceIds") List<String> resourceIds);
 
     // Window Mode KPI Query
     @Query(value = """

@@ -850,7 +850,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
     /**
      * Validates that total allocation for a resource won't exceed 100% after modification
      */
-    private void validateTotalAllocation(Long resourceId, LocalDate effectiveDate, 
+    private void validateTotalAllocation(String resourceId, LocalDate effectiveDate, 
                                        Integer currentPercentage, Integer newPercentage) {
         try {
             // Get all active allocations for this resource on the effective date
@@ -915,7 +915,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
     }
 
 
-    private boolean checkIfOverrideRequired(Long resourceId, CreateAllocationModificationDTO dto) {
+    private boolean checkIfOverrideRequired(String resourceId, CreateAllocationModificationDTO dto) {
         // Get the current allocation to determine the date range
         ResourceAllocation currentAllocation = allocationRepository.findById(dto.getAllocationId())
                 .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));

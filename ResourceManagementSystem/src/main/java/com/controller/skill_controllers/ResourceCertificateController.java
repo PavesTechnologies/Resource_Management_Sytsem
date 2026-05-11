@@ -50,7 +50,7 @@ public class ResourceCertificateController {
     }
 
     @GetMapping("/resource/{resourceId}")
-    public ResponseEntity<ApiResponse<List<ResourceCertificate>>> getCertificatesByResourceId(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<List<ResourceCertificate>>> getCertificatesByResourceId(@PathVariable String resourceId) {
         List<ResourceCertificate> certificates = service.getCertificatesByResourceId(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Certificates for resource retrieved successfully", certificates));
     }

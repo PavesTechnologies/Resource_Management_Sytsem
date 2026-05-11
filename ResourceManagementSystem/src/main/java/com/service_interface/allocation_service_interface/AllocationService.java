@@ -18,7 +18,7 @@ public interface AllocationService {
     
     ResponseEntity<ApiResponse<?>> cancelAllocation(UUID allocationId, String cancelledBy);
     
-    ResponseEntity<ApiResponse<?>> getAllocationsByResource(Long resourceId);
+    ResponseEntity<ApiResponse<?>> getAllocationsByResource(String resourceId);
     
     ResponseEntity<ApiResponse<?>> getAllocationsByDemand(UUID demandId);
     
@@ -47,7 +47,7 @@ public interface AllocationService {
     /**
      * Detects priority conflicts for a resource's allocations
      */
-    List<AllocationConflictDTO> detectAllocationConflicts(Long resourceId);
+    List<AllocationConflictDTO> detectAllocationConflicts(String resourceId);
     
     /**
      * Resolves a conflict with the specified action
@@ -57,7 +57,7 @@ public interface AllocationService {
     /**
      * Gets pending conflicts for a resource
      */
-    List<AllocationConflictDTO> getPendingConflictsForResource(Long resourceId);
+    List<AllocationConflictDTO> getPendingConflictsForResource(String resourceId);
     
     /**
      * Gets all pending conflicts

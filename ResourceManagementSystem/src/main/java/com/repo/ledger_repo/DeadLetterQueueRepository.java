@@ -23,7 +23,7 @@ public interface DeadLetterQueueRepository extends JpaRepository<DeadLetterQueue
 
     List<DeadLetterQueue> findByEventId(String eventId);
 
-    List<DeadLetterQueue> findByResourceId(Long resourceId);
+    List<DeadLetterQueue> findByResourceId(String resourceId);
 
     @Query("SELECT dlq FROM DeadLetterQueue dlq WHERE dlq.status = :status AND dlq.nextRetryAt <= :currentTime ORDER BY dlq.createdAt ASC")
     List<DeadLetterQueue> findReadyForRetry(@Param("status") DLQStatus status, @Param("currentTime") LocalDateTime currentTime);
@@ -66,5 +66,5 @@ public interface DeadLetterQueueRepository extends JpaRepository<DeadLetterQueue
     Optional<DeadLetterQueue> findActiveDLQEntry(@Param("eventId") String eventId, @Param("status") DLQStatus status);
 
     @Query("SELECT COUNT(dlq) FROM DeadLetterQueue dlq WHERE dlq.resourceId = :resourceId AND dlq.status IN (:statuses)")
-    Long countByResourceIdAndStatuses(@Param("resourceId") Long resourceId, @Param("statuses") List<DLQStatus> statuses);
+    Long countByResourceIdAndStatuses(@Param("resourceId") String resourceId, @Param("statuses") List<DLQStatus> statuses);
 }

@@ -62,7 +62,7 @@ public class AllocationChangedEvent extends BaseLedgerEvent {
     }
 
     @Override
-    public Long getResourceId() {
+    public String getResourceId() {
         return resourceId;
     }
 
