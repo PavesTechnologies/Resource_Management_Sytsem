@@ -5,5 +5,6 @@ public enum RoleOffStatus {
     CANCELLED,
     APPROVED,
     REJECTED,
-    FULFILLED
+    FULFILLED,
+    NONE  // No role-off requested
 }

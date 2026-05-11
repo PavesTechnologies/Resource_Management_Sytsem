@@ -46,6 +46,8 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         FROM ResourceState rs
         WHERE rs.resourceId = :resourceId
           AND rs.currentFlag = true
+        ORDER BY rs.id DESC
+        LIMIT 1
         """)
     Optional<ResourceState> findCurrentState(@Param("resourceId") Long resourceId);
 
@@ -58,6 +60,8 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE rs.resourceId = :resourceId
           AND rs.currentFlag = true
           AND rs.stateType = 'BENCH'
+        ORDER BY rs.id DESC
+        LIMIT 1
         """)
     Optional<ResourceState> findCurrentBenchState(@Param("resourceId") Long resourceId);
 
@@ -92,6 +96,8 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         WHERE rs.resourceId = :resourceId
           AND rs.currentFlag = true
           AND rs.stateType = 'PROJECT'
+        ORDER BY rs.id DESC
+        LIMIT 1
         """)
     Optional<ResourceState> findCurrentProjectState(@Param("resourceId") Long resourceId);
 

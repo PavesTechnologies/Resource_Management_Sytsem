@@ -848,7 +848,8 @@ public class AllocationModificationServiceImpl implements AllocationModification
     }
 
     /**
-     * Validates that total allocation for a resource won't exceed 100% after modification
+     * Validates that total allocation for a resource won't exceed 130% after modification
+     * 100% is normal maximum, 130% is final threshold with special conditions
      */
     private void validateTotalAllocation(Long resourceId, LocalDate effectiveDate, 
                                        Integer currentPercentage, Integer newPercentage) {
@@ -869,11 +870,12 @@ public class AllocationModificationServiceImpl implements AllocationModification
             // Calculate new total with the modified percentage
             int newTotalAllocation = otherAllocationsTotal + newPercentage;
             
-            // Validate against 100% capacity
-            if (newTotalAllocation > 100) {
+            // Validate against 130% final threshold - over 130% is NOT allowed for any resource
+            if (newTotalAllocation > 130) {
                 throw ProjectExceptionHandler.badRequest(
                     String.format("Modification would result in %d%% total allocation for resource on %s. " +
-                                "Maximum allowed is 100%%. Other allocations: %d%%, This allocation: %d%%",
+                                "Maximum allowed is 130%% (100%% normal, up to 130%% with special conditions). " +
+                                "Other allocations: %d%%, This allocation: %d%%",
                                 newTotalAllocation, effectiveDate, otherAllocationsTotal, newPercentage));
             }
             

@@ -5,5 +5,6 @@ public enum AllocationStatus {
     ACTIVE,      // Confirmed (affects firm availability)
     ENDED,       // Historical, ignored in calculations
     CANCELLED,
-    FULFILLED// Ignored in calculations
+    FULFILLED,   // Ignored in calculations
+    ROLLED_OFF   // Role-off completed, allocation ended due to role-off
 }
