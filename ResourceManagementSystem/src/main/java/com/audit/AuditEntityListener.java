@@ -41,9 +41,9 @@ public class AuditEntityListener {
 
     @PreUpdate
     public void preUpdate(Object entity) {
-        Object oldState = entityOldStateMap.get(getEntityId(entity));
+        Object oldState = entityOldStateMap.get().get(getEntityId(entity));
         logAudit(entity, "UPDATE", oldState, entity);
-        entityOldStateMap.remove(getEntityId(entity));
+        entityOldStateMap.get().remove(getEntityId(entity));
     }
 
     @PreRemove
@@ -53,7 +53,7 @@ public class AuditEntityListener {
 
     @PostLoad
     public void postLoad(Object entity) {
-        entityOldStateMap.put(getEntityId(entity), cloneEntity(entity));
+        entityOldStateMap.get().put(getEntityId(entity), cloneEntity(entity));
     }
 
     private void logAudit(Object entity, String action, Object before, Object after) {
