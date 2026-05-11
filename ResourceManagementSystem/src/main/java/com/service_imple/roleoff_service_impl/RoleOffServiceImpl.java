@@ -35,7 +35,7 @@ import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.demand_service_interface.DemandService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
-import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncServiceRefactored;
+import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -72,7 +72,7 @@ public class RoleOffServiceImpl implements RoleOffService {
     private final AllocationService allocationService;
     private final DemandService demandService;
     private final BenchService benchService;
-    private final AvailabilityLedgerAsyncServiceRefactored availabilityLedgerAsyncService;
+    private final AvailabilityLedgerAsyncService availabilityLedgerAsyncService;
     private final ResourceSkillUsageService resourceSkillUsageService;
 
     // Role-off reason descriptions for governance purposes

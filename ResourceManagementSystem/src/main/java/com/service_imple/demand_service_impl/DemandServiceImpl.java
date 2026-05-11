@@ -1,6 +1,6 @@
 package com.service_imple.demand_service_impl;
 
-import com.audit.Audit;
+import com.audit.AuditLog;
 import com.audit.AuditConstants;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
@@ -1623,7 +1623,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     @Override
     @CacheEvict(value = "demands", allEntries = true)
-    @Audit(module = AuditConstants.Modules.DEMAND,
+    @AuditLog(module = AuditConstants.Modules.DEMAND,
             entity = "Demand",
             action = AuditConstants.Actions.UPDATE)
     @Transactional
@@ -2000,7 +2000,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     @Override
     @CacheEvict(value = "demands", allEntries = true)
-    @Audit(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.CREATE)
+    @AuditLog(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.CREATE)
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
         try {
             // Validate input

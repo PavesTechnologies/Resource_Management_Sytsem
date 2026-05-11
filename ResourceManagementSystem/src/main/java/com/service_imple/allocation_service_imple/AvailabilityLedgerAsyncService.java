@@ -19,7 +19,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AvailabilityLedgerAsyncServiceRefactored {
+public class AvailabilityLedgerAsyncService {
 
     private final AllocationRepository allocationRepository;
     private final LedgerAvailabilityCalculationService availabilityCalculationService;
@@ -32,13 +32,13 @@ public class AvailabilityLedgerAsyncServiceRefactored {
             String resourceId = allocation.getResource().getResourceId();
             LocalDate startDate = allocation.getAllocationStartDate();
             LocalDate endDate = allocation.getAllocationEndDate();
-            
+
             availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
         } catch (Exception e) {
-            log.error("Ledger calculation failed for allocation {}, saving to DLQ", 
+            log.error("Ledger calculation failed for allocation {}, saving to DLQ",
                     allocation.getAllocationId(), e);
-            
-            saveToDeadLetterQueue("ALLOCATION_UPDATE", allocation.getResource().getResourceId(), 
+
+            saveToDeadLetterQueue("ALLOCATION_UPDATE", allocation.getResource().getResourceId(),
                     allocation.getAllocationStartDate(), allocation.getAllocationEndDate(), e);
         }
     }
@@ -49,7 +49,7 @@ public class AvailabilityLedgerAsyncServiceRefactored {
             availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
         } catch (Exception e) {
             log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
-            
+
             saveToDeadLetterQueue("RANGE_UPDATE", resourceId, startDate, endDate, e);
         }
     }
@@ -62,22 +62,9 @@ public class AvailabilityLedgerAsyncServiceRefactored {
             availabilityCalculationService.recalculateForDateRange(resourceId, currentDate, endDate);
         } catch (Exception e) {
             log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
-            
+
             saveToDeadLetterQueue("RESOURCE_UPDATE", resourceId, currentDate, endDate, e);
         }
-    }
-
-    private LocalDate calculateHorizonEnd(String resourceId, LocalDate currentDate) {
-        LocalDate maxAllocationEnd = allocationRepository
-                .findMaxAllocationEndDateForResource(resourceId)
-                .orElse(currentDate.plusMonths(3));
-        
-        LocalDate horizonEnd = currentDate.plusDays(90);
-        if (maxAllocationEnd.isAfter(horizonEnd)) {
-            horizonEnd = maxAllocationEnd;
-        }
-        
-        return horizonEnd;
     }
 
     @Async
@@ -88,12 +75,26 @@ public class AvailabilityLedgerAsyncServiceRefactored {
             availabilityCalculationService.recalculateForDateRange(resourceId, roleOffDate, endDate);
         } catch (Exception e) {
             log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
-            
+
             saveToDeadLetterQueue("SYNC_UPDATE", resourceId, roleOffDate, endDate, e);
         }
     }
 
-    private void saveToDeadLetterQueue(String eventType, String resourceId, LocalDate startDate, LocalDate endDate, Exception exception) {
+    private LocalDate calculateHorizonEnd(String resourceId, LocalDate currentDate) {
+        LocalDate maxAllocationEnd = allocationRepository
+                .findMaxAllocationEndDateForResource(resourceId)
+                .orElse(currentDate.plusMonths(3));
+
+        LocalDate horizonEnd = currentDate.plusDays(90);
+        if (maxAllocationEnd.isAfter(horizonEnd)) {
+            horizonEnd = maxAllocationEnd;
+        }
+
+        return horizonEnd;
+    }
+
+    private void saveToDeadLetterQueue(String eventType, String resourceId,
+                                       LocalDate startDate, LocalDate endDate, Exception exception) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("resourceId", resourceId);

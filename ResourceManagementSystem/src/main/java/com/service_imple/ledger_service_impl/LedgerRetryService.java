@@ -25,7 +25,6 @@ public class LedgerRetryService {
     private final DeadLetterQueueRepository deadLetterQueueRepository;
     private final LedgerAvailabilityCalculationService availabilityCalculationService;
 
-//    @Scheduled(fixedRate = 900000)
     @Transactional
     public void processFailedEvents() {
         try {
@@ -44,7 +43,6 @@ public class LedgerRetryService {
         }
     }
 
-//    @Scheduled(fixedRate = 900000)
     @Transactional
     public void processDeadLetterQueue() {
         try {

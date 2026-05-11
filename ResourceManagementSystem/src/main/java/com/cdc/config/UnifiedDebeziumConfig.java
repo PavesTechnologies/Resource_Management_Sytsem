@@ -115,29 +115,11 @@ public class UnifiedDebeziumConfig {
     @Value("${eos.cdc.snapshot.mode:initial}")
     private String eosSnapshotMode;
 
-    /**
-     * PMS Debezium configuration bean.
-     * Uses PMS-specific properties with enterprise observability.
-     */
     @Bean
     @Primary
     public Configuration debeziumConfiguration() {
-        // ENTERPRISE FIRST-RUN DETECTION
-        String pmsOffsetFile = pmsCdcBaseDir + "/pms-project-offsets.dat";
-        String pmsSchemaFile = pmsCdcBaseDir + "/pms-schema-history.dat";
-        
-        boolean isFirstRun = !Files.exists(Paths.get(pmsOffsetFile)) && 
-                          !Files.exists(Paths.get(pmsSchemaFile));
-        
-        if (isFirstRun) {
-            log.info("ENTERPRISE SNAPSHOT START - PMS: No existing offsets/schema history detected");
-            log.info("Starting initial snapshot for PMS connector: pms-project-cdc");
-        } else {
-            log.info("ENTERPRISE INCREMENTAL CDC - PMS: Existing offsets detected, skipping snapshot");
-            log.info("Existing offsets detected - skipping snapshot for PMS connector");
-        }
-        
-        Configuration config = createConfiguration(
+        logConnectorStartMode("PMS", "pms-project-cdc", pmsCdcBaseDir, "pms-project-offsets.dat", "pms-schema-history.dat");
+        return createConfiguration(
                 "pms-project-cdc",
                 pmsConnectorClass,
                 pmsCdcBaseDir,
@@ -151,47 +133,20 @@ public class UnifiedDebeziumConfig {
                 pmsTableIncludeList,
                 pmsServerName,
                 pmsTopicPrefix,
-                5000,  // Server ID range start
-                1000,  // Server ID offset
-                15000, // Replica server ID range start
+                5000,
+                1000,
+                15000,
                 "pms-project-offsets.dat",
                 "pms-schema-history.dat",
-                pmsSnapshotMode, // Configurable snapshot mode: initial/never/when_needed
+                pmsSnapshotMode,
                 pmsSslMode
         );
-        
-        // LOG CONFIGURATION COMPLETION
-        if (isFirstRun) {
-            log.info("PMS CDC configuration completed - Initial snapshot will be executed");
-        } else {
-            log.info("PMS CDC configuration completed - Incremental CDC will resume from offsets");
-        }
-        
-        return config;
     }
 
-    /**
-     * EOS Debezium configuration bean.
-     * Uses EOS-specific properties with enterprise observability.
-     */
     @Bean("eosDebeziumConfiguration")
     public Configuration eosDebeziumConfiguration() {
-        // ENTERPRISE FIRST-RUN DETECTION
-        String eosOffsetFile = eosCdcBaseDir + "/eos-offsets.dat";
-        String eosSchemaFile = eosCdcBaseDir + "/eos-schema-history.dat";
-        
-        boolean isFirstRun = !Files.exists(Paths.get(eosOffsetFile)) && 
-                          !Files.exists(Paths.get(eosSchemaFile));
-        
-        if (isFirstRun) {
-            log.info("ENTERPRISE SNAPSHOT START - EOS: No existing offsets/schema history detected");
-            log.info("Starting initial snapshot for EOS connector: eos-cdc");
-        } else {
-            log.info("ENTERPRISE INCREMENTAL CDC - EOS: Existing offsets detected, skipping snapshot");
-            log.info("Existing offsets detected - skipping snapshot for EOS connector");
-        }
-        
-        Configuration config = createConfiguration(
+        logConnectorStartMode("EOS", eosConnectorName, eosCdcBaseDir, "eos-offsets.dat", "eos-schema-history.dat");
+        return createConfiguration(
                 eosConnectorName,
                 eosConnectorClass,
                 eosCdcBaseDir,
@@ -205,23 +160,25 @@ public class UnifiedDebeziumConfig {
                 eosTableIncludeList,
                 eosServerName,
                 eosTopicPrefix,
-                25000, // Server ID range start (different from PMS)
-                2000,  // Server ID offset (different from PMS)
-                35000, // Replica server ID range start (different from PMS)
+                25000,
+                2000,
+                35000,
                 "eos-offsets.dat",
                 "eos-schema-history.dat",
-                eosSnapshotMode, // Configurable snapshot mode: initial/never/when_needed
+                eosSnapshotMode,
                 eosSslMode
         );
-        
-        // LOG CONFIGURATION COMPLETION
+    }
+
+    private void logConnectorStartMode(String system, String connectorName, String baseDir,
+                                       String offsetFile, String schemaFile) {
+        boolean isFirstRun = !Files.exists(Paths.get(baseDir + "/" + offsetFile)) &&
+                             !Files.exists(Paths.get(baseDir + "/" + schemaFile));
         if (isFirstRun) {
-            log.info("EOS CDC configuration completed - Initial snapshot will be executed");
+            log.info("{} CDC starting initial snapshot for connector: {}", system, connectorName);
         } else {
-            log.info("EOS CDC configuration completed - Incremental CDC will resume from offsets");
+            log.info("{} CDC resuming incremental CDC from existing offsets for connector: {}", system, connectorName);
         }
-        
-        return config;
     }
 
     /**
@@ -289,15 +246,13 @@ public class UnifiedDebeziumConfig {
                 .with("schema.history.internal.skip.unparseable.ddl", "true")
                 .with("include.schema.changes", "false")
 
-                // Handle binlog purging and GTID issues
-                .with("gtid.source.includes", "")
-                .with("binlog.buffer.size", "8192")
+                // SIMPLE OFFSET MANAGEMENT (inspired by your working setup)
+                .with("offset.flush.interval.ms", "10000")  // Flush every 10 seconds
+                .with("offset.flush.timeout.ms", "5000")   // 5 second timeout
+
+                // Performance
                 .with("max.batch.size", "2048")
                 .with("max.queue.size", "8192")
-
-                // Disable JMX metrics to avoid registration conflicts
-                .with("metrics.enabled", "false")
-                .with("metrics.jmx.enabled", "false")
 
                 // SSL - required for Aiven MySQL; plaintext connections are rejected
                 .with("database.ssl.mode", sslMode);

@@ -51,7 +51,7 @@ public class AllocationServiceImpl implements AllocationService {
     private final AllocationValidationService validationService;
     private final AllocationConflictService conflictService;
     private final SkillGapAnalysisService skillGapService;
-    private final AvailabilityLedgerAsyncServiceRefactored ledgerAsyncService;
+    private final AvailabilityLedgerAsyncService ledgerAsyncService;
     private final DemandSLARepository demandSLARepository;
     private final LedgerAvailabilityCalculationService availabilityCalculationService;
     private final BenchService benchDetectionService;

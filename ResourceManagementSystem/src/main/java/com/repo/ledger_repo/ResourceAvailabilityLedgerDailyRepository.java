@@ -52,6 +52,10 @@ public interface ResourceAvailabilityLedgerDailyRepository extends JpaRepository
     @Query("UPDATE ResourceAvailabilityLedgerDaily rald SET rald.availabilityTrustFlag = false WHERE rald.resourceId = :resourceId AND rald.date BETWEEN :startDate AND :endDate")
     int markAsUntrustworthy(@Param("resourceId") String resourceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
+    @Modifying
+    @Query("DELETE FROM ResourceAvailabilityLedgerDaily rald WHERE rald.resourceId = :resourceId AND rald.date BETWEEN :startDate AND :endDate")
+    int deleteByResourceIdAndDateBetween(@Param("resourceId") String resourceId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
     @Query(value = "INSERT INTO resource_availability_ledger_daily (resource_id, date, standard_hours, holiday_hours, leave_hours, confirmed_alloc_hours, draft_alloc_hours, total_allocation_percentage, available_percentage, is_overallocated, over_allocation_percentage, availability_trust_flag, calculation_version, last_event_id, created_at, updated_at, version) " +
            "VALUES (:resourceId, :date, :standardHours, :holidayHours, :leaveHours, :confirmedAllocHours, :draftAllocHours, :totalAllocationPercentage, :availablePercentage, :isOverallocated, :overAllocationPercentage, :availabilityTrustFlag, :calculationVersion, :lastEventId, :createdAt, :updatedAt, :version) " +
            "ON DUPLICATE KEY UPDATE " +

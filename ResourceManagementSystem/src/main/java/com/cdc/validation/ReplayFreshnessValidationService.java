@@ -200,22 +200,6 @@ public class ReplayFreshnessValidationService {
     }
 
     /**
-     * Initialize common freshness thresholds.
-     * Called during service initialization.
-     */
-    public void initializeCommonThresholds() {
-        // EOS employee data - more time-sensitive
-        configureFreshnessThreshold("EOS-employee_details", 30);
-        configureFreshnessThreshold("EOS-employee_projects", 45);
-        
-        // PMS project data - less time-sensitive
-        configureFreshnessThreshold("PMS-projects", 120);
-        configureFreshnessThreshold("PMS-clients", 180);
-        
-        log.info("Initialized common freshness thresholds");
-    }
-
-    /**
      * Freshness validation result.
      */
     @lombok.Builder

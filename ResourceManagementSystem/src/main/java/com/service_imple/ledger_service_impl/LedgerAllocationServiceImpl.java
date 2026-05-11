@@ -1,6 +1,6 @@
 package com.service_imple.ledger_service_impl;
 
-import com.service_interface.ledger_service_interface.AllocationService;
+import com.service_interface.ledger_service_interface.LedgerAllocationDataService;
 import com.dto.common.ApiHealthResponse;
 import com.dto.common.ExternalAllocationDto;
 import com.dto.common.ExternalAllocationResponse;
@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 @Service("ledgerAllocationService")
 @RequiredArgsConstructor
 @Slf4j
-public class LedgerAllocationServiceImpl implements AllocationService {
+public class LedgerAllocationServiceImpl implements LedgerAllocationDataService {
 
     private final RestTemplate restTemplate;
     
@@ -40,7 +40,7 @@ public class LedgerAllocationServiceImpl implements AllocationService {
         try {
             checkApiHealth();
             
-            String url = String.format("%s/resources/%d/allocations?date=%s", 
+            String url = String.format("%s/resources/%s/allocations?date=%s",
                     allocationApiBaseUrl, resourceId, date);
             ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
             

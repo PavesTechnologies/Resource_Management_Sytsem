@@ -147,21 +147,31 @@ public class CdcValueConverter {
 
     /**
      * Safe LocalDateTime conversion with enhanced error handling.
+     * Handles all Debezium MySQL CDC numeric forms:
+     *   Integer → epoch days (DATE column)
+     *   Long    → epoch micros / millis / seconds distinguished by magnitude
      */
     private LocalDateTime convertToLocalDateTime(Object value, String context) {
+        // MySQL DATE column arrives as Integer (epoch days since 1970-01-01)
+        if (value instanceof Integer) {
+            return LocalDate.ofEpochDay((Integer) value).atStartOfDay();
+        }
         String timestampStr = value.toString();
         try {
-            // Try parsing as formatted date string first
             return LocalDateTime.parse(timestampStr);
         } catch (Exception e) {
             try {
-                // Try parsing as Unix timestamp in microseconds
-                long micros = Long.parseLong(timestampStr);
-                return LocalDateTime.ofEpochSecond(
-                    micros / 1_000_000, 
-                    (int) ((micros % 1_000_000) * 1000), 
-                    java.time.ZoneOffset.UTC
-                );
+                long v = Long.parseLong(timestampStr);
+                if (v > 1_000_000_000_000_000L) {        // microseconds (MySQL TIMESTAMP)
+                    return LocalDateTime.ofEpochSecond(v / 1_000_000,
+                            (int) ((v % 1_000_000) * 1000), java.time.ZoneOffset.UTC);
+                } else if (v > 1_000_000_000_000L) {     // milliseconds (MySQL DATETIME)
+                    return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(v), java.time.ZoneOffset.UTC);
+                } else if (v < 100_000) {                 // epoch days (MySQL DATE as Long)
+                    return LocalDate.ofEpochDay(v).atStartOfDay();
+                } else {                                  // epoch seconds
+                    return LocalDateTime.ofEpochSecond(v, 0, java.time.ZoneOffset.UTC);
+                }
             } catch (Exception e2) {
                 log.error("Invalid LocalDateTime value '{}' for context {}: {}", value, context, e2.getMessage());
                 return LocalDateTime.now();
