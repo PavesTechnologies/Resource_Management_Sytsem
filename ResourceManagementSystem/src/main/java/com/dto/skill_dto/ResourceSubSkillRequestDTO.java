@@ -17,7 +17,7 @@ import java.util.UUID;
 public class ResourceSubSkillRequestDTO {
     
     @NotNull(message = "Resource ID is required")
-    private Long resourceId;
+    private String resourceId;
     
     @NotNull(message = "SubSkill ID is required")
     private UUID subSkillId;

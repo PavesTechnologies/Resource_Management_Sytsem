@@ -3,7 +3,7 @@ package com.service_interface.availability_service_interface;
 import java.time.LocalDate;
 
 public interface ResourceTimelineProjection {
-    Long getId();
+    String getId();
     String getFullName();
     String getDesignation();
     String getWorkingLocation();

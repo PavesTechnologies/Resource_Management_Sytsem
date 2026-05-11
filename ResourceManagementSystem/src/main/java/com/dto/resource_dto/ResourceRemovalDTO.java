@@ -10,7 +10,7 @@ import java.time.LocalDate;
 public class ResourceRemovalDTO {
     
     @NotNull(message = "Resource ID is required")
-    private Long resourceId;
+    private String resourceId;
     
     @NotNull(message = "Notice period end date is required")
     @FutureOrPresent(message = "Notice period end date must be today or in the future")

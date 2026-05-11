@@ -149,7 +149,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     }
 
     private double calculateExperienceScore(Resource resource, Demand demand) {
-        Long resourceExp = resource.getExperiance();
+        Double resourceExp = resource.getExperiance();
         Double minExp = demand.getMinExp();
         
         if (resourceExp != null && minExp != null && resourceExp.doubleValue() >= minExp) {

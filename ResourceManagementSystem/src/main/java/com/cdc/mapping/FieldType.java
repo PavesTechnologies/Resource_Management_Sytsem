@@ -6,5 +6,7 @@ public enum FieldType {
     UUID,
     ENUM,
     BIG_DECIMAL,
-    LOCAL_DATE_TIME
+    LOCAL_DATE_TIME,
+    DOUBLE,
+    LOCAL_DATE
 }

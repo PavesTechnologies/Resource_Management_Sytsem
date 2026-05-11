@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ResourceMatchResponse {
     
-    private Long resourceId;
+    private String resourceId;
     private String resourceName;
     private Integer resourceExperience;
     private String availability;

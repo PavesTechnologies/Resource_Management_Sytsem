@@ -18,8 +18,8 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AllocationPreloadedData {
-    private Map<Long, Resource> resourceMap;
-    private Map<Long, List<ResourceAllocation>> allocationsByResource;
-    private Map<Long, List<ResourceSkill>> skillsByResource;
-    private Map<Long, List<ResourceCertificate>> certificatesByResource;
+    private Map<String, Resource> resourceMap;
+    private Map<String, List<ResourceAllocation>> allocationsByResource;
+    private Map<String, List<ResourceSkill>> skillsByResource;
+    private Map<String, List<ResourceCertificate>> certificatesByResource;
 }

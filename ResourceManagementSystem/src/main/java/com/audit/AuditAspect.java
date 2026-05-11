@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-@Aspect
+//@Aspect
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -19,11 +19,11 @@ public class AuditAspect {
 
     private final AuditService auditService;
 
-    @Around("@annotation(audit)")
-    public Object auditMethod(ProceedingJoinPoint joinPoint, Audit audit) throws Throwable {
-        String module = audit.module();
-        String entity = audit.entity();
-        String action = audit.action();
+    @Around("@annotation(auditLog)")
+    public Object auditMethod(ProceedingJoinPoint joinPoint, AuditLog auditLog) throws Throwable {
+        String module = auditLog.module();
+        String entity = auditLog.entity();
+        String action = auditLog.action();
         
         // Initialize context only if not already set
         initializeContext();

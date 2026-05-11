@@ -32,7 +32,7 @@ public class ResourceStateController {
     @PostMapping("/fix/{resourceId}")
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<?>> fixResourceState(
-            @PathVariable Long resourceId,
+            @PathVariable String resourceId,
             @CurrentUser UserDTO user) {
         
         log.info("User {} requested to fix state for resource {}", user.getName(), resourceId);
@@ -99,7 +99,7 @@ public class ResourceStateController {
      */
     @GetMapping("/status/{resourceId}")
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager')")
-    public ResponseEntity<ApiResponse<?>> getResourceStateStatus(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getResourceStateStatus(@PathVariable String resourceId) {
         
         try {
             // This would require adding a method to check status

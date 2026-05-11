@@ -36,8 +36,8 @@ public class LedgerEventLog {
     @Column(name = "event_id", nullable = false, unique = true, length = 100)
     private String eventId;
 
-    @Column(name = "resource_id", nullable = false)
-    private Long resourceId;
+    @Column(name = "resource_id", nullable = false, length = 20)
+    private String resourceId;
 
     @Column(name = "event_type", nullable = false, length = 50)
     private String eventType;

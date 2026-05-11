@@ -29,7 +29,7 @@ public class CreateDemandDTO {
     private DemandType demandType;
 
     // Required only for REPLACEMENT (validated in service)
-    private Long outgoingResourceId;
+    private String outgoingResourceId;
 
     @NotNull(message = "Start date is required")
     private LocalDate demandStartDate;

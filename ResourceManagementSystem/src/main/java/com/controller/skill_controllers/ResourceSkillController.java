@@ -44,13 +44,13 @@ public class ResourceSkillController {
     }
 
     @GetMapping("/resource/{resourceId}/skills")
-    public ResponseEntity<ApiResponse<List<ResourceSkill>>> getAllResourceSkills(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<List<ResourceSkill>>> getAllResourceSkills(@PathVariable String resourceId) {
         List<ResourceSkill> skills = resourceSkillService.getAllResourceSkills(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource skills retrieved successfully", skills));
     }
 
     @GetMapping("/resource/{resourceId}/subskills")
-    public ResponseEntity<ApiResponse<List<ResourceSubSkill>>> getAllResourceSubSkills(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<List<ResourceSubSkill>>> getAllResourceSubSkills(@PathVariable String resourceId) {
         List<ResourceSubSkill> subSkills = resourceSkillService.getAllResourceSubSkills(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource sub-skills retrieved successfully", subSkills));
     }
@@ -69,7 +69,7 @@ public class ResourceSkillController {
 
     @GetMapping("/resource/{resourceId}/profile")
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
-    public ResponseEntity<ApiResponse<List<ResourceSkillProfileResponseDTO>>> getResourceSkillProfile(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<List<ResourceSkillProfileResponseDTO>>> getResourceSkillProfile(@PathVariable String resourceId) {
         List<ResourceSkillProfileResponseDTO> profile = resourceSkillService.getResourceSkillProfile(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource skill profile retrieved successfully", profile));
     }

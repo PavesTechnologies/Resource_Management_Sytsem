@@ -10,20 +10,22 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import jakarta.persistence.*;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class AuditEntityListener {
 
+    private static final ThreadLocal<Map<String, Object>> entityOldStateMap = ThreadLocal.withInitial(ConcurrentHashMap::new);
     private static AuditRepository auditRepository;
     private static ObjectMapper objectMapper;
 
-    // Static setters for dependency injection
     public static void setAuditRepository(AuditRepository repo) {
         auditRepository = repo;
     }
@@ -39,13 +41,19 @@ public class AuditEntityListener {
 
     @PreUpdate
     public void preUpdate(Object entity) {
-        Object oldState = captureOldState(entity);
+        Object oldState = entityOldStateMap.get(getEntityId(entity));
         logAudit(entity, "UPDATE", oldState, entity);
+        entityOldStateMap.remove(getEntityId(entity));
     }
 
     @PreRemove
     public void preRemove(Object entity) {
         logAudit(entity, "DELETE", entity, null);
+    }
+
+    @PostLoad
+    public void postLoad(Object entity) {
+        entityOldStateMap.put(getEntityId(entity), cloneEntity(entity));
     }
 
     private void logAudit(Object entity, String action, Object before, Object after) {
@@ -67,10 +75,10 @@ public class AuditEntityListener {
             audit.setAfter(convertToJsonSafely(after));
 
             auditRepository.save(audit);
-            log.debug("Audit log saved: {} {} {} for user: {}", 
+            log.debug("Audit log saved: {} {} {} for user: {}",
                     audit.getModule(), audit.getEntity(), audit.getAction(), audit.getUser());
         } catch (Exception e) {
-            log.error("Failed to save audit log for {} {} {}: {}", 
+            log.error("Failed to save audit log for {} {} {}: {}",
                     getModuleName(entity), entity.getClass().getSimpleName(), action, e.getMessage(), e);
         }
     }
@@ -88,33 +96,11 @@ public class AuditEntityListener {
         return "UNKNOWN";
     }
 
-    private Object captureOldState(Object entity) {
-        try {
-            Map<String, Object> oldState = new HashMap<>();
-            Field[] fields = entity.getClass().getDeclaredFields();
-            
-            for (Field field : fields) {
-                if (!field.getName().equals("serialVersionUID") && 
-                    !java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                    field.setAccessible(true);
-                    Object value = field.get(entity);
-                    if (value != null) {
-                        oldState.put(field.getName(), value);
-                    }
-                }
-            }
-            return oldState.isEmpty() ? null : oldState;
-        } catch (Exception e) {
-            log.debug("Failed to capture old state: {}", e.getMessage());
-            return null;
-        }
-    }
-
     private String getCurrentUser() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
-                return auth.getName(); // Spring Security already extracted from JWT
+                return auth.getName();
             }
         } catch (Exception e) {
             log.debug("Failed to get current user: {}", e.getMessage());
@@ -123,11 +109,11 @@ public class AuditEntityListener {
     }
 
     private String generateTransactionId() {
-        return "TXN-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+        return "TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000);
     }
 
     private String generateRequestId() {
-        return "REQ-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+        return "REQ-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000);
     }
 
     private String convertToJsonSafely(Object obj) {
@@ -140,5 +126,41 @@ public class AuditEntityListener {
             log.debug("Failed to convert to JSON: {}", e.getMessage());
         }
         return obj.toString();
+    }
+
+    private String getEntityId(Object entity) {
+        try {
+            Field idField = findIdField(entity.getClass());
+            idField.setAccessible(true);
+            Object id = idField.get(entity);
+            return entity.getClass().getName() + "_" + id;
+        } catch (Exception e) {
+            return entity.toString();
+        }
+    }
+
+    private Field findIdField(Class<?> clazz) throws NoSuchFieldException {
+        for (Field field : clazz.getDeclaredFields()) {
+            if (field.isAnnotationPresent(Id.class)) {
+                return field;
+            }
+        }
+        if (clazz.getSuperclass() != null) {
+            return findIdField(clazz.getSuperclass());
+        }
+        throw new NoSuchFieldException("No ID field found");
+    }
+
+    private Object cloneEntity(Object entity) {
+        try {
+            Object clone = entity.getClass().getDeclaredConstructor().newInstance();
+            for (Field field : entity.getClass().getDeclaredFields()) {
+                field.setAccessible(true);
+                field.set(clone, field.get(entity));
+            }
+            return clone;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

@@ -10,7 +10,7 @@ import java.util.UUID;
 public interface ResourceCertificateService {
     String assignCertificate(ResourceCertificateRequestDTO dto, MultipartFile certificateFile);
 
-    List<ResourceCertificate> getCertificatesByResourceId(Long resourceId);
+    List<ResourceCertificate> getCertificatesByResourceId(String resourceId);
     
     List<ResourceCertificate> getAllCertificates();
     

@@ -8,11 +8,11 @@ public interface ResourceEventService {
     
     void publishResourceUpdated(Resource resource);
     
-    void publishResourceDeleted(Long resourceId);
+    void publishResourceDeleted(String resourceId);
     
-    void triggerLedgerCalculationAfterUpdate(Long resourceId);
+    void triggerLedgerCalculationAfterUpdate(String resourceId);
 
-    void triggerLedgerCalculationAfterCreate(Long resourceId);
+    void triggerLedgerCalculationAfterCreate(String resourceId);
 
-    void triggerLedgerCleanupAfterDelete(Long resourceId);
+    void triggerLedgerCleanupAfterDelete(String resourceId);
 }

@@ -51,7 +51,7 @@ public class AllocationServiceImpl implements AllocationService {
     private final AllocationValidationService validationService;
     private final AllocationConflictService conflictService;
     private final SkillGapAnalysisService skillGapService;
-    private final AvailabilityLedgerAsyncServiceRefactored ledgerAsyncService;
+    private final AvailabilityLedgerAsyncService ledgerAsyncService;
     private final DemandSLARepository demandSLARepository;
     private final LedgerAvailabilityCalculationService availabilityCalculationService;
     private final BenchService benchDetectionService;
@@ -297,7 +297,7 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    public ResponseEntity<ApiResponse<?>> getAllocationsByResource(Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getAllocationsByResource(String resourceId) {
         try {
             List<AllocationResponseDTO> responseList = allocationRepository.findByResource_ResourceId(resourceId).stream()
                     .map(this::mapToResponseDTO).collect(Collectors.toList());
@@ -366,7 +366,7 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    public List<AllocationConflictDTO> detectAllocationConflicts(Long resourceId) {
+    public List<AllocationConflictDTO> detectAllocationConflicts(String resourceId) {
         return conflictService.detectAllocationConflicts(resourceId);
     }
 
@@ -376,7 +376,7 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Override
-    public List<AllocationConflictDTO> getPendingConflictsForResource(Long resourceId) {
+    public List<AllocationConflictDTO> getPendingConflictsForResource(String resourceId) {
         return conflictService.getPendingConflictsForResource(resourceId);
     }
 
@@ -399,7 +399,7 @@ public class AllocationServiceImpl implements AllocationService {
 
         for (ResourceAllocation allocation : validAllocations) {
 
-            Long resourceId = allocation.getResource().getResourceId();
+            String resourceId = allocation.getResource().getResourceId();
 
             ResourceState state = resourceStateRepository
                     .findByResourceIdAndCurrentFlagTrue(resourceId)
@@ -588,7 +588,7 @@ public class AllocationServiceImpl implements AllocationService {
         return dto;
     }
 
-    private Integer calculateRemainingAllocationPercentage(Long resourceId, LocalDate startDate, LocalDate endDate, UUID currentId) {
+    private Integer calculateRemainingAllocationPercentage(String resourceId, LocalDate startDate, LocalDate endDate, UUID currentId) {
         try {
             int total = allocationRepository.findConflictingAllocations(resourceId, startDate.minusDays(1), endDate.plusDays(1))
                     .stream().filter(a -> !a.getAllocationId().equals(currentId)).mapToInt(ResourceAllocation::getAllocationPercentage).sum();
@@ -603,7 +603,7 @@ public class AllocationServiceImpl implements AllocationService {
      * Cached service method wrapper for repository query
      */
     @Cacheable(value = "active-allocations", key = "#resourceId + '-' + #date")
-    public List<ResourceAllocation> findActiveAllocationsForResourceOnDate(Long resourceId, LocalDate date) {
+    public List<ResourceAllocation> findActiveAllocationsForResourceOnDate(String resourceId, LocalDate date) {
         return allocationRepository.findActiveAllocationsForResourceOnDate(resourceId, date);
     }
 }

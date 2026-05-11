@@ -20,6 +20,7 @@ public class DebeziumChangeDetector {
             Object afterVal = after.get(field);
 
             if (beforeVal == null && afterVal != null ||
+                    beforeVal != null && afterVal == null ||
                     beforeVal != null && !beforeVal.equals(afterVal)) {
                 changed.add(field.name());
             }

@@ -24,7 +24,7 @@ public class ResourceController {
 
     @GetMapping("/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager','Admin','Project_Manager')")
-    public ResponseEntity<ApiResponse<?>> getResourceById(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> getResourceById(@PathVariable String resourceId) {
         return resourceService.getResourceById(resourceId);
     }
 
@@ -42,7 +42,7 @@ public class ResourceController {
 
     @DeleteMapping("/delete/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager','Admin')")
-    public ResponseEntity<ApiResponse<?>> deleteResource(@PathVariable Long resourceId) {
+    public ResponseEntity<ApiResponse<?>> deleteResource(@PathVariable String resourceId) {
         return resourceService.deleteResource(resourceId);
     }
 

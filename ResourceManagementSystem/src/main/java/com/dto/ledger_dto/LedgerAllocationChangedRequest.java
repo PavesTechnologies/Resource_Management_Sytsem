@@ -8,7 +8,7 @@ import java.time.LocalDate;
 public class LedgerAllocationChangedRequest {
     private String eventId;
     private Long allocationId;
-    private Long resourceId;
+    private String resourceId;
     private Long projectId;
     private Long demandId;
     private AllocationChangedEvent.AllocationChangeType changeType;

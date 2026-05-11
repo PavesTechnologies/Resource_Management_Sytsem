@@ -91,7 +91,7 @@ public class DeadLetterQueueService {
         try {
             Map<String, Object> payload = objectMapper.readValue(dlqEntry.getPayload(), Map.class);
             
-            Long resourceId = ((Number) payload.get("resourceId")).longValue();
+            String resourceId = ((String) payload.get("resourceId"));
             String startDateStr = (String) payload.get("startDate");
             String endDateStr = (String) payload.get("endDate");
             
@@ -240,7 +240,7 @@ public class DeadLetterQueueService {
     }
 
     @Transactional(readOnly = true)
-    public List<DeadLetterQueue> getDLQEntriesForResource(Long resourceId) {
+    public List<DeadLetterQueue> getDLQEntriesForResource(String resourceId) {
         return deadLetterQueueRepository.findByResourceId(resourceId);
     }
 
