@@ -43,6 +43,9 @@ public interface ProjectGovernanceService {
     ResponseEntity<ApiResponse<?>> readinessStatusUpdate(UpdateReadinessStatusDTO readiness);
     ResponseEntity<ApiResponse<?>> getProjectByClient(UUID id);
     ResponseEntity<?> getLocationsByStatus();
+    
+    // KPI calculation method
+    ResponseEntity<ApiResponse<?>> getProjectKpi();
 
 //    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
 

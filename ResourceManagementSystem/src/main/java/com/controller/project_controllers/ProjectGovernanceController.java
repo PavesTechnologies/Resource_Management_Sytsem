@@ -14,7 +14,6 @@ import com.global_exception_handler.ProjectExceptionHandler;
 import com.security.CurrentUser;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 import com.repo.project_repo.ProjectRepository;
-import com.repo.allocation_repo.AllocationRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -38,9 +37,6 @@ public class ProjectGovernanceController {
 
     @Autowired
     private ProjectRepository projectRepository;
-
-    @Autowired
-    private AllocationRepository allocationRepository;
 
     // 🔹 STORY 9 — Task 2: Detect overlapping project timelines
     @GetMapping("/{projectId}/overlaps")
@@ -174,64 +170,8 @@ public class ProjectGovernanceController {
     // Project KPI endpoint
     @GetMapping("/kpi")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
-        try {
-            // Total Projects count (excluding completed projects)
-            List<ProjectStatus> nonCompletedStatuses = List.of(
-                ProjectStatus.ACTIVE,
-                ProjectStatus.APPROVED,
-                ProjectStatus.ARCHIVED,
-                ProjectStatus.PLANNING
-            );
-            Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
-
-            // Active Projects count
-            Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
-
-            // High Risk Projects count
-            Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
-
-            // Calculate Average Resource Utilization using real allocation data
-            Double avgResourceUtil = 0.0;
-            String calculationSource = "default";
-            
-            try {
-                // Get real average utilization from active allocations
-                Double realUtilization = allocationRepository.calculateAverageUtilization();
-                if (realUtilization != null) {
-                    avgResourceUtil = realUtilization;
-                    calculationSource = "real_allocation_data";
-                }
-            } catch (Exception e) {
-                // Fallback to previous calculation if real data fails
-                if (totalProjects != null && totalProjects > 0) {
-                    avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
-                    calculationSource = "fallback_project_ratio";
-                }
-            }
-            
-            // Add debug info to response for verification (temporary)
-            System.out.println("DEBUG: Utilization calculation source: " + calculationSource);
-            System.out.println("DEBUG: Final utilization value: " + avgResourceUtil + "%");
-
-            // Create ProjectKpiDTO with the calculated KPI data
-            com.dto.project_dto.ProjectKpiDTO projectKpiDTO = new com.dto.project_dto.ProjectKpiDTO();
-            projectKpiDTO.setTotalProjects(totalProjects != null ? totalProjects : 0L);
-            projectKpiDTO.setActiveProjects(activeProjects != null ? activeProjects : 0L);
-            projectKpiDTO.setHighRiskProjects(highRiskProjects != null ? highRiskProjects : 0L);
-            projectKpiDTO.setAvgResourceUtil(avgResourceUtil);
-
-            // Add debug info to message for verification
-            String message = "Project KPI data retrieved successfully (Source: " + calculationSource + ", Utilization: " + avgResourceUtil + "%)";
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, message, projectKpiDTO)
-            );
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                new ApiResponse<>(false, "Failed to retrieve project KPI data: " + e.getMessage(), null)
-            );
-        }
+    public ResponseEntity<ApiResponse<?>> getProjectKpi() {
+        return projectGovernanceService.getProjectKpi();
     }
 
 }
