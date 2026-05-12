@@ -2,6 +2,7 @@ package com.cdc.retry;
 
 import com.cdc.failure.CdcFailure;
 import com.cdc.failure.CdcFailureRepository;
+import com.cdc.service.EosDirectResyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -18,6 +19,7 @@ import java.util.List;
 public class UnifiedCdcRetryService {
 
     private final CdcFailureRepository cdcFailureRepository;
+    private final EosDirectResyncService eosDirectResyncService;
 
     @Scheduled(fixedRate = 900000) // Every 15 minutes
     @SchedulerLock(name = "cdc-retry-failed-events", lockAtMostFor = "PT20M", lockAtLeastFor = "PT5M")
@@ -132,13 +134,14 @@ public class UnifiedCdcRetryService {
     }
 
     private void retryEosEventProcessing(CdcFailure event) {
-        // Same limitation as PMS: stored payload cannot be reconstructed into a Debezium Struct.
-        log.error("Cannot replay EOS CDC event - payload is not deserializable; "
-                + "manual intervention required for entityType={}, entityId={}",
+        log.info("EOS CDC retry - re-fetching from EOS for entityType={}, entityId={}",
                 event.getEntityType(), event.getEntityId());
-        event.setStatus("PERMANENTLY_FAILED");
-        event.setErrorMessage("Payload not deserializable; manual intervention required");
+        eosDirectResyncService.resync(event.getEntityType(), event.getEntityId());
+        event.setStatus("RESOLVED");
+        event.setErrorMessage(null);
         cdcFailureRepository.save(event);
+        log.info("EOS CDC retry resolved for entityType={}, entityId={}",
+                event.getEntityType(), event.getEntityId());
     }
 
     // -------------------------------------------------------------------------
