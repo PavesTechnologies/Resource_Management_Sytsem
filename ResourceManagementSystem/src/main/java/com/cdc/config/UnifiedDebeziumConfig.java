@@ -296,27 +296,20 @@ public class UnifiedDebeziumConfig {
     }
 
     /**
-     * Generate deterministic server ID based on hostname and port.
-     * CRITICAL for multi-instance deployments to prevent Debezium server ID conflicts.
-     * 
-     * @param hostname Database hostname
-     * @param port Database port  
-     * @param baseRange Base range for server ID
-     * @return Deterministic server ID
+     * Generate a server ID that is stable within one JVM process but unique across
+     * concurrent processes (different PIDs). This prevents the MySQL error
+     * "A replica with the same server_uuid/server_id has connected" that occurs when
+     * a hot-reload or manual restart launches a second process before the first exits.
      */
     private String generateDeterministicServerId(String hostname, String port, int baseRange) {
         try {
-            // Create deterministic hash from hostname:port combination
             String hostPort = hostname + ":" + port;
-            int hash = Math.abs(hostPort.hashCode());
-            
-            // Generate server ID in the configured range
-            // Ensures same hostname:port always gets same server ID
-            int serverId = baseRange + (hash % 1000); // Use modulo to stay within reasonable range
-            
+            int hostHash = Math.abs(hostPort.hashCode()) % 500;
+            int pidOffset = (int) (ProcessHandle.current().pid() % 500);
+            int serverId = baseRange + hostHash + pidOffset;
             return String.valueOf(serverId);
         } catch (Exception e) {
-            log.warn("Failed to generate deterministic server ID, using fallback: {}", e.getMessage());
+            log.warn("Failed to generate server ID with PID, using base range: {}", e.getMessage());
             return String.valueOf(baseRange);
         }
     }

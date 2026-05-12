@@ -24,7 +24,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -180,7 +182,7 @@ public class PmsCdcHandler {
         // Load existing project to check timestamp
         Project existingProject = projectRepository.findById(pmsProjectId).orElse(null);
         if (existingProject != null) {
-            if (staleEventProtectionService.isStaleEvent(existingProject.getLastSyncedAt(), incomingEventTimestamp, String.valueOf(pmsProjectId))) {
+            if (staleEventProtectionService.isStaleEvent(existingProject.getChangedAt(), incomingEventTimestamp, String.valueOf(pmsProjectId))) {
                 log.warn("REJECTING STALE EVENT - PMS ID: {}, RMS Timestamp: {}, PMS Timestamp: {}",
                         pmsProjectId, existingProject.getLastSyncedAt(), incomingEventTimestamp);
                 return; // Skip processing stale event
@@ -329,9 +331,10 @@ public class PmsCdcHandler {
             project.setRiskLevelUpdatedAt(LocalDateTime.now());
         }
         
-        // Set createdAt for new projects (derived field)
+        // Set createdAt for new projects — use PMS source timestamp for data governance
         if (isNewProject) {
-            project.setCreatedAt(LocalDateTime.now());
+            LocalDateTime srcCreatedAt = extractStructTimestamp(pmsPayload, "created_at");
+            project.setCreatedAt(srcCreatedAt != null ? srcCreatedAt : LocalDateTime.now());
             // Set data status based on mandatory fields (derived field)
             project.setDataStatus(calculateDataStatus(project));
         } else {
@@ -341,7 +344,11 @@ public class PmsCdcHandler {
             }
         }
         
-        // Set audit trail (derived field)
+        // Store PMS source updated_at directly — used for stale event detection
+        LocalDateTime srcChangedAt = extractStructTimestamp(pmsPayload, "updated_at");
+        project.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
+
+        // RMS audit field: when did RMS last receive this event
         project.setLastSyncedAt(LocalDateTime.now());
     }
 
@@ -483,6 +490,20 @@ public class PmsCdcHandler {
                changedColumns.contains("project_manager_id") ||
                changedColumns.contains("start_date") ||
                changedColumns.contains("end_date");
+    }
+
+    private LocalDateTime extractStructTimestamp(Struct struct, String fieldName) {
+        if (struct == null || struct.schema().field(fieldName) == null) return null;
+        Object value = struct.get(fieldName);
+        if (value == null) return null;
+        if (value instanceof Long) {
+            long ts = (Long) value;
+            // Debezium DATETIME_MICROSECONDS: > 1_000_000_000_000_000L microseconds since epoch
+            if (ts > 1_000_000_000_000_000L)
+                return LocalDateTime.ofInstant(Instant.ofEpochSecond(ts / 1_000_000, (ts % 1_000_000) * 1000), ZoneId.systemDefault());
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+        }
+        try { return LocalDateTime.parse(value.toString()); } catch (Exception e) { return null; }
     }
 
 }
