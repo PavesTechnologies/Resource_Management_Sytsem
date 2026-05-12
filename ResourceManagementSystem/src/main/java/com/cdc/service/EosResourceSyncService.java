@@ -6,25 +6,38 @@ import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.resource_enums.EmploymentType;
 import com.entity_enums.resource_enums.WorkingMode;
 import com.repo.resource_repo.ResourceRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Struct;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EosResourceSyncService {
 
     private final ResourceRepository resourceRepository;
     private final FailureRecorder failureRecorder;
+    private final JdbcTemplate eosJdbcTemplate;
+
+    public EosResourceSyncService(
+            ResourceRepository resourceRepository,
+            FailureRecorder failureRecorder,
+            @Qualifier("eosJdbcTemplate") JdbcTemplate eosJdbcTemplate) {
+        this.resourceRepository = resourceRepository;
+        this.failureRecorder = failureRecorder;
+        this.eosJdbcTemplate = eosJdbcTemplate;
+    }
 
     // -------------------------------------------------------------------------
     // Public entry points (one per EOS table)
@@ -57,9 +70,12 @@ public class EosResourceSyncService {
                 resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
             if (resource.getActiveFlag() == null)
                 resource.setActiveFlag(true);
+            LocalDateTime srcCreatedAt = getLocalDateTime(after, "created_at");
+            resource.setCreatedAt(srcCreatedAt != null ? srcCreatedAt : LocalDateTime.now());
         }
 
-        resource.setChangedAt(LocalDateTime.now());
+        LocalDateTime srcChangedAt = getLocalDateTime(after, "updated_at");
+        resource.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
 
         resourceRepository.save(resource);
         log.info("employee_details synced successfully for resourceId={}", employeeId);
@@ -68,17 +84,24 @@ public class EosResourceSyncService {
     @Transactional
     public void processOfferDetails(Struct after) {
 
-        String email = getString(after, "mail");
-        if (email == null) return;
+        String mail = getString(after, "mail");
+        if (mail == null) return;
 
-        Resource resource = resourceRepository.findByEmail(email).orElse(null);
+        // offer_letter_details has no employee_id column.
+        // Link: offer_letter_details.user_uuid → employee_details.user_uuid → employee_id.
+        String userUuid = getString(after, "user_uuid");
+        String employeeId = resolveEmployeeIdByUserUuid(userUuid);
+
+        Resource resource = null;
+        if (employeeId != null) {
+            resource = resourceRepository.findById(employeeId).orElse(null);
+        }
         if (resource == null) {
-            // Out-of-order event: offer arrived before employee_details was processed.
-            // Record for retry so it is re-attempted once the resource exists.
             failureRecorder.recordFailure(
-                    "EOS-offer_letter_details", email, "UPDATE",
+                    "EOS-offer_letter_details", mail, "UPDATE",
                     "ResourceNotFound",
-                    "Resource not found for email: " + email + "; event may be out-of-order",
+                    "Resource not found for offer letter (mail=" + mail
+                            + ", userUuid=" + userUuid + ", employeeId=" + employeeId + ")",
                     null);
             return;
         }
@@ -92,10 +115,11 @@ public class EosResourceSyncService {
 
         deriveHourlyCostRate(resource);
 
-        resource.setChangedAt(LocalDateTime.now());
+        LocalDateTime srcChangedAt = getLocalDateTime(after, "updated_at");
+        resource.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
 
         resourceRepository.save(resource);
-        log.info("offer_letter_details enriched successfully for email={}", email);
+        log.info("offer_letter_details enriched for resourceId={}, mail={}", resource.getResourceId(), mail);
     }
 
     @Transactional
@@ -124,7 +148,8 @@ public class EosResourceSyncService {
 
         deriveEmploymentStatus(resource, after);
 
-        resource.setChangedAt(LocalDateTime.now());
+        LocalDateTime srcChangedAt = getLocalDateTime(after, "updated_at");
+        resource.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
 
         resourceRepository.save(resource);
         log.info("employee_exit processed successfully for resourceId={}", employeeId);
@@ -357,24 +382,37 @@ public class EosResourceSyncService {
                 resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
             if (resource.getActiveFlag() == null)
                 resource.setActiveFlag(true);
+            LocalDateTime srcCreatedAt = getMapLocalDateTime(data, "created_at");
+            resource.setCreatedAt(srcCreatedAt != null ? srcCreatedAt : LocalDateTime.now());
         }
 
-        resource.setChangedAt(LocalDateTime.now());
+        LocalDateTime srcChangedAt = getMapLocalDateTime(data, "updated_at");
+        resource.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
         resourceRepository.save(resource);
         log.info("employee_details re-synced for resourceId={}", employeeId);
     }
 
     @Transactional
     public void processOfferDetailsFromMap(Map<String, Object> data) {
-        String email = getMapString(data, "mail");
-        if (email == null) return;
+        String mail = getMapString(data, "mail");
+        // employee_id may be present if the table has it, or injected by the resync service
+        String employeeId = getMapString(data, "employee_id");
+        if (mail == null && employeeId == null) return;
 
-        Resource resource = resourceRepository.findByEmail(email).orElse(null);
+        Resource resource = null;
+        if (employeeId != null) {
+            resource = resourceRepository.findById(employeeId).orElse(null);
+        }
+        if (resource == null && mail != null) {
+            resource = resourceRepository.findByEmail(mail).orElse(null);
+        }
         if (resource == null) {
+            String key = employeeId != null ? employeeId : mail;
             failureRecorder.recordFailure(
-                    "EOS-offer_letter_details", email, "UPDATE",
+                    "EOS-offer_letter_details", key, "UPDATE",
                     "ResourceNotFound",
-                    "Resource not found for email: " + email + "; event may be out-of-order",
+                    "Resource not found for offer letter (mail=" + mail
+                            + ", employeeId=" + employeeId + ")",
                     null);
             return;
         }
@@ -387,9 +425,10 @@ public class EosResourceSyncService {
         if (changedBy != null) resource.setChangedBy(changedBy);
 
         deriveHourlyCostRate(resource);
-        resource.setChangedAt(LocalDateTime.now());
+        LocalDateTime srcChangedAt = getMapLocalDateTime(data, "updated_at");
+        resource.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
         resourceRepository.save(resource);
-        log.info("offer_letter_details re-synced for email={}", email);
+        log.info("offer_letter_details re-synced for resourceId={}, mail={}", resource.getResourceId(), mail);
     }
 
     @Transactional
@@ -415,7 +454,8 @@ public class EosResourceSyncService {
         if (changedBy != null) resource.setChangedBy(changedBy);
 
         deriveEmploymentStatusFromMap(resource, data);
-        resource.setChangedAt(LocalDateTime.now());
+        LocalDateTime srcChangedAt = getMapLocalDateTime(data, "updated_at");
+        resource.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
         resourceRepository.save(resource);
         log.info("employee_exit re-synced for resourceId={}", employeeId);
     }
@@ -524,5 +564,46 @@ public class EosResourceSyncService {
         if (v instanceof java.sql.Date) return ((java.sql.Date) v).toLocalDate();
         if (v instanceof Number) return LocalDate.ofEpochDay(((Number) v).longValue());
         try { return LocalDate.parse(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    // MySQL DATETIME arrives from Debezium as Long (epoch milliseconds).
+    private LocalDateTime getLocalDateTime(Struct struct, String fieldName) {
+        if (struct == null || struct.schema().field(fieldName) == null) return null;
+        Object value = struct.get(fieldName);
+        if (value == null) return null;
+        if (value instanceof Long) {
+            long ts = (Long) value;
+            // Debezium encodes DATETIME as millis; guard against microsecond range
+            if (ts > 1_000_000_000_000_000L)
+                return LocalDateTime.ofInstant(Instant.ofEpochSecond(ts / 1_000_000, (ts % 1_000_000) * 1000), ZoneId.systemDefault());
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+        }
+        try { return LocalDateTime.parse(value.toString()); } catch (Exception e) { return null; }
+    }
+
+    // JDBC queryForMap returns java.sql.Timestamp for DATETIME/TIMESTAMP columns.
+    private LocalDateTime getMapLocalDateTime(Map<String, Object> data, String field) {
+        if (data == null) return null;
+        Object v = data.get(field);
+        if (v == null) return null;
+        if (v instanceof java.sql.Timestamp) return ((java.sql.Timestamp) v).toLocalDateTime();
+        if (v instanceof LocalDateTime) return (LocalDateTime) v;
+        if (v instanceof Long) return LocalDateTime.ofInstant(Instant.ofEpochMilli((Long) v), ZoneId.systemDefault());
+        try { return LocalDateTime.parse(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    // Resolves employee_id from offer_letter_details.user_uuid via employee_details join.
+    private String resolveEmployeeIdByUserUuid(String userUuid) {
+        if (userUuid == null) return null;
+        try {
+            return eosJdbcTemplate.queryForObject(
+                    "SELECT employee_id FROM employee_details WHERE user_uuid = ?",
+                    String.class, userUuid);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        } catch (Exception e) {
+            log.warn("Cannot resolve employee_id for user_uuid={}: {}", userUuid, e.getMessage());
+            return null;
+        }
     }
 }

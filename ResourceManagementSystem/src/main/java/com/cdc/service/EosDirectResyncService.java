@@ -6,6 +6,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -41,13 +42,31 @@ public class EosDirectResyncService {
         eosResourceSyncService.processEmployeeDetailsFromMap(row);
     }
 
-    private void resyncOfferLetterDetails(String email) {
-        Map<String, Object> row = fetchOne(
-                "SELECT * FROM offer_letter_details WHERE mail = ?", email);
+    private void resyncOfferLetterDetails(String entityId) {
+        // offer_letter_details links to employee_details via user_uuid (no direct employee_id column).
+        // JOIN fetches both the offer fields and the employee_id in one query.
+        // Retry path: entityId = personal mail; Admin path: entityId = employee_id.
+        String joinSql;
+        if (entityId.contains("@")) {
+            joinSql = "SELECT o.*, e.employee_id AS employee_id"
+                    + " FROM offer_letter_details o"
+                    + " JOIN employee_details e ON e.user_uuid = o.user_uuid"
+                    + " WHERE o.mail = ?";
+        } else {
+            joinSql = "SELECT o.*, e.employee_id AS employee_id"
+                    + " FROM offer_letter_details o"
+                    + " JOIN employee_details e ON e.user_uuid = o.user_uuid"
+                    + " WHERE e.employee_id = ?";
+        }
+
+        Map<String, Object> row = fetchOne(joinSql, entityId);
         if (row == null) {
-            log.warn("EOS re-sync: offer_letter_details not found for mail={}", email);
+            log.warn("EOS re-sync: offer_letter_details not found for entityId={}", entityId);
             return;
         }
+
+        log.info("EOS re-sync: offer_letter resolved for entityId={}, employee_id={}",
+                entityId, row.get("employee_id"));
         eosResourceSyncService.processOfferDetailsFromMap(row);
     }
 
