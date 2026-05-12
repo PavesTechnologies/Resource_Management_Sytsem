@@ -126,7 +126,7 @@ public class UnifiedCdcRetryService {
         // True replay requires the original Debezium event; it cannot be reconstructed here.
         // Mark as PERMANENTLY_FAILED so the failure is visible and actionable.
         log.error("Cannot replay PMS CDC event - payload is not deserializable; "
-                + "manual intervention required for entityType={}, entityId={}",
+                        + "manual intervention required for entityType={}, entityId={}",
                 event.getEntityType(), event.getEntityId());
         event.setStatus("PERMANENTLY_FAILED");
         event.setErrorMessage("Payload not deserializable; manual intervention required");
