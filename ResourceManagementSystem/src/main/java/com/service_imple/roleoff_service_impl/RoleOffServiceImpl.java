@@ -1376,7 +1376,8 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
         roleOffRepo.save(event);
 
         // Trigger availability recalculation for the resource
-        Long resourceId = allocation.getResource().getResourceId();
+        String resourceId = allocation.getResource().getResourceId();
+
         LocalDate effectiveDate = event.getEffectiveRoleOffDate();
         availabilityLedgerAsyncService.updateLedger(resourceId, effectiveDate, effectiveDate.plusDays(90));
 
