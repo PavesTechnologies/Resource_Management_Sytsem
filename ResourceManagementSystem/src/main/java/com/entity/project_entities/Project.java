@@ -110,6 +110,10 @@ public class Project {
     @Column(name = "last_synced_at")
     private LocalDateTime LastSyncedAt;
 
+    // Direct PMS source updated_at — used for stale event detection
+    @Column(name = "pms_changed_at")
+    private LocalDateTime changedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "staffing_readiness_status", length = 20)
     private StaffingReadinessStatus staffingReadinessStatus;

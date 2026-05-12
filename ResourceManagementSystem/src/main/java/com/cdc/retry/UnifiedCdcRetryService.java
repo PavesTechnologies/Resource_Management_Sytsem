@@ -136,12 +136,20 @@ public class UnifiedCdcRetryService {
     private void retryEosEventProcessing(CdcFailure event) {
         log.info("EOS CDC retry - re-fetching from EOS for entityType={}, entityId={}",
                 event.getEntityType(), event.getEntityId());
-        eosDirectResyncService.resync(event.getEntityType(), event.getEntityId());
-        event.setStatus("RESOLVED");
-        event.setErrorMessage(null);
-        cdcFailureRepository.save(event);
-        log.info("EOS CDC retry resolved for entityType={}, entityId={}",
-                event.getEntityType(), event.getEntityId());
+        try {
+            eosDirectResyncService.resync(event.getEntityType(), event.getEntityId());
+            event.setStatus("RESOLVED");
+            event.setErrorMessage(null);
+            cdcFailureRepository.save(event);
+            log.info("EOS CDC retry resolved for entityType={}, entityId={}",
+                    event.getEntityType(), event.getEntityId());
+        } catch (Exception e) {
+            event.setErrorMessage("Retry failed: " + e.getMessage());
+            cdcFailureRepository.save(event);
+            log.error("EOS CDC retry threw exception for entityType={}, entityId={}: {}",
+                    event.getEntityType(), event.getEntityId(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     // -------------------------------------------------------------------------
