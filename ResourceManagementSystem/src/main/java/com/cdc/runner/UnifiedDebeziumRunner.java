@@ -61,7 +61,8 @@ public class UnifiedDebeziumRunner {
 
     @PostConstruct
     public void start() {
-        log.info("ENTERPRISE CDC ENGINE STARTUP - Connector: {}", runnerName);
+        String offsetFile = config.asProperties().getProperty("offset.storage.file.filename", "unknown");
+        log.info("[{}] CDC ENGINE STARTUP — offset file: {}", runnerName, offsetFile);
         
         engine = DebeziumEngine
                 .create(ChangeEventFormat.of(Connect.class))

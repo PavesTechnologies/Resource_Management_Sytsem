@@ -10,11 +10,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Struct;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,7 @@ public class EosResourceSyncService {
     // Public entry points (one per EOS table)
     // -------------------------------------------------------------------------
 
+    @Transactional
     public void processEmployeeDetails(Struct after) {
 
         String employeeId = getString(after, "employee_id");
@@ -38,10 +41,23 @@ public class EosResourceSyncService {
         Resource resource = resourceRepository.findByIdWithLock(employeeId)
                 .orElseGet(Resource::new);
 
+        boolean isNew = (resource.getVersion() == null);
         resource.setResourceId(employeeId);
 
         applyEmployeeDetailsMapping(resource, after);   // direct field copy
         applyDerivedFields(resource, after);            // employmentType, workingMode, employmentStatus, activeFlag
+
+        // Guard NOT NULL columns against unrecognized EOS values
+        if (isNew) {
+            if (resource.getFullName() == null || resource.getFullName().isBlank())
+                resource.setFullName(employeeId);
+            if (resource.getEmploymentType() == null)
+                resource.setEmploymentType(EmploymentType.FULL_TIME);
+            if (resource.getEmploymentStatus() == null)
+                resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
+            if (resource.getActiveFlag() == null)
+                resource.setActiveFlag(true);
+        }
 
         resource.setChangedAt(LocalDateTime.now());
 
@@ -49,6 +65,7 @@ public class EosResourceSyncService {
         log.info("employee_details synced successfully for resourceId={}", employeeId);
     }
 
+    @Transactional
     public void processOfferDetails(Struct after) {
 
         String email = getString(after, "mail");
@@ -81,6 +98,7 @@ public class EosResourceSyncService {
         log.info("offer_letter_details enriched successfully for email={}", email);
     }
 
+    @Transactional
     public void processEmployeeExit(Struct after) {
 
         String employeeId = getString(after, "employee_id");
@@ -112,6 +130,7 @@ public class EosResourceSyncService {
         log.info("employee_exit processed successfully for resourceId={}", employeeId);
     }
 
+    @Transactional
     public void handleDelete(String tableName, Struct before) {
 
         if (before == null) return;
@@ -310,5 +329,200 @@ public class EosResourceSyncService {
         if (middleName != null && !middleName.isBlank()) builder.append(middleName.trim()).append(" ");
         if (lastName != null && !lastName.isBlank())     builder.append(lastName.trim());
         return builder.toString().trim();
+    }
+
+    // -------------------------------------------------------------------------
+    // Map-based public entry points (used by retry/re-sync path)
+    // -------------------------------------------------------------------------
+
+    @Transactional
+    public void processEmployeeDetailsFromMap(Map<String, Object> data) {
+        String employeeId = getMapString(data, "employee_id");
+        if (employeeId == null) return;
+
+        Resource resource = resourceRepository.findByIdWithLock(employeeId)
+                .orElseGet(Resource::new);
+        boolean isNew = (resource.getVersion() == null);
+        resource.setResourceId(employeeId);
+
+        applyEmployeeDetailsMappingFromMap(resource, data);
+        applyDerivedFieldsFromMap(resource, data);
+
+        if (isNew) {
+            if (resource.getFullName() == null || resource.getFullName().isBlank())
+                resource.setFullName(employeeId);
+            if (resource.getEmploymentType() == null)
+                resource.setEmploymentType(EmploymentType.FULL_TIME);
+            if (resource.getEmploymentStatus() == null)
+                resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
+            if (resource.getActiveFlag() == null)
+                resource.setActiveFlag(true);
+        }
+
+        resource.setChangedAt(LocalDateTime.now());
+        resourceRepository.save(resource);
+        log.info("employee_details re-synced for resourceId={}", employeeId);
+    }
+
+    @Transactional
+    public void processOfferDetailsFromMap(Map<String, Object> data) {
+        String email = getMapString(data, "mail");
+        if (email == null) return;
+
+        Resource resource = resourceRepository.findByEmail(email).orElse(null);
+        if (resource == null) {
+            failureRecorder.recordFailure(
+                    "EOS-offer_letter_details", email, "UPDATE",
+                    "ResourceNotFound",
+                    "Resource not found for email: " + email + "; event may be out-of-order",
+                    null);
+            return;
+        }
+
+        resource.setDesignation(getMapString(data, "designation"));
+        resource.setAnnualCtc(getMapBigDecimal(data, "total_ctc"));
+        resource.setCurrencyType(getMapString(data, "currency"));
+
+        Long changedBy = getMapLong(data, "created_by");
+        if (changedBy != null) resource.setChangedBy(changedBy);
+
+        deriveHourlyCostRate(resource);
+        resource.setChangedAt(LocalDateTime.now());
+        resourceRepository.save(resource);
+        log.info("offer_letter_details re-synced for email={}", email);
+    }
+
+    @Transactional
+    public void processEmployeeExitFromMap(Map<String, Object> data) {
+        String employeeId = getMapString(data, "employee_id");
+        if (employeeId == null) return;
+
+        Resource resource = resourceRepository.findById(employeeId).orElse(null);
+        if (resource == null) {
+            failureRecorder.recordFailure(
+                    "EOS-employee_exit", employeeId, "UPDATE",
+                    "ResourceNotFound",
+                    "Resource not found for employeeId: " + employeeId + "; event may be out-of-order",
+                    null);
+            return;
+        }
+
+        resource.setDateOfExit(getMapLocalDate(data, "last_working_day"));
+        resource.setNoticeStartDate(getMapLocalDate(data, "notice_start_date"));
+        resource.setNoticeEndDate(getMapLocalDate(data, "notice_end_date"));
+
+        Long changedBy = getMapLong(data, "created_by");
+        if (changedBy != null) resource.setChangedBy(changedBy);
+
+        deriveEmploymentStatusFromMap(resource, data);
+        resource.setChangedAt(LocalDateTime.now());
+        resourceRepository.save(resource);
+        log.info("employee_exit re-synced for resourceId={}", employeeId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Map-based private mapping helpers
+    // -------------------------------------------------------------------------
+
+    private void applyEmployeeDetailsMappingFromMap(Resource resource, Map<String, Object> data) {
+        String fullName = buildFullName(
+                getMapString(data, "first_name"),
+                getMapString(data, "middle_name"),
+                getMapString(data, "last_name"));
+        if (fullName != null && !fullName.isEmpty()) resource.setFullName(fullName);
+
+        resource.setEmail(getMapString(data, "work_email"));
+        resource.setWorkingLocation(getMapString(data, "location"));
+        resource.setExperiance(getMapDouble(data, "total_experience"));
+        resource.setDateOfJoining(getMapLocalDate(data, "joining_date"));
+
+        Long changedBy = getMapLong(data, "created_by");
+        if (changedBy != null) resource.setChangedBy(changedBy);
+    }
+
+    private void applyDerivedFieldsFromMap(Resource resource, Map<String, Object> data) {
+        String employmentType   = getMapString(data, "employment_type");
+        String workMode         = getMapString(data, "work_mode");
+        String employmentStatus = getMapString(data, "employment_status");
+
+        if      ("Full-Time".equalsIgnoreCase(employmentType))  resource.setEmploymentType(EmploymentType.FULL_TIME);
+        else if ("Part-Time".equalsIgnoreCase(employmentType))  resource.setEmploymentType(EmploymentType.PART_TIME);
+        else if ("Intern".equalsIgnoreCase(employmentType))     resource.setEmploymentType(EmploymentType.INTERN);
+        else if ("Contractor".equalsIgnoreCase(employmentType)) resource.setEmploymentType(EmploymentType.CONTRACTOR);
+        else if ("Freelance".equalsIgnoreCase(employmentType))  resource.setEmploymentType(EmploymentType.FREELANCE);
+
+        if      ("Office".equalsIgnoreCase(workMode)) resource.setWorkingMode(WorkingMode.OFFICE);
+        else if ("Remote".equalsIgnoreCase(workMode)) resource.setWorkingMode(WorkingMode.REMOTE);
+        else if ("Hybrid".equalsIgnoreCase(workMode)) resource.setWorkingMode(WorkingMode.HYBRID);
+
+        if ("Active".equalsIgnoreCase(employmentStatus)) {
+            resource.setEmploymentStatus(EmploymentStatus.ACTIVE);     resource.setActiveFlag(true);
+        } else if ("Probation".equalsIgnoreCase(employmentStatus)) {
+            resource.setEmploymentStatus(EmploymentStatus.PROBATION);  resource.setActiveFlag(true);
+        } else if ("Resigned".equalsIgnoreCase(employmentStatus)) {
+            resource.setEmploymentStatus(EmploymentStatus.RESIGNED);   resource.setActiveFlag(false);
+        } else if ("Terminated".equalsIgnoreCase(employmentStatus)) {
+            resource.setEmploymentStatus(EmploymentStatus.TERMINATED); resource.setActiveFlag(false);
+        } else if ("Absconded".equalsIgnoreCase(employmentStatus)) {
+            resource.setEmploymentStatus(EmploymentStatus.ABSCONDED);  resource.setActiveFlag(false);
+        }
+    }
+
+    private void deriveEmploymentStatusFromMap(Resource resource, Map<String, Object> data) {
+        String exitType = getMapString(data, "exit_type");
+        String status   = getMapString(data, "status");
+
+        if      ("Termination".equalsIgnoreCase(exitType)) { resource.setEmploymentStatus(EmploymentStatus.TERMINATED); resource.setActiveFlag(false); }
+        else if ("Absconded".equalsIgnoreCase(exitType))   { resource.setEmploymentStatus(EmploymentStatus.ABSCONDED);  resource.setActiveFlag(false); }
+        else if ("Resignation".equalsIgnoreCase(exitType)) { resource.setEmploymentStatus(EmploymentStatus.RESIGNED);   resource.setActiveFlag(true);  }
+
+        if ("Completed".equalsIgnoreCase(status)) {
+            resource.setEmploymentStatus(EmploymentStatus.EXITED); resource.setActiveFlag(false);
+        } else {
+            resource.setEmploymentStatus(EmploymentStatus.ON_NOTICE); resource.setActiveFlag(true);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Map extraction helpers
+    // -------------------------------------------------------------------------
+
+    private String getMapString(Map<String, Object> data, String field) {
+        if (data == null) return null;
+        Object v = data.get(field);
+        return v != null ? v.toString() : null;
+    }
+
+    private Long getMapLong(Map<String, Object> data, String field) {
+        if (data == null) return null;
+        Object v = data.get(field);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).longValue();
+        try { return Long.parseLong(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private BigDecimal getMapBigDecimal(Map<String, Object> data, String field) {
+        if (data == null) return null;
+        Object v = data.get(field);
+        if (v == null) return null;
+        if (v instanceof BigDecimal) return (BigDecimal) v;
+        try { return new BigDecimal(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private Double getMapDouble(Map<String, Object> data, String field) {
+        if (data == null) return null;
+        Object v = data.get(field);
+        if (v == null) return null;
+        if (v instanceof Number) return ((Number) v).doubleValue();
+        try { return Double.valueOf(v.toString()); } catch (Exception e) { return null; }
+    }
+
+    private LocalDate getMapLocalDate(Map<String, Object> data, String field) {
+        if (data == null) return null;
+        Object v = data.get(field);
+        if (v == null) return null;
+        if (v instanceof java.sql.Date) return ((java.sql.Date) v).toLocalDate();
+        if (v instanceof Number) return LocalDate.ofEpochDay(((Number) v).longValue());
+        try { return LocalDate.parse(v.toString()); } catch (Exception e) { return null; }
     }
 }

@@ -172,8 +172,10 @@ public class UnifiedDebeziumConfig {
 
     private void logConnectorStartMode(String system, String connectorName, String baseDir,
                                        String offsetFile, String schemaFile) {
-        boolean isFirstRun = !Files.exists(Paths.get(baseDir + "/" + offsetFile)) &&
-                             !Files.exists(Paths.get(baseDir + "/" + schemaFile));
+        String resolvedBaseDir = Paths.get(baseDir).toAbsolutePath().normalize().toString();
+        boolean isFirstRun = !Files.exists(Paths.get(resolvedBaseDir, offsetFile)) &&
+                             !Files.exists(Paths.get(resolvedBaseDir, schemaFile));
+        log.info("{} CDC offset directory: {}", system, resolvedBaseDir);
         if (isFirstRun) {
             log.info("{} CDC starting initial snapshot for connector: {}", system, connectorName);
         } else {
@@ -207,7 +209,10 @@ public class UnifiedDebeziumConfig {
             String snapshotMode,
             String sslMode
     ) {
-        createDirIfMissing(baseDir);
+        // Resolve to absolute path so the engine finds the same offset files regardless
+        // of which directory the JVM was launched from (IntelliJ vs Maven differ here)
+        String resolvedBaseDir = Paths.get(baseDir).toAbsolutePath().normalize().toString();
+        createDirIfMissing(resolvedBaseDir);
 
         Configuration.Builder configBuilder = Configuration.create()
                 // Essential CDC configuration
@@ -239,16 +244,16 @@ public class UnifiedDebeziumConfig {
                 .with("snapshot.locking.mode", "minimal")
                 .with("snapshot.fetch.size", "1024")
                 .with("offset.storage", "org.apache.kafka.connect.storage.FileOffsetBackingStore")
-                .with("offset.storage.file.filename", baseDir + "/" + offsetFileName)
+                .with("offset.storage.file.filename", resolvedBaseDir + "/" + offsetFileName)
                 .with("schema.history.internal", "io.debezium.storage.file.history.FileSchemaHistory")
-                .with("schema.history.internal.file.filename", baseDir + "/" + schemaHistoryFileName)
+                .with("schema.history.internal.file.filename", resolvedBaseDir + "/" + schemaHistoryFileName)
                 .with("schema.history.internal.store.only.captured.tables.ddl", "true")
                 .with("schema.history.internal.skip.unparseable.ddl", "true")
                 .with("include.schema.changes", "false")
 
-                // SIMPLE OFFSET MANAGEMENT (inspired by your working setup)
-                .with("offset.flush.interval.ms", "10000")  // Flush every 10 seconds
-                .with("offset.flush.timeout.ms", "5000")   // 5 second timeout
+                // Flush offsets every 5 s so a clean shutdown preserves binlog position
+                .with("offset.flush.interval.ms", "5000")
+                .with("offset.flush.timeout.ms", "5000")
 
                 // Performance
                 .with("max.batch.size", "2048")
@@ -311,8 +316,7 @@ public class UnifiedDebeziumConfig {
             
             return String.valueOf(serverId);
         } catch (Exception e) {
-            // Fallback to base range if anything goes wrong
-            System.err.println("Failed to generate deterministic server ID, using fallback: " + e.getMessage());
+            log.warn("Failed to generate deterministic server ID, using fallback: {}", e.getMessage());
             return String.valueOf(baseRange);
         }
     }
