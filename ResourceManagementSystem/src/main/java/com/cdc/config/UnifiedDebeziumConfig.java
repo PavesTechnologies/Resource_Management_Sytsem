@@ -115,29 +115,11 @@ public class UnifiedDebeziumConfig {
     @Value("${eos.cdc.snapshot.mode:initial}")
     private String eosSnapshotMode;
 
-    /**
-     * PMS Debezium configuration bean.
-     * Uses PMS-specific properties with enterprise observability.
-     */
     @Bean
     @Primary
     public Configuration debeziumConfiguration() {
-        // ENTERPRISE FIRST-RUN DETECTION
-        String pmsOffsetFile = pmsCdcBaseDir + "/pms-project-offsets.dat";
-        String pmsSchemaFile = pmsCdcBaseDir + "/pms-schema-history.dat";
-        
-        boolean isFirstRun = !Files.exists(Paths.get(pmsOffsetFile)) && 
-                          !Files.exists(Paths.get(pmsSchemaFile));
-        
-        if (isFirstRun) {
-            log.info("ENTERPRISE SNAPSHOT START - PMS: No existing offsets/schema history detected");
-            log.info("Starting initial snapshot for PMS connector: pms-project-cdc");
-        } else {
-            log.info("ENTERPRISE INCREMENTAL CDC - PMS: Existing offsets detected, skipping snapshot");
-            log.info("Existing offsets detected - skipping snapshot for PMS connector");
-        }
-        
-        Configuration config = createConfiguration(
+        logConnectorStartMode("PMS", "pms-project-cdc", pmsCdcBaseDir, "pms-project-offsets.dat", "pms-schema-history.dat");
+        return createConfiguration(
                 "pms-project-cdc",
                 pmsConnectorClass,
                 pmsCdcBaseDir,
@@ -151,47 +133,20 @@ public class UnifiedDebeziumConfig {
                 pmsTableIncludeList,
                 pmsServerName,
                 pmsTopicPrefix,
-                5000,  // Server ID range start
-                1000,  // Server ID offset
-                15000, // Replica server ID range start
+                5000,
+                1000,
+                15000,
                 "pms-project-offsets.dat",
                 "pms-schema-history.dat",
-                pmsSnapshotMode, // Configurable snapshot mode: initial/never/when_needed
+                pmsSnapshotMode,
                 pmsSslMode
         );
-        
-        // LOG CONFIGURATION COMPLETION
-        if (isFirstRun) {
-            log.info("PMS CDC configuration completed - Initial snapshot will be executed");
-        } else {
-            log.info("PMS CDC configuration completed - Incremental CDC will resume from offsets");
-        }
-        
-        return config;
     }
 
-    /**
-     * EOS Debezium configuration bean.
-     * Uses EOS-specific properties with enterprise observability.
-     */
     @Bean("eosDebeziumConfiguration")
     public Configuration eosDebeziumConfiguration() {
-        // ENTERPRISE FIRST-RUN DETECTION
-        String eosOffsetFile = eosCdcBaseDir + "/eos-offsets.dat";
-        String eosSchemaFile = eosCdcBaseDir + "/eos-schema-history.dat";
-        
-        boolean isFirstRun = !Files.exists(Paths.get(eosOffsetFile)) && 
-                          !Files.exists(Paths.get(eosSchemaFile));
-        
-        if (isFirstRun) {
-            log.info("ENTERPRISE SNAPSHOT START - EOS: No existing offsets/schema history detected");
-            log.info("Starting initial snapshot for EOS connector: eos-cdc");
-        } else {
-            log.info("ENTERPRISE INCREMENTAL CDC - EOS: Existing offsets detected, skipping snapshot");
-            log.info("Existing offsets detected - skipping snapshot for EOS connector");
-        }
-        
-        Configuration config = createConfiguration(
+        logConnectorStartMode("EOS", eosConnectorName, eosCdcBaseDir, "eos-offsets.dat", "eos-schema-history.dat");
+        return createConfiguration(
                 eosConnectorName,
                 eosConnectorClass,
                 eosCdcBaseDir,
@@ -205,23 +160,27 @@ public class UnifiedDebeziumConfig {
                 eosTableIncludeList,
                 eosServerName,
                 eosTopicPrefix,
-                25000, // Server ID range start (different from PMS)
-                2000,  // Server ID offset (different from PMS)
-                35000, // Replica server ID range start (different from PMS)
+                25000,
+                2000,
+                35000,
                 "eos-offsets.dat",
                 "eos-schema-history.dat",
-                eosSnapshotMode, // Configurable snapshot mode: initial/never/when_needed
+                eosSnapshotMode,
                 eosSslMode
         );
-        
-        // LOG CONFIGURATION COMPLETION
+    }
+
+    private void logConnectorStartMode(String system, String connectorName, String baseDir,
+                                       String offsetFile, String schemaFile) {
+        String resolvedBaseDir = Paths.get(baseDir).toAbsolutePath().normalize().toString();
+        boolean isFirstRun = !Files.exists(Paths.get(resolvedBaseDir, offsetFile)) &&
+                             !Files.exists(Paths.get(resolvedBaseDir, schemaFile));
+        log.info("{} CDC offset directory: {}", system, resolvedBaseDir);
         if (isFirstRun) {
-            log.info("EOS CDC configuration completed - Initial snapshot will be executed");
+            log.info("{} CDC starting initial snapshot for connector: {}", system, connectorName);
         } else {
-            log.info("EOS CDC configuration completed - Incremental CDC will resume from offsets");
+            log.info("{} CDC resuming incremental CDC from existing offsets for connector: {}", system, connectorName);
         }
-        
-        return config;
     }
 
     /**
@@ -250,7 +209,10 @@ public class UnifiedDebeziumConfig {
             String snapshotMode,
             String sslMode
     ) {
-        createDirIfMissing(baseDir);
+        // Resolve to absolute path so the engine finds the same offset files regardless
+        // of which directory the JVM was launched from (IntelliJ vs Maven differ here)
+        String resolvedBaseDir = Paths.get(baseDir).toAbsolutePath().normalize().toString();
+        createDirIfMissing(resolvedBaseDir);
 
         Configuration.Builder configBuilder = Configuration.create()
                 // Essential CDC configuration
@@ -282,22 +244,20 @@ public class UnifiedDebeziumConfig {
                 .with("snapshot.locking.mode", "minimal")
                 .with("snapshot.fetch.size", "1024")
                 .with("offset.storage", "org.apache.kafka.connect.storage.FileOffsetBackingStore")
-                .with("offset.storage.file.filename", baseDir + "/" + offsetFileName)
+                .with("offset.storage.file.filename", resolvedBaseDir + "/" + offsetFileName)
                 .with("schema.history.internal", "io.debezium.storage.file.history.FileSchemaHistory")
-                .with("schema.history.internal.file.filename", baseDir + "/" + schemaHistoryFileName)
+                .with("schema.history.internal.file.filename", resolvedBaseDir + "/" + schemaHistoryFileName)
                 .with("schema.history.internal.store.only.captured.tables.ddl", "true")
                 .with("schema.history.internal.skip.unparseable.ddl", "true")
                 .with("include.schema.changes", "false")
 
-                // Handle binlog purging and GTID issues
-                .with("gtid.source.includes", "")
-                .with("binlog.buffer.size", "8192")
+                // Flush offsets every 5 s so a clean shutdown preserves binlog position
+                .with("offset.flush.interval.ms", "5000")
+                .with("offset.flush.timeout.ms", "5000")
+
+                // Performance
                 .with("max.batch.size", "2048")
                 .with("max.queue.size", "8192")
-
-                // Disable JMX metrics to avoid registration conflicts
-                .with("metrics.enabled", "false")
-                .with("metrics.jmx.enabled", "false")
 
                 // SSL - required for Aiven MySQL; plaintext connections are rejected
                 .with("database.ssl.mode", sslMode);
@@ -336,28 +296,20 @@ public class UnifiedDebeziumConfig {
     }
 
     /**
-     * Generate deterministic server ID based on hostname and port.
-     * CRITICAL for multi-instance deployments to prevent Debezium server ID conflicts.
-     * 
-     * @param hostname Database hostname
-     * @param port Database port  
-     * @param baseRange Base range for server ID
-     * @return Deterministic server ID
+     * Generate a server ID that is stable within one JVM process but unique across
+     * concurrent processes (different PIDs). This prevents the MySQL error
+     * "A replica with the same server_uuid/server_id has connected" that occurs when
+     * a hot-reload or manual restart launches a second process before the first exits.
      */
     private String generateDeterministicServerId(String hostname, String port, int baseRange) {
         try {
-            // Create deterministic hash from hostname:port combination
             String hostPort = hostname + ":" + port;
-            int hash = Math.abs(hostPort.hashCode());
-            
-            // Generate server ID in the configured range
-            // Ensures same hostname:port always gets same server ID
-            int serverId = baseRange + (hash % 1000); // Use modulo to stay within reasonable range
-            
+            int hostHash = Math.abs(hostPort.hashCode()) % 500;
+            int pidOffset = (int) (ProcessHandle.current().pid() % 500);
+            int serverId = baseRange + hostHash + pidOffset;
             return String.valueOf(serverId);
         } catch (Exception e) {
-            // Fallback to base range if anything goes wrong
-            System.err.println("Failed to generate deterministic server ID, using fallback: " + e.getMessage());
+            log.warn("Failed to generate server ID with PID, using base range: {}", e.getMessage());
             return String.valueOf(baseRange);
         }
     }

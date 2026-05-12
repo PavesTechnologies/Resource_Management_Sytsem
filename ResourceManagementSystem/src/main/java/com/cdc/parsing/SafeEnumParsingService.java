@@ -220,32 +220,4 @@ public class SafeEnumParsingService {
         private int invalidEnumInstances;
     }
 
-    /**
-     * Initialize common enum mappings and defaults.
-     * Called during service initialization.
-     */
-    public void initializeCommonMappings() {
-        // Employment Status mappings
-        registerEnumMapping("EmploymentStatus", "ACTIVE", "ACTIVE");
-        registerEnumMapping("EmploymentStatus", "INACTIVE", "INACTIVE");
-        registerEnumMapping("EmploymentStatus", "EXITED", "EXITED");
-        registerEnumMapping("EmploymentStatus", "ON_LEAVE", "ON_LEAVE");
-        registerDefaultValue("EmploymentStatus", "ACTIVE");
-        
-        // Project Status mappings
-        registerEnumMapping("ProjectStatus", "ACTIVE", "ACTIVE");
-        registerEnumMapping("ProjectStatus", "COMPLETED", "COMPLETED");
-        registerEnumMapping("ProjectStatus", "CANCELLED", "CANCELLED");
-        registerEnumMapping("ProjectStatus", "ON_HOLD", "ON_HOLD");
-        registerDefaultValue("ProjectStatus", "ACTIVE");
-        
-        // Allocation Status mappings
-        registerEnumMapping("AllocationStatus", "PLANNED", "PLANNED");
-        registerEnumMapping("AllocationStatus", "APPROVED", "APPROVED");
-        registerEnumMapping("AllocationStatus", "ACTIVE", "ACTIVE");
-        registerEnumMapping("AllocationStatus", "CLOSED", "CLOSED");
-        registerDefaultValue("AllocationStatus", "PLANNED");
-        
-        log.info("Initialized common enum mappings and defaults");
-    }
 }

@@ -4,7 +4,11 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Rangaswamy.Dama\\\\Downloads\\\\Resource_Management_Sytsem\\\\ResourceManagementSystem\" -Recurse -Force)",
       "Bash(Select-Object FullName)",
       "Bash(taskkill //F //PID 13512)",
-      "Bash(taskkill //F //PID 27612)"
+      "Bash(taskkill //F //PID 27612)",
+      "Bash(rm \"c:/Users/Rangaswamy.Dama/Downloads/Resource_Management_Sytsem/ResourceManagementSystem/src/main/java/com/cdc/scheduler/EosCdcScheduler.java\")",
+      "Bash(rm \"c:/Users/Rangaswamy.Dama/Downloads/Resource_Management_Sytsem/ResourceManagementSystem/src/main/java/com/cdc/derivation/ResourceDerivationService.java\")",
+      "Bash(rm \"c:/Users/Rangaswamy.Dama/Downloads/Resource_Management_Sytsem/ResourceManagementSystem/src/main/java/com/cdc/mapping/EosCdcMappingRegistry.java\")",
+      "Bash(rm \"c:/Users/Rangaswamy.Dama/Downloads/Resource_Management_Sytsem/ResourceManagementSystem/src/main/java/com/cdc/service/ResourceService.java\")"
     ]
   }
 }

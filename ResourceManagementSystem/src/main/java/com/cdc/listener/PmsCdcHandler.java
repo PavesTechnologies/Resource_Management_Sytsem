@@ -19,12 +19,14 @@ import com.service_imple.project_service_impl.ProjectReadinessUpdaterService;
 import io.debezium.engine.RecordChangeEvent;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -39,6 +41,7 @@ import java.util.UUID;
  * - Reuses unified retry infrastructure for consistency
  * - Identical processing flow to EOS-CDC for enterprise compatibility
  */
+@Slf4j
 @Component
 public class PmsCdcHandler {
 
@@ -106,10 +109,8 @@ public class PmsCdcHandler {
         ReplayThrottlingService.ThrottlingResult throttlingResult = replayThrottlingService.checkReplayAllowed(entityType);
         
         if (!throttlingResult.isAllowed()) {
-            System.out.println("REPLAY THROTTLED - Entity: " + entityId + 
-                              ", Type: " + entityType + 
-                              ", Reason: " + throttlingResult.getReason());
-            return; // Skip processing due to throttling
+            log.warn("REPLAY THROTTLED - Entity: {}, Type: {}, Reason: {}", entityId, entityType, throttlingResult.getReason());
+            return;
         }
 
         long startTime = System.currentTimeMillis();
@@ -155,14 +156,14 @@ public class PmsCdcHandler {
 
         // Only process projects table for Project synchronization (EOS pattern)
         if (!"projects".equals(tableName)) {
-            System.out.println("Skipping non-projects table: " + tableName);
+            log.debug("Skipping non-projects table: {}", tableName);
             return;
         }
 
         // Extract PMS entity ID (EOS pattern)
         Long pmsProjectId = extractPmsProjectId(after);
         if (pmsProjectId == null) {
-            System.err.println("Failed to extract PMS project ID from table: " + tableName);
+            log.error("Failed to extract PMS project ID from table: {}", tableName);
             return;
         }
 
@@ -171,7 +172,7 @@ public class PmsCdcHandler {
         
         // STEP 2: Validate tracked column changes (PMS processes all - like EOS AllColumnsFilter)
         if (changedColumns.isEmpty()) {
-            System.out.println("Skipping PMS update - no columns changed for ID: " + pmsProjectId);
+            log.debug("Skipping PMS update - no columns changed for ID: {}", pmsProjectId);
             return;
         }
 
@@ -181,10 +182,9 @@ public class PmsCdcHandler {
         // Load existing project to check timestamp
         Project existingProject = projectRepository.findById(pmsProjectId).orElse(null);
         if (existingProject != null) {
-            if (staleEventProtectionService.isStaleEvent(existingProject.getLastSyncedAt(), incomingEventTimestamp, String.valueOf(pmsProjectId))) {
-                System.out.println("REJECTING STALE EVENT - PMS ID: " + pmsProjectId + 
-                                  ", RMS Timestamp: " + existingProject.getLastSyncedAt() + 
-                                  ", PMS Timestamp: " + incomingEventTimestamp);
+            if (staleEventProtectionService.isStaleEvent(existingProject.getChangedAt(), incomingEventTimestamp, String.valueOf(pmsProjectId))) {
+                log.warn("REJECTING STALE EVENT - PMS ID: {}, RMS Timestamp: {}, PMS Timestamp: {}",
+                        pmsProjectId, existingProject.getLastSyncedAt(), incomingEventTimestamp);
                 return; // Skip processing stale event
             }
         }
@@ -192,7 +192,7 @@ public class PmsCdcHandler {
         // STEP 4: Load or create RMS Project with enterprise locking
         Project project = loadOrCreateProject(pmsProjectId, after);
         if (project == null) {
-            System.err.println("Failed to load/create Project for PMS ID: " + pmsProjectId);
+            log.error("Failed to load/create Project for PMS ID: {}", pmsProjectId);
             return;
         }
 
@@ -206,11 +206,9 @@ public class PmsCdcHandler {
         boolean saved = saveProjectSelective(project);
         
         if (saved) {
-            System.out.println("PMS CDC Event Processed Successfully - ID: " + pmsProjectId + 
-                              ", Direct Changes: " + hasDirectChanges + 
-                              ", Timestamp: " + LocalDateTime.now());
+            log.info("PMS CDC Event Processed - ID: {}, Direct Changes: {}", pmsProjectId, hasDirectChanges);
         } else {
-            System.out.println("PMS CDC Event Skipped (No meaningful changes) - ID: " + pmsProjectId);
+            log.debug("PMS CDC Event Skipped (No meaningful changes) - ID: {}", pmsProjectId);
         }
     }
 
@@ -253,13 +251,13 @@ public class PmsCdcHandler {
             Project project = projectRepository.findByIdWithLock(pmsProjectId).orElse(null);
             
             if (project == null) {
-                System.err.println("Entity not found after upsert for PMS project ID: " + pmsProjectId);
+                log.error("Entity not found after upsert for PMS project ID: {}", pmsProjectId);
                 return null;
             }
 
             return project;
         } catch (Exception e) {
-            System.err.println("Failed to load/create Project for PMS ID " + pmsProjectId + ": " + e.getMessage());
+            log.error("Failed to load/create Project for PMS ID {}: {}", pmsProjectId, e.getMessage());
             return null;
         }
     }
@@ -285,7 +283,7 @@ public class PmsCdcHandler {
             // Guard FK: only set client_id if that client actually exists in RMS
             if ("client_id".equals(pmsColumn) && converted instanceof java.util.UUID) {
                 if (!clientRepo.existsById((java.util.UUID) converted)) {
-                    System.out.println("Skipping client_id mapping - client not in RMS yet: " + converted);
+                    log.debug("Skipping client_id mapping - client not in RMS yet: {}", converted);
                     continue;
                 }
             }
@@ -301,12 +299,9 @@ public class PmsCdcHandler {
                 ReflectionUtil.setField(project, mapping.getRmsField(), converted);
                 hasChanges = true;
                 
-                System.out.println("Applied Direct Mapping - PMS: " + pmsColumn + 
-                                  " → RMS: " + mapping.getRmsField() + 
-                                  " = " + converted);
+                log.debug("Applied Direct Mapping - PMS: {} -> RMS: {} = {}", pmsColumn, mapping.getRmsField(), converted);
             } catch (Exception e) {
-                System.err.println("Failed to apply direct mapping for " + mapping.getRmsField() + 
-                                 " for PMS ID: " + project.getName() + ": " + e.getMessage());
+                log.error("Failed to apply direct mapping for {} for PMS ID {}: {}", mapping.getRmsField(), project.getName(), e.getMessage());
             }
         }
         
@@ -328,14 +323,18 @@ public class PmsCdcHandler {
         // Handle special field updates (derived fields)
         boolean isNewProject = (project.getCreatedAt() == null);
         
-        // Update risk_level_updated when risk_level changes (derived field)
-        if (changedColumns.contains("risk_level")) {
+        // Only derive riskLevelUpdatedAt if PMS did not send its own value in this event.
+        // If risk_level_updated_at was in the payload, Phase 1 already set it.
+        if (changedColumns.contains("risk_level")
+                && !changedColumns.contains("risk_level_updated_at")
+                && !changedColumns.contains("riskLevelUpdatedAt")) {
             project.setRiskLevelUpdatedAt(LocalDateTime.now());
         }
         
-        // Set createdAt for new projects (derived field)
+        // Set createdAt for new projects — use PMS source timestamp for data governance
         if (isNewProject) {
-            project.setCreatedAt(LocalDateTime.now());
+            LocalDateTime srcCreatedAt = extractStructTimestamp(pmsPayload, "created_at");
+            project.setCreatedAt(srcCreatedAt != null ? srcCreatedAt : LocalDateTime.now());
             // Set data status based on mandatory fields (derived field)
             project.setDataStatus(calculateDataStatus(project));
         } else {
@@ -345,7 +344,11 @@ public class PmsCdcHandler {
             }
         }
         
-        // Set audit trail (derived field)
+        // Store PMS source updated_at directly — used for stale event detection
+        LocalDateTime srcChangedAt = extractStructTimestamp(pmsPayload, "updated_at");
+        project.setChangedAt(srcChangedAt != null ? srcChangedAt : LocalDateTime.now());
+
+        // RMS audit field: when did RMS last receive this event
         project.setLastSyncedAt(LocalDateTime.now());
     }
 
@@ -367,7 +370,7 @@ public class PmsCdcHandler {
             try {
                 readinessUpdater.updateReadiness(project);
             } catch (Exception e) {
-                System.err.println("Failed to update readiness for project " + project.getPmsProjectId() + ": " + e.getMessage());
+                log.error("Failed to update readiness for project {}: {}", project.getPmsProjectId(), e.getMessage());
             }
 
             // STEP 8: Handle project timeline changes for availability recalculation (post-processing)
@@ -377,12 +380,12 @@ public class PmsCdcHandler {
                 projectTimelineChangeService.handleProjectTimelineChange(
                     project.getPmsProjectId(), null, null, project.getStartDate(), project.getEndDate());
             } catch (Exception e) {
-                System.err.println("Failed to handle project timeline change for project " + project.getPmsProjectId() + ": " + e.getMessage());
+                log.error("Failed to handle project timeline change for project {}: {}", project.getPmsProjectId(), e.getMessage());
             }
             
             return true;
         } catch (Exception e) {
-            System.err.println("Failed to save project " + project.getPmsProjectId() + ": " + e.getMessage());
+            log.error("Failed to save project {}: {}", project.getPmsProjectId(), e.getMessage());
             return false;
         }
     }
@@ -396,24 +399,24 @@ public class PmsCdcHandler {
         Long pmsProjectId = extractPmsProjectId(before);
         if (pmsProjectId == null) return;
 
-        System.out.println("PMS CDC Delete - Table: " + tableName + ", ID: " + pmsProjectId);
+        log.info("PMS CDC Delete - Table: {}, ID: {}", tableName, pmsProjectId);
         
         // Enterprise-safe soft-delete (UNIFIED pattern from EOS-CDC)
         Project project = projectRepository.findById(pmsProjectId).orElse(null);
         if (project == null) {
-            System.err.println("Project not found for soft-delete: " + pmsProjectId);
+            log.error("Project not found for soft-delete: {}", pmsProjectId);
             return;
         }
 
         // Soft-delete using same pattern as EOS-CDC
-        project.setProjectStatus(ProjectStatus.ARCHIVED);
+        project.setProjectStatus(ProjectStatus.DELETED);
         project.setLastSyncedAt(LocalDateTime.now());
         
         try {
             projectRepository.save(project);
-            System.out.println("PMS CDC Delete Processed Successfully - ID: " + pmsProjectId);
+            log.info("PMS CDC Delete Processed Successfully - ID: {}", pmsProjectId);
         } catch (Exception e) {
-            System.err.println("Failed to soft-delete project " + pmsProjectId + ": " + e.getMessage());
+            log.error("Failed to soft-delete project {}: {}", pmsProjectId, e.getMessage());
         }
     }
 
@@ -453,84 +456,6 @@ public class PmsCdcHandler {
     }
 
     /**
-     * Extract LocalDateTime from Debezium struct (SHARED utility).
-     * Reuses centralized timestamp conversion logic.
-     */
-    private LocalDateTime extractLocalDateTime(Struct struct, String fieldName) {
-        if (struct == null) return null;
-        
-        Object value = struct.get(fieldName);
-        if (value == null) return null;
-        
-        // Handle LocalDateTime directly
-        if (value instanceof LocalDateTime) return (LocalDateTime) value;
-        
-        // Handle java.sql.Timestamp
-        if (value instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) value).toLocalDateTime();
-        }
-        
-        // Handle java.time.Instant
-        if (value instanceof java.time.Instant) {
-            return LocalDateTime.ofInstant((java.time.Instant) value, java.time.ZoneId.systemDefault());
-        }
-        
-        // Handle java.util.Date
-        if (value instanceof java.util.Date) {
-            return new java.sql.Timestamp(((java.util.Date) value).getTime()).toLocalDateTime();
-        }
-        
-        // Handle Long (timestamp)
-        if (value instanceof Long) {
-            return convertTimestampToDateTime((Long) value, fieldName);
-        }
-        
-        // Handle String conversion
-        if (value instanceof String) {
-            return convertStringToDateTime((String) value, fieldName);
-        }
-        
-        System.err.println("Unsupported date type for field " + fieldName + ": " + value.getClass().getName());
-        return null;
-    }
-    
-    private LocalDateTime convertTimestampToDateTime(long timestamp, String fieldName) {
-        try {
-            if (timestamp > 1_000_000_000_000_000L) { // microseconds (16+ digits)
-                return LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(timestamp / 1_000_000, (timestamp % 1_000_000) * 1000), java.time.ZoneId.systemDefault());
-            } else if (timestamp > 1_000_000_000_000L) { // milliseconds (13 digits)
-                return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(timestamp), java.time.ZoneId.systemDefault());
-            } else { // seconds (10 digits)
-                return LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(timestamp), java.time.ZoneId.systemDefault());
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to convert Long timestamp for field " + fieldName + ": " + e.getMessage());
-            return null;
-        }
-    }
-    
-    private LocalDateTime convertStringToDateTime(String strValue, String fieldName) {
-        try {
-            strValue = strValue.trim();
-            if (strValue.isEmpty()) return null;
-            
-            // Try common date formats
-            if (strValue.contains("T")) {
-                return LocalDateTime.parse(strValue);
-            } else {
-                // Try parsing as date
-                LocalDate date = LocalDate.parse(strValue);
-                return date.atStartOfDay();
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to parse string date for field " + fieldName + ": " + e.getMessage());
-            return null;
-        }
-    }
-
-
-
-    /**
      * Calculate data status based on mandatory fields
      */
     private ProjectDataStatus calculateDataStatus(Project project) {
@@ -552,10 +477,6 @@ public class PmsCdcHandler {
             return ProjectDataStatus.PENDING;
         }
         
-        if (project.getEndDate() == null) {
-            return ProjectDataStatus.PENDING;
-        }
-        
         // All mandatory fields are present
         return ProjectDataStatus.COMPLETE;
     }
@@ -569,6 +490,20 @@ public class PmsCdcHandler {
                changedColumns.contains("project_manager_id") ||
                changedColumns.contains("start_date") ||
                changedColumns.contains("end_date");
+    }
+
+    private LocalDateTime extractStructTimestamp(Struct struct, String fieldName) {
+        if (struct == null || struct.schema().field(fieldName) == null) return null;
+        Object value = struct.get(fieldName);
+        if (value == null) return null;
+        if (value instanceof Long) {
+            long ts = (Long) value;
+            // Debezium DATETIME_MICROSECONDS: > 1_000_000_000_000_000L microseconds since epoch
+            if (ts > 1_000_000_000_000_000L)
+                return LocalDateTime.ofInstant(Instant.ofEpochSecond(ts / 1_000_000, (ts % 1_000_000) * 1000), ZoneId.systemDefault());
+            return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
+        }
+        try { return LocalDateTime.parse(value.toString()); } catch (Exception e) { return null; }
     }
 
 }

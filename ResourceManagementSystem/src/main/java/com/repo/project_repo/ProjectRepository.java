@@ -77,8 +77,8 @@ public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpe
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query(value = """
-        INSERT INTO project (pms_project_id, name, last_synced_at, project_status, client_id)
-        VALUES (:id, :name, :now, 'ACTIVE', :clientId)
+        INSERT INTO project (pms_project_id, name, last_synced_at, project_status, client_id, created_at)
+        VALUES (:id, :name, :now, 'ACTIVE', :clientId, :now)
         ON DUPLICATE KEY UPDATE
             last_synced_at = :now,
             name = VALUES(name),

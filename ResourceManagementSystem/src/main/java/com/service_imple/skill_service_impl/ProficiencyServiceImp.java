@@ -3,7 +3,7 @@ package com.service_imple.skill_service_impl;
 import com.dto.centralised_dto.ApiResponse;
 import com.entity.skill_entities.ProficiencyLevel;
 import com.global_exception_handler.ProficiencyExceptionHandler;
-import com.repo.skill_repo.ProficiencyRepo;
+import com.repo.skill_repo.ProficiencyLevelRepository;
 import com.service_interface.skill_service_interface.ProficiencyService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,12 +17,12 @@ import java.util.UUID;
 public class ProficiencyServiceImp implements ProficiencyService {
 
     @Autowired
-    ProficiencyRepo proficiencyRepo;
+    ProficiencyLevelRepository proficiencyLevelRepository;
 
     @Override
     public ResponseEntity<?> createProficiencyLevel(ProficiencyLevel proficiencyLevel) {
         log.info("Creating proficiency level: {}", proficiencyLevel.getProficiencyName());
-        ProficiencyLevel proficiency = proficiencyRepo.save(proficiencyLevel);
+        ProficiencyLevel proficiency = proficiencyLevelRepository.save(proficiencyLevel);
         //log.info("Proficiency level created successfully with ID: {}", proficiency.getId());
         return ResponseEntity.ok(new ApiResponse<>(true, "Proficiency level created successfully", proficiency));
     }
@@ -30,22 +30,22 @@ public class ProficiencyServiceImp implements ProficiencyService {
     @Override
     public ResponseEntity<?> updateProficiencyLevel(ProficiencyLevel proficiencyLevel, UUID id) {
         log.info("Updating proficiency level with ID: {}", id);
-        proficiencyRepo.findById(id).orElseThrow(() -> ProficiencyExceptionHandler.notFound("Proficiency with the ID is Not found!"));
-        ProficiencyLevel proficiency = proficiencyRepo.save(proficiencyLevel);
+        proficiencyLevelRepository.findById(id).orElseThrow(() -> ProficiencyExceptionHandler.notFound("Proficiency with the ID is Not found!"));
+        ProficiencyLevel proficiency = proficiencyLevelRepository.save(proficiencyLevel);
         //log.info("Proficiency level updated successfully with ID: {}", proficiency.getId());
         return ResponseEntity.ok(new ApiResponse<>(true, "Proficiency level updated successfully", proficiency));
     }
 
     @Override
     public ResponseEntity<?> getAllProficiencyLevels() {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Proficiency levels retrieved successfully", proficiencyRepo.findAll()));
+        return ResponseEntity.ok(new ApiResponse<>(true, "Proficiency levels retrieved successfully", proficiencyLevelRepository.findAll()));
     }
 
     @Override
     public ResponseEntity<?> deleteProficiencyLevel(UUID id) {
         log.info("Deleting proficiency level with ID: {}", id);
-        proficiencyRepo.findById(id).orElseThrow(() -> ProficiencyExceptionHandler.notFound("Proficiency with the ID is Not found!"));
-        proficiencyRepo.deleteById(id);
+        proficiencyLevelRepository.findById(id).orElseThrow(() -> ProficiencyExceptionHandler.notFound("Proficiency with the ID is Not found!"));
+        proficiencyLevelRepository.deleteById(id);
         log.info("Proficiency level deleted successfully with ID: {}", id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Proficiency level deleted successfully", null));
     }

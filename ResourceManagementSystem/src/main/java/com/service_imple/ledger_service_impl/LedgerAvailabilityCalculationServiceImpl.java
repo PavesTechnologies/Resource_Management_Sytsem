@@ -1,10 +1,12 @@
 package com.service_imple.ledger_service_impl;
 
 import com.entity.ledger_entities.ResourceAvailabilityLedgerDaily;
+import com.entity.resource_entities.Resource;
 import com.entity.resource_entities.ResourceAvailabilityLedger;
 import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
 import com.repo.ledger_repo.ResourceAvailabilityLedgerDailyRepository;
-import com.service_interface.ledger_service_interface.AllocationService;
+import com.repo.resource_repo.ResourceRepository;
+import com.service_interface.ledger_service_interface.LedgerAllocationDataService;
 import com.service_interface.ledger_service_interface.HolidayService;
 import com.service_interface.ledger_service_interface.LeaveService;
 import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
@@ -29,11 +31,12 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
     private final HolidayService holidayService;
     private final LeaveService leaveService;
-    
+
     @Qualifier("ledgerAllocationService")
-    private final AllocationService allocationService;
-    
+    private final LedgerAllocationDataService allocationService;
+
     private final ResourceAvailabilityLedgerDailyRepository dailyLedgerRepository;
+    private final ResourceRepository resourceRepository;
 
     private static final int HOURS_PER_WORKING_DAY = 8;
     private static final Set<DayOfWeek> WEEKEND_DAYS = Set.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
@@ -75,7 +78,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
                 .filter(workingDays::contains)
                 .count() * HOURS_PER_WORKING_DAY;
             
-            AllocationService.AllocationData allocationData = allocationService.getAllocationDataForResourceForMonth(resourceId, yearMonth);
+            LedgerAllocationDataService.AllocationData allocationData = allocationService.getAllocationDataForResourceForMonth(resourceId, yearMonth);
             int confirmedAllocHours = (allocationData.getConfirmedAllocationPercentage() * standardHours) / 100;
             int draftAllocHours = (allocationData.getDraftAllocationPercentage() * standardHours) / 100;
             
@@ -87,11 +90,15 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
             boolean availabilityTrustFlag = holidayService.isApiHealthy() && leaveService.isApiHealthy();
             
             Optional<ResourceAvailabilityLedger> existing = ledgerRepository.findByResourceIdAndPeriodStart(resourceId, monthStart);
-            ResourceAvailabilityLedger ledger = existing.orElseGet(() -> ResourceAvailabilityLedger.builder()
-                .resource(null) // Will be set by repository
-                .periodStart(monthStart)
-                .periodEnd(monthEnd)
-                .build());
+            ResourceAvailabilityLedger ledger = existing.orElseGet(() -> {
+                Resource resource = resourceRepository.findById(resourceId)
+                        .orElseThrow(() -> new RuntimeException("Resource not found: " + resourceId));
+                return ResourceAvailabilityLedger.builder()
+                        .resource(resource)
+                        .periodStart(monthStart)
+                        .periodEnd(monthEnd)
+                        .build();
+            });
             
             ledger.setStandardHours(standardHours);
             ledger.setHolidayHours(holidayHours);
@@ -145,6 +152,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
             }
             
             if (!dailyEntries.isEmpty()) {
+                dailyLedgerRepository.deleteByResourceIdAndDateBetween(resourceId, monthStart, monthEnd);
                 dailyLedgerRepository.saveAll(dailyEntries);
             }
         } catch (Exception e) {
@@ -157,7 +165,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
         
         int dailyStandardHours = HOURS_PER_WORKING_DAY;
         int dailyHolidayHours = isHoliday(date) ? HOURS_PER_WORKING_DAY : 0;
-        int dailyLeaveHours = isLeave(date) && !isHoliday(date) ? HOURS_PER_WORKING_DAY : 0;
+        int dailyLeaveHours = isLeave(resourceId, date) && !isHoliday(date) ? HOURS_PER_WORKING_DAY : 0;
         
         int dailyConfirmedAllocHours = monthly.getConfirmedAllocHours() / workingDaysInMonth;
         int dailyDraftAllocHours = monthly.getDraftAllocHours() / workingDaysInMonth;
@@ -220,9 +228,9 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
         }
     }
     
-    private boolean isLeave(LocalDate date) {
+    private boolean isLeave(String resourceId, LocalDate date) {
         try {
-            return leaveService.getApprovedLeaveForEmployee("", date.getYear()).contains(date);
+            return leaveService.getApprovedLeaveForEmployee(resourceId, date.getYear()).contains(date);
         } catch (Exception e) {
             return false;
         }
