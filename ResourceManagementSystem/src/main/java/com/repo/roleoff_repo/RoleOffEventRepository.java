@@ -201,8 +201,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
                 WHERE roe.allocation = ra
                 AND roe.roleOffStatus IN (
                     com.entity_enums.roleoff_enums.RoleOffStatus.PENDING,
-                    com.entity_enums.roleoff_enums.RoleOffStatus.APPROVED,
-                    com.entity_enums.roleoff_enums.RoleOffStatus.FULFILLED
+                    com.entity_enums.roleoff_enums.RoleOffStatus.APPROVED
                 )
             )
             """)
@@ -258,6 +257,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
                     SELECT p2.pmsProjectId FROM Project p2 WHERE p2.resourceManagerId = :rmId
                 )
                 AND r.roleOffStatus = :status
+                AND r.roleOffStatus != 'FULFILLED'
             """)
     List<RoleOffEvent> findPendingRoleOffs(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
@@ -272,6 +272,7 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
                 AND r.roleOffStatus = :status
                 AND r.rmApproved = true
                 AND (r.dlApproved IS NULL OR r.dlApproved = false)
+                AND r.roleOffStatus != 'FULFILLED'
             """)
     List<RoleOffEvent> findPendingRoleOffsDm(@Param("rmId") Long rmId, @Param("status") RoleOffStatus status);
 
