@@ -42,7 +42,7 @@ public interface ProjectGovernanceService {
     ResponseEntity<ApiResponse<?>> checkDemandCreation(Long projectId);
     ResponseEntity<ApiResponse<?>> readinessStatusUpdate(UpdateReadinessStatusDTO readiness);
     ResponseEntity<ApiResponse<?>> getProjectByClient(UUID id);
-    ResponseEntity<?> getLocationsByStatus();
+    ResponseEntity<ApiResponse<?>> getLocationsByStatus();
 
 //    ApiResponse<ProjectGovernanceStatusDTO> validateProjectGovernance(Long id);
 

@@ -2,7 +2,7 @@ package com.service_imple.skill_service_impl;
 
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity.project_entities.Project;
-import com.global_exception_handler.SkillTaxonomyExceptionHandler;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
@@ -100,22 +100,22 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         for (SkillWithSubSkillDTO skillDTO : dto.getSkills()) {
             // Validate skill exists and is ACTIVE
             Skill skill = skillRepository.findById(skillDTO.getSkillId())
-                    .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "Skill not found: " + skillDTO.getSkillId()));
             
             if (!"ACTIVE".equalsIgnoreCase(skill.getStatus())) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "Skill is not active: " + skill.getName());
             }
             
             // Validate skill proficiency exists and is ACTIVE
             ProficiencyLevel skillProficiency = proficiencyLevelRepository
                     .findById(skillDTO.getProficiencyId())
-                    .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "Proficiency not found: " + skillDTO.getProficiencyId()));
             
             if (!Boolean.TRUE.equals(skillProficiency.getActiveFlag())) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "Proficiency level is inactive: " + skillProficiency.getProficiencyName());
             }
             
@@ -126,7 +126,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                             skillDTO.getSkillId());
             
             if (skillExists) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "Skill already assigned to this resource: " + skill.getName());
             }
             
@@ -144,36 +144,36 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                                  ProficiencyLevel skillProficiency) {
         // Validate subSkill exists
         SubSkill subSkill = subSkillRepository.findById(subSkillDTO.getSubSkillId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "SubSkill not found: " + subSkillDTO.getSubSkillId()));
         
         // Validate subSkill belongs to Skill
         if (!skillId.equals(subSkill.getSkill().getId())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "SubSkill does not belong to the specified skill: " + subSkill.getName());
         }
         
         // Validate subSkill is ACTIVE
         if (!"ACTIVE".equalsIgnoreCase(subSkill.getStatus())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "SubSkill is not active: " + subSkill.getName());
         }
         
         // Validate subSkill proficiency exists and is ACTIVE
         ProficiencyLevel subSkillProficiency = proficiencyLevelRepository
                 .findById(subSkillDTO.getProficiencyId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Proficiency not found for subSkill: " + subSkillDTO.getProficiencyId()));
         
         if (!Boolean.TRUE.equals(subSkillProficiency.getActiveFlag())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Proficiency level is inactive for subSkill: " + subSkillProficiency.getProficiencyName());
         }
         
         // Validate subSkill proficiency <= skill proficiency (using display order if available, otherwise skip this validation)
         if (skillProficiency.getDisplayOrder() != null && subSkillProficiency.getDisplayOrder() != null) {
             if (subSkillProficiency.getDisplayOrder() > skillProficiency.getDisplayOrder()) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "SubSkill proficiency cannot exceed skill proficiency for: " + subSkill.getName());
             }
         }
@@ -185,7 +185,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                         subSkillDTO.getSubSkillId());
         
         if (subSkillExists) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "SubSkill already assigned to this resource: " + subSkill.getName());
         }
     }
@@ -252,22 +252,22 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         
         // Validate skill exists and is ACTIVE
         Skill skill = skillRepository.findById(dto.getSkillId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Skill not found: " + dto.getSkillId()));
         
         if (!"ACTIVE".equalsIgnoreCase(skill.getStatus())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Skill is not active: " + skill.getName());
         }
         
         // Validate proficiency exists and is ACTIVE
         ProficiencyLevel proficiency = proficiencyLevelRepository
                 .findById(dto.getProficiencyId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Proficiency not found: " + dto.getProficiencyId()));
         
         if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Proficiency level is inactive: " + proficiency.getProficiencyName());
         }
         
@@ -276,7 +276,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                 .existsByResourceIdAndSkillId(dto.getResourceId(), dto.getSkillId());
         
         if (skillExists) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Skill already assigned to this resource: " + skill.getName());
         }
         
@@ -301,22 +301,22 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         
         // Validate sub-skill exists and is ACTIVE
         SubSkill subSkill = subSkillRepository.findById(dto.getSubSkillId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "SubSkill not found: " + dto.getSubSkillId()));
         
         if (!"ACTIVE".equalsIgnoreCase(subSkill.getStatus())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "SubSkill is not active: " + subSkill.getName());
         }
         
         // Validate proficiency exists and is ACTIVE
         ProficiencyLevel proficiency = proficiencyLevelRepository
                 .findById(dto.getProficiencyId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Proficiency not found: " + dto.getProficiencyId()));
         
         if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Proficiency level is inactive: " + proficiency.getProficiencyName());
         }
         
@@ -325,7 +325,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                 .existsByResourceIdAndSubSkillId(dto.getResourceId(), dto.getSubSkillId());
         
         if (subSkillExists) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "SubSkill already assigned to this resource: " + subSkill.getName());
         }
         
@@ -349,11 +349,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
      */
     private void validateResourceExistsAndActive(String resourceId) {
         Resource resource = resourceRepository.findById(resourceId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource not found with ID: " + resourceId));
         
         if (!Boolean.TRUE.equals(resource.getActiveFlag())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Resource is not active: " + resource.getFullName() + " (ID: " + resourceId + ")");
         }
     }
@@ -382,14 +382,14 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Override
     public ResourceSkill getResourceSkillById(UUID resourceSkillId) {
         return resourceSkillRepository.findById(resourceSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource skill not found with ID: " + resourceSkillId));
     }
 
     @Override
     public ResourceSubSkill getResourceSubSkillById(UUID resourceSubSkillId) {
         return resourceSubSkillRepository.findById(resourceSubSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource sub-skill not found with ID: " + resourceSubSkillId));
     }
 
@@ -402,7 +402,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     public ResourceSkill updateResourceSkill(UUID resourceSkillId, ResourceSkillRequestDTO dto) {
         // Find the existing resource skill
         ResourceSkill existingResourceSkill = resourceSkillRepository.findById(resourceSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource skill not found with ID: " + resourceSkillId));
         
         // Validate resource exists and is active
@@ -411,11 +411,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         // If changing skill, validate the new skill
         if (!existingResourceSkill.getSkill().getId().equals(dto.getSkillId())) {
             Skill skill = skillRepository.findById(dto.getSkillId())
-                    .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "Skill not found: " + dto.getSkillId()));
             
             if (!"ACTIVE".equalsIgnoreCase(skill.getStatus())) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "Skill is not active: " + skill.getName());
             }
             
@@ -424,7 +424,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                     .existsByResourceIdAndSkillIdAndIdNot(dto.getResourceId(), dto.getSkillId(), resourceSkillId);
             
             if (skillExists) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "Skill already assigned to this resource: " + skill.getName());
             }
             
@@ -434,11 +434,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         // Validate proficiency exists and is ACTIVE
         ProficiencyLevel proficiency = proficiencyLevelRepository
                 .findById(dto.getProficiencyId())
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Proficiency not found: " + dto.getProficiencyId()));
         
         if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
-            throw new SkillTaxonomyExceptionHandler(
+            throw SkillExceptionHandler.badRequest(
                     "Proficiency level is inactive: " + proficiency.getProficiencyName());
         }
         
@@ -464,27 +464,27 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         for (ResourceSkillRequestDTO.SubSkillUpdateDTO subSkillDTO : subSkillUpdates) {
             // Validate sub-skill exists and belongs to the skill
             SubSkill subSkill = subSkillRepository.findById(subSkillDTO.getSubSkillId())
-                    .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "SubSkill not found: " + subSkillDTO.getSubSkillId()));
             
             if (!skillId.equals(subSkill.getSkill().getId())) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "SubSkill does not belong to the specified skill: " + subSkill.getName());
             }
             
             if (!"ACTIVE".equalsIgnoreCase(subSkill.getStatus())) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "SubSkill is not active: " + subSkill.getName());
             }
             
             // Validate proficiency exists and is ACTIVE
             ProficiencyLevel proficiency = proficiencyLevelRepository
                     .findById(subSkillDTO.getProficiencyId())
-                    .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "Proficiency not found for subSkill: " + subSkillDTO.getProficiencyId()));
             
             if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
-                throw new SkillTaxonomyExceptionHandler(
+                throw SkillExceptionHandler.badRequest(
                         "Proficiency level is inactive for subSkill: " + proficiency.getProficiencyName());
             }
             
@@ -523,7 +523,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     public String deleteResourceSkill(UUID resourceSkillId) {
         // Find the existing resource skill
         ResourceSkill existingResourceSkill = resourceSkillRepository.findById(resourceSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource skill not found with ID: " + resourceSkillId));
         
         // Delete associated sub-skills first
@@ -548,7 +548,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     public String deleteResourceSubSkill(UUID resourceSubSkillId) {
         // Find the existing resource sub-skill
         ResourceSubSkill existingResourceSubSkill = resourceSubSkillRepository.findById(resourceSubSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource sub-skill not found with ID: " + resourceSubSkillId));
         
         // Delete the resource sub-skill

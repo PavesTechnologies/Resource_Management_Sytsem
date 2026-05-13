@@ -1,8 +1,9 @@
 package com.crons;
 
+import com.cdc.retry.UnifiedCdcRetryService;
 import com.events.handler.DeadLetterQueueService;
-import com.service_imple.JobLoggingService;
-import com.service_imple.allocation_service_imple.AllocationClosureScheduler;
+import com.service_imple.allocation_service_imple.AllocationServiceImpl;
+import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.bench_service_impl.ResourceStateInitializationService;
 import com.service_imple.ledger_service_impl.LedgerRetryService;
 import com.service_imple.skill_service_impl.CertificateExpiryScheduler;
@@ -13,46 +14,66 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+/**
+ * Single point of governance for all scheduled jobs in the RMS platform.
+ *
+ * Schedule map:
+ *   00:00  RMS_Daily_Midnight_Batch     — certificate status, allocation auto-closure
+ *   01:00  RMS_Nightly_Bench_Detection  — bench resource detection & state update
+ *   02:00  RMS_Nightly_Cleanup_Batch    — DLQ cleanup, resource-state check, CDC failure cleanup, job-log purge
+ *   02:30  RMS_EventLogs_Cleanup        — ledger event-log purge
+ *   every-15m  RMS_Frequent_Retry_Job  — ledger/DLQ retries, CDC failure/DLQ retries
+ *
+ * Rules:
+ *  - No @Scheduled annotation lives outside this class.
+ *  - Every job runs through runJob() for uniform logging + error isolation.
+ *  - Every batch method carries a ShedLock so only one node runs it in a cluster.
+ */
 @Component
 @Slf4j
 public class CentralizedJobScheduler {
 
-    // Unique node ID to track which instance ran the job in a cluster
     private static final String NODE_ID =
             System.getenv().getOrDefault("HOSTNAME", UUID.randomUUID().toString());
 
-    // ── Inject all existing service beans ─────────────────────────────────
+    // ── Injected service beans ────────────────────────────────────────────────
     private final CertificateExpiryScheduler certificateExpiryScheduler;
-    private final AllocationClosureScheduler allocationClosureScheduler;
+    private final AllocationServiceImpl allocationClosureScheduler;
+    private final BenchService benchService;
     private final LedgerRetryService ledgerRetryService;
     private final DeadLetterQueueService deadLetterQueueService;
+    private final UnifiedCdcRetryService unifiedCdcRetryService;
     private final ResourceStateInitializationService resourceStateService;
     private final JobLoggingService jobLoggingService;
 
     public CentralizedJobScheduler(
             CertificateExpiryScheduler certificateExpiryScheduler,
-            AllocationClosureScheduler allocationClosureScheduler,
+            AllocationServiceImpl allocationClosureScheduler,
+            BenchService benchService,
             LedgerRetryService ledgerRetryService,
             DeadLetterQueueService deadLetterQueueService,
+            UnifiedCdcRetryService unifiedCdcRetryService,
             ResourceStateInitializationService resourceStateService,
             JobLoggingService jobLoggingService) {
         this.certificateExpiryScheduler = certificateExpiryScheduler;
         this.allocationClosureScheduler = allocationClosureScheduler;
+        this.benchService = benchService;
         this.ledgerRetryService = ledgerRetryService;
         this.deadLetterQueueService = deadLetterQueueService;
+        this.unifiedCdcRetryService = unifiedCdcRetryService;
         this.resourceStateService = resourceStateService;
         this.jobLoggingService = jobLoggingService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BATCH 1 — Daily midnight: business logic jobs
+    // BATCH 1 — Daily midnight: business-logic jobs
     // ═══════════════════════════════════════════════════════════════════════
 
     @Scheduled(cron = "0 0 0 * * ?")
     @SchedulerLock(
-            name            = "RMS_Daily_Midnight_Batch",
-            lockAtLeastFor  = "PT1H",
-            lockAtMostFor   = "PT6H"
+            name           = "RMS_Daily_Midnight_Batch",
+            lockAtLeastFor = "PT1H",
+            lockAtMostFor  = "PT6H"
     )
     public void runDailyMidnightBatch() {
         log.info("[{}] Starting RMS_Daily_Midnight_Batch", NODE_ID);
@@ -63,34 +84,30 @@ public class CentralizedJobScheduler {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BATCH 2 — Every 15 minutes: retry + DLQ processing
+    // BATCH 2 — 1:00 AM: nightly bench detection
     // ═══════════════════════════════════════════════════════════════════════
 
-    @Scheduled(fixedRate = 900_000)   // 15 minutes
+    @Scheduled(cron = "0 0 1 * * ?")
     @SchedulerLock(
-            name            = "RMS_Frequent_Retry_Job",
-            lockAtLeastFor  = "PT5M",
-            lockAtMostFor   = "PT15M"
+            name           = "RMS_Nightly_Bench_Detection",
+            lockAtLeastFor = "PT10M",
+            lockAtMostFor  = "PT30M"
     )
-    public void runFrequentRetryJobs() {
-        log.info("[{}] Starting RMS_Frequent_Retry_Job", NODE_ID);
-        runJob("LEDGER-FAILED-EVENTS-RETRY",
-                ledgerRetryService::processFailedEvents);
-        runJob("DLQ-PROCESSING-LEDGER",
-                ledgerRetryService::processDeadLetterQueue);
-        runJob("DLQ-PROCESSING-DEADLETTER",
-                deadLetterQueueService::processDeadLetterQueue);
+    public void runNightlyBenchDetection() {
+        log.info("[{}] Starting RMS_Nightly_Bench_Detection", NODE_ID);
+        runJob("BENCH-RESOURCE-DETECTION",
+                benchService::detectBenchResources);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BATCH 3 — Nightly early-morning: cleanup + integrity checks
+    // BATCH 3 — 2:00 AM: cleanup + integrity checks
     // ═══════════════════════════════════════════════════════════════════════
 
-    @Scheduled(cron = "0 0 2 * * ?")   // 2:00 AM
+    @Scheduled(cron = "0 0 2 * * ?")
     @SchedulerLock(
-            name            = "RMS_Nightly_Cleanup_Batch",
-            lockAtLeastFor  = "PT5M",
-            lockAtMostFor   = "PT30M"
+            name           = "RMS_Nightly_Cleanup_Batch",
+            lockAtLeastFor = "PT5M",
+            lockAtMostFor  = "PT30M"
     )
     public void runNightlyCleanupBatch() {
         log.info("[{}] Starting RMS_Nightly_Cleanup_Batch", NODE_ID);
@@ -104,13 +121,15 @@ public class CentralizedJobScheduler {
                 () -> jobLoggingService.deleteOldLogs(30));
     }
 
-    // NOTE: Event logs cleanup at 2:30 AM gets its own lock
-    // so it doesn't compete with the 2:00 AM batch for the same lock name
-    @Scheduled(cron = "0 30 2 * * ?")  // 2:30 AM
+    // ═══════════════════════════════════════════════════════════════════════
+    // BATCH 4 — 2:30 AM: event-log purge (separate lock — doesn't race BATCH 3)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    @Scheduled(cron = "0 30 2 * * ?")
     @SchedulerLock(
-            name            = "RMS_EventLogs_Cleanup",
-            lockAtLeastFor  = "PT2M",
-            lockAtMostFor   = "PT10M"
+            name           = "RMS_EventLogs_Cleanup",
+            lockAtLeastFor = "PT2M",
+            lockAtMostFor  = "PT10M"
     )
     public void runEventLogsCleanup() {
         log.info("[{}] Starting RMS_EventLogs_Cleanup", NODE_ID);
@@ -119,7 +138,34 @@ public class CentralizedJobScheduler {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Shared job runner — wraps every job with logging + error handling
+    // BATCH 5 — Every 15 minutes: retry + DLQ processing
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // lockAtMostFor must be LONGER than the worst-case job duration, not just the interval.
+    // Old CDC lock used PT20M; we keep that ceiling here so a slow CDC/ledger retry
+    // does not allow a second node to start the same batch before the first finishes.
+    @Scheduled(fixedRate = 900_000)
+    @SchedulerLock(
+            name           = "RMS_Frequent_Retry_Job",
+            lockAtLeastFor = "PT5M",
+            lockAtMostFor  = "PT20M"
+    )
+    public void runFrequentRetryJobs() {
+        log.info("[{}] Starting RMS_Frequent_Retry_Job", NODE_ID);
+        runJob("LEDGER-FAILED-EVENTS-RETRY",
+                ledgerRetryService::processFailedEvents);
+        runJob("DLQ-PROCESSING-LEDGER",
+                ledgerRetryService::processDeadLetterQueue);
+        runJob("DLQ-PROCESSING-DEADLETTER",
+                deadLetterQueueService::processDeadLetterQueue);
+        runJob("CDC-FAILED-EVENTS-RETRY",
+                unifiedCdcRetryService::processFailedCdcEvents);
+        runJob("CDC-DLQ-RETRY",
+                unifiedCdcRetryService::processCdcDlqEntries);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Shared job runner — uniform logging + per-job error isolation
     // ═══════════════════════════════════════════════════════════════════════
 
     private void runJob(String jobName, Runnable jobLogic) {

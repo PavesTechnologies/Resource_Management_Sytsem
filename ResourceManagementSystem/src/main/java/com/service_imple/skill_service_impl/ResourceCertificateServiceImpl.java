@@ -8,7 +8,7 @@ import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.Skill;
 import com.entity.resource_entities.Resource;
 import com.entity_enums.skill_enums.CertificateStatus;
-import com.global_exception_handler.CertificationComplianceException;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.CertificateRepository;
 import com.repo.skill_repo.ResourceCertificateRepository;
 import com.repo.skill_repo.SkillRepository;
@@ -48,12 +48,12 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         if (!isCustom) {
             master = certificateRepository.findById(dto.getCertificateId())
                     .orElseThrow(() ->
-                            new CertificationComplianceException("Certificate master not found"));
+                            SkillExceptionHandler.badRequest("Certificate master not found"));
         }
 
         // ✅ 3. Validate Custom Certificate
         if (isCustom && (dto.getCustomCertificateName() == null || dto.getCustomCertificateName().isBlank())) {
-            throw new CertificationComplianceException("Custom certificate name is required");
+            throw SkillExceptionHandler.badRequest("Custom certificate name is required");
         }
 
         // ✅ 4. Duplicate Check (only for existing certs)
@@ -66,7 +66,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                             );
 
             if (existing.isPresent()) {
-                throw new CertificationComplianceException(
+                throw SkillExceptionHandler.badRequest(
                         "Certificate already assigned to this resource"
                 );
             }
@@ -105,7 +105,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                 fileName = certificateFile.getOriginalFilename();
                 fileType = certificateFile.getContentType();
             } catch (IOException e) {
-                throw new CertificationComplianceException("Failed to process certificate file");
+                throw SkillExceptionHandler.badRequest("Failed to process certificate file");
             }
         }
 
@@ -152,12 +152,12 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         ResourceCertificate rc = resourceCertificateRepository
                 .findById(resourceCertificateId)
                 .orElseThrow(() ->
-                        new CertificationComplianceException("Certificate not found"));
+                        SkillExceptionHandler.badRequest("Certificate not found"));
 
         Certificate master = certificateRepository
                 .findById(rc.getCertificateId())
                 .orElseThrow(() ->
-                        new CertificationComplianceException("Master not found"));
+                        SkillExceptionHandler.badRequest("Master not found"));
 
         if (Boolean.TRUE.equals(master.getTimeBound())) {
 
@@ -185,7 +185,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     @Override
     public ResourceCertificate getCertificateById(UUID id) {
         return resourceCertificateRepository.findById(id)
-                .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found"));
     }
 
     /**
@@ -195,11 +195,11 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
      */
     private void validateResourceExistsAndActive(String resourceId) {
         Resource resource = resourceRepository.findById(resourceId)
-                .orElseThrow(() -> new CertificationComplianceException(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource not found with ID: " + resourceId));
         
         if (!Boolean.TRUE.equals(resource.getActiveFlag())) {
-            throw new CertificationComplianceException(
+            throw SkillExceptionHandler.badRequest(
                     "Resource is not active: " + resource.getFullName() + " (ID: " + resourceId + ")");
         }
     }
@@ -208,7 +208,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     @Transactional
     public ResourceCertificate updateResourceCertificate(UUID resourceCertificateId, ResourceCertificateRequestDTO dto, MultipartFile certificateFile) {
         ResourceCertificate existingResourceCertificate = resourceCertificateRepository.findById(resourceCertificateId)
-                .orElseThrow(() -> new CertificationComplianceException(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource certificate not found with ID: " + resourceCertificateId));
 
         // Validate resource exists and is active if changing resource
@@ -219,7 +219,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
         // Validate certificate exists if changing certificate
         if (!existingResourceCertificate.getCertificateId().equals(dto.getCertificateId())) {
             Certificate master = certificateRepository.findById(dto.getCertificateId())
-                    .orElseThrow(() -> new CertificationComplianceException("Certificate master not found"));
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate master not found"));
         }
 
         // Check for duplicate assignment if changing resource or certificate
@@ -230,7 +230,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                     .findByResourceIdAndCertificateIdAndActiveFlagTrue(dto.getResourceId(), dto.getCertificateId());
             
             if (existing.isPresent() && !existing.get().getId().equals(resourceCertificateId)) {
-                throw new CertificationComplianceException(
+                throw SkillExceptionHandler.badRequest(
                         "Certificate already assigned to this resource");
             }
         }
@@ -244,7 +244,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             
             // Recalculate expiry date and status if time-bound certificate
             Certificate master = certificateRepository.findById(existingResourceCertificate.getCertificateId())
-                    .orElseThrow(() -> new CertificationComplianceException("Certificate master not found"));
+                    .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate master not found"));
             
             if (Boolean.TRUE.equals(master.getTimeBound())) {
                 // Use manual expiry date if provided, otherwise calculate automatically
@@ -270,7 +270,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
                 existingResourceCertificate.setFileName(certificateFile.getOriginalFilename());
                 existingResourceCertificate.setFileType(certificateFile.getContentType());
             } catch (IOException e) {
-                throw new CertificationComplianceException("Failed to process certificate file: " + e.getMessage());
+                throw SkillExceptionHandler.badRequest("Failed to process certificate file: " + e.getMessage());
             }
         }
 
@@ -281,7 +281,7 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     @Transactional
     public String deleteResourceCertificate(UUID resourceCertificateId) {
         ResourceCertificate resourceCertificate = resourceCertificateRepository.findById(resourceCertificateId)
-                .orElseThrow(() -> new CertificationComplianceException(
+                .orElseThrow(() -> SkillExceptionHandler.badRequest(
                         "Resource certificate not found with ID: " + resourceCertificateId));
         
         // Hard delete from database
@@ -293,10 +293,10 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     public String approveCertificate(UUID id) {
 
         ResourceCertificate rc = resourceCertificateRepository.findById(id)
-                .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found"));
 
         if (rc.getStatus() != CertificateStatus.PENDING_APPROVAL) {
-            throw new CertificationComplianceException("Not in pending approval state");
+            throw SkillExceptionHandler.badRequest("Not in pending approval state");
         }
 
         // 🔥 Create new master certificate
@@ -317,10 +317,10 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     public String rejectCertificate(UUID id) {
 
         ResourceCertificate rc = resourceCertificateRepository.findById(id)
-                .orElseThrow(() -> new CertificationComplianceException("Certificate not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found"));
 
         if (rc.getStatus() != CertificateStatus.PENDING_APPROVAL) {
-            throw new CertificationComplianceException("Only pending certificates can be rejected");
+            throw SkillExceptionHandler.badRequest("Only pending certificates can be rejected");
         }
 
         rc.setStatus(CertificateStatus.REJECTED);

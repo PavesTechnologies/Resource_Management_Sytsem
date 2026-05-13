@@ -5,8 +5,6 @@ import com.cdc.failure.CdcFailureRepository;
 import com.cdc.service.EosDirectResyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +19,6 @@ public class UnifiedCdcRetryService {
     private final CdcFailureRepository cdcFailureRepository;
     private final EosDirectResyncService eosDirectResyncService;
 
-    @Scheduled(fixedRate = 900000) // Every 15 minutes
-    @SchedulerLock(name = "cdc-retry-failed-events", lockAtMostFor = "PT20M", lockAtLeastFor = "PT5M")
     @Transactional
     public void processFailedCdcEvents() {
         try {
@@ -37,13 +33,14 @@ public class UnifiedCdcRetryService {
                             event.getEntityId(), event.getEntityType(), e.getMessage(), e);
                 }
             }
+            
+            // Clean up old resolved failures after retry processing
+            cleanupOldCdcFailures();
         } catch (Exception e) {
             log.error("Error processing failed CDC events: {}", e.getMessage(), e);
         }
     }
 
-    @Scheduled(fixedRate = 900000) // Every 15 minutes
-    @SchedulerLock(name = "cdc-retry-dlq-entries", lockAtMostFor = "PT20M", lockAtLeastFor = "PT5M")
     @Transactional
     public void processCdcDlqEntries() {
         try {
@@ -58,6 +55,9 @@ public class UnifiedCdcRetryService {
                             dlqEntry.getEntityId(), dlqEntry.getEntityType(), e.getMessage(), e);
                 }
             }
+            
+            // Clean up old resolved failures after DLQ processing
+            cleanupOldCdcFailures();
         } catch (Exception e) {
             log.error("Error processing CDC DLQ: {}", e.getMessage(), e);
         }
@@ -159,7 +159,6 @@ public class UnifiedCdcRetryService {
         return LocalDateTime.now().plusMinutes(delayMinutes);
     }
 
-    @Scheduled(cron = "0 0 2 * * ?") // 2 AM daily
     @Transactional
     public void cleanupOldCdcFailures() {
         try {

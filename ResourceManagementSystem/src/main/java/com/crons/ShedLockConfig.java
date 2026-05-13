@@ -11,9 +11,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import javax.sql.DataSource;
 
+// defaultLockAtMostFor is a safety net for any @SchedulerLock that omits lockAtMostFor.
+// Set it conservatively high so a forgotten override never silently allows concurrent runs.
 @Configuration
 @EnableScheduling
-@EnableSchedulerLock(defaultLockAtMostFor = "PT10M")
+@EnableSchedulerLock(defaultLockAtMostFor = "PT30M")
 public class ShedLockConfig {
 
     @Bean
@@ -21,7 +23,7 @@ public class ShedLockConfig {
         return new JdbcTemplateLockProvider(
                 JdbcTemplateLockProvider.Configuration.builder()
                         .withJdbcTemplate(new JdbcTemplate(dataSource))
-                        .usingDbTime()
+                        .usingDbTime()   // uses DB clock → immune to JVM clock skew across nodes
                         .build()
         );
     }
@@ -32,6 +34,11 @@ public class ShedLockConfig {
         scheduler.setPoolSize(10);
         scheduler.setThreadNamePrefix("rms-cron-");
         scheduler.setRemoveOnCancelPolicy(true);
+        // On SIGTERM: wait up to 60 s for in-flight jobs to finish before the JVM exits.
+        // Without this, a job killed mid-run leaves its shedlock row locked until
+        // lockAtMostFor expires, blocking all other nodes for that entire window.
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(60);
         scheduler.initialize();
         return scheduler;
     }

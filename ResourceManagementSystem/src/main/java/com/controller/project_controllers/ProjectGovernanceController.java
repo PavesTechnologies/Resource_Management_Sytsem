@@ -83,12 +83,8 @@ public class ProjectGovernanceController {
     @PutMapping("/{projectId}")
     @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<String>> blockProjectUpdate(@PathVariable Long projectId) {
-
-        return ResponseEntity.status(403).body(
-                new ApiResponse<>(false,
-                        "Project data is read-only in RMS. Please update in PMS.",
-                        null)
-        );
+        return ResponseEntity.status(403)
+                .body(ApiResponse.error("Project data is read-only in RMS. Please update in PMS."));
     }
 
     @GetMapping("get-projects")
@@ -161,7 +157,7 @@ public class ProjectGovernanceController {
 
     @GetMapping("/get-locations")
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
-    public ResponseEntity<?> getLocations() {
+    public ResponseEntity<ApiResponse<?>> getLocations() {
         return projectGovernanceService.getLocationsByStatus();
     }
 
@@ -169,46 +165,29 @@ public class ProjectGovernanceController {
     @GetMapping("/kpi")
     @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
-        try {
-            // Total Projects count (excluding completed projects)
-            List<ProjectStatus> nonCompletedStatuses = List.of(
-                ProjectStatus.ACTIVE,
-                ProjectStatus.APPROVED,
-                ProjectStatus.ARCHIVED,
-                ProjectStatus.PLANNING
-            );
-            Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
+        List<ProjectStatus> nonCompletedStatuses = List.of(
+            ProjectStatus.ACTIVE,
+            ProjectStatus.APPROVED,
+            ProjectStatus.ARCHIVED,
+            ProjectStatus.PLANNING
+        );
+        Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
+        Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
+        Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
 
-            // Active Projects count
-            Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
-
-            // High Risk Projects count
-            Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
-
-            // Calculate Average Resource Utilization
-            // For now, we'll calculate this as (Active Projects / Total Projects) * 100
-            // This can be enhanced later with actual resource allocation data
-            Double avgResourceUtil = 0.0;
-            if (totalProjects != null && totalProjects > 0) {
-                avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
-            }
-
-            ProjectKpiDTO kpiDTO = new ProjectKpiDTO(
-                totalProjects != null ? totalProjects : 0L,
-                activeProjects != null ? activeProjects : 0L,
-                highRiskProjects != null ? highRiskProjects : 0L,
-                avgResourceUtil
-            );
-
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, "Project KPI data retrieved successfully", kpiDTO)
-            );
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                new ApiResponse<>(false, "Failed to retrieve project KPI data: " + e.getMessage(), null)
-            );
+        Double avgResourceUtil = 0.0;
+        if (totalProjects != null && totalProjects > 0) {
+            avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
         }
+
+        ProjectKpiDTO kpiDTO = new ProjectKpiDTO(
+            totalProjects != null ? totalProjects : 0L,
+            activeProjects != null ? activeProjects : 0L,
+            highRiskProjects != null ? highRiskProjects : 0L,
+            avgResourceUtil
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", kpiDTO));
     }
 
 }

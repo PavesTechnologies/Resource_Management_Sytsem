@@ -2,6 +2,7 @@ package com.service_imple.allocation_service_imple;
 
 import com.dto.allocation_dto.*;
 import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.dto.resource.ResourceNameDTO;
 import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
@@ -13,7 +14,7 @@ import com.entity_enums.allocation_enums.ApprovalStatus;
 import com.entity_enums.bench.StateType;
 import com.entity_enums.bench.SubState;
 import com.entity_enums.demand_enums.DemandStatus;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.AllocationExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.bench_repo.ResourceStateRepository;
 import com.repo.demand_repo.DemandSLARepository;
@@ -90,11 +91,13 @@ public class AllocationServiceImpl implements AllocationService {
 
             return buildAllocationResponse(savedAllocations, validationResult.getFailures());
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.badRequest().body(response.getAPIResponse(false, e.getMessage(), null));
         } catch (Exception e) {
             log.error("Error creating allocation: {}", e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error creating allocation", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error creating allocation", null));
         }
     }
 
@@ -103,17 +106,19 @@ public class AllocationServiceImpl implements AllocationService {
         try {
             Optional<ResourceAllocation> allocation = allocationRepository.findById(allocationId);
             if (allocation.isPresent()) {
-                ApiResponse<?> response = new ApiResponse<>(true, "Allocation found", mapToResponseDTO(allocation.get()));
-                return ResponseEntity.ok(response);
+                ApiResponse<Object> response = new ApiResponse<>();
+                return ResponseEntity.ok(response.getAPIResponse(true, "Allocation found", mapToResponseDTO(allocation.get())));
             }
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             log.error("Error retrieving allocation {}: {}", allocationId, e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error retrieving allocation", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error retrieving allocation", null));
         }
     }
 
     @Override
+    @Transactional
     @Caching(evict = {
         @CacheEvict(value = "active-allocations", allEntries = true),
         @CacheEvict(value = "dashboard-kpis", allEntries = true),
@@ -128,23 +133,19 @@ public class AllocationServiceImpl implements AllocationService {
 
             ResourceAllocation allocation = existingAllocation.get();
             if (allocation.getAllocationStatus() == AllocationStatus.ENDED || allocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Closed or cancelled allocations cannot be modified", null));
+                ApiResponse<Object> response = new ApiResponse<>();
+                return ResponseEntity.badRequest().body(response.getAPIResponse(false, "Closed or cancelled allocations cannot be modified", null));
+            }
+
+            if (allocationRequest.getAllocationStatus() == AllocationStatus.ENDED) {
+                throw new AllocationExceptionHandler(HttpStatus.BAD_REQUEST, "USE_ROLE_OFF_FLOW",
+                        "Use the role-off flow to end an allocation.");
             }
 
             allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
             allocation.setAllocationEndDate(allocationRequest.getAllocationEndDate());
             allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
             allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
-
-            if (allocationRequest.getAllocationStatus() == AllocationStatus.ENDED) {
-                if (allocationRequest.getRoleOffReason() == null || allocationRequest.getRoleOffDate() == null) {
-                    throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "ROLE_OFF_INFO_REQUIRED", "Role-off reason and date are required.");
-                }
-                allocation.setRoleOffReason(allocationRequest.getRoleOffReason());
-                allocation.setRoleOffDate(allocationRequest.getRoleOffDate());
-                allocation.setClosedBy("SYSTEM");
-                allocation.setClosedAt(LocalDateTime.now());
-            }
 
             validateResourceCapacityForUpdate(allocationId, allocationRequest);
             ResourceAllocation updatedAllocation = allocationRepository.save(allocation);
@@ -168,15 +169,17 @@ public class AllocationServiceImpl implements AllocationService {
                 checkAndUpdateDemandFulfillment(updatedAllocation.getDemand().getDemandId());
             }
 
-            ApiResponse<?> response = new ApiResponse<>(true, "Allocation updated successfully", mapToResponseDTO(updatedAllocation));
-            return ResponseEntity.ok(response);
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.ok(response.getAPIResponse(true, "Allocation updated successfully", mapToResponseDTO(updatedAllocation)));
         } catch (Exception e) {
             log.error("Error updating allocation {}: {}", allocationId, e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error updating allocation", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error updating allocation", null));
         }
     }
 
     @Override
+    @Transactional
     public ResponseEntity<ApiResponse<?>> cancelAllocation(UUID allocationId, String cancelledBy) {
         try {
             Optional<ResourceAllocation> existingAllocation = allocationRepository.findById(allocationId);
@@ -194,11 +197,12 @@ public class AllocationServiceImpl implements AllocationService {
                 checkAndUpdateDemandFulfillment(cancelledAllocation.getDemand().getDemandId());
             }
 
-            ApiResponse<?> response = new ApiResponse<>(true, "Allocation cancelled successfully", mapToResponseDTO(cancelledAllocation));
-            return ResponseEntity.ok(response);
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.ok(response.getAPIResponse(true, "Allocation cancelled successfully", mapToResponseDTO(cancelledAllocation)));
         } catch (Exception e) {
             log.error("Error cancelling allocation {}: {}", allocationId, e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error cancelling allocation", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error cancelling allocation", null));
         }
     }
 
@@ -238,7 +242,8 @@ public class AllocationServiceImpl implements AllocationService {
         resourceStateRepository.save(state);
         allocationRepository.save(allocation);
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Approved", null));
+        ApiResponse<Object> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true, "Approved", null));
     }
 
     @Override
@@ -253,8 +258,9 @@ public class AllocationServiceImpl implements AllocationService {
         }
 
         if (reason == null || reason.isBlank()) {
+            ApiResponse<Object> response = new ApiResponse<>();
             return ResponseEntity.badRequest()
-                    .body(new ApiResponse<>(false, "Rejection reason required", null));
+                    .body(response.getAPIResponse(false, "Rejection reason required", null));
         }
 
         allocation.setApprovalStatus(ApprovalStatus.REJECTED);
@@ -264,7 +270,8 @@ public class AllocationServiceImpl implements AllocationService {
 
         allocationRepository.save(allocation);
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Rejected", null));
+        ApiResponse<Object> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true, "Rejected", null));
     }
 
     private void moveToProjectState(ResourceState currentState) {
@@ -291,9 +298,8 @@ public class AllocationServiceImpl implements AllocationService {
         List<ResourceAllocation> list =
                 allocationRepository.findByApprovalStatus(ApprovalStatus.PENDING);
 
-        return ResponseEntity.ok(
-                new ApiResponse<>(true, "Pending approvals", list)
-        );
+        ApiResponse<Object> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true, "Pending approvals", list));
     }
 
     @Override
@@ -301,17 +307,19 @@ public class AllocationServiceImpl implements AllocationService {
         try {
             List<AllocationResponseDTO> responseList = allocationRepository.findByResource_ResourceId(resourceId).stream()
                     .map(this::mapToResponseDTO).collect(Collectors.toList());
-            ApiResponse<?> response = new ApiResponse<>(true, "Allocations retrieved successfully", responseList);
-            return ResponseEntity.ok(response);
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.ok(response.getAPIResponse(true, "Allocations retrieved successfully", responseList));
         } catch (Exception e) {
             log.error("Error retrieving allocations for resource {}: {}", resourceId, e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error retrieving allocations", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error retrieving allocations", null));
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> getOverrideAllocations() {
-        return ResponseEntity.ok(ApiResponse.success("Override allocations retrieved", allocationModificationRepository.findByOverrideFlagTrue()));
+        ApiResponse<Object> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true, "Override allocations retrieved", allocationModificationRepository.findByOverrideFlagTrue()));
     }
 
     @Override
@@ -319,11 +327,12 @@ public class AllocationServiceImpl implements AllocationService {
         try {
             List<AllocationResponseDTO> responseList = allocationRepository.findByDemand_DemandId(demandId).stream()
                     .map(this::mapToResponseDTO).collect(Collectors.toList());
-            ApiResponse<?> response = new ApiResponse<>(true, "Allocations retrieved successfully", responseList);
-            return ResponseEntity.ok(response);
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.ok(response.getAPIResponse(true, "Allocations retrieved successfully", responseList));
         } catch (Exception e) {
             log.error("Error retrieving allocations for demand {}: {}", demandId, e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error retrieving allocations", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error retrieving allocations", null));
         }
     }
 
@@ -332,11 +341,12 @@ public class AllocationServiceImpl implements AllocationService {
         try {
             List<AllocationResponseDTO> responseList = allocationRepository.findByProject_PmsProjectId(projectId).stream()
                     .map(this::mapToResponseDTO).collect(Collectors.toList());
-            ApiResponse<?> response = new ApiResponse<>(true, "Allocations retrieved successfully", responseList);
-            return ResponseEntity.ok(response);
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.ok(response.getAPIResponse(true, "Allocations retrieved successfully", responseList));
         } catch (Exception e) {
             log.error("Error retrieving allocations for project {}: {}", projectId, e.getMessage());
-            return ResponseEntity.internalServerError().body(new ApiResponse<>(false, "Error retrieving allocations", null));
+            ApiResponse<Object> response = new ApiResponse<>();
+            return ResponseEntity.internalServerError().body(response.getAPIResponse(false, "Error retrieving allocations", null));
         }
     }
 
@@ -344,19 +354,19 @@ public class AllocationServiceImpl implements AllocationService {
     public ResponseEntity<ApiResponse<?>> analyzeSkillGap(SkillGapAnalysisRequestDTO request) {
         try {
             Demand demand = demandRepository.findById(request.getDemandId())
-                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "DEMAND_NOT_FOUND", "Demand not found"));
+                .orElseThrow(() -> new AllocationExceptionHandler(HttpStatus.NOT_FOUND, "DEMAND_NOT_FOUND", "Demand not found"));
 
             if (!resourceRepository.existsById(request.getResourceId())) {
-                throw new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found");
+                throw new AllocationExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found");
             }
 
             ApiResponse<?> response = new ApiResponse<>(true, "Skill gap analysis completed", skillGapService.performSkillGapAnalysis(demand, request.getResourceId()));
             return ResponseEntity.ok(response);
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             log.error("Failed to analyze skill gap: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new ApiResponse<>(false, "Failed to analyze skill gap", null));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiResponse.error("Failed to analyze skill gap"));
         }
     }
 
@@ -385,9 +395,67 @@ public class AllocationServiceImpl implements AllocationService {
         return conflictService.getAllPendingConflicts();
     }
 
+    @Override
+    public ResponseEntity<ApiResponse<?>> quickAllocateResource(String resourceId, UUID demandId, Integer allocationPercentage, UserDTO user) {
+        log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
+                resourceId, demandId, user.getName(), allocationPercentage);
+
+        // Create quick allocation DTO from parameters
+        QuickAllocationDTO quickAllocation = QuickAllocationDTO.builder()
+                .resourceId(resourceId)
+                .demandId(demandId)
+                .allocationPercentage(allocationPercentage)
+                .build();
+        
+        // Convert quick allocation to full allocation request
+        AllocationRequestDTO allocationRequest = buildAllocationRequest(quickAllocation, user);
+
+        // Use existing allocation service with full validation
+        return assignAllocation(allocationRequest);
+    }
+
+    /**
+     * Build full AllocationRequestDTO from QuickAllocationDTO with smart defaults
+     */
+    private AllocationRequestDTO buildAllocationRequest(QuickAllocationDTO quickAllocation, UserDTO user) {
+        return AllocationRequestDTO.builder()
+                .resourceId(List.of(quickAllocation.getResourceId()))
+                .demandId(quickAllocation.getDemandId())
+                .allocationPercentage(quickAllocation.getAllocationPercentage())
+                .allocationStartDate(calculateStartDate(quickAllocation.getDemandId()))
+                .allocationEndDate(calculateEndDate(quickAllocation.getDemandId()))
+                .allocationStatus(AllocationStatus.ACTIVE)
+                .createdBy(user.getName())
+                .skipValidation(false)
+                .build();
+    }
+
+    /**
+     * Calculate smart start date based on demand
+     */
+    private java.time.LocalDate calculateStartDate(UUID demandId) {
+        return demandRepository.findById(demandId)
+                .map(demand -> {
+                    java.time.LocalDate demandStart = demand.getDemandStartDate();
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    // Use demand start date if it's today or future, otherwise start today
+                    return demandStart.isAfter(today) ? demandStart : today;
+                })
+                .orElseGet(java.time.LocalDate::now); // Fallback to today if demand not found
+    }
+
+    /**
+     * Calculate smart end date based on demand
+     */
+    private java.time.LocalDate calculateEndDate(UUID demandId) {
+        return demandRepository.findById(demandId)
+                .map(demand -> demand.getDemandEndDate())
+                .orElseGet(() -> java.time.LocalDate.now().plusMonths(6)); // Fallback to 6 months
+    }
+
 
     @Override
-    public ResponseEntity<?> getProjectResources(Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getProjectResources(Long projectId) {
         List<ResourceNameDTO> resources = allocationRepository.findResourcesByProjectId(projectId).stream()
                 .map(r -> new ResourceNameDTO(r.getFullName(), r.getResourceId(), r.getDesignation())).collect(Collectors.toList());
         return ResponseEntity.ok(new ApiResponse<>(true, "Resources by Project Id", resources));
@@ -480,20 +548,20 @@ public class AllocationServiceImpl implements AllocationService {
         // Get internal pool allocation
         ResourceState state = resourceStateRepository
                 .findByResourceIdAndCurrentFlagTrue(request.getResourceId().get(0))
-                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "RESOURCE_STATE_MISSING", "Resource state not found"));
+                .orElseThrow(() -> new AllocationExceptionHandler(HttpStatus.BAD_REQUEST, "RESOURCE_STATE_MISSING", "Resource state not found"));
         
         int internalAllocation = state.getInternalAllocationPercentage() != null ? state.getInternalAllocationPercentage() : 0;
         int requested = request.getAllocationPercentage();
         int totalAllocation = internalAllocation + existingProjectAllocations + requested;
         
         if (totalAllocation > 130) {
-            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "MAX_ALLOCATION_EXCEEDED", 
+            throw new AllocationExceptionHandler(HttpStatus.BAD_REQUEST, "MAX_ALLOCATION_EXCEEDED", 
                 String.format("Total allocation would be %d%% (Internal: %d%%, Project: %d%%, Requested: %d%%) which exceeds the maximum allowed limit of 130%%",
                     totalAllocation, internalAllocation, existingProjectAllocations, requested));
         }
         
         if (totalAllocation > 100 && !Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
-            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "CAPACITY_APPROVAL_REQUIRED", 
+            throw new AllocationExceptionHandler(HttpStatus.BAD_REQUEST, "CAPACITY_APPROVAL_REQUIRED", 
                 "Allocation exceeds 100% and requires special condition approval");
         }
     }
@@ -539,7 +607,8 @@ public class AllocationServiceImpl implements AllocationService {
         ledgerAsyncService.updateLedgerAsync(allocation);
     }
 
-    private void checkAndUpdateDemandFulfillment(UUID demandId) {
+    @Override
+    public void checkAndUpdateDemandFulfillment(UUID demandId) {
         try {
             Demand demand = demandRepository.findById(demandId).orElse(null);
             if (demand == null) return;
@@ -600,5 +669,18 @@ public class AllocationServiceImpl implements AllocationService {
     @Cacheable(value = "active-allocations", key = "#resourceId + '-' + #date")
     public List<ResourceAllocation> findActiveAllocationsForResourceOnDate(String resourceId, LocalDate date) {
         return allocationRepository.findActiveAllocationsForResourceOnDate(resourceId, date);
+    }
+
+    @Transactional
+    public void processAutoClosures() {
+        try {
+            LocalDate today = LocalDate.now();
+            int updated = allocationRepository.autoCloseAllocations(today, AllocationStatus.ENDED);
+            if (updated > 0) {
+                log.info("Auto-closed {} expired allocations", updated);
+            }
+        } catch (Exception e) {
+            log.error("Failed to process auto-closures: {}", e.getMessage());
+        }
     }
 }

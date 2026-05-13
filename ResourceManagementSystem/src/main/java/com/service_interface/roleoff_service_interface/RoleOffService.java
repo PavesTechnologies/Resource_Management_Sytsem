@@ -1,5 +1,6 @@
 package com.service_interface.roleoff_service_interface;
 
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
@@ -14,7 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface RoleOffService {
-    public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO);
+    public ResponseEntity<ApiResponse<?>> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO);
     
     /**
      * Create manual replacement demand for a role-off event
@@ -62,69 +63,69 @@ public interface RoleOffService {
      * Get role-off event by specific ID
      */
     RoleOffEvent getRoleOffEventById(UUID id);
-    public ResponseEntity<?> getResources(Long pmId, Long projectId);
+    public ResponseEntity<ApiResponse<?>> getResources(Long pmId, Long projectId);
 //    public ResponseEntity<?> getRoleOffKPI(Long projectId);
-    public ResponseEntity<?> getRoleOffKPI(Long projectId, Long managerId);
-    ResponseEntity<?> getRMRoleOffEvents(Long rmId);
+    public ResponseEntity<ApiResponse<?>> getRoleOffKPI(Long projectId, Long managerId);
+    ResponseEntity<ApiResponse<?>> getRMRoleOffEvents(Long rmId);
 
     // ========== SEPARATE APPROVE/REJECT METHODS FOR RESOURCE MANAGER ==========
 
     /**
      * Approve role-off event by Resource Manager
      */
-    ResponseEntity<?> rmApprove(UUID id, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> rmApprove(UUID id, UserDTO userDTO);
 
     /**
      * Reject role-off event by Resource Manager with reason
      */
-    ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> rmReject(UUID id, String rejectionReason, UserDTO userDTO);
 
     // ========== SEPARATE FULFILL/REJECT METHODS FOR DELIVERY MANAGER ==========
 
     /**
      * Fulfill role-off event by Delivery Manager
      */
-    ResponseEntity<?> dlFulfill(UUID id, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> dlFulfill(UUID id, UserDTO userDTO);
 
     /**
      * Reject role-off event by Delivery Manager with reason
      */
-    ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userDTO);
-    ResponseEntity<?> getDMRoleOffEvents(Long dmId);
+    ResponseEntity<ApiResponse<?>> dlReject(UUID id, String rejectionReason, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> getDMRoleOffEvents(Long dmId);
     
     // ========== PROJECT MANAGER METHODS ==========
     
     /**
      * Cancel role-off event by Project Manager
      */
-    ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> pmCancel(UUID id, UserDTO userDTO);
 
     // ========== BULK ROLE-OFF METHODS FOR PLANNED ROLE TYPE ==========
 
     /**
      * Bulk role-off for planned role type (e.g., project end scenarios)
      */
-    ResponseEntity<?> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO);
 
     /**
      * Bulk approve role-off events by Resource Manager
      */
-    ResponseEntity<?> bulkRmApprove(List<UUID> ids, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> bulkRmApprove(List<UUID> ids, UserDTO userDTO);
 
     /**
      * Bulk reject role-off events by Resource Manager with reason
      */
-    ResponseEntity<?> bulkRmReject(List<UUID> ids, String rejectionReason, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> bulkRmReject(List<UUID> ids, String rejectionReason, UserDTO userDTO);
 
     /**
      * Bulk fulfill role-off events by Delivery Manager
      */
-    ResponseEntity<?> bulkDlFulfill(List<UUID> ids, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> bulkDlFulfill(List<UUID> ids, UserDTO userDTO);
 
     /**
      * Bulk reject role-off events by Delivery Manager with reason
      */
-    ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, UserDTO userDTO);
+    ResponseEntity<ApiResponse<?>> bulkDlReject(List<UUID> ids, String rejectionReason, UserDTO userDTO);
 
     /**
      * Handles attrition for a resource by closing allocations and creating replacements
@@ -144,10 +145,10 @@ public interface RoleOffService {
     /**
      * Get role-offs approved today by delivery manager for KPI tracking
      */
-    ResponseEntity<?> getRoleOffsApprovedToday(Long projectId, Long managerId);
+    ResponseEntity<ApiResponse<?>> getRoleOffsApprovedToday(Long projectId, Long managerId);
 
     /**
      * Get fulfilled role-offs for delivery manager
      */
-    ResponseEntity<?> getFulfilledRoleOffEvents(Long dmId);
+    ResponseEntity<ApiResponse<?>> getFulfilledRoleOffEvents(Long dmId);
 }

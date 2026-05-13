@@ -9,7 +9,7 @@ import com.entity.allocation_entities.AllocationModification;
 import com.entity.allocation_entities.ResourceAllocation;
 import com.entity_enums.allocation_enums.AllocationModificationStatus;
 import com.entity_enums.allocation_enums.AllocationStatus;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.AllocationExceptionHandler;
 import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.allocation_repo.AllocationRepository;
 import com.service_interface.allocation_service_interface.AllocationModificationService;
@@ -67,7 +67,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
 
             // Get allocation
             ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
 
             // System determines if override is needed
             boolean overrideRequired = validator.checkIfOverrideRequired(
@@ -91,13 +91,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     convertToResponseDTO(savedModification))
             );
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (AllocationExceptionHandler e) {
             return ResponseEntity.badRequest().body(
-                new ApiResponse<>(false, e.getMessage(), null)
+                ApiResponse.error(e.getMessage())
             );
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(
-                new ApiResponse<>(false, "Error creating allocation change: " + e.getMessage(), null)
+                ApiResponse.error("Error creating allocation change: " + e.getMessage())
             );
         }
     }
@@ -142,7 +142,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     modification.setOverrideEndDate(overrideEndDate);
                 } else {
                     // For longer allocations, override end date is required
-                    throw ProjectExceptionHandler.badRequest("OVERRIDE_END_DATE_REQUIRED_FOR_OVER_ALLOCATION");
+                    throw AllocationExceptionHandler.badRequest("OVERRIDE_END_DATE_REQUIRED_FOR_OVER_ALLOCATION");
                 }
             } else {
                 modification.setOverrideEndDate(overrideEndDate);
@@ -200,11 +200,11 @@ public class AllocationModificationServiceImpl implements AllocationModification
         
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation change request not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation change request not found"));
 
             // Validate RM role
             if (!isResourceManager(rmUser)) {
-                throw ProjectExceptionHandler.badRequest("RESOURCE_MANAGER_APPROVAL_REQUIRED");
+                throw AllocationExceptionHandler.badRequest("RESOURCE_MANAGER_APPROVAL_REQUIRED");
             }
 
             // Process approval decision
@@ -213,16 +213,16 @@ public class AllocationModificationServiceImpl implements AllocationModification
             } else if ("REJECT".equalsIgnoreCase(decision)) {
                 return rejectAllocationChange(modification, approvalComments, rmUser);
             } else {
-                throw ProjectExceptionHandler.badRequest("INVALID_DECISION");
+                throw AllocationExceptionHandler.badRequest("INVALID_DECISION");
             }
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (AllocationExceptionHandler e) {
             return ResponseEntity.badRequest().body(
-                new ApiResponse<>(false, e.getMessage(), null)
+                ApiResponse.error(e.getMessage())
             );
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(
-                new ApiResponse<>(false, "Error processing approval: " + e.getMessage(), null)
+                ApiResponse.error("Error processing approval: " + e.getMessage())
             );
         }
     }
@@ -305,7 +305,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
     public ResponseEntity<ApiResponse<?>> getPendingApprovals(UserDTO rmUser) {
         try {
             if (!isResourceManager(rmUser)) {
-                throw ProjectExceptionHandler.badRequest("RESOURCE_MANAGER_ACCESS_REQUIRED");
+                throw AllocationExceptionHandler.badRequest("RESOURCE_MANAGER_ACCESS_REQUIRED");
             }
 
             List<AllocationModification> pendingApprovals = modificationRepository
@@ -318,13 +318,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
                         .collect(Collectors.toList()))
             );
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (AllocationExceptionHandler e) {
             return ResponseEntity.badRequest().body(
-                new ApiResponse<>(false, e.getMessage(), null)
+                ApiResponse.error(e.getMessage())
             );
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(
-                new ApiResponse<>(false, "Error retrieving pending approvals: " + e.getMessage(), null)
+                ApiResponse.error("Error retrieving pending approvals: " + e.getMessage())
             );
         }
     }
@@ -349,7 +349,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
 
             // Get allocation for modification creation
             ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
 
             // Check if override is needed
             boolean isOverride = checkIfOverrideRequired(allocation.getResource().getResourceId(), dto);
@@ -381,13 +381,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
             AllocationModification savedModification = modificationRepository.save(modification);
 
             AllocationModificationResponseDTO responseDTO = convertToResponseDTO(savedModification);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Allocation modification request created successfully", responseDTO));
+            return ResponseEntity.ok(ApiResponse.success("Allocation modification request created successfully", responseDTO));
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error creating modification request: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error creating modification request: " + e.getMessage()));
         }
     }
 
@@ -396,7 +396,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
     public ResponseEntity<ApiResponse<?>> processModificationDecision(UUID modificationId, AllocationModificationDecisionDTO dto, UserDTO userDTO) {
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Modification request not found"));
 
             // Validate modification state and decision
             validator.validateModificationDecision(modification, dto.getDecision(), dto.getRejectionReason());
@@ -424,13 +424,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
 
             modificationRepository.save(modification);
             AllocationModificationResponseDTO responseDTO = convertToResponseDTO(modification);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modification decision processed successfully", responseDTO));
+            return ResponseEntity.ok(ApiResponse.success("Modification decision processed successfully", responseDTO));
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error processing modification decision: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error processing modification decision: " + e.getMessage()));
         }
     }
 
@@ -440,10 +440,10 @@ public class AllocationModificationServiceImpl implements AllocationModification
     public ResponseEntity<ApiResponse<?>> cancelModification(UUID modificationId, UserDTO userDTO) {
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Modification request not found"));
 
             if (!AllocationModificationStatus.REQUESTED.equals(modification.getStatus())) {
-                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Only REQUESTED modifications can be cancelled", null));
+                return ResponseEntity.badRequest().body(ApiResponse.error("Only REQUESTED modifications can be cancelled"));
             }
 
             // Validate user can cancel this modification
@@ -453,13 +453,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
             modificationRepository.save(modification);
 
             AllocationModificationResponseDTO responseDTO = convertToResponseDTO(modification);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modification request cancelled successfully", responseDTO));
+            return ResponseEntity.ok(ApiResponse.success("Modification request cancelled successfully", responseDTO));
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error cancelling modification: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error cancelling modification: " + e.getMessage()));
         }
     }
 
@@ -467,14 +467,14 @@ public class AllocationModificationServiceImpl implements AllocationModification
     public ResponseEntity<ApiResponse<AllocationModificationResponseDTO>> getModificationById(UUID modificationId) {
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Modification request not found"));
 
             AllocationModificationResponseDTO responseDTO = convertToResponseDTO(modification);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modification retrieved successfully", responseDTO));
+            return ResponseEntity.ok(ApiResponse.success("Modification retrieved successfully", responseDTO));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error retrieving modification: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving modification: " + e.getMessage()));
         }
     }
 
@@ -486,11 +486,11 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     .map(this::convertToResponseDTO)
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modifications retrieved successfully", responseDTOs));
+            return ResponseEntity.ok(ApiResponse.success("Modifications retrieved successfully", responseDTOs));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error retrieving modifications: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving modifications: " + e.getMessage()));
         }
     }
 
@@ -502,11 +502,11 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     .map(this::convertToResponseDTO)
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modifications retrieved successfully", responseDTOs));
+            return ResponseEntity.ok(ApiResponse.success("Modifications retrieved successfully", responseDTOs));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error retrieving modifications: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving modifications: " + e.getMessage()));
         }
     }
 
@@ -518,11 +518,11 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     .map(this::convertToResponseDTO)
                     .collect(Collectors.toList());
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modifications retrieved successfully for demand", responseDTOs));
+            return ResponseEntity.ok(ApiResponse.success("Modifications retrieved successfully for demand", responseDTOs));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error retrieving modifications for demand: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving modifications for demand: " + e.getMessage()));
         }
     }
 
@@ -530,16 +530,16 @@ public class AllocationModificationServiceImpl implements AllocationModification
         try {
             // For Role-Off, we create a modification request that's immediately fulfilled
             ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
 
             // Validate basic allocation status
             if (!AllocationStatus.ACTIVE.equals(allocation.getAllocationStatus())) {
-                throw ProjectExceptionHandler.badRequest("INVALID_ALLOCATION_STATUS");
+                throw AllocationExceptionHandler.badRequest("INVALID_ALLOCATION_STATUS");
             }
 
             // Validate effective date
             if (dto.getEffectiveDate().isBefore(LocalDate.now())) {
-                throw ProjectExceptionHandler.badRequest("EFFECTIVE_DATE_IN_PAST");
+                throw AllocationExceptionHandler.badRequest("EFFECTIVE_DATE_IN_PAST");
             }
 
             // Create Role-Off modification request
@@ -561,13 +561,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
             modificationRepository.save(modification);
 
             AllocationModificationResponseDTO responseDTO = convertToResponseDTO(modification);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Role-Off process completed successfully", responseDTO));
+            return ResponseEntity.ok(ApiResponse.success("Role-Off process completed successfully", responseDTO));
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error processing Role-Off: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error processing Role-Off: " + e.getMessage()));
         }
     }
 
@@ -608,7 +608,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
     private ResponseEntity<ApiResponse<?>> executeModification(UUID modificationId) {
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Modification request not found"));
 
             ResourceAllocation originalAllocation = modification.getAllocation();
             LocalDate effectiveDate = modification.getEffectiveDate();
@@ -622,11 +622,11 @@ public class AllocationModificationServiceImpl implements AllocationModification
             // Handle percentage change with period split and override expiration
             return handlePercentageModification(originalAllocation, effectiveDate, newPercentage, modification);
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error executing modification: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error executing modification: " + e.getMessage()));
         }
     }
 
@@ -651,7 +651,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
             allocationService.updateAvailabilityLedgerForAllocation(allocation);
         }
         
-        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off modification executed successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("Role-off modification executed successfully", null));
     }
 
     /**
@@ -666,7 +666,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
         // Validate effective date is within allocation period
         if (effectiveDate.isBefore(originalAllocation.getAllocationStartDate()) || 
             effectiveDate.isAfter(originalAllocation.getAllocationEndDate())) {
-            throw ProjectExceptionHandler.badRequest("Effective date must be within allocation period");
+            throw AllocationExceptionHandler.badRequest("Effective date must be within allocation period");
         }
         
         // Validate total allocation won't exceed 100%
@@ -681,7 +681,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
                 originalAllocation.setAllocationPercentage(newPercentage);
                 allocationRepository.save(originalAllocation);
                 allocationService.updateAvailabilityLedgerForAllocation(originalAllocation);
-                return ResponseEntity.ok(new ApiResponse<>(true, "Allocation percentage updated successfully", null));
+                return ResponseEntity.ok(ApiResponse.success("Allocation percentage updated successfully", null));
             }
         }
         
@@ -728,7 +728,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
         
         // Validate override end date is within allocation period
         if (overrideEndDate.isAfter(originalEndDate)) {
-            throw ProjectExceptionHandler.badRequest("Override end date cannot exceed allocation end date");
+            throw AllocationExceptionHandler.badRequest("Override end date cannot exceed allocation end date");
         }
         
         // Update original allocation to be the override period
@@ -746,12 +746,12 @@ public class AllocationModificationServiceImpl implements AllocationModification
             allocationService.updateAvailabilityLedgerForAllocation(normalPeriodAllocation);
         }
         
-        return ResponseEntity.ok(new ApiResponse<>(true, 
+        return ResponseEntity.ok(ApiResponse.success(
             "Override with expiration created successfully. Override period: " + 
             original.getAllocationStartDate() + " to " + overrideEndDate + 
             " (" + overridePercentage + "%)" + 
             (normalPeriodStart.isBefore(originalEndDate) || normalPeriodStart.equals(originalEndDate) ? 
-                ", Normal period resumes: " + normalPeriodStart + " to " + originalEndDate : ""), null));
+                ", Normal period resumes: " + normalPeriodStart + " to " + originalEndDate : "")));
     }
 
     /**
@@ -768,7 +768,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
         
         // Validate override end date is within allocation period
         if (overrideEndDate.isAfter(originalEndDate)) {
-            throw ProjectExceptionHandler.badRequest("Override end date cannot exceed allocation end date");
+            throw AllocationExceptionHandler.badRequest("Override end date cannot exceed allocation end date");
         }
         
         // Period 1: Original allocation (shortened) - only if effective date is after start date
@@ -798,13 +798,13 @@ public class AllocationModificationServiceImpl implements AllocationModification
             allocationService.updateAvailabilityLedgerForAllocation(normalPeriod);
         }
         
-        return ResponseEntity.ok(new ApiResponse<>(true, 
+        return ResponseEntity.ok(ApiResponse.success(
             "Override with expiration executed successfully. Created periods: " +
             (effectiveDate.isAfter(original.getAllocationStartDate()) ? 
                 "Original (" + original.getAllocationStartDate() + " to " + effectiveDate.minusDays(1) + "), " : "") +
             "Override (" + effectiveDate + " to " + overrideEndDate + ", " + overridePercentage + "%)" +
             (normalPeriodStart.isBefore(originalEndDate) || normalPeriodStart.equals(originalEndDate) ? 
-                ", Normal (resumes " + normalPeriodStart + " to " + originalEndDate + ")" : ""), null));
+                ", Normal (resumes " + normalPeriodStart + " to " + originalEndDate + ")" : "")));
     }
 
     /**
@@ -844,7 +844,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
         // Update ledger for the new allocation period
         allocationService.updateAvailabilityLedgerForAllocation(newAllocation);
         
-        return ResponseEntity.ok(new ApiResponse<>(true, "Allocation modification executed successfully with period split", null));
+        return ResponseEntity.ok(ApiResponse.success("Allocation modification executed successfully with period split", null));
     }
 
     /**
@@ -871,7 +871,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
             
             // Validate against 100% capacity
             if (newTotalAllocation > 100) {
-                throw ProjectExceptionHandler.badRequest(
+                throw AllocationExceptionHandler.badRequest(
                     String.format("Modification would result in %d%% total allocation for resource on %s. " +
                                 "Maximum allowed is 100%%. Other allocations: %d%%, This allocation: %d%%",
                                 newTotalAllocation, effectiveDate, otherAllocationsTotal, newPercentage));
@@ -888,29 +888,29 @@ public class AllocationModificationServiceImpl implements AllocationModification
     public ResponseEntity<ApiResponse<?>> deleteModification(UUID modificationId, UserDTO userDTO) {
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)
-                    .orElseThrow(() -> ProjectExceptionHandler.notFound("Modification request not found"));
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Modification request not found"));
 
             // Check if the modification belongs to the current project manager
             if (!modification.getRequestedBy().equals(userDTO.getName())) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "You can only delete your own modification requests", null));
+                        .body(ApiResponse.error("You can only delete your own modification requests"));
             }
 
             // Check if modification is still requested (can only delete requested modifications)
             if (modification.getStatus() != AllocationModificationStatus.REQUESTED) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "Can only delete requested modification requests", null));
+                        .body(ApiResponse.error("Can only delete requested modification requests"));
             }
 
             modificationRepository.delete(modification);
             
-            return ResponseEntity.ok(new ApiResponse<>(true, "Modification request deleted successfully", null));
+            return ResponseEntity.ok(ApiResponse.success("Modification request deleted successfully", null));
 
-        } catch (ProjectExceptionHandler e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, e.getMessage(), null));
+        } catch (AllocationExceptionHandler e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error deleting modification: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error deleting modification: " + e.getMessage()));
         }
     }
 
@@ -918,7 +918,7 @@ public class AllocationModificationServiceImpl implements AllocationModification
     private boolean checkIfOverrideRequired(String resourceId, CreateAllocationModificationDTO dto) {
         // Get the current allocation to determine the date range
         ResourceAllocation currentAllocation = allocationRepository.findById(dto.getAllocationId())
-                .orElseThrow(() -> ProjectExceptionHandler.notFound("Allocation not found"));
+                .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
         
         // Use validator's checkIfOverrideRequired method to avoid duplication
         return validator.checkIfOverrideRequired(currentAllocation, dto.getRequestedAllocationPercentage(), dto.getEffectiveDate());

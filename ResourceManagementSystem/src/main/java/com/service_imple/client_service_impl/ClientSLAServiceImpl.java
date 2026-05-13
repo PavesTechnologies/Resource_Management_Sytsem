@@ -54,7 +54,7 @@ public class ClientSLAServiceImpl implements ClientSLAService {
         if (sla != null) {
             return ResponseEntity.ok(ApiResponse.success("Client SLA Created Successfully", sla));
         } else {
-            throw new ClientExceptionHandler("Client Sla creation Failed");
+            throw ClientExceptionHandler.badRequest("Client Sla creation Failed");
         }
     }
 
@@ -87,14 +87,14 @@ public class ClientSLAServiceImpl implements ClientSLAService {
         if (sla != null) {
             return ResponseEntity.ok(ApiResponse.success("Client SLA Updated Successfully", sla));
         } else {
-            throw new ClientExceptionHandler("Client Sla Update Failed");
+            throw ClientExceptionHandler.badRequest("Client Sla Update Failed");
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<ClientSLA>> deleteClientSLA(UUID id) {
         ClientSLA sla = clientSLARepo.findById(id)
-                .orElseThrow(() -> new ClientExceptionHandler("Client SLA not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Client SLA not found"));
 
         boolean isActiveInProjects = projectSLARepo.existsByClientSLA_SlaIdAndActiveFlagTrue(id);
 
@@ -129,7 +129,7 @@ public class ClientSLAServiceImpl implements ClientSLAService {
 
     @Override
     public ResponseEntity<ApiResponse<List<ClientSLA>>> getClientSLA(UUID clientId) {
-        List<ClientSLA> sla = clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fetch client sla"));
+        List<ClientSLA> sla = clientSLARepo.findAllByClient_ClientId(clientId).orElseThrow(() -> ClientExceptionHandler.badRequest("Failed to fetch client sla"));
         return ResponseEntity.ok(ApiResponse.success("Client SLA Fetched Successfully", sla));
     }
 }

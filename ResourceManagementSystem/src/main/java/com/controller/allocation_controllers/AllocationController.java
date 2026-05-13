@@ -76,7 +76,7 @@ public class AllocationController {
 
     @GetMapping("/get-all-resources/{projectId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin', 'Project_Manager')")
-    public ResponseEntity<?> getAllResources(@PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getAllResources(@PathVariable Long projectId) {
         return allocationService.getProjectResources(projectId);
     }
 

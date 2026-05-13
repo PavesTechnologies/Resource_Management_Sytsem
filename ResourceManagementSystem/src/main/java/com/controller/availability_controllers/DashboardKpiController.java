@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.AvailabilityExceptionHandler;
 
 import java.time.LocalDate;
 
@@ -48,19 +48,13 @@ public class DashboardKpiController {
 
         
         if (from != null && to != null && from.isAfter(to)) {
-                        ApiResponse<DashboardKpiDTO> errorResponse = new ApiResponse<>();
-                        errorResponse.setSuccess(false);
-                        errorResponse.setMessage("Invalid date range: 'from' date cannot be after 'to' date");
-                        errorResponse.setData(null);
-                        return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid date range: 'from' date cannot be after 'to' date"));
         }
 
         if (minExperience != null && maxExperience != null && minExperience > maxExperience) {
-                        ApiResponse<DashboardKpiDTO> errorResponse = new ApiResponse<>();
-                        errorResponse.setSuccess(false);
-                        errorResponse.setMessage("Invalid experience range: minimum experience cannot be greater than maximum experience");
-                        errorResponse.setData(null);
-                        return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid experience range: minimum experience cannot be greater than maximum experience"));
         }
 
         try {
@@ -68,18 +62,14 @@ public class DashboardKpiController {
                     from, to, role, location, employmentType, minExperience, maxExperience
             );
 
-            ApiResponse<DashboardKpiDTO> response = new ApiResponse<>();
-            response.setSuccess(true);
-            response.setMessage("Dashboard KPIs retrieved successfully");
-            response.setData(kpis);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(ApiResponse.success("Dashboard KPIs retrieved successfully", kpis));
 
         } catch (AccessDeniedException e) {
-                        throw ProjectExceptionHandler.badRequest("Access denied: You do not have permission to access dashboard KPIs");
+                        throw AvailabilityExceptionHandler.badRequest("Access denied: You do not have permission to access dashboard KPIs");
         } catch (IllegalArgumentException e) {
-                        throw ProjectExceptionHandler.badRequest("Invalid parameters: " + e.getMessage());
+                        throw AvailabilityExceptionHandler.badRequest("Invalid parameters: " + e.getMessage());
         } catch (Exception e) {
-                        throw ProjectExceptionHandler.badRequest("Failed to process KPI request: " + e.getMessage());
+                        throw AvailabilityExceptionHandler.badRequest("Failed to process KPI request: " + e.getMessage());
         }
     }
 }

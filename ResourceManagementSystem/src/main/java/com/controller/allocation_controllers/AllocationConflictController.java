@@ -21,37 +21,37 @@ public class AllocationConflictController {
 
     @GetMapping("/resource/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
-    public ResponseEntity<ApiResponse<?>> getConflictsForResource(@PathVariable String resourceId) {
+    public ResponseEntity<ApiResponse<List<AllocationConflictDTO>>> getConflictsForResource(@PathVariable String resourceId) {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.getPendingConflictsForResource(resourceId);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Conflicts retrieved successfully", conflicts));
+            return ResponseEntity.ok(ApiResponse.success("Conflicts retrieved successfully", conflicts));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(new ApiResponse<>(false, "Error retrieving conflicts: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving conflicts: " + e.getMessage()));
         }
     }
 
     @GetMapping("/pending")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
-    public ResponseEntity<ApiResponse<?>> getPendingConflicts() {
+    public ResponseEntity<ApiResponse<List<AllocationConflictDTO>>> getPendingConflicts() {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.getAllPendingConflicts();
-            return ResponseEntity.ok(new ApiResponse<>(true, "Pending conflicts retrieved successfully", conflicts));
+            return ResponseEntity.ok(ApiResponse.success("Pending conflicts retrieved successfully", conflicts));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(new ApiResponse<>(false, "Error retrieving pending conflicts: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving pending conflicts: " + e.getMessage()));
         }
     }
 
     @PostMapping("/detect/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
-    public ResponseEntity<ApiResponse<?>> detectConflictsForResource(@PathVariable String resourceId) {
+    public ResponseEntity<ApiResponse<List<AllocationConflictDTO>>> detectConflictsForResource(@PathVariable String resourceId) {
         try {
             List<AllocationConflictDTO> conflicts = allocationService.detectAllocationConflicts(resourceId);
-            return ResponseEntity.ok(new ApiResponse<>(true, "Conflict detection completed", conflicts));
+            return ResponseEntity.ok(ApiResponse.success("Conflict detection completed", conflicts));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(new ApiResponse<>(false, "Error detecting conflicts: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error detecting conflicts: " + e.getMessage()));
         }
     }
 
@@ -66,7 +66,7 @@ public class AllocationConflictController {
 
     @GetMapping("/stats")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
-    public ResponseEntity<ApiResponse<?>> getConflictStats() {
+    public ResponseEntity<ApiResponse<ConflictStats>> getConflictStats() {
         try {
             // This can be enhanced with actual stats from the service
             ConflictStats stats = ConflictStats.builder()
@@ -75,10 +75,10 @@ public class AllocationConflictController {
                     .resolvedToday(0) // Would be fetched from service
                     .build();
             
-            return ResponseEntity.ok(new ApiResponse<>(true, "Conflict stats retrieved", stats));
+            return ResponseEntity.ok(ApiResponse.success("Conflict stats retrieved", stats));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(new ApiResponse<>(false, "Error retrieving stats: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error retrieving stats: " + e.getMessage()));
         }
     }
 

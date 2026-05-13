@@ -78,8 +78,6 @@ public class AllocationRiskEvaluator {
      * @return true if allocation is allowed, false otherwise
      */
     public static boolean isAllocationAllowed(boolean hasMandatoryGap, boolean hasMandatoryPartial) {
-        // Mandatory GAP blocks allocation
-        // Mandatory PARTIAL allows allocation (HIGH risk)
         return !hasMandatoryGap;
     }
 }
