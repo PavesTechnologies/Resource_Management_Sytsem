@@ -49,7 +49,6 @@ public class Skill {
     @JoinColumn(name = "category_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_skill_category"))
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skills"})
-    @JsonIgnore
     private SkillCategory category;
 
     @Column(nullable = false, updatable = false)

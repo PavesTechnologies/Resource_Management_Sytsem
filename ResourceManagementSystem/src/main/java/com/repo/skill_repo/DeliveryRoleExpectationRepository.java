@@ -29,13 +29,25 @@ public interface DeliveryRoleExpectationRepository extends JpaRepository<Deliver
             @Param("skillId") UUID skillId
     );
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.status = 'ACTIVE' ORDER BY dre.skill.name, dre.subSkill.name")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre " +
+           "LEFT JOIN FETCH dre.skill " +
+           "LEFT JOIN FETCH dre.subSkill " +
+           "LEFT JOIN FETCH dre.proficiencyLevel " +
+           "LEFT JOIN FETCH dre.role " +
+           "WHERE dre.role.roleName = :roleName AND dre.status = 'ACTIVE' " +
+           "ORDER BY dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findByRoleNameAndStatus(@Param("roleName") String roleName);
 
     @Query("SELECT DISTINCT dre.role.roleName FROM DeliveryRoleExpectation dre WHERE dre.status = 'ACTIVE' ORDER BY dre.role.roleName")
     List<String> findDistinctRoleNames();
 
-    @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.status = 'ACTIVE' ORDER BY dre.role.roleName, dre.skill.name, dre.subSkill.name")
+    @Query("SELECT dre FROM DeliveryRoleExpectation dre " +
+           "LEFT JOIN FETCH dre.skill " +
+           "LEFT JOIN FETCH dre.subSkill " +
+           "LEFT JOIN FETCH dre.proficiencyLevel " +
+           "LEFT JOIN FETCH dre.role " +
+           "WHERE dre.status = 'ACTIVE' " +
+           "ORDER BY dre.role.roleName, dre.skill.name, dre.subSkill.name")
     List<DeliveryRoleExpectation> findAllActive();
 
     @Query("SELECT dre FROM DeliveryRoleExpectation dre WHERE dre.role.roleName = :roleName AND dre.skill.id = :skillId AND dre.subSkill.id = :subSkillId AND dre.status = 'ACTIVE'")

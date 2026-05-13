@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
+import lombok.extern.slf4j.Slf4j;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/projects")
+@Slf4j
 public class ProjectGovernanceController {
 
     @Autowired
@@ -168,47 +170,8 @@ public class ProjectGovernanceController {
     // Project KPI endpoint
     @GetMapping("/kpi")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
-        try {
-            // Total Projects count (excluding completed projects)
-            List<ProjectStatus> nonCompletedStatuses = List.of(
-                ProjectStatus.ACTIVE,
-                ProjectStatus.APPROVED,
-                ProjectStatus.ARCHIVED,
-                ProjectStatus.PLANNING
-            );
-            Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
-
-            // Active Projects count
-            Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
-
-            // High Risk Projects count
-            Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
-
-            // Calculate Average Resource Utilization
-            // For now, we'll calculate this as (Active Projects / Total Projects) * 100
-            // This can be enhanced later with actual resource allocation data
-            Double avgResourceUtil = 0.0;
-            if (totalProjects != null && totalProjects > 0) {
-                avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
-            }
-
-            ProjectKpiDTO kpiDTO = new ProjectKpiDTO(
-                totalProjects != null ? totalProjects : 0L,
-                activeProjects != null ? activeProjects : 0L,
-                highRiskProjects != null ? highRiskProjects : 0L,
-                avgResourceUtil
-            );
-
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, "Project KPI data retrieved successfully", kpiDTO)
-            );
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                new ApiResponse<>(false, "Failed to retrieve project KPI data: " + e.getMessage(), null)
-            );
-        }
+    public ResponseEntity<ApiResponse<?>> getProjectKpi() {
+        return projectGovernanceService.getProjectKpi();
     }
 
 }

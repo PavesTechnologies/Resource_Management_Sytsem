@@ -33,6 +33,12 @@ public interface DashboardKpiRepository extends JpaRepository<Resource, Long> {
                AND ra.allocation_status IN ('PLANNED', 'ACTIVE')
                AND ra.allocation_start_date <= :toDate
                AND ra.allocation_end_date >= :fromDate
+               AND NOT EXISTS (
+                   SELECT 1 FROM role_off_event roe
+                   WHERE roe.allocation_id = ra.allocation_id
+                   AND roe.role_off_status = 'FULFILLED'
+                   AND roe.effective_role_off_date <= CURRENT_DATE
+               )
             GROUP BY fr.resource_id
         ),
         resource_upcoming_availability AS (
@@ -46,6 +52,12 @@ public interface DashboardKpiRepository extends JpaRepository<Resource, Long> {
                       AND ra_future.allocation_start_date > :toDate
                       AND ra_future.allocation_start_date <= DATE_ADD(:toDate, INTERVAL 30 DAY)
                       AND ra_future.allocation_percentage < 100
+                      AND NOT EXISTS (
+                          SELECT 1 FROM role_off_event roe
+                          WHERE roe.allocation_id = ra_future.allocation_id
+                          AND roe.role_off_status = 'FULFILLED'
+                          AND roe.effective_role_off_date <= CURRENT_DATE
+                      )
                 ) THEN 1 ELSE 0 END as upcoming_available
             FROM resource_allocations ra
         )
