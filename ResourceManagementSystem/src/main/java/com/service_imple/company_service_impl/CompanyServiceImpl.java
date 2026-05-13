@@ -4,7 +4,7 @@ import com.dto.centralised_dto.ApiResponse;
 import com.entity.company_entities.Company;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RecordStatus;
-import com.global_exception_handler.CompanyExceptionHandler;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.company_repo.CompanyRepo;
 import com.service_interface.company_service_interface.CompanyService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +28,7 @@ public class CompanyServiceImpl implements CompanyService {
     public ResponseEntity<ApiResponse<?>> createCompany(Company company) {
         // Validate company code uniqueness
         if (companyRepo.existsByCompanyCode(company.getCompanyCode())) {
-            throw new CompanyExceptionHandler("Company code already exists");
+            throw ClientExceptionHandler.badRequest("Company code already exists");
         }
 
         // Set default values if not provided
@@ -43,14 +43,14 @@ public class CompanyServiceImpl implements CompanyService {
         if (savedCompany != null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Created Successfully", savedCompany));
         } else {
-            throw new CompanyExceptionHandler("Company creation Failed");
+            throw ClientExceptionHandler.badRequest("Company creation Failed");
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> getCompanyById(UUID companyId) {
         Company company = companyRepo.findById(companyId)
-                .orElseThrow(() -> new CompanyExceptionHandler("Company not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Company not found"));
         
         return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Found Successfully", company));
     }
@@ -60,7 +60,7 @@ public class CompanyServiceImpl implements CompanyService {
         List<Company> companies = companyRepo.findAll();
         
         if (companies.isEmpty()) {
-            throw new CompanyExceptionHandler("No companies found");
+            throw ClientExceptionHandler.badRequest("No companies found");
         }
 
         return ResponseEntity.ok(apiResponse.getAPIResponse(true, "All Companies Fetched Successfully", companies));
@@ -69,12 +69,12 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public ResponseEntity<ApiResponse<?>> updateCompany(UUID companyId, Company company) {
         Company existingCompany = companyRepo.findById(companyId)
-                .orElseThrow(() -> new CompanyExceptionHandler("Company not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Company not found"));
 
         // Check if company code is being changed and if it's already taken
         if (!existingCompany.getCompanyCode().equals(company.getCompanyCode()) &&
             companyRepo.existsByCompanyCode(company.getCompanyCode())) {
-            throw new CompanyExceptionHandler("Company code already exists");
+            throw ClientExceptionHandler.badRequest("Company code already exists");
         }
 
         // Update fields
@@ -93,7 +93,7 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public ResponseEntity<ApiResponse<?>> deleteCompany(UUID companyId) {
         Company company = companyRepo.findById(companyId)
-                .orElseThrow(() -> new CompanyExceptionHandler("Company not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Company not found"));
         
         companyRepo.deleteById(companyId);
         return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Deleted Successfully", company));

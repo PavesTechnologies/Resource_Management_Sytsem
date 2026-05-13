@@ -2,6 +2,7 @@ package com.service_interface.allocation_service_interface;
 
 import com.dto.allocation_dto.*;
 import com.dto.centralised_dto.ApiResponse;
+import com.dto.centralised_dto.UserDTO;
 import com.entity.allocation_entities.ResourceAllocation;
 import org.springframework.http.ResponseEntity;
 
@@ -24,7 +25,7 @@ public interface AllocationService {
     
     ResponseEntity<ApiResponse<?>> getAllocationsByProject(Long projectId);
 
-    ResponseEntity<?> getProjectResources(Long projectId);
+    ResponseEntity<ApiResponse<?>> getProjectResources(Long projectId);
 
     ResponseEntity<ApiResponse<?>> getOverrideAllocations();
 
@@ -35,6 +36,11 @@ public interface AllocationService {
      * Integrated skill gap matching engine for allocation decision support
      */
     ResponseEntity<ApiResponse<?>> analyzeSkillGap(SkillGapAnalysisRequestDTO request);
+
+    /**
+     * Quick allocate bench resource to demand
+     */
+    ResponseEntity<ApiResponse<?>> quickAllocateResource(String resourceId, UUID demandId, Integer allocationPercentage, UserDTO user);
     
     
     // ==================== CONFLICT DETECTION METHODS ====================
@@ -75,4 +81,10 @@ public interface AllocationService {
     ResponseEntity<ApiResponse<?>> approveAllocation(UUID allocationId, String dmName);
     ResponseEntity<ApiResponse<?>> rejectAllocation(UUID allocationId, String reason, String dmName);
     ResponseEntity<ApiResponse<?>> getPendingApprovals();
+
+    /**
+     * Checks whether a demand is still fulfilled after an allocation is closed/cancelled,
+     * and reverts it to APPROVED if the fulfilling allocations are gone.
+     */
+    void checkAndUpdateDemandFulfillment(UUID demandId);
 }

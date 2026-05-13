@@ -328,9 +328,9 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     }
 
     @Override
-    public ResponseEntity<?> getLocationsByStatus() {
+    public ResponseEntity<ApiResponse<?>> getLocationsByStatus() {
         List<String> project = projectRepository.findDistinctPrimaryLocationByStatus(ProjectStatus.ACTIVE);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Locations fetched successfully", project));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", project));
     }
 
     @Override

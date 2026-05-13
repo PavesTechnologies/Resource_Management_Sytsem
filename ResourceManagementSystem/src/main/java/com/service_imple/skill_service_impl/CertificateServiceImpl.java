@@ -4,7 +4,7 @@ import com.dto.skill_dto.CertificateRequestDTO;
 import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.Skill;
 import com.entity_enums.skill_enums.CertificateType;
-import com.global_exception_handler.CertificationComplianceException;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.CertificateRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.service_interface.skill_service_interface.CertificateService;
@@ -26,16 +26,16 @@ public class CertificateServiceImpl implements CertificateService {
     public String CreateCertificate(CertificateRequestDTO dto) {
 
         if (dto.getTimeBound() == null) {
-            throw new CertificationComplianceException("timeBound flag required");
+            throw SkillExceptionHandler.badRequest("timeBound flag required");
         }
 
         if (dto.getTimeBound() && dto.getValidityMonths() == null) {
-            throw new CertificationComplianceException(
+            throw SkillExceptionHandler.badRequest(
                     "Validity months required for time-bound certificates");
         }
 
         if (dto.getCertificateName() == null || dto.getCertificateName().trim().isEmpty()) {
-            throw new CertificationComplianceException("Certificate name is required");
+            throw SkillExceptionHandler.badRequest("Certificate name is required");
         }
 
         Certificate certificate = Certificate.builder()
@@ -62,7 +62,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     public Skill getCertificationSkillById(UUID id) {
         return skillRepository.findById(id)
-                .orElseThrow(() -> new CertificationComplianceException("Certification skill not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certification skill not found"));
     }
 
     @Override
@@ -75,14 +75,14 @@ public class CertificateServiceImpl implements CertificateService {
     @Transactional
     public Certificate updateCertificate(UUID certificateId, CertificateRequestDTO dto) {
         Certificate existingCertificate = certificateRepository.findById(certificateId)
-                .orElseThrow(() -> new CertificationComplianceException("Certificate not found with ID: " + certificateId));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found with ID: " + certificateId));
 
         if (dto.getTimeBound() == null) {
-            throw new CertificationComplianceException("timeBound flag required");
+            throw SkillExceptionHandler.badRequest("timeBound flag required");
         }
 
         if (dto.getTimeBound() && dto.getValidityMonths() == null) {
-            throw new CertificationComplianceException(
+            throw SkillExceptionHandler.badRequest(
                     "Validity months required for time-bound certificates");
         }
 

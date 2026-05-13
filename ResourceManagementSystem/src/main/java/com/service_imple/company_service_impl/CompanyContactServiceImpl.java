@@ -3,9 +3,7 @@ package com.service_imple.company_service_impl;
 import com.dto.centralised_dto.ApiResponse;
 import com.entity.company_entities.Company;
 import com.entity.company_entities.CompanyEscalationContact;
-import com.entity_enums.client_enums.ContactRole;
-import com.global_exception_handler.CompanyExceptionHandler;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.ClientExceptionHandler;
 import com.repo.company_repo.CompanyContactRepo;
 import com.repo.company_repo.CompanyRepo;
 import com.service_interface.company_service_interface.CompanyContactService;
@@ -15,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -91,7 +88,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
                 
                 // Check if company code already exists
                 if (companyRepo.existsByCompanyCode(companyContact.getCompanyCode())) {
-                    throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_COMPANY_CODE", "Company code already exists");
+                    throw new ClientExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_COMPANY_CODE", "Company code already exists");
                 }
                 
                 // Create new company with provided values
@@ -120,12 +117,12 @@ public class CompanyContactServiceImpl implements CompanyContactService {
         // Step 2: All duplicate checks AFTER confirming company is real
         if (companyContact.getEmail() != null &&
                 companyContactRepo.existsByEmailAndCompany_CompanyId(companyContact.getEmail(), companyId)) {
-            throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists for this company");
+            throw new ClientExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists for this company");
         }
 
         if (companyContact.getContactName() != null &&
                 companyContactRepo.existsByContactNameAndCompany_CompanyId(companyContact.getContactName(), companyId)) {
-            throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_CONTACT_NAME", "Contact name already exists for this company");
+            throw new ClientExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_CONTACT_NAME", "Contact name already exists for this company");
         }
 
         // Step 3: Enhanced role+level duplicate check - THIS IS THE KEY PART
@@ -144,7 +141,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             
             if (count > 0) {
                 System.out.println("DEBUG: DUPLICATE FOUND! Throwing exception...");
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.CONFLICT, "DUPLICATE_ROLE_LEVEL",
                         "Contact role '" + companyContact.getContactRole() + "' and escalation level '" + companyContact.getEscalationLevel() + "' already exists for this company");
             } else {
@@ -161,7 +158,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
         if (contact != null) {
             return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Contact Created Successfully", contact));
         } else {
-            throw new CompanyExceptionHandler("Company Contact creation Failed");
+            throw ClientExceptionHandler.badRequest("Company Contact creation Failed");
         }
     }
 
@@ -169,7 +166,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
     public ResponseEntity<ApiResponse<?>> updateCompanyContact(UUID contactId, CompanyEscalationContact companyContact) {
         // Validate contact exists
         CompanyEscalationContact existingContact = companyContactRepo.findById(contactId)
-                .orElseThrow(() -> new CompanyExceptionHandler("Company Contact not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Company Contact not found"));
 
         // Check for duplicate email (excluding current contact)
         if (companyContact.getEmail() != null && existingContact.getCompany() != null) {
@@ -180,7 +177,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             );
             
             if (existingEmailContact.isPresent()) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                     HttpStatus.CONFLICT,
                     "DUPLICATE_EMAIL",
                     "Email already exists for this company"
@@ -197,7 +194,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             );
             
             if (existingNameContact.isPresent()) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                     HttpStatus.CONFLICT,
                     "DUPLICATE_CONTACT_NAME",
                     "Contact name already exists for this company"
@@ -215,7 +212,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             );
             
             if (existingRoleLevelContact.isPresent()) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                     HttpStatus.CONFLICT,
                     "DUPLICATE_ROLE_LEVEL",
                     "Contact role and escalation level combination already exists for this company"
@@ -247,7 +244,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             UUID companyId = companyContact.getCompany().getCompanyId();
 
             Company company = companyRepo.findById(companyId)
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new ClientExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "COMPANY_NOT_FOUND",
                             "Company not found"
@@ -269,7 +266,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
     @Override
     public ResponseEntity<ApiResponse<?>> deleteCompanyContact(UUID id) {
         CompanyEscalationContact contact = companyContactRepo.findById(id)
-                .orElseThrow(() -> new CompanyExceptionHandler("Company Contact not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Company Contact not found"));
         
         companyContactRepo.deleteById(id);
         return ResponseEntity.ok(apiResponse.getAPIResponse(true, "Company Contact Deleted Successfully", contact));
@@ -280,7 +277,7 @@ public class CompanyContactServiceImpl implements CompanyContactService {
         List<CompanyEscalationContact> contacts = companyContactRepo.findAll();
         
         if (contacts.isEmpty()) {
-            throw new CompanyExceptionHandler("No company contacts found");
+            throw ClientExceptionHandler.badRequest("No company contacts found");
         }
 
         return ResponseEntity.ok(

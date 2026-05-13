@@ -1,6 +1,8 @@
 package com.service_imple.bench_service_impl;
 
 import com.dto.bench_dto.MatchResponse;
+import com.dto.bench_dto.ResourceMatchResponse;
+import com.dto.bench_dto.DemandMatch;
 import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.entity.resource_entities.Resource;
 import com.entity.demand_entities.Demand;
@@ -11,6 +13,7 @@ import com.service_interface.demand_service_interface.DemandService;
 import com.service_imple.allocation_service_imple.SkillGapAnalysisService;
 import com.repo.bench_repo.BenchDetectionRepository;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.demand_repo.DemandRepository; // Import DemandRepository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,9 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +35,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     private final DemandService demandService;
     private final AllocationRepository allocationRepository;
     private final SkillGapAnalysisService skillGapAnalysisService;
+    private final DemandRepository demandRepository; // Inject DemandRepository
 
     @Override
     public List<MatchResponse> getMatches() {
@@ -84,12 +91,12 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
                             resource.getFullName(), demand.getDemandName(), 
                             skillGapResult.getMatchPercentage(), overallScore);
 
-                    if (overallScore > 30) { // threshold - back to 30%
+                    if (overallScore > 0) { // Keep all matches for now, filter high quality later
                         results.add(buildMatchResponse(resource, demand, overallScore, skillGapResult));
                         log.info("Added match: {} -> {} (score: {})",
                                 resource.getFullName(), demand.getDemandName(), overallScore);
                     } else {
-                        log.info("Score too low: {} (threshold: 30)", overallScore);
+                        log.info("Score too low: {} (threshold: 0)", overallScore);
                     }
                 } catch (Exception e) {
                     log.error("Error analyzing match for resource {} and demand {}: {}", 
@@ -115,7 +122,7 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         
         List<MatchResponse> filteredMatches = allMatches.stream()
                 .filter(match -> {
-                    boolean skillMatch = skill == null || match.getMatchedSkills().contains(skill);
+                    boolean skillMatch = skill == null || match.getMatchedSkills().stream().anyMatch(s -> s.toLowerCase().contains(skill.toLowerCase()));
                     boolean expMatch = minExp == null || match.getResourceExperience() >= minExp;
                     log.info("Filtering match {} - skillMatch: {}, expMatch: {}", 
                         match.getResourceName(), skillMatch, expMatch);
@@ -125,6 +132,76 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         
         log.info("Filtered matches: {}", filteredMatches.size());
         return filteredMatches;
+    }
+
+    @Override
+    public List<ResourceMatchResponse> getHighQualityResourceMatches(String skill, Integer minExp) {
+        log.info("Getting bench-demand matches with filters - skill: {}, minExp: {} (APPROVED demands only)", skill, minExp);
+
+        List<MatchResponse> matches;
+
+        if (skill != null || minExp != null) {
+            matches = getMatches(skill, minExp);
+        } else {
+            matches = getMatches();
+        }
+        
+        log.info("Total matches found: {}", matches.size());
+
+        // Filter for high-quality matches (>30% score)
+        List<MatchResponse> highQualityMatches = matches.stream()
+                .filter(match -> match.getMatchScore() > 30.0)
+                .collect(java.util.stream.Collectors.toList());
+
+        log.info("Found {} matches (>30%) out of {} total matches", 
+                highQualityMatches.size(), matches.size());
+
+        // Batch-fetch all demands referenced by the high-quality matches to avoid N+1
+        List<UUID> demandIds = highQualityMatches.stream()
+                .map(MatchResponse::getDemandId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+        Map<UUID, com.entity.demand_entities.Demand> demandMap = demandRepository.findAllById(demandIds).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.entity.demand_entities.Demand::getDemandId,
+                        d -> d));
+
+        // Group matches by resource
+        Map<String, List<MatchResponse>> groupedByResource = highQualityMatches.stream()
+                .collect(java.util.stream.Collectors.groupingBy(MatchResponse::getResourceId));
+
+        return groupedByResource.entrySet().stream()
+                .map(entry -> {
+                    String resourceId = entry.getKey();
+                    List<MatchResponse> resourceMatches = entry.getValue();
+
+                    MatchResponse firstMatch = resourceMatches.get(0);
+
+                    List<DemandMatch> demands = resourceMatches.stream()
+                            .map(match -> {
+                                var demand = demandMap.get(match.getDemandId());
+                                return DemandMatch.builder()
+                                        .demandId(match.getDemandId())
+                                        .demandName(match.getDemandName())
+                                        .matchedSkills(match.getMatchedSkills())
+                                        .matchScore(match.getMatchScore())
+                                        .startDate(demand != null ? demand.getDemandStartDate() : null)
+                                        .endDate(demand != null ? demand.getDemandEndDate() : null)
+                                        .allocationPercentage(demand != null ? demand.getAllocationPercentage() : 100)
+                                        .build();
+                            })
+                            .collect(java.util.stream.Collectors.toList());
+
+                    return ResourceMatchResponse.builder()
+                            .resourceId(firstMatch.getResourceId())
+                            .resourceName(firstMatch.getResourceName())
+                            .resourceExperience(firstMatch.getResourceExperience())
+                            .availability(firstMatch.getAvailability())
+                            .demands(demands)
+                            .build();
+                })
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**

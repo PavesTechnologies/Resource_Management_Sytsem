@@ -1,8 +1,8 @@
 package com.service_interface.availability_service_interface;
 
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.availability_dto.ResourceTimelineDTO;
 import com.dto.availability_dto.ResourceTimelineResponseDTO;
-import com.dto.availability_dto.ResourceTimelineApiResponse;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -11,7 +11,7 @@ public interface ResourceTimelineService {
     
     List<ResourceTimelineDTO> getAllResourceTimelines();
     
-    ResourceTimelineApiResponse getResourceTimelineWindow(
+    ApiResponse<?> getResourceTimelineWindow(
         LocalDate startDate, 
         LocalDate endDate,
         String designation,

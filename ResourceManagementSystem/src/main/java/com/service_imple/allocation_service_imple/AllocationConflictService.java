@@ -230,11 +230,11 @@ public class AllocationConflictService {
 
             conflictRepository.save(conflict);
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Conflict resolved successfully", null));
+            return ResponseEntity.ok(ApiResponse.success("Conflict resolved successfully"));
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error resolving conflict: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Error resolving conflict: " + e.getMessage()));
         }
     }
 

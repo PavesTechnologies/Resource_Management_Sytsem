@@ -5,8 +5,8 @@ import com.dto.skill_dto.DeliveryRoleExpectationRequest;
 import com.dto.skill_dto.DeliveryRoleExpectationResponse;
 import com.dto.skill_dto.RoleExpectationWithMandatoryResponse;
 import com.dto.skill_dto.RoleListResponse;
-import com.global_exception_handler.DuplicateRoleExpectationException;
-import com.global_exception_handler.SkillValidationException;
+import com.global_exception_handler.DemandExceptionHandler;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.service_interface.skill_service_interface.DeliveryRoleExpectationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,10 +39,10 @@ public class DeliveryRoleExpectationController {
             DeliveryRoleExpectationResponse response = service.createRoleExpectations(request);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Role expectations created successfully", response));
-        } catch (SkillValidationException e) {
+        } catch (SkillExceptionHandler e) {
             log.warn("Validation error for role expectations: {}", e.getMessage());
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        } catch (DuplicateRoleExpectationException e) {
+        } catch (DemandExceptionHandler e) {
             log.warn("Duplicate role expectation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
@@ -63,10 +63,10 @@ public class DeliveryRoleExpectationController {
         try {
             DeliveryRoleExpectationResponse response = service.updateRoleExpectations(roleId, request);
             return ResponseEntity.ok(ApiResponse.success("Role expectations updated successfully", response));
-        } catch (SkillValidationException e) {
+        } catch (SkillExceptionHandler e) {
             log.warn("Validation error for role expectations: {}", e.getMessage());
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        } catch (DuplicateRoleExpectationException e) {
+        } catch (DemandExceptionHandler e) {
             log.warn("Duplicate role expectation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {

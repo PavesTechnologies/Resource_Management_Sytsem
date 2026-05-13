@@ -1,5 +1,6 @@
 package com.controller.allocation_controllers;
 
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.allocation_dto.RoleOffRequestDTO;
 import com.dto.resource_dto.ResourceRemovalDTO;
@@ -21,7 +22,8 @@ public class AllocationRoleOffController {
     private final RoleOffService roleOffService;
 
     @PostMapping
-    public ResponseEntity<?> roleOff(
+    @PreAuthorize("hasRole('Project_Manager')")
+    public ResponseEntity<ApiResponse<?>> roleOff(
             @RequestBody RoleOffRequestDTO dto,
             @CurrentUser UserDTO userDTO) {
 
@@ -31,11 +33,13 @@ public class AllocationRoleOffController {
         // 2. If not confirmed yet, return preview for user confirmation
         Boolean confirmed = dto.getConfirmed();
         if (confirmed == null || !confirmed) {
-            return ResponseEntity.ok(Map.of(
-                "requiresConfirmation", true,
-                "warning", warning,
-                "message", "Please review the role-off impact and confirm to proceed"
-            ));
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Data fetched successfully",
+                    Map.of(
+                            "requiresConfirmation", true,
+                            "warning", warning,
+                            "message", "Please review the role-off impact and confirm to proceed"
+                    )));
         }
         
         // 3. Log the decision
@@ -43,21 +47,22 @@ public class AllocationRoleOffController {
         
         // 4. Proceed with role-off after confirmation
         roleOffService.roleOffByRM(dto, userDTO);
-        return ResponseEntity.ok("Role-off processed successfully");
+        return ResponseEntity.ok(ApiResponse.success("Created successfully"));
     }
 
     @PostMapping("/{id}/manual-replacement")
-    public ResponseEntity<?> manualReplacement(
+    @PreAuthorize("hasRole('Project_Manager')")
+    public ResponseEntity<ApiResponse<?>> manualReplacement(
             @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
 
         roleOffService.manualReplacement(id, userDTO.getId());
-        return ResponseEntity.ok("Manual replacement created");
+        return ResponseEntity.ok(ApiResponse.success("Created successfully"));
     }
 
     @PostMapping("/resource-removal")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> removeResourceFromOrganization(
+    public ResponseEntity<ApiResponse<?>> removeResourceFromOrganization(
             @RequestBody ResourceRemovalDTO removalDTO,
             @CurrentUser UserDTO userDTO) {
 
@@ -67,11 +72,13 @@ public class AllocationRoleOffController {
         // Process the resource removal
         String result = roleOffService.removeResourceFromOrganization(removalDTO, userDTO.getId());
         
-        return ResponseEntity.ok(Map.of(
-            "message", result,
-            "resourceId", removalDTO.getResourceId(),
-            "noticePeriodEndDate", removalDTO.getNoticePeriodEndDate(),
-            "triggerAttritionImmediately", removalDTO.getTriggerAttritionImmediately()
-        ));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Updated successfully",
+                Map.of(
+                        "message", result,
+                        "resourceId", removalDTO.getResourceId(),
+                        "noticePeriodEndDate", removalDTO.getNoticePeriodEndDate(),
+                        "triggerAttritionImmediately", removalDTO.getTriggerAttritionImmediately()
+                )));
     }
 }

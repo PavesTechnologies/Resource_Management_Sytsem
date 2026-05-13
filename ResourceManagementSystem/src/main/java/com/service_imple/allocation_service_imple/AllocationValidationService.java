@@ -18,7 +18,7 @@ import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.project_enums.ProjectStatus;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.AllocationExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.allocation_repo.AllocationModificationRepository;
 import com.repo.bench_repo.ResourceStateRepository;
@@ -62,7 +62,7 @@ public class AllocationValidationService {
      */
     public void validateRequest(AllocationRequestDTO request) {
         if (request == null) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_REQUEST",
                 "Allocation request cannot be null"
@@ -70,7 +70,7 @@ public class AllocationValidationService {
         }
         
         if (request.getResourceId() == null || request.getResourceId().isEmpty()) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_RESOURCES",
                 "Resource IDs cannot be null or empty"
@@ -78,7 +78,7 @@ public class AllocationValidationService {
         }
         
         if (request.getAllocationStartDate() == null || request.getAllocationEndDate() == null) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_DATES",
                 "Allocation start and end dates are required"
@@ -86,7 +86,7 @@ public class AllocationValidationService {
         }
         
         if (request.getAllocationStartDate().isAfter(request.getAllocationEndDate())) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_DATE_RANGE",
                 "Start date cannot be after end date"
@@ -97,14 +97,14 @@ public class AllocationValidationService {
             // Check if this is a special condition request for >100% allocation
             if (request.getAllocationPercentage() > 100 && request.getAllocationPercentage() <= 130) {
                 if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
-                    throw new ProjectExceptionHandler(
+                    throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "SPECIAL_CONDITION_APPROVAL_REQUIRED",
                         "Allocation percentage above 100% requires special condition approval. Maximum allowed is 130% with approval."
                     );
                 }
             } else {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_PERCENTAGE",
                     "Allocation percentage must be between 1 and 100 normally, or up to 130% with special condition approval"
@@ -123,7 +123,7 @@ public class AllocationValidationService {
         if (request.getDemandId() != null) {
             Optional<Demand> demandOpt = demandRepository.findById(request.getDemandId());
             if (demandOpt.isEmpty()) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "DEMAND_NOT_FOUND",
                     "Demand not found"
@@ -134,7 +134,7 @@ public class AllocationValidationService {
             project = demand.getProject();
             
             if (demand.getDemandCommitment().equals(DemandCommitment.SOFT)) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "SOFT_COMMITMENT",
                     "Demand Commitment is SOFT. Allocation not allowed."
@@ -143,7 +143,7 @@ public class AllocationValidationService {
             
             // Skip demand status validation for quick allocation
             if (!request.getSkipValidation() && demand.getDemandStatus() != DemandStatus.APPROVED) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "DEMAND_NOT_APPROVED",
                     "Demand Status is not APPROVED. Allocation not allowed."
@@ -166,7 +166,7 @@ public class AllocationValidationService {
             int totalAllocations = existingActiveAllocations + providedResources;
             
             if (totalAllocations > requiredResources) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "DEMAND_ALLOCATION_EXCEEDED",
                     String.format("Demand allocation exceeded: Demand '%s' requires %d resources, already has %d allocated, requesting %d more (total: %d)", 
@@ -177,7 +177,7 @@ public class AllocationValidationService {
         } else if (request.getProjectId() != null) {
             Optional<Project> projectOpt = projectRepository.findById(request.getProjectId());
             if (projectOpt.isEmpty()) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "PROJECT_NOT_FOUND",
                     "Project not found"
@@ -259,7 +259,8 @@ public class AllocationValidationService {
 
                 boolean override = false;
 
-                if (request.getAllocationStatus() == AllocationStatus.ACTIVE) {
+                if (request.getAllocationStatus() == AllocationStatus.ACTIVE ||
+                        request.getAllocationStatus() == AllocationStatus.PLANNED) {
                     // 🔹 CONSOLIDATED CAPACITY VALIDATION
                     override = validateCapacity(resourceId, request, preloadedData);
                 }
@@ -275,7 +276,7 @@ public class AllocationValidationService {
                 
                 // Validate that at least one of demand or project is present
                 if (finalDemand == null && finalProject == null) {
-                    throw new ProjectExceptionHandler(
+                    throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "MISSING_DEMAND_OR_PROJECT",
                         "Allocation must have either a demand or project associated with it"
@@ -322,7 +323,7 @@ public class AllocationValidationService {
         }
         
         if (resource.getActiveFlag() == null || !resource.getActiveFlag()) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "RESOURCE_INELIGIBLE",
                 "Resource is not active"
@@ -343,7 +344,7 @@ public class AllocationValidationService {
         
         // Validate demand exists and is approved (already done in validateDemandOrProject)
         if (demand != null && demand.getDemandCommitment().equals(DemandCommitment.SOFT)) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "SOFT_COMMITMENT",
                 "Demand Commitment is SOFT. Allocation not allowed."
@@ -352,7 +353,7 @@ public class AllocationValidationService {
         
         // Validate project exists if project allocation
         if (demand == null && project == null) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "NO_DEMAND_OR_PROJECT",
                 "Either demand or project must be specified"
@@ -372,7 +373,7 @@ public class AllocationValidationService {
             if (request.getOverrideJustification() == null ||
                     request.getOverrideJustification().isBlank()) {
 
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "PRIORITY_CONFLICT",
                         "Priority conflict detected: " + conflictResult.getMessage()
@@ -396,7 +397,7 @@ public class AllocationValidationService {
         
         // Check if allocation is allowed based on skill gap analysis
         if (!skillGapResult.getAllocationAllowed()) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "SKILL_GAP_MISMATCH",
                 String.format("Resource %d does not meet skill requirements for demand '%s'. Match: %.1f%%, Risk: %s", 
@@ -406,7 +407,7 @@ public class AllocationValidationService {
         
         // Additional validation for mandatory requirements
         if (skillGapResult.getMatchPercentage() < 50.0) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "LOW_SKILL_MATCH",
                 String.format("Resource %d has low skill match (%.1f%%) for demand '%s'. Minimum 50%% required", 
@@ -451,7 +452,7 @@ public class AllocationValidationService {
 
         if (monthlyOverrides >= 3) {
 
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "OVERRIDE_LIMIT_EXCEEDED",
                     "Resource already used override 3 times this month"
@@ -464,7 +465,7 @@ public class AllocationValidationService {
 
         ResourceState state = resourceStateRepository
                 .findByResourceIdAndCurrentFlagTrue(resourceId)
-                .orElseThrow(() -> new ProjectExceptionHandler(
+                .orElseThrow(() -> new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "RESOURCE_STATE_MISSING",
                         "Resource " + resourceId + " has no state record. Please initialize resource state first."
@@ -498,7 +499,7 @@ public class AllocationValidationService {
 
         if (totalAllocation > 130) {
 
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "MAX_ALLOCATION_EXCEEDED",
                     String.format("Total allocation would be %d%% (Internal: %d%%, Project: %d%%, Requested: %d%%) which exceeds the maximum allowed limit of 130%%",
@@ -513,7 +514,7 @@ public class AllocationValidationService {
         if (totalAllocation > 100) {
             // Check if request has approval for beyond capacity allocation
             if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "CAPACITY_APPROVAL_REQUIRED",
                         String.format("Allocation exceeds 100%% (Total would be %d%%). Approval for beyond-capacity allocation required.", totalAllocation)
@@ -523,7 +524,7 @@ public class AllocationValidationService {
             // Additional validation for 130% special conditions
             if (totalAllocation > 120) {
                 if (request.getOverrideJustification() == null || request.getOverrideJustification().isBlank()) {
-                    throw new ProjectExceptionHandler(
+                    throw new AllocationExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "HIGH_OVERRIDE_JUSTIFICATION_REQUIRED",
                             "Allocation above 120% requires detailed justification for special conditions."
@@ -537,7 +538,7 @@ public class AllocationValidationService {
                 ) + 1;
 
                 if (overrideDays > 14) {
-                    throw new ProjectExceptionHandler(
+                    throw new AllocationExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "HIGH_OVERRIDE_DURATION_EXCEEDED",
                             "Allocation above 120% allowed only for maximum 14 days"
@@ -562,39 +563,32 @@ public class AllocationValidationService {
         Project targetProject = (demand != null) ? demand.getProject() : project;
         
         if (targetProject == null) {
-            throw new ProjectExceptionHandler(
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "PROJECT_NOT_FOUND",
                 "Project not found for allocation"
             );
         }
         
-        // Validate project status
-        if (targetProject.getProjectStatus() != ProjectStatus.ACTIVE &&
-            targetProject.getProjectStatus() != ProjectStatus.APPROVED) {
-            throw new ProjectExceptionHandler(
+        // Validate project status — only ACTIVE is allowed (APPROVED is a pre-live state)
+        if (targetProject.getProjectStatus() != ProjectStatus.ACTIVE) {
+            throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "PROJECT_INACTIVE",
-                "Project '" + targetProject.getName() + "' is not active. Current status: " + 
+                "Project '" + targetProject.getName() + "' is not active. Current status: " +
                 (targetProject.getProjectStatus() != null ? targetProject.getProjectStatus().name() : "UNKNOWN")
             );
         }
-        
-        // Validate client status (client is loaded lazily, so we need to handle it carefully)
-        try {
-            if (targetProject.getClient() != null) {
-                if (targetProject.getClient().getStatus() != RecordStatus.ACTIVE) {
-                    throw new ProjectExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "CLIENT_INACTIVE",
-                        "Client '" + targetProject.getClient().getClientName() + "' is not active. Current status: " + 
-                        (targetProject.getClient().getStatus() != null ? targetProject.getClient().getStatus().name() : "UNKNOWN")
-                    );
-                }
-            }
-        } catch (Exception e) {
-            // If client data is not accessible due to lazy loading, we'll skip client validation
-            // This is a safe fallback since the project validation already passed
+
+        // Validate client status
+        if (targetProject.getClient() != null &&
+                targetProject.getClient().getStatus() != RecordStatus.ACTIVE) {
+            throw new AllocationExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "CLIENT_INACTIVE",
+                "Client '" + targetProject.getClient().getClientName() + "' is not active. Current status: " +
+                (targetProject.getClient().getStatus() != null ? targetProject.getClient().getStatus().name() : "UNKNOWN")
+            );
         }
     }
 }

@@ -6,7 +6,7 @@ import com.dto.skill_dto.SkillTaxonomyTreeDto;
 import com.entity.skill_entities.SkillCategory;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
-import com.global_exception_handler.SkillTaxonomyExceptionHandler;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.SkillCategoryRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
@@ -35,7 +35,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
         String normalized = name.trim();
 
         if (repository.existsByNameIgnoreCase(normalized)) {
-            throw new SkillTaxonomyExceptionHandler("Category already exists");
+            throw SkillExceptionHandler.badRequest("Category already exists");
         }
 
         SkillCategory category = new SkillCategory();
@@ -58,20 +58,20 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     @Override
     public void deactivateCategory(UUID categoryId) {
         SkillCategory category = repository.findById(categoryId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Category not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Category not found"));
 
         if (!"ACTIVE".equals(category.getStatus())) {
-            throw new SkillTaxonomyExceptionHandler("Category is already inactive");
+            throw SkillExceptionHandler.badRequest("Category is already inactive");
         }
 
         long activeSkillsCount = repository.countActiveSkillsByCategoryId(categoryId);
         if (activeSkillsCount > 0) {
-            throw new SkillTaxonomyExceptionHandler("Cannot deactivate category with " + activeSkillsCount + " active skills");
+            throw SkillExceptionHandler.badRequest("Cannot deactivate category with " + activeSkillsCount + " active skills");
         }
 
         int updated = repository.deactivateCategory(categoryId);
         if (updated == 0) {
-            throw new SkillTaxonomyExceptionHandler("Failed to deactivate category");
+            throw SkillExceptionHandler.badRequest("Failed to deactivate category");
         }
     }
 
@@ -85,7 +85,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     public SkillTaxonomyTreeDto getSkillTaxonomyTreeByCategoryId(UUID categoryId) {
         SkillCategory category = repository.findActiveCategoryById(categoryId);
         if (category == null) {
-            throw new SkillTaxonomyExceptionHandler("Category not found or inactive");
+            throw SkillExceptionHandler.badRequest("Category not found or inactive");
         }
 
         List<Skill> skills = repository.findActiveSkillsByCategoryId(categoryId);
