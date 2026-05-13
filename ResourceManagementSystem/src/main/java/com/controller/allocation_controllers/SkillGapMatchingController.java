@@ -38,7 +38,7 @@ public class SkillGapMatchingController {
      */
     @PostMapping("/skill-gap-analysis")
     @PreAuthorize("hasAnyRole('Resource_Manager','Project_Manager','Admin')")
-    public ResponseEntity<?> analyzeSkillGap(
+    public ResponseEntity<ApiResponse<?>> analyzeSkillGap(
             @Valid @RequestBody SkillGapAnalysisRequestDTO request) {
 
         long requestId = requestCounter.incrementAndGet();
@@ -49,7 +49,7 @@ public class SkillGapMatchingController {
 
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            ResponseEntity<?> response = allocationService.analyzeSkillGap(request);
+            ResponseEntity<ApiResponse<?>> response = allocationService.analyzeSkillGap(request);
 
             Duration executionTime = Duration.between(startTime, Instant.now());
             sample.stop(meterRegistry.timer("skill_gap_analysis_duration_ms"));

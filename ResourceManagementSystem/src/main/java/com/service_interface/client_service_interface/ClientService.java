@@ -7,11 +7,12 @@ import com.entity.client_entities.Client;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface ClientService {
     ResponseEntity<ApiResponse<Client>> createClient(Client client);
-    ApiResponse<PageResponse<ClientDTO>> searchClients(
+    ResponseEntity<ApiResponse<Map<String, Object>>> searchClients(
             ClientFilterDTO filter,
             int page,
             int size

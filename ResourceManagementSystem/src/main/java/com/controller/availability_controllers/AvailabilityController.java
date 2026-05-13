@@ -3,7 +3,6 @@ package com.controller.availability_controllers;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.availability_dto.ResourceTimelineDTO;
 import com.dto.availability_dto.ResourceTimelineResponseDTO;
-import com.dto.availability_dto.ResourceTimelineApiResponse;
 import com.service_interface.availability_service_interface.AvailabilityTriggerService;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
 import lombok.RequiredArgsConstructor;
@@ -29,11 +28,7 @@ public class AvailabilityController {
                         @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth) {
         
                 triggerService.triggerMonthlySync(yearMonth);
-        ApiResponse<String> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setMessage("Monthly availability sync initiated successfully");
-        response.setData("Monthly availability sync initiated for " + yearMonth);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Monthly availability sync initiated successfully", "Monthly availability sync initiated for " + yearMonth));
     }
 
     @PostMapping("/recalculate/resource/{resourceId}")
@@ -42,11 +37,7 @@ public class AvailabilityController {
                         @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth) {
         
                 triggerService.triggerResourceRecalculation(resourceId, yearMonth);
-        ApiResponse<String> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setMessage("Resource recalculation initiated successfully");
-        response.setData("Recalculation initiated for resource " + resourceId + " for " + yearMonth);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Resource recalculation initiated successfully", "Recalculation initiated for resource " + resourceId + " for " + yearMonth));
     }
     
     @PostMapping("/sync/bulk")
@@ -55,11 +46,7 @@ public class AvailabilityController {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth endMonth) {
 
                 triggerService.triggerBulkRecalculation(startMonth, endMonth);
-        ApiResponse<String> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setMessage("Bulk recalculation initiated successfully");
-        response.setData("Bulk recalculation initiated from " + startMonth + " to " + endMonth);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Bulk recalculation initiated successfully", "Bulk recalculation initiated from " + startMonth + " to " + endMonth));
     }
 
     @PostMapping("/trigger/holiday-change")
@@ -67,27 +54,19 @@ public class AvailabilityController {
             @RequestParam Integer year) {
         
                 triggerService.handleHolidayDataChange(year);
-        ApiResponse<String> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setMessage("Holiday change handling initiated successfully");
-        response.setData("Holiday change handling initiated for year " + year);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Holiday change handling initiated successfully", "Holiday change handling initiated for year " + year));
     }
 
     @GetMapping("/timeline")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<ResourceTimelineDTO>>> getAllResourceTimelines() {
                 List<ResourceTimelineDTO> timelines = resourceTimelineService.getAllResourceTimelines();
-                ApiResponse<List<ResourceTimelineDTO>> response = new ApiResponse<>();
-                response.setSuccess(true);
-                response.setMessage("Resource timelines retrieved successfully");
-                response.setData(timelines);
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(ApiResponse.success("Resource timelines retrieved successfully", timelines));
     }
 
     @GetMapping("/timeline/window")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager')")
-    public ResponseEntity<ResourceTimelineApiResponse> getResourceTimelineWindow(
+    public ResponseEntity<ApiResponse<?>> getResourceTimelineWindow(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -113,23 +92,20 @@ public class AvailabilityController {
             @RequestParam(defaultValue = "0") Integer page,
             
             @RequestParam(defaultValue = "20") Integer size) {
-        
-                
-        // Validate status if provided
         if (status != null && !List.of("available", "partial", "allocated").contains(status.toLowerCase())) {
             return ResponseEntity.badRequest()
-                    .body(ResourceTimelineApiResponse.error("Invalid status. Must be one of: available, partial, allocated"));
+                    .body(ApiResponse.error("Invalid status. Must be one of: available, partial, allocated"));
         }
         
-        ResourceTimelineApiResponse result = resourceTimelineService.getResourceTimelineWindow(
+        ApiResponse<?> result = resourceTimelineService.getResourceTimelineWindow(
                 startDate, endDate, designation, location, minExp, maxExp, 
                 employmentType, status != null ? status.toLowerCase() : null, search, allocationPercentage, project, page, size);
         
-        if (!result.getSuccess()) {
+        if (Boolean.FALSE.equals(result.getSuccess())) {
             return ResponseEntity.badRequest().body(result);
         }
         
-                return ResponseEntity.ok(result);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/timeline/window/kpi")
@@ -150,26 +126,15 @@ public class AvailabilityController {
             @RequestParam(required = false) String employmentType,
             
             @RequestParam(required = false) String status) {
-        
-                
-        // Validate status if provided
         if (status != null && !List.of("available", "partial", "allocated").contains(status.toLowerCase())) {
-            ApiResponse<ResourceTimelineResponseDTO.ResourceTimelineKpi> errorResponse = new ApiResponse<>();
-            errorResponse.setSuccess(false);
-            errorResponse.setMessage("Invalid status. Must be one of: available, partial, allocated");
-            errorResponse.setData(null);
-            return ResponseEntity.badRequest().body(errorResponse);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Invalid status. Must be one of: available, partial, allocated"));
         }
         
         ResourceTimelineResponseDTO.ResourceTimelineKpi kpi = resourceTimelineService.getTimelineKPI(
                 startDate, endDate, designation, location, minExp, maxExp, 
                 employmentType, status != null ? status.toLowerCase() : null);
         
-        ApiResponse<ResourceTimelineResponseDTO.ResourceTimelineKpi> response = new ApiResponse<>();
-        response.setSuccess(true);
-        response.setMessage("Timeline KPI retrieved successfully");
-        response.setData(kpi);
-                
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", kpi));
     }
 }

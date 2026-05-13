@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,17 +53,17 @@ public class ClientServiceImpl implements ClientService {
             }
 
             Client savedClient = clientRepo.save(client);
-            return ResponseEntity.ok(ApiResponse.<Client>success("Client created successfully", savedClient));
+            return ResponseEntity.ok(ApiResponse.success("Client created successfully", savedClient));
 
         } catch (Exception e) {
             log.error("Error creating client: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<Client>error("Failed to create client: " + e.getMessage(), null));
+                    .body(ApiResponse.error("Failed to create client: " + e.getMessage()));
         }
     }
 
     @Override
-    public ApiResponse<PageResponse<ClientDTO>> searchClients(ClientFilterDTO filter, int page, int size) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> searchClients(ClientFilterDTO filter, int page, int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
             Specification<Client> spec = buildClientSpecification(filter);
@@ -72,19 +73,19 @@ public class ClientServiceImpl implements ClientService {
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
             
-            PageResponse<ClientDTO> pageResponse = new PageResponse<>(
-                    clientDTOs,
-                    page,
-                    size,
-                    clientPage.getTotalElements(),
-                    clientPage.getTotalPages()
-            );
-            
-            return ApiResponse.<PageResponse<ClientDTO>>success("Clients retrieved successfully", pageResponse);
+            Map<String, Object> pageResponse = new LinkedHashMap<>();
+            pageResponse.put("content", clientDTOs);
+            pageResponse.put("page", clientPage.getNumber());
+            pageResponse.put("size", clientPage.getSize());
+            pageResponse.put("totalElements", clientPage.getTotalElements());
+            pageResponse.put("totalPages", clientPage.getTotalPages());
+
+            return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", pageResponse));
 
         } catch (Exception e) {
             log.error("Error searching clients: {}", e.getMessage());
-            return ApiResponse.<PageResponse<ClientDTO>>error("Failed to search clients: " + e.getMessage(), null);
+            return ResponseEntity.internalServerError()
+                    .body(ApiResponse.error("Failed to search clients"));
         }
     }
 
@@ -92,12 +93,12 @@ public class ClientServiceImpl implements ClientService {
     public ResponseEntity<ApiResponse<Void>> countClients() {
         try {
             long count = clientRepo.count();
-            return ResponseEntity.ok(ApiResponse.<Void>success("Client count retrieved successfully: " + count, null));
+            return ResponseEntity.ok(ApiResponse.success("Client count retrieved successfully: " + count));
 
         } catch (Exception e) {
             log.error("Error counting clients: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<Void>error("Failed to count clients", null));
+                    .body(ApiResponse.error("Failed to count clients"));
         }
     }
 
@@ -105,12 +106,12 @@ public class ClientServiceImpl implements ClientService {
     public ResponseEntity<ApiResponse<List<Client>>> clientDetails() {
         try {
             List<Client> clients = clientRepo.findAll();
-            return ResponseEntity.ok(ApiResponse.<List<Client>>success("Client details retrieved successfully", clients));
+            return ResponseEntity.ok(ApiResponse.success("Client details retrieved successfully", clients));
 
         } catch (Exception e) {
             log.error("Error retrieving client details: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<List<Client>>error("Failed to retrieve client details", null));
+                    .body(ApiResponse.error("Failed to retrieve client details"));
         }
     }
 
@@ -122,12 +123,12 @@ public class ClientServiceImpl implements ClientService {
                     .map(this::convertToDTO)
                     .collect(Collectors.toList());
             
-            return ResponseEntity.ok(ApiResponse.<List<ClientDTO>>success("Active clients retrieved successfully", clientDTOs));
+            return ResponseEntity.ok(ApiResponse.success("Active clients retrieved successfully", clientDTOs));
 
         } catch (Exception e) {
             log.error("Error retrieving active clients: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<List<ClientDTO>>error("Failed to retrieve active clients", null));
+                    .body(ApiResponse.error("Failed to retrieve active clients"));
         }
     }
 
@@ -171,12 +172,12 @@ public class ClientServiceImpl implements ClientService {
                     .yearlyClientCounts(yearlyClientCounts)
                     .build();
             
-            return ResponseEntity.ok(ApiResponse.<AdminKPIDTO>success("Admin KPI retrieved successfully", adminKPIDTO));
+            return ResponseEntity.ok(ApiResponse.success("Admin KPI retrieved successfully", adminKPIDTO));
 
         } catch (Exception e) {
             log.error("Error retrieving admin KPI: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<AdminKPIDTO>error("Failed to retrieve admin KPI", null));
+                    .body(ApiResponse.error("Failed to retrieve admin KPI"));
         }
     }
 
@@ -184,14 +185,16 @@ public class ClientServiceImpl implements ClientService {
     public ResponseEntity<ApiResponse<Client>> getClientById(UUID id) {
         try {
             return clientRepo.findById(id)
-                    .map(client -> ResponseEntity.ok(ApiResponse.<Client>success("Client retrieved successfully", client)))
+                    .map(client -> {
+                        return ResponseEntity.ok(ApiResponse.success("Client retrieved successfully", client));
+                    })
                     .orElse(ResponseEntity.badRequest()
-                            .body(ApiResponse.<Client>error("Client not found with ID: " + id, null)));
+                            .body(ApiResponse.error("Client not found with ID: " + id)));
 
         } catch (Exception e) {
             log.error("Error retrieving client by ID: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<Client>error("Failed to retrieve client", null));
+                    .body(ApiResponse.error("Failed to retrieve client"));
         }
     }
 
@@ -256,15 +259,15 @@ public class ClientServiceImpl implements ClientService {
                                 healthMetrics
                         );
 
-                        return ResponseEntity.ok(ApiResponse.<ClientProjectStatisticsDTO>success("Client project statistics retrieved successfully", stats));
+                        return ResponseEntity.ok(ApiResponse.success("Client project statistics retrieved successfully", stats));
                     })
                     .orElse(ResponseEntity.badRequest()
-                            .body(ApiResponse.<ClientProjectStatisticsDTO>error("Client not found with ID: " + clientId, null)));
+                            .body(new ApiResponse<ClientProjectStatisticsDTO>(false, "Client not found with ID: " + clientId, null)));
 
         } catch (Exception e) {
             log.error("Error retrieving client project statistics: {}", e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(ApiResponse.<ClientProjectStatisticsDTO>error("Failed to retrieve client project statistics", null));
+                    .body(ApiResponse.error("Failed to retrieve client project statistics"));
         }
     }
 
@@ -274,39 +277,14 @@ public class ClientServiceImpl implements ClientService {
         List<Project> project = projectRepository.findByClientId(clientDetails.getClientId());
         for (Project project1 : project) {
             if (project1.getProjectStatus().equals(ProjectStatus.ACTIVE)) {
+                ApiResponse<Client> response = new ApiResponse<>();
                 return ResponseEntity.badRequest()
-                        .body(ApiResponse.<Client>error("Client has active projects, cannot update", null));
+                        .body(response.getAPIResponse(false, "Client has active projects, cannot update", null));
             }
         }
         clientRepo.save(client);
-        return ResponseEntity.ok(ApiResponse.<Client>success("Client updated successfully", client));
-//        try {
-//            return clientRepo.findById(client.getClientId())
-//                    .map(existingClient -> {
-//                        existingClient.setClientName(client.getClientName());
-//                        existingClient.setClientType(client.getClientType());
-//                        existingClient.setPriorityLevel(client.getPriorityLevel());
-//                        existingClient.setDeliveryModel(client.getDeliveryModel());
-//                        existingClient.setCountryName(client.getCountryName());
-//                        existingClient.setDefaultTimezone(client.getDefaultTimezone());
-//                        existingClient.setStatus(client.getStatus());
-//                        existingClient.setSla(client.getSla());
-//                        existingClient.setCompliance(client.getCompliance());
-//                        existingClient.setEscalationContact(client.getEscalationContact());
-//                        existingClient.setAssets(client.getAssets());
-//                        existingClient.setUpdatedAt(LocalDateTime.now());
-//
-//                        Client updatedClient = clientRepo.save(existingClient);
-//                        return ResponseEntity.ok(ApiResponse.<Client>success("Client updated successfully", updatedClient));
-//                    })
-//                    .orElse(ResponseEntity.badRequest()
-//                            .body(ApiResponse.<Client>error("Client not found with ID: " + client.getClientId(), null)));
-//
-//        } catch (Exception e) {
-//            log.error("Error updating client: {}", e.getMessage());
-//            return ResponseEntity.internalServerError()
-//                    .body(ApiResponse.<Client>error("Failed to update client", null));
-//        }
+        ApiResponse<Client> response = new ApiResponse<>();
+        return ResponseEntity.ok(response.getAPIResponse(true, "Client updated successfully", client));
     }
 
     @Override

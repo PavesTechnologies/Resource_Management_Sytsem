@@ -22,7 +22,7 @@ import com.entity_enums.demand_enums.DemandType;
 import com.entity_enums.demand_enums.ReplacementStatus;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.roleoff_enums.RoleOffReason;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.RoleOffExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.roleoff_repo.RoleOffEventRepository;
 import com.repo.project_repo.ProjectRepository;
@@ -37,7 +37,7 @@ import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -86,14 +86,15 @@ public class RoleOffServiceImpl implements RoleOffService {
 // ========== MAIN ROLE-OFF METHODS ==========
 
 @Override
-public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO) {
+@Transactional
+public ResponseEntity<ApiResponse<?>> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO) {
     try {
         // Validate role-off reason
         validateRoleOffReason(roleOff.getRoleOffReason());
 
         // Get allocation details
         ResourceAllocation allocation = allocationRepository.findById(roleOff.getAllocationId())
-                .orElseThrow(() -> new ProjectExceptionHandler(
+                .orElseThrow(() -> new RoleOffExceptionHandler(
                         HttpStatus.NOT_FOUND,
                         "ALLOCATION_NOT_FOUND",
                         "Allocation not found with ID: " + roleOff.getAllocationId()));
@@ -102,12 +103,18 @@ public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO)
         Resource resource = allocation.getResource();
         Project project = allocation.getProject();
 
-        // Validate ownership
-        if (!project.getProjectManagerId().equals(userDTO.getId())) {
-            throw new ProjectExceptionHandler(
+        // Validate ownership: PM can only act on their own projects;
+        // RM can act on any project they manage.
+        boolean isProjectManager = project.getProjectManagerId().equals(userDTO.getId());
+        boolean isResourceManager = project.getResourceManagerId() != null
+                && project.getResourceManagerId().equals(userDTO.getId());
+        boolean isAdmin = userDTO.getRoles() != null && userDTO.getRoles().contains("Admin");
+
+        if (!isProjectManager && !isResourceManager && !isAdmin) {
+            throw new RoleOffExceptionHandler(
                     HttpStatus.FORBIDDEN,
                     "PROJECT_ACCESS_DENIED",
-                    "You can only create role-offs for your own projects");
+                    "You do not have permission to create role-offs for this project");
         }
 
         // Generate impact preview if not confirmed
@@ -116,47 +123,15 @@ public ResponseEntity<?> roleOffByRM(RoleOffRequestDTO roleOff, UserDTO userDTO)
         }
 
         // Process the role-off
-        RoleOffEvent roleOffEvent = processRoleOff(roleOff, userDTO.getId(), resource, project, allocation);
+        processRoleOff(roleOff, userDTO.getId(), resource, project, allocation);
 
-        // Build response data with role-off details
-        Map<String, Object> responseData = new HashMap<>();
-        responseData.put("roleOffId", roleOffEvent.getId());
-        responseData.put("roleOffType", roleOffEvent.getRoleOffType());
-        responseData.put("roleOffStatus", roleOffEvent.getRoleOffStatus());
-        responseData.put("roleOffReason", roleOffEvent.getRoleOffReason());
-        responseData.put("roleOffReasonEnum", roleOffEvent.getRoleOffReasonEnum());
-        responseData.put("effectiveRoleOffDate", roleOffEvent.getEffectiveRoleOffDate());
-        responseData.put("resourcePerformance", roleOffEvent.getResourcePerformance());
-        responseData.put("replacementStatus", roleOffEvent.getReplacementStatus());
-        responseData.put("skipReason", roleOffEvent.getSkipReason());
-        responseData.put("rmApproved", roleOffEvent.getRmApproved());
-        responseData.put("dlApproved", roleOffEvent.getDlApproved());
-        responseData.put("dlActionDate", roleOffEvent.getDlActionDate());
-        responseData.put("rejectedBy", roleOffEvent.getRejectedBy());
-        responseData.put("rejectionReason", roleOffEvent.getRejectionReason());
-        responseData.put("roleInitiatedBy", roleOffEvent.getRoleInitiatedBy());
-        responseData.put("createdAt", roleOffEvent.getCreatedAt());
-        responseData.put("createdBy", roleOffEvent.getCreatedBy());
-        responseData.put("resourceId", resource.getResourceId());
-        responseData.put("resourceName", resource.getFullName());
-        responseData.put("projectId", project.getPmsProjectId());
-        responseData.put("projectName", project.getName());
-        responseData.put("allocationId", allocation.getAllocationId());
-        responseData.put("allocationPercentage", allocation.getAllocationPercentage());
-        responseData.put("allocationEndDate", allocation.getAllocationEndDate());
-        if (roleOffEvent.getRole() != null) {
-            responseData.put("roleId", roleOffEvent.getRole().getId());
-            if (roleOffEvent.getRole().getRole() != null) {
-                responseData.put("roleName", roleOffEvent.getRole().getRole().getRoleName());
-            }
-        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Created successfully"));
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off request created successfully", responseData));
-
-    } catch (ProjectExceptionHandler e) {
+    } catch (RoleOffExceptionHandler e) {
         throw e;
     } catch (Exception e) {
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "ROLE_OFF_CREATION_FAILED",
                 "Failed to create role-off request: " + e.getMessage());
@@ -168,7 +143,7 @@ public void manualReplacement(UUID roleOffEventId, Long userId) {
     try {
         // Find the role-off event
         RoleOffEvent roleOffEvent = roleOffRepo.findById(roleOffEventId)
-                .orElseThrow(() -> new ProjectExceptionHandler(
+                .orElseThrow(() -> new RoleOffExceptionHandler(
                         HttpStatus.NOT_FOUND,
                         "ROLE_OFF_EVENT_NOT_FOUND",
                         "Role-off event not found with ID: " + roleOffEventId));
@@ -176,7 +151,7 @@ public void manualReplacement(UUID roleOffEventId, Long userId) {
         // Validate that role-off is in appropriate status for replacement
         if (roleOffEvent.getRoleOffStatus() != RoleOffStatus.APPROVED &&
             roleOffEvent.getRoleOffStatus() != RoleOffStatus.FULFILLED) {
-            throw new ProjectExceptionHandler(
+            throw new RoleOffExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_ROLE_OFF_STATUS",
                     "Manual replacement can only be created for approved or fulfilled role-offs");
@@ -194,10 +169,10 @@ public void manualReplacement(UUID roleOffEventId, Long userId) {
 
         log.info("Manual replacement created for role-off event: {}", roleOffEventId);
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (RoleOffExceptionHandler e) {
         throw e;
     } catch (Exception e) {
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "MANUAL_REPLACEMENT_FAILED",
                 "Failed to create manual replacement: " + e.getMessage());
@@ -234,7 +209,7 @@ public RoleOffEvent getRoleOffEventById(UUID id) {
  */
 public void validateRoleOffReason(RoleOffReason reason) {
     if (reason == null) {
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "ROLE_OFF_REASON_REQUIRED",
                 "Role-off reason classification is mandatory. Must be one of: " + getValidReasonsString()
@@ -264,7 +239,7 @@ public String getReasonDescription(RoleOffReason reason) {
  */
 public void validateRoleOffEvent(RoleOffEvent event) {
     if (event.getRoleOffReason() == null) {
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "ROLE_OFF_REASON_REQUIRED",
                 "Role-off event must have a classified reason"
@@ -684,8 +659,7 @@ public void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean co
             LocalDateTime.now()
     );
 
-    // In real implementation, save to audit table
-    System.out.println("AUDIT LOG: " + logMessage);
+    log.info("AUDIT: {}", logMessage);
 }
 //
 //    private String getDeliveryOwnerName(Long deliveryOwnerId) {
@@ -697,7 +671,7 @@ public void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean co
 //    }
 
 @Override
-public ResponseEntity<?> getResources(Long pmId, Long projectId) {
+public ResponseEntity<ApiResponse<?>> getResources(Long pmId, Long projectId) {
     List<ResourceAllocation> allocations = roleOffRepo.findResources(projectId, pmId);
     return buildResourcesResponse(allocations);
 }
@@ -705,10 +679,10 @@ public ResponseEntity<?> getResources(Long pmId, Long projectId) {
 /**
  * Common method to build resources response with optimized data fetching
  */
-private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> allocations) {
+private ResponseEntity<ApiResponse<?>> buildResourcesResponse(List<ResourceAllocation> allocations) {
 
     if (allocations.isEmpty()) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrieved successfully!", Collections.emptyList()));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", Collections.emptyList()));
     }
 
     // Extract IDs
@@ -768,7 +742,7 @@ private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> alloca
                         .allocationId(ra.getAllocationId())
                         .impact(impactLevelsMap.getOrDefault(resId, "LOW"))
                         .status(ra.getAllocationStatus())
-                        .roleOffStatus(event != null ? event.getRoleOffStatus() : RoleOffStatus.NONE)
+                        .roleOffStatus(event != null ? event.getRoleOffStatus() : null)
                         .allocationPercentage(ra.getAllocationPercentage())
                         .endDate(ra.getAllocationEndDate())
                         .effectiveDate(event != null ? event.getEffectiveRoleOffDate() : null)
@@ -783,7 +757,7 @@ private ResponseEntity<?> buildResourcesResponse(List<ResourceAllocation> alloca
             })
             .collect(Collectors.toList());
 
-    return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrieved successfully!", dtos));
+    return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", dtos));
 }
 
 /**
@@ -801,15 +775,12 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
             ));
 }
 
-    public ResponseEntity<?> getRoleOffKPI(Long projectId, Long managerId) {
+    public ResponseEntity<ApiResponse<?>> getRoleOffKPI(Long projectId, Long managerId) {
 
-        System.out.println("====== KPI DEBUG ======");
-        System.out.println("projectId received: " + projectId);
-        System.out.println("managerId received: " + managerId);
+        log.debug("getRoleOffKPI: projectId={}, managerId={}", projectId, managerId);
 
-        // Raw native query to confirm
         List<Object[]> raw = roleOffRepo.debugCountByProject(projectId, managerId);
-        raw.forEach(r -> System.out.println("status=" + r[0] + " count=" + r[1]));
+        raw.forEach(r -> log.debug("KPI raw: status={} count={}", r[0], r[1]));
 
         // 🔥 FIX: Get current active allocations first for consistent counting
         List<ResourceAllocation> currentAllocations = roleOffRepo.findResources(projectId, managerId);
@@ -832,15 +803,11 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
         data.put("pendingRoleOffs", pending);
         data.put("totalRoleOff", completed);
 
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Role-off KPI retrieved successfully!",
-                "data", data
-        ));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", data));
     }
 
     @Override
-    public ResponseEntity<?> getRoleOffsApprovedToday(Long projectId, Long managerId) {
+    public ResponseEntity<ApiResponse<?>> getRoleOffsApprovedToday(Long projectId, Long managerId) {
         try {
             LocalDate today = LocalDate.now();
             
@@ -912,21 +879,21 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
             response.put("count", dtos.size());
             response.put("date", today);
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Role-offs approved today retrieved successfully!", response));
+            return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", response));
 
         } catch (Exception e) {
-            throw new ProjectExceptionHandler(
+            throw new RoleOffExceptionHandler(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "APPROVED_TODAY_FETCH_FAILED",
                     "Failed to fetch role-offs approved today: " + e.getMessage());
         }
     }
     @Override
-    public ResponseEntity<?> getRMRoleOffEvents(Long rmId) {
+    public ResponseEntity<ApiResponse<?>> getRMRoleOffEvents(Long rmId) {
         List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffs(rmId, RoleOffStatus.PENDING);
         
         if (roleOffEvents.isEmpty()) {
-            return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", List.of()));
+            return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", List.of()));
         }
 
     // Batch fetch resource IDs for impact calculation
@@ -988,13 +955,13 @@ private Map<Long, List<String>> mapToGroupedList(List<Object[]> results) {
 
     }).toList();
 
-    return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", dtos));
+    return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", dtos));
 }
 
 /**
  * Generate impact preview for role-off confirmation
  */
-private ResponseEntity<?> generateImpactPreview(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
+private ResponseEntity<ApiResponse<?>> generateImpactPreview(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
                                                 Resource resource, Project project, ResourceAllocation allocation) {
 
     // Calculate impact details
@@ -1053,18 +1020,18 @@ private ResponseEntity<?> generateImpactPreview(com.dto.allocation_dto.RoleOffRe
     response.put("projectId", project.getPmsProjectId());
     response.put("allocationId", allocation.getAllocationId());
 
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", response));
 }
 
 /**
  * Process the actual role-off after confirmation
  */
-private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
+private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long userId,
                             Resource resource, Project project, ResourceAllocation allocation) {
 
     // Validate RoleOffType
     if (dto.getRoleOffType() == null) {
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "ROLE_OFF_TYPE_REQUIRED",
                 "RoleOffType must be provided");
@@ -1085,12 +1052,12 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
         if (roleToSet == null) {
             if (dto.getReplacementRoleId() != null) {
                 roleToSet = deliveryRoleExpectationRepo.findById(dto.getReplacementRoleId())
-                        .orElseThrow(() -> new ProjectExceptionHandler(
+                        .orElseThrow(() -> new RoleOffExceptionHandler(
                                 HttpStatus.NOT_FOUND,
                                 "REPLACEMENT_ROLE_NOT_FOUND",
                                 "Replacement role not found"));
             } else {
-                throw new ProjectExceptionHandler(
+                throw new RoleOffExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "REPLACEMENT_ROLE_REQUIRED",
                         "Replacement role ID is required when auto replacement is enabled");
@@ -1099,7 +1066,7 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
     } else {
         if (roleToSet == null && dto.getReplacementRoleId() != null) {
             roleToSet = deliveryRoleExpectationRepo.findById(dto.getReplacementRoleId())
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new RoleOffExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "REPLACEMENT_ROLE_NOT_FOUND",
                             "Replacement role not found"));
@@ -1138,7 +1105,7 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
         } else {
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
-                throw new ProjectExceptionHandler(
+                throw new RoleOffExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "SKIP_REASON_REQUIRED",
                         "Skip reason required when replacement is disabled");
@@ -1155,7 +1122,7 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
         event.setRoleOffStatus(RoleOffStatus.FULFILLED);
         roleOffRepo.save(event);
 
-        return event;
+        return;
     }
 
     // =========================================================
@@ -1164,14 +1131,14 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
     if (dto.getRoleOffType() == RoleOffType.PLANNED) {
 
         if (dto.getEffectiveRoleOffDate() == null) {
-            throw new ProjectExceptionHandler(
+            throw new RoleOffExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "ROLE_OFF_DATE_REQUIRED",
                     "Role-off date required");
         }
 
         if (dto.getEffectiveRoleOffDate().isBefore(LocalDate.now())) {
-            throw new ProjectExceptionHandler(
+            throw new RoleOffExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_ROLE_OFF_DATE",
                     "Role-off date cannot be in past");
@@ -1179,7 +1146,7 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
 
         // Project timeline validation
         if (project.getEndDate().toLocalDate().isBefore(dto.getEffectiveRoleOffDate())) {
-            throw new ProjectExceptionHandler(
+            throw new RoleOffExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_PROJECT_TIMELINE",
                     "Project end date cannot be before role-off date");
@@ -1196,7 +1163,7 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
         } else {
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
-                throw new ProjectExceptionHandler(
+                throw new RoleOffExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "SKIP_REASON_REQUIRED",
                         "Skip reason required when replacement is disabled");
@@ -1206,15 +1173,7 @@ private RoleOffEvent processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto
         }
 
         roleOffRepo.save(event);
-
-        return event;
     }
-
-    // Invalid role-off type
-    throw new ProjectExceptionHandler(
-            HttpStatus.BAD_REQUEST,
-            "INVALID_ROLE_OFF_TYPE",
-            "Role-off type must be either EMERGENCY or PLANNED");
 }
 
 /**
@@ -1236,7 +1195,7 @@ private void createReplacementDemand(RoleOffEvent event, Long userId) {
     } catch (Exception e) {
         log.error("Failed to create replacement demand for role-off event {}: {}",
                  event.getId(), e.getMessage());
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "REPLACEMENT_DEMAND_CREATION_FAILED",
                 "Failed to create replacement demand: " + e.getMessage());
@@ -1265,7 +1224,7 @@ private void closeResourceAllocation(RoleOffEvent event) {
     } catch (Exception e) {
         log.error("Failed to close allocation for role-off event {}: {}",
                  event.getId(), e.getMessage());
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "ALLOCATION_CLOSURE_FAILED",
                 "Failed to close allocation: " + e.getMessage());
@@ -1276,7 +1235,7 @@ private void closeResourceAllocation(RoleOffEvent event) {
 
 @Override
 @Transactional
-public ResponseEntity<?> rmApprove(UUID id, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> rmApprove(UUID id, UserDTO userDTO) {
     RoleOffEvent event = roleOffRepo.findById(id)
             .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
 
@@ -1289,23 +1248,12 @@ public ResponseEntity<?> rmApprove(UUID id, UserDTO userDTO) {
 
     roleOffRepo.save(event);
 
-    Map<String, Object> response = new HashMap<>();
-    response.put("roleOffId", event.getId());
-    response.put("roleOffStatus", event.getRoleOffStatus());
-    response.put("rmApproved", event.getRmApproved());
-    response.put("resourceId", event.getResource().getResourceId());
-    response.put("resourceName", event.getResource().getFullName());
-    response.put("projectId", event.getProject().getPmsProjectId());
-    response.put("projectName", event.getProject().getName());
-    response.put("approvedBy", userDTO.getName());
-    response.put("approvedAt", LocalDate.now());
-
-    return ResponseEntity.ok(new ApiResponse<>(true, "Approved by RM → Waiting for DL", response));
+    return ResponseEntity.ok(ApiResponse.success("Updated successfully"));
 }
 
 @Override
 @Transactional
-public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> rmReject(UUID id, String rejectionReason, UserDTO userDTO) {
     RoleOffEvent event = roleOffRepo.findById(id)
             .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
 
@@ -1322,26 +1270,14 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
     event.setRejectionReason(rejectionReason.trim());
 
     roleOffRepo.save(event);
-
-    Map<String, Object> response = new HashMap<>();
-    response.put("roleOffId", event.getId());
-    response.put("roleOffStatus", event.getRoleOffStatus());
-    response.put("rejectedBy", event.getRejectedBy());
-    response.put("rejectionReason", event.getRejectionReason());
-    response.put("resourceId", event.getResource().getResourceId());
-    response.put("resourceName", event.getResource().getFullName());
-    response.put("projectId", event.getProject().getPmsProjectId());
-    response.put("projectName", event.getProject().getName());
-    response.put("rejectedAt", LocalDate.now());
-
-    return ResponseEntity.ok(new ApiResponse<>(true, "Rejected by RM", response));
+    return ResponseEntity.ok(ApiResponse.success("Updated successfully"));
 }
 
 // ========== SEPARATE FULFILL/REJECT METHODS FOR DELIVERY MANAGER ==========
 
     @Override
     @Transactional
-    public ResponseEntity<?> dlFulfill(UUID id, UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> dlFulfill(UUID id, UserDTO userDTO) {
 
         RoleOffEvent event = roleOffRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException(
@@ -1360,31 +1296,20 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
         event.setDlActionDate(LocalDate.now());
         event.setRoleOffStatus(RoleOffStatus.FULFILLED);
 
-        ResourceAllocation allocation = event.getAllocation();
-
-        // ✅ ALWAYS set end date
-        allocation.setAllocationEndDate(event.getEffectiveRoleOffDate());
-
-        // 🔥 CRITICAL FIX → Set allocation to ROLLED_OFF for role-offed allocations
-        allocation.setAllocationStatus(AllocationStatus.ROLLED_OFF);
-
-        allocationRepository.save(allocation);
-
-        // Keep for ledger / async updates
+        // closeResourceAllocation handles ending + saving the allocation and async ledger update.
+        // Do NOT save the allocation separately before this call to avoid a double-write.
         closeResourceAllocation(event);
 
         roleOffRepo.save(event);
 
-        // Trigger availability recalculation for the resource
-        String resourceId = allocation.getResource().getResourceId();
-
-        LocalDate effectiveDate = event.getEffectiveRoleOffDate();
-        availabilityLedgerAsyncService.updateLedger(resourceId, effectiveDate, effectiveDate.plusDays(90));
+        // Revert demand to APPROVED if this was the only fulfilling allocation
+        if (event.getAllocation() != null && event.getAllocation().getDemand() != null) {
+            allocationService.checkAndUpdateDemandFulfillment(
+                    event.getAllocation().getDemand().getDemandId());
+        }
 
         // Build comprehensive response with approval details
         Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Role-off fulfilled successfully");
         response.put("roleOffId", event.getId());
         response.put("approvalDetails", Map.of(
                 "dlApproved", true,
@@ -1400,12 +1325,12 @@ public ResponseEntity<?> rmReject(UUID id, String rejectionReason, UserDTO userD
                 "clientName", event.getProject().getClient().getClientName()
         ));
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off fulfilled successfully", response));
+        return ResponseEntity.ok(ApiResponse.success("Updated successfully", response));
     }
 
 @Override
 @Transactional
-public ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> dlReject(UUID id, String rejectionReason, UserDTO userDTO) {
     RoleOffEvent event = roleOffRepo.findById(id)
             .orElseThrow(() -> new RuntimeException("RoleOff event with ID " + id + " not found. The event may have been deleted or the ID is incorrect."));
 
@@ -1446,15 +1371,15 @@ public ResponseEntity<?> dlReject(UUID id, String rejectionReason, UserDTO userD
             "clientName", event.getProject().getClient().getClientName()
     ));
 
-    return ResponseEntity.ok(new ApiResponse<>(true, "Role-off rejected successfully", response));
+    return ResponseEntity.ok(ApiResponse.success("Role-off rejected successfully", response));
 }
 
 @Override
-public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
+public ResponseEntity<ApiResponse<?>> getDMRoleOffEvents(Long dmId) {
     List<RoleOffEvent> roleOffEvents = roleOffRepo.findPendingRoleOffsDm(dmId, RoleOffStatus.APPROVED);
 
     if (roleOffEvents.isEmpty()) {
-        return ResponseEntity.ok(new ApiResponse<>(true, "Role-off events retrieved successfully!", List.of()));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", List.of()));
     }
 
     // Batch fetch resource IDs for impact calculation
@@ -1540,27 +1465,17 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
                     .anyMatch(dto -> "HIGH".equals(dto.getImpact())) ? "HIGH" : "NORMAL"
     ));
 
-    return ResponseEntity.ok(new ApiResponse<>(
-            true, 
-            "Delivery Manager role-off events retrieved successfully", 
-            enterpriseResponse
-    ));
+    return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", enterpriseResponse));
 }
 
     @Override
-    public ResponseEntity<?> getFulfilledRoleOffEvents(Long dmId) {
+    public ResponseEntity<ApiResponse<?>> getFulfilledRoleOffEvents(Long dmId) {
 
         List<RoleOffEvent> roleOffEvents =
                 roleOffRepo.findFulfilledRoleOffsForDM(dmId);
 
         if (roleOffEvents.isEmpty()) {
-            return ResponseEntity.ok(
-                    new ApiResponse<>(
-                            true,
-                            "Fulfilled role-off events retrieved successfully!",
-                            List.of()
-                    )
-            );
+            return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", List.of()));
         }
 
         List<ResourcesDTO> dtos = roleOffEvents.stream().map(r -> {
@@ -1610,74 +1525,68 @@ public ResponseEntity<?> getDMRoleOffEvents(Long dmId) {
 
         }).toList();
 
-        return ResponseEntity.ok(
-                new ApiResponse<>(
-                        true,
-                        "Fulfilled role-off events retrieved successfully!",
-                        dtos
-                )
-        );
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", dtos));
     }
 
 @Override
-public ResponseEntity<?> pmCancel(UUID id, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> pmCancel(UUID id, UserDTO userDTO) {
     // ========== VALIDATION ==========
 
     // 1. Basic validation
     if (id == null) {
-        return ResponseEntity.badRequest().body("Role-off event ID is required");
+        return ResponseEntity.badRequest().body(ApiResponse.error("Role-off event ID is required"));
     }
 
     // 2. Find role-off event
     Optional<RoleOffEvent> roleOffEventOpt = roleOffRepo.findById(id);
     if (roleOffEventOpt.isEmpty()) {
-        return ResponseEntity.badRequest().body("Role-off event not found");
+        return ResponseEntity.badRequest().body(ApiResponse.error("Role-off event not found"));
     }
 
     RoleOffEvent event = roleOffEventOpt.get();
 
     // 3. Validate current status - only PENDING or APPROVED can be cancelled
     if (event.getRoleOffStatus() != RoleOffStatus.PENDING && event.getRoleOffStatus() != RoleOffStatus.APPROVED) {
-        return ResponseEntity.badRequest().body("Only PENDING or APPROVED role-off requests can be cancelled");
+        return ResponseEntity.badRequest().body(ApiResponse.error("Only PENDING or APPROVED role-off requests can be cancelled"));
     }
 
     // 4. Validate project ownership - PM can only cancel role-offs for their projects
     if (event.getProject() == null || event.getProject().getProjectManagerId() == null) {
-        return ResponseEntity.badRequest().body("Invalid role-off event: missing project information");
+        return ResponseEntity.badRequest().body(ApiResponse.error("Invalid role-off event: missing project information"));
     }
 
     if (!event.getProject().getProjectManagerId().equals(userDTO.getId())) {
-        return ResponseEntity.badRequest().body("You can only cancel role-off requests for your own projects");
+        return ResponseEntity.badRequest().body(ApiResponse.error("You can only cancel role-off requests for your own projects"));
     }
 
     // 5. Business validation - cannot cancel if already fulfilled or rejected
     if (event.getRoleOffStatus() == RoleOffStatus.FULFILLED) {
-        return ResponseEntity.badRequest().body("Cannot cancel a role-off request that has already been fulfilled");
+        return ResponseEntity.badRequest().body(ApiResponse.error("Cannot cancel a role-off request that has already been fulfilled"));
     }
 
     if (event.getRoleOffStatus() == RoleOffStatus.CANCELLED) {
-        return ResponseEntity.badRequest().body("Role-off request is already cancelled");
+        return ResponseEntity.badRequest().body(ApiResponse.error("Role-off request is already cancelled"));
     }
 
     // ========== EXECUTION ==========
 
     try {
-        // Log the cancellation for audit purposes
         logRoleOffCancellation(event, "Cancelled by Project Manager", userDTO.getId());
 
-        // Delete the role-off event instead of just updating status
-        roleOffRepo.delete(event);
+        event.setRoleOffStatus(RoleOffStatus.CANCELLED);
+        event.setRejectedBy(userDTO.getName() != null ? userDTO.getName() : "Project_Manager");
+        event.setRejectionReason("Cancelled by Project Manager");
+        roleOffRepo.save(event);
 
-        return ResponseEntity.ok(new ApiResponse<>(true,
-                "Role-off request cancelled and deleted successfully",
+        return ResponseEntity.ok(ApiResponse.success("Updated successfully",
                 Map.of(
                         "eventId", id,
-                        "status", "DELETED",
+                        "status", RoleOffStatus.CANCELLED,
                         "cancelledBy", "Project_Manager"
                 )));
 
     } catch (Exception e) {
-        return ResponseEntity.internalServerError().body("Error deleting role-off request: " + e.getMessage());
+        return ResponseEntity.internalServerError().body(ApiResponse.error("Failed to cancel role-off request"));
     }
 }
 
@@ -1696,57 +1605,40 @@ private void logRoleOffDeletion(RoleOffEvent event, String reason) {
             LocalDateTime.now()
     );
 
-    // In real implementation, save to audit table
-    System.out.println("AUDIT LOG: " + logMessage);
+    log.info("AUDIT: {}", logMessage);
 }
 
-/**
- * Log role-off cancellation for audit purposes
- */
 private void logRoleOffCancellation(RoleOffEvent event, String reason, Long userId) {
-    String logMessage = String.format(
-            "Role-off CANCELLED - Event ID: %s, Project: %s, Resource: %s, User: %d, " +
-                    "Reason: %s, Timestamp: %s",
+    log.info("AUDIT: Role-off CANCELLED - Event ID: {}, Project: {}, Resource: {}, User: {}, Reason: {}, Timestamp: {}",
             event.getId(),
             event.getProject() != null ? event.getProject().getName() : "N/A",
             event.getResource() != null ? event.getResource().getFullName() : "N/A",
             userId,
             reason,
-            LocalDateTime.now()
-    );
-
-    // In real implementation, save to audit table
-    System.out.println("AUDIT LOG: " + logMessage);
+            LocalDateTime.now());
 }
 
 // ========== BULK ROLE-OFF METHODS FOR PLANNED ROLE TYPE ==========
 
 @Override
 @Transactional
-public ResponseEntity<?> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO) {
 
     // Validation
     if (!bulkRequest.isValidForBulkPlannedRoleOff()) {
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("validationError", "Invalid bulk role-off request");
-        errorDetails.put("requiredFields", List.of("projectId", "allocationIds", "effectiveRoleOffDate", "roleOffReason", "roleOffType"));
         return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(false, "Invalid bulk role-off request. Please check all required fields.", errorDetails));
+                .body(ApiResponse.error("Invalid bulk role-off request. Please check all required fields."));
     }
 
     // Validate that this is PLANNED role type (emergency not allowed for bulk)
     if (bulkRequest.getEffectiveRoleOffDate().isBefore(LocalDate.now())) {
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("validationError", "Invalid role-off date");
-        errorDetails.put("providedDate", bulkRequest.getEffectiveRoleOffDate());
-        errorDetails.put("currentDate", LocalDate.now());
         return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(false, "Bulk role-off date cannot be in the past for planned role-offs.", errorDetails));
+                .body(ApiResponse.error("Bulk role-off date cannot be in the past for planned role-offs."));
     }
 
     // Validate Project
     Project project = projectRepo.findById(bulkRequest.getProjectId())
-            .orElseThrow(() -> new ProjectExceptionHandler(
+            .orElseThrow(() -> new RoleOffExceptionHandler(
                     HttpStatus.NOT_FOUND,
                     "PROJECT_NOT_FOUND",
                     "Project not found"));
@@ -1755,11 +1647,8 @@ public ResponseEntity<?> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, U
     List<ResourceAllocation> allocations = allocationRepository.findAllById(bulkRequest.getAllocationIds());
 
     if (allocations.isEmpty()) {
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("validationError", "No valid allocations found");
-        errorDetails.put("requestedAllocationIds", bulkRequest.getAllocationIds());
         return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(false, "No valid allocations found", errorDetails));
+                .body(ApiResponse.error("No valid allocations found"));
     }
 
     List<RoleOffEvent> successEvents = new ArrayList<>();
@@ -1836,7 +1725,8 @@ public ResponseEntity<?> bulkPlannedRoleOff(BulkRoleOffRequestDTO bulkRequest, U
         message = "All bulk role-off requests failed";
     }
 
-    return ResponseEntity.ok().body(new ApiResponse<>(true, message, result));
+    return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("Created successfully", result));
 }
 
 private RoleOffEvent createBulkRoleOffEvent(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO,
@@ -1870,7 +1760,7 @@ private RoleOffEvent createBulkRoleOffEvent(BulkRoleOffRequestDTO bulkRequest, U
     return event;
 }
 
-private ResponseEntity<?> generateBulkImpactPreview(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO,
+private ResponseEntity<ApiResponse<?>> generateBulkImpactPreview(BulkRoleOffRequestDTO bulkRequest, UserDTO userDTO,
                                                     Project project, List<ResourceAllocation> allocations) {
 
     // Calculate impact for all resources
@@ -1928,12 +1818,12 @@ private ResponseEntity<?> generateBulkImpactPreview(BulkRoleOffRequestDTO bulkRe
     response.put("totalResources", allocations.size());
     response.put("highImpactCount", highImpactCount);
 
-    return ResponseEntity.ok(response);
+    return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", response));
 }
 
 @Override
 @Transactional
-public ResponseEntity<?> bulkRmApprove(List<UUID> ids, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> bulkRmApprove(List<UUID> ids, UserDTO userDTO) {
     List<RoleOffEvent> approvedEvents = new ArrayList<>();
     List<Map<String, Object>> failedEvents = new ArrayList<>();
 
@@ -1973,18 +1863,15 @@ public ResponseEntity<?> bulkRmApprove(List<UUID> ids, UserDTO userDTO) {
     result.put("failed", failedEvents);
 
     String message = approvedEvents.size() + " role-off events approved by RM";
-    return ResponseEntity.ok(new ApiResponse<>(true, message, result));
+    return ResponseEntity.ok(ApiResponse.success(message, result));
 }
 
 @Override
 @Transactional
-public ResponseEntity<?> bulkRmReject(List<UUID> ids, String rejectionReason, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> bulkRmReject(List<UUID> ids, String rejectionReason, UserDTO userDTO) {
     if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("validationError", "Rejection reason is required");
-        errorDetails.put("requestedIds", ids);
         return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(false, "Rejection reason is required for bulk rejection", errorDetails));
+                .body(ApiResponse.error("Rejection reason is required for bulk rejection"));
     }
 
     List<RoleOffEvent> rejectedEvents = new ArrayList<>();
@@ -2027,12 +1914,12 @@ public ResponseEntity<?> bulkRmReject(List<UUID> ids, String rejectionReason, Us
     result.put("failed", failedEvents);
 
     String message = rejectedEvents.size() + " role-off events rejected by RM";
-    return ResponseEntity.ok(new ApiResponse<>(true, message, result));
+    return ResponseEntity.ok(ApiResponse.success(message, result));
 }
 
 @Override
 @Transactional
-public ResponseEntity<?> bulkDlFulfill(List<UUID> ids, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> bulkDlFulfill(List<UUID> ids, UserDTO userDTO) {
     List<RoleOffEvent> fulfilledEvents = new ArrayList<>();
     List<Map<String, Object>> failedEvents = new ArrayList<>();
 
@@ -2088,18 +1975,15 @@ public ResponseEntity<?> bulkDlFulfill(List<UUID> ids, UserDTO userDTO) {
     result.put("failed", failedEvents);
 
     String message = fulfilledEvents.size() + " role-off events fulfilled by DL";
-    return ResponseEntity.ok(new ApiResponse<>(true, message, result));
+    return ResponseEntity.ok(ApiResponse.success(message, result));
 }
 
 @Override
 @Transactional
-public ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, UserDTO userDTO) {
+public ResponseEntity<ApiResponse<?>> bulkDlReject(List<UUID> ids, String rejectionReason, UserDTO userDTO) {
     if (rejectionReason == null || rejectionReason.trim().isEmpty()) {
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("validationError", "Rejection reason is required");
-        errorDetails.put("requestedIds", ids);
         return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(false, "Rejection reason is required for bulk rejection", errorDetails));
+                .body(ApiResponse.error("Rejection reason is required for bulk rejection"));
     }
 
     List<RoleOffEvent> rejectedEvents = new ArrayList<>();
@@ -2151,7 +2035,7 @@ public ResponseEntity<?> bulkDlReject(List<UUID> ids, String rejectionReason, Us
     result.put("failed", failedEvents);
 
     String message = rejectedEvents.size() + " role-off events rejected by DL";
-    return ResponseEntity.ok(new ApiResponse<>(true, message, result));
+    return ResponseEntity.ok(ApiResponse.success(message, result));
 }
 
 @Override
@@ -2161,7 +2045,7 @@ public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId
 
     // Step 1: Fetch resource and check status
     Resource resource = resourceRepo.findById(resourceId)
-            .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
+            .orElseThrow(() -> new RoleOffExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
 
     if (EmploymentStatus.EXITED.equals(resource.getEmploymentStatus())) {
         log.info("Resource {} already marked as EXITED. Skipping attrition processing.", resourceId);
@@ -2265,14 +2149,14 @@ public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long
     try {
         // Step 1: Validate resource exists and is active
         Resource resource = resourceRepo.findById(removalDTO.getResourceId())
-                .orElseThrow(() -> new ProjectExceptionHandler(
+                .orElseThrow(() -> new RoleOffExceptionHandler(
                         HttpStatus.NOT_FOUND,
                         "RESOURCE_NOT_FOUND",
                         "Resource not found with ID: " + removalDTO.getResourceId()));
 
         // Check if resource is already exited
         if (EmploymentStatus.EXITED.equals(resource.getEmploymentStatus())) {
-            throw new ProjectExceptionHandler(
+            throw new RoleOffExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "RESOURCE_ALREADY_EXITED",
                     "Resource has already exited the organization");
@@ -2303,13 +2187,13 @@ public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long
                     removalDTO.getNoticePeriodEndDate() + ". Attrition will be triggered automatically.";
         }
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (RoleOffExceptionHandler e) {
         log.error("Resource removal failed for resource ID {}: {}", removalDTO.getResourceId(), e.getMessage());
         throw e;
     } catch (Exception e) {
         log.error("Unexpected error during resource removal for resource ID {}: {}",
                 removalDTO.getResourceId(), e.getMessage(), e);
-        throw new ProjectExceptionHandler(
+        throw new RoleOffExceptionHandler(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "RESOURCE_REMOVAL_ERROR",
                "Failed to process resource removal: " + e.getMessage());

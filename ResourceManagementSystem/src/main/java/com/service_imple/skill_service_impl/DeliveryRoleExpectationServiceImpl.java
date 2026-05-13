@@ -7,8 +7,7 @@ import com.entity.skill_entities.ProficiencyLevel;
 import com.entity.skill_entities.Role;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
-import com.global_exception_handler.DuplicateRoleExpectationException;
-import com.global_exception_handler.SkillValidationException;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.repo.skill_repo.ProficiencyLevelRepository;
 import com.repo.skill_repo.RoleRepository;
@@ -83,7 +82,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         List<DeliveryRoleExpectation> existing = expectationRepository.findByRoleIdAndStatus(role.getId());
         
         if (!existing.isEmpty()) {
-            throw new DuplicateRoleExpectationException(
+            throw SkillExceptionHandler.conflict(
                     "Role expectations already exist for role: " + request.getRoleName() + 
                     ". Use PUT endpoint to update instead.");
         }
@@ -115,7 +114,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         List<DeliveryRoleExpectation> existing = expectationRepository.findByRoleIdAndStatus(role.getId());
         
         if (existing.isEmpty()) {
-            throw new SkillValidationException(
+            throw SkillExceptionHandler.badRequest(
                     "No role expectations found for roleId: " + roleId + 
                     ". Use POST endpoint to create instead.");
         }
@@ -236,7 +235,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     private Role getAndValidateRole(UUID roleId) {
         return roleRepository.findById(roleId)
-                .orElseThrow(() -> new SkillValidationException("Role not found with ID: " + roleId));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Role not found with ID: " + roleId));
     }
 
     private Role getOrCreateRoleByName(String roleName) {
@@ -256,18 +255,18 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     private void validateDeliveryRoleRequest(DeliveryRoleExpectationRequest request) {
         if (request.getRoleName() == null || request.getRoleName().trim().isEmpty()) {
-            throw new SkillValidationException("Role name cannot be empty");
+            throw SkillExceptionHandler.badRequest("Role name cannot be empty");
         }
 
         if (request.getSkills() == null || request.getSkills().isEmpty()) {
-            throw new SkillValidationException("Skills list cannot be empty");
+            throw SkillExceptionHandler.badRequest("Skills list cannot be empty");
         }
 
         // Check for duplicate skill IDs in request
         Set<UUID> skillIds = new HashSet<>();
         for (DeliveryRoleExpectationRequest.SkillExpectation skill : request.getSkills()) {
             if (!skillIds.add(skill.getSkillId())) {
-                throw new DuplicateRoleExpectationException(
+                throw SkillExceptionHandler.conflict(
                         "Duplicate skill ID found in request: " + skill.getSkillId());
             }
 
@@ -276,7 +275,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                 Set<UUID> subSkillIds = new HashSet<>();
                 for (DeliveryRoleExpectationRequest.SubSkillExpectation sub : skill.getSubSkills()) {
                     if (!subSkillIds.add(sub.getSubSkillId())) {
-                        throw new DuplicateRoleExpectationException(
+                        throw SkillExceptionHandler.conflict(
                                 "Duplicate subskill ID found in skill " + skill.getSkillId() + ": " + sub.getSubSkillId());
                     }
                 }
@@ -322,14 +321,14 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
     private void validateRequest(RoleExpectationRequest request) {
         if (request.getSkills() == null || request.getSkills().isEmpty()) {
-            throw new SkillValidationException("Skills list cannot be empty");
+            throw SkillExceptionHandler.badRequest("Skills list cannot be empty");
         }
 
         // Check for duplicate skill IDs in request
         Set<UUID> skillIds = new HashSet<>();
         for (RoleExpectationRequest.SkillExpectationDto skill : request.getSkills()) {
             if (!skillIds.add(skill.getSkillId())) {
-                throw new DuplicateRoleExpectationException(
+                throw SkillExceptionHandler.conflict(
                         "Duplicate skill ID found in request: " + skill.getSkillId());
             }
 
@@ -338,7 +337,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                 Set<UUID> subSkillIds = new HashSet<>();
                 for (RoleExpectationRequest.SubSkillExpectationDto sub : skill.getSubSkills()) {
                     if (!subSkillIds.add(sub.getSubSkillId())) {
-                        throw new DuplicateRoleExpectationException(
+                        throw SkillExceptionHandler.conflict(
                                 "Duplicate subskill ID found in skill " + skill.getSkillId() + ": " + sub.getSubSkillId());
                     }
                 }
@@ -351,13 +350,13 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         Optional<Skill> skillOpt = skillRepository.findById(skillId);
         
         if (skillOpt.isEmpty()) {
-            throw new SkillValidationException("Skill not found with ID: " + skillId);
+            throw SkillExceptionHandler.badRequest("Skill not found with ID: " + skillId);
         }
 
         Skill skill = skillOpt.get();
         
         if (!"ACTIVE".equals(skill.getStatus())) {
-            throw new SkillValidationException("Skill is not active: " + skill.getName());
+            throw SkillExceptionHandler.badRequest("Skill is not active: " + skill.getName());
         }
 
         return skill;
@@ -367,17 +366,17 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         Optional<SubSkill> subSkillOpt = subSkillRepository.findById(subSkillId);
         
         if (subSkillOpt.isEmpty()) {
-            throw new SkillValidationException("SubSkill not found with ID: " + subSkillId);
+            throw SkillExceptionHandler.badRequest("SubSkill not found with ID: " + subSkillId);
         }
 
         SubSkill subSkill = subSkillOpt.get();
         
         if (!"ACTIVE".equals(subSkill.getStatus())) {
-            throw new SkillValidationException("SubSkill is not active: " + subSkill.getName());
+            throw SkillExceptionHandler.badRequest("SubSkill is not active: " + subSkill.getName());
         }
 
         if (!expectedSkill.getId().equals(subSkill.getSkill().getId())) {
-            throw new SkillValidationException(
+            throw SkillExceptionHandler.badRequest(
                     "SubSkill does not belong to the specified skill. SubSkill: " + subSkill.getName() + 
                     ", Expected Skill: " + expectedSkill.getName());
         }
@@ -389,13 +388,13 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         Optional<ProficiencyLevel> proficiencyLevelOpt = proficiencyLevelRepository.findById(proficiencyLevelId);
         
         if (proficiencyLevelOpt.isEmpty()) {
-            throw new SkillValidationException("ProficiencyLevel not found with ID: " + proficiencyLevelId);
+            throw SkillExceptionHandler.badRequest("ProficiencyLevel not found with ID: " + proficiencyLevelId);
         }
 
         ProficiencyLevel proficiencyLevel = proficiencyLevelOpt.get();
         
         if (!proficiencyLevel.getActiveFlag()) {
-            throw new SkillValidationException("ProficiencyLevel is not active: " + proficiencyLevel.getProficiencyName());
+            throw SkillExceptionHandler.badRequest("ProficiencyLevel is not active: " + proficiencyLevel.getProficiencyName());
         }
 
         return proficiencyLevel;

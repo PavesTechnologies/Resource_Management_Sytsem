@@ -5,34 +5,20 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.bench_dto.BenchKPIDTO;
 import com.dto.bench_dto.BenchResourceDTO;
 import com.dto.bench_dto.BenchPoolResponseDTO;
-import com.dto.bench_dto.MatchResponse;
 import com.dto.bench_dto.ResourceMatchResponse;
-import com.dto.bench_dto.DemandMatch;
-import com.dto.allocation_dto.AllocationRequestDTO;
-import com.dto.allocation_dto.QuickAllocationDTO;
 import com.dto.centralised_dto.UserDTO;
-import com.entity_enums.allocation_enums.AllocationStatus;
-import com.dto.centralised_dto.UserDTO;
+import com.entity.bench.ResourceState;
 import com.security.CurrentUser;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_interface.bench_service_interface.BenchDemandMatchingService;
 import jakarta.validation.Valid;
 import com.service_interface.allocation_service_interface.AllocationService;
-import com.repo.demand_repo.DemandRepository;
-import com.security.CurrentUser;
-import com.dto.centralised_dto.UserDTO;
-import com.security.CurrentUser;
-import com.service_imple.bench_service_impl.BenchService;
-import com.service_interface.bench_service_interface.BenchDemandMatchingService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,28 +36,17 @@ public class BenchController {
     private final BenchService benchDetectionService;
     private final BenchDemandMatchingService benchDemandMatchingService;
     private final AllocationService allocationService;
-    private final DemandRepository demandRepository;
 
     /**
      * Get all bench resources
      * GET /api/v1/bench/resources
      */
     @GetMapping("/resources")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<BenchResourceDTO>>> getAllBenchResources() {
-        try {
-            log.info("Fetching all bench resources");
-            
-            List<BenchResourceDTO> benchResources = benchDetectionService.getAllBenchResources();
-            
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, "Bench resources retrieved successfully", benchResources)
-            );
-            
-        } catch (Exception e) {
-            log.error("Error fetching bench resources: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse<>(false, "Error fetching bench resources: " + e.getMessage(), null));
-        }
+        log.info("Fetching all bench resources");
+        List<BenchResourceDTO> benchResources = benchDetectionService.getAllBenchResources();
+        return ResponseEntity.ok(ApiResponse.success("Bench resources retrieved successfully", benchResources));
     }
 
     /**
@@ -79,21 +54,11 @@ public class BenchController {
      * GET /api/v1/bench/statistics
      */
     @GetMapping("/statistics")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getBenchStatistics() {
-        try {
-            log.info("Fetching bench statistics");
-            
-            Map<String, Object> statistics = benchDetectionService.getBenchStatistics();
-            
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, "Bench statistics retrieved successfully", statistics)
-            );
-            
-        } catch (Exception e) {
-            log.error("Error fetching bench statistics: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse<>(false, "Error fetching bench statistics: " + e.getMessage(), null));
-        }
+        log.info("Fetching bench statistics");
+        Map<String, Object> statistics = benchDetectionService.getBenchStatistics();
+        return ResponseEntity.ok(ApiResponse.success("Bench statistics retrieved successfully", statistics));
     }
 
     /**
@@ -101,21 +66,11 @@ public class BenchController {
      * GET /api/v1/bench/count
      */
     @GetMapping("/count")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<Long>> getBenchResourceCount() {
-        try {
-            log.info("Fetching bench resource count");
-            
-            long count = benchDetectionService.getBenchResourceCount();
-            
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, "Bench resource count retrieved successfully", count)
-            );
-            
-        } catch (Exception e) {
-            log.error("Error fetching bench resource count: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse<>(false, "Error fetching bench resource count: " + e.getMessage(), null));
-        }
+        log.info("Fetching bench resource count");
+        long count = benchDetectionService.getBenchResourceCount();
+        return ResponseEntity.ok(ApiResponse.success("Bench resource count retrieved successfully", count));
     }
 
     /**
@@ -123,21 +78,11 @@ public class BenchController {
      * POST /api/v1/bench/detect
      */
     @PostMapping("/detect")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<String>> triggerBenchDetection() {
-        try {
-            log.info("Manual bench detection triggered");
-            
-            benchDetectionService.detectBenchResources();
-            
-            return ResponseEntity.ok(
-                new ApiResponse<>(true, "Bench detection completed successfully", "Detection process completed")
-            );
-            
-        } catch (Exception e) {
-            log.error("Error during manual bench detection: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse<>(false, "Error during bench detection: " + e.getMessage(), null));
-        }
+        log.info("Manual bench detection triggered");
+        benchDetectionService.detectBenchResources();
+        return ResponseEntity.ok(ApiResponse.success("Bench detection completed successfully", "Detection process completed"));
     }
 
     /**
@@ -145,11 +90,10 @@ public class BenchController {
      * GET /api/bench/bench-resources
      */
     @GetMapping("/bench-resources")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<BenchPoolResponseDTO>>> getBenchResources() {
         List<BenchPoolResponseDTO> benchResources = benchDetectionService.getBenchResources();
-        return ResponseEntity.ok(
-            new ApiResponse<>(true, "Bench resources retrieved successfully", benchResources)
-        );
+        return ResponseEntity.ok(ApiResponse.success("Bench resources retrieved successfully", benchResources));
     }
 
     /**
@@ -157,24 +101,17 @@ public class BenchController {
      * GET /api/bench/pool-resources
      */
     @GetMapping("/pool-resources")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<BenchPoolResponseDTO>>> getPoolResources() {
         List<BenchPoolResponseDTO> poolResources = benchDetectionService.getPoolResources();
-        return ResponseEntity.ok(
-            new ApiResponse<>(true, "Pool resources retrieved successfully", poolResources)
-        );
+        return ResponseEntity.ok(ApiResponse.success("Pool resources retrieved successfully", poolResources));
     }
+
     @GetMapping("/high-risk")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<List<BenchResourceDTO>>> getHighRiskBench() {
-
-        List<BenchResourceDTO> list = benchDetectionService.getAllBenchResources()
-                .stream()
-                .filter(dto -> "HIGH".equals(dto.getRiskLevel())
-                        || "CRITICAL".equals(dto.getRiskLevel()))
-                .toList();
-
-        return ResponseEntity.ok(
-                new ApiResponse<>(true, "High risk resources", list)
-        );
+        List<BenchResourceDTO> highRiskResources = benchDetectionService.getHighRiskBenchResources();
+        return ResponseEntity.ok(ApiResponse.success("High risk resources retrieved successfully", highRiskResources));
     }
 
     /**
@@ -182,16 +119,15 @@ public class BenchController {
      * GET /api/bench/kpi
      */
     @GetMapping("/kpi")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<BenchKPIDTO>> getBenchKPI() {
         BenchKPIDTO kpi = benchDetectionService.getBenchKPI();
-        return ResponseEntity.ok(
-                new ApiResponse<>(true, "Bench KPI metrics retrieved successfully", kpi)
-        );
+        return ResponseEntity.ok(ApiResponse.success("Bench KPI metrics retrieved successfully", kpi));
     }
 
     @PutMapping("/update-resource-state")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> updateResourceState(@Valid @RequestBody UpdateSubStateRequestDTO request, @CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<ResourceState>> updateResourceState(@Valid @RequestBody UpdateSubStateRequestDTO request, @CurrentUser UserDTO userDTO) {
         return benchDetectionService.updateSubState(request, userDTO);
     }
 
@@ -200,75 +136,14 @@ public class BenchController {
      * GET /api/bench/matches
      */
     @GetMapping("/matches")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<ResourceMatchResponse>>> getMatches(
             @RequestParam(required = false) String skill,
             @RequestParam(required = false) Integer minExp) {
 
-        try {
-            log.info("Getting bench-demand matches with filters - skill: {}, minExp: {} (APPROVED demands only)", skill, minExp);
-
-            List<MatchResponse> matches;
-
-            if (skill != null || minExp != null) {
-                matches = benchDemandMatchingService.getMatches(skill, minExp);
-            } else {
-                matches = benchDemandMatchingService.getMatches();
-            }
-            
-            log.info("Total matches found: {}", matches.size());
-
-            // Filter for high-quality matches (>30% score)
-            List<MatchResponse> highQualityMatches = matches.stream()
-                    .filter(match -> match.getMatchScore() > 30.0)
-                    .collect(java.util.stream.Collectors.toList());
-
-            log.info("Found {} matches (>30%) out of {} total matches", 
-                    highQualityMatches.size(), matches.size());
-
-            // Group matches by resource
-            Map<String, List<MatchResponse>> groupedByResource = highQualityMatches.stream()
-                    .collect(java.util.stream.Collectors.groupingBy(MatchResponse::getResourceId));
-
-            List<ResourceMatchResponse> response = groupedByResource.entrySet().stream()
-                    .map(entry -> {
-                        String resourceId = entry.getKey();
-                        List<MatchResponse> resourceMatches = entry.getValue();
-
-                        MatchResponse firstMatch = resourceMatches.get(0);
-
-                        List<DemandMatch> demands = resourceMatches.stream()
-                                .map(match -> {
-                                    // Get demand details for dates and allocation percentage
-                                    var demandOpt = demandRepository.findById(match.getDemandId());
-                                    
-                                    return DemandMatch.builder()
-                                            .demandId(match.getDemandId())
-                                            .demandName(match.getDemandName())
-                                            .matchedSkills(match.getMatchedSkills())
-                                            .matchScore(match.getMatchScore())
-                                            .startDate(demandOpt.map(d -> d.getDemandStartDate()).orElse(null))
-                                            .endDate(demandOpt.map(d -> d.getDemandEndDate()).orElse(null))
-                                            .allocationPercentage(demandOpt.map(d -> d.getAllocationPercentage()).orElse(100))
-                                            .build();
-                                })
-                                .collect(java.util.stream.Collectors.toList());
-
-                        return ResourceMatchResponse.builder()
-                                .resourceId(firstMatch.getResourceId())
-                                .resourceName(firstMatch.getResourceName())
-                                .resourceExperience(firstMatch.getResourceExperience())
-                                .availability(firstMatch.getAvailability())
-                                .demands(demands)
-                                .build();
-                    })
-                    .collect(java.util.stream.Collectors.toList());
-
-            return ResponseEntity.ok().body(new ApiResponse<>(true, "Matches (>30%) retrieved successfully!", response));
-
-        } catch (Exception e) {
-            log.error("Error getting bench-demand matches: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        log.info("Getting bench-demand matches with filters - skill: {}, minExp: {} (APPROVED demands only)", skill, minExp);
+        List<ResourceMatchResponse> matches = benchDemandMatchingService.getHighQualityResourceMatches(skill, minExp);
+        return ResponseEntity.ok(ApiResponse.success("High quality matches retrieved successfully", matches));
     }
 
     /**
@@ -283,65 +158,8 @@ public class BenchController {
             @RequestParam(defaultValue = "100") Integer allocationPercentage,
             @CurrentUser UserDTO user) {
 
-        try {
-            log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
-                    resourceId, demandId, user.getName(), allocationPercentage);
-
-            // Create quick allocation DTO from parameters
-            QuickAllocationDTO quickAllocation = QuickAllocationDTO.builder()
-                    .resourceId(resourceId)
-                    .demandId(demandId)
-                    .allocationPercentage(allocationPercentage)
-                    .build();
-            // Convert quick allocation to full allocation request
-            AllocationRequestDTO allocationRequest = buildAllocationRequest(quickAllocation, user);
-
-            // Use existing allocation service with full validation
-            return allocationService.assignAllocation(allocationRequest);
-
-        } catch (Exception e) {
-            log.error("Error in quick allocation: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest()
-                .body(new ApiResponse<>(false, "Allocation failed: " + e.getMessage(), null));
-        }
-    }
-
-    /**
-     * Build full AllocationRequestDTO from QuickAllocationDTO with smart defaults
-     */
-    private AllocationRequestDTO buildAllocationRequest(QuickAllocationDTO quickAllocation, UserDTO user) {
-        return AllocationRequestDTO.builder()
-                .resourceId(List.of(quickAllocation.getResourceId()))
-                .demandId(quickAllocation.getDemandId())
-                .allocationPercentage(quickAllocation.getAllocationPercentage())
-                .allocationStartDate(calculateStartDate(quickAllocation.getDemandId()))
-                .allocationEndDate(calculateEndDate(quickAllocation.getDemandId()))
-                .allocationStatus(AllocationStatus.PLANNED)
-                .createdBy(user.getName())
-                .skipValidation(true)  // Skip demand status validation for quick allocation
-                .build();
-    }
-
-    /**
-     * Calculate smart start date based on demand
-     */
-    private java.time.LocalDate calculateStartDate(UUID demandId) {
-        return demandRepository.findById(demandId)
-                .map(demand -> {
-                    java.time.LocalDate demandStart = demand.getDemandStartDate();
-                    java.time.LocalDate today = java.time.LocalDate.now();
-                    // Use demand start date if it's today or future, otherwise start today
-                    return demandStart.isAfter(today) ? demandStart : today;
-                })
-                .orElseGet(java.time.LocalDate::now); // Fallback to today if demand not found
-    }
-
-    /**
-     * Calculate smart end date based on demand
-     */
-    private java.time.LocalDate calculateEndDate(UUID demandId) {
-        return demandRepository.findById(demandId)
-                .map(demand -> demand.getDemandEndDate())
-                .orElseGet(() -> java.time.LocalDate.now().plusMonths(6)); // Fallback to 6 months
+        log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
+                resourceId, demandId, user.getName(), allocationPercentage);
+        return allocationService.quickAllocateResource(resourceId, demandId, allocationPercentage, user);
     }
 }

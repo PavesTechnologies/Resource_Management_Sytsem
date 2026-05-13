@@ -3,6 +3,9 @@ package com.dto.centralised_dto;
 import lombok.*;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -50,7 +53,13 @@ public class ApiResponse<T> {
     }
 
     public static <T> ApiResponse<T> success(String message, T data, int page, int size, long totalCount) {
-        return new ApiResponse<>(true, message, data);
+        Map<String, Object> pageData = new LinkedHashMap<>();
+        pageData.put("content", data);
+        pageData.put("page", page);
+        pageData.put("size", size);
+        pageData.put("totalElements", totalCount);
+        pageData.put("totalPages", size > 0 ? (int) Math.ceil((double) totalCount / size) : 0);
+        return new ApiResponse<>(true, message, (T) pageData);
     }
 
     public static <T> ApiResponse<T> success(String message) {

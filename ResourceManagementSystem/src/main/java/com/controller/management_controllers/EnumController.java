@@ -257,7 +257,7 @@ public class EnumController {
             "Used for template lifecycle management"
         ));
 
-        return ResponseEntity.ok(new ApiResponse<>(true,"Success", enums));
+        return ResponseEntity.ok(ApiResponse.success("Success", enums));
     }
 
     @GetMapping("/category/{category}")
@@ -271,6 +271,6 @@ public class EnumController {
             }
         }
         
-        return ResponseEntity.ok(new ApiResponse<>(true,"Success", filteredEnums));
+        return ResponseEntity.ok(ApiResponse.success("Success", filteredEnums));
     }
 }

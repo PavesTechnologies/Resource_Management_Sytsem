@@ -3,7 +3,7 @@ package com.service_imple.skill_service_impl;
 import com.dto.skill_dto.SubSkillItemDTO;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
-import com.global_exception_handler.SkillTaxonomyExceptionHandler;
+import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
 import com.service_interface.skill_service_interface.SubSkillService;
@@ -25,12 +25,12 @@ public class SubSkillServiceImpl implements SubSkillService {
     public SubSkill create(UUID skillId, String name, String description) {
 
         Skill skill = skillRepository.findById(skillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Parent skill not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Parent skill not found"));
 
         String normalized = name.trim();
 
         if (subSkillRepository.existsByNameIgnoreCaseAndSkill_Id(normalized, skillId)) {
-            throw new SkillTaxonomyExceptionHandler("Sub-skill already exists under this skill");
+            throw SkillExceptionHandler.badRequest("Sub-skill already exists under this skill");
         }
 
         SubSkill subSkill = new SubSkill();
@@ -47,7 +47,7 @@ public class SubSkillServiceImpl implements SubSkillService {
     @Override
     public List<SubSkill> createMultiple(UUID skillId, List<SubSkillItemDTO> subSkillItems) {
         Skill skill = skillRepository.findById(skillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Parent skill not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Parent skill not found"));
 
         List<SubSkill> createdSubSkills = new ArrayList<>();
         List<String> existingNames = new ArrayList<>();
@@ -78,7 +78,7 @@ public class SubSkillServiceImpl implements SubSkillService {
         }
 
         if (!existingNames.isEmpty()) {
-            throw new SkillTaxonomyExceptionHandler("Some sub-skills already exist: " + String.join(", ", existingNames));
+            throw SkillExceptionHandler.badRequest("Some sub-skills already exist: " + String.join(", ", existingNames));
         }
 
         return createdSubSkills;
@@ -97,36 +97,36 @@ public class SubSkillServiceImpl implements SubSkillService {
     @Override
     public void deactivateSubSkill(UUID subSkillId) {
         SubSkill subSkill = subSkillRepository.findById(subSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Sub-skill not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Sub-skill not found"));
 
         if (!"ACTIVE".equals(subSkill.getStatus())) {
-            throw new SkillTaxonomyExceptionHandler("Sub-skill is already inactive");
+            throw SkillExceptionHandler.badRequest("Sub-skill is already inactive");
         }
 
         int updated = subSkillRepository.deactivateSubSkill(subSkillId);
         if (updated == 0) {
-            throw new SkillTaxonomyExceptionHandler("Failed to deactivate sub-skill");
+            throw SkillExceptionHandler.badRequest("Failed to deactivate sub-skill");
         }
     }
 
     @Override
     public SubSkill update(UUID subSkillId, UUID skillId, String name, String description) {
         SubSkill subSkill = subSkillRepository.findById(subSkillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Sub-skill not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Sub-skill not found"));
 
         Skill skill = skillRepository.findById(skillId)
-                .orElseThrow(() -> new SkillTaxonomyExceptionHandler("Parent skill not found"));
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Parent skill not found"));
 
         String normalized = name.trim();
 
         if (!subSkill.getSkill().getId().equals(skillId) && 
             subSkillRepository.existsByNameIgnoreCaseAndSkill_Id(normalized, skillId)) {
-            throw new SkillTaxonomyExceptionHandler("Sub-skill already exists under this skill");
+            throw SkillExceptionHandler.badRequest("Sub-skill already exists under this skill");
         }
 
         if (!subSkill.getName().equalsIgnoreCase(normalized) || !subSkill.getSkill().getId().equals(skillId)) {
             if (subSkillRepository.existsByNameIgnoreCaseAndSkill_IdAndIdNot(normalized, skillId, subSkillId)) {
-                throw new SkillTaxonomyExceptionHandler("Sub-skill already exists under this skill");
+                throw SkillExceptionHandler.badRequest("Sub-skill already exists under this skill");
             }
         }
 

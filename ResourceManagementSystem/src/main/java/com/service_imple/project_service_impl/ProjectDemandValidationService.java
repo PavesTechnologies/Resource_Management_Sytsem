@@ -4,7 +4,7 @@ import com.config.ProjectDemandRules;
 import com.entity.project_entities.Project;
 import com.entity_enums.project_enums.ProjectStage;
 import com.entity_enums.project_enums.ProjectStatus;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.DemandExceptionHandler;
 import com.repo.project_repo.ProjectRepository;
 import com.service_interface.project_service_interface.ProjectGovernanceService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +23,7 @@ public class ProjectDemandValidationService {
 //    public Project validateProjectForStaffing(Long pmsProjectId) {
 //
 //        Project project = projectRepository.findById(pmsProjectId)
-//                .orElseThrow(() -> new ProjectExceptionHandler(
+//                .orElseThrow(() -> new DemandExceptionHandler(
 //                        HttpStatus.NOT_FOUND,
 //                        "PROJECT_NOT_FOUND",
 //                        "Project does not exist in RMS"
@@ -44,7 +44,7 @@ public class ProjectDemandValidationService {
         ProjectStatus status = project.getProjectStatus();
 
         if (!ProjectDemandRules.ALLOWED_PROJECT_STATUSES.contains(status)) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.CONFLICT,
                     "INVALID_PROJECT_STATUS",
                     "Staffing blocked. Project status is " + status
@@ -60,7 +60,7 @@ public class ProjectDemandValidationService {
         ProjectStage stage = project.getLifecycleStage();
 
         if (!ProjectDemandRules.ALLOWED_LIFECYCLE_STAGES.contains(stage)) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "INVALID_PROJECT_LIFECYCLE",
                     "Staffing not allowed in lifecycle stage " + stage
@@ -79,7 +79,7 @@ public class ProjectDemandValidationService {
 //        ProjectGovernanceStatusDTO status = response.getData();
 //
 //        if (status == null ) {
-//            throw new ProjectExceptionHandler(
+//            throw new DemandExceptionHandler(
 //                    HttpStatus.UNPROCESSABLE_ENTITY,
 //                    "INCOMPLETE_GOVERNANCE",
 //                    status != null ? status.getMessage() : "Project governance validation failed"

@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import lombok.extern.slf4j.Slf4j;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -29,7 +28,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/projects")
-@Slf4j
 public class ProjectGovernanceController {
 
     @Autowired
@@ -85,12 +83,8 @@ public class ProjectGovernanceController {
     @PutMapping("/{projectId}")
     @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<String>> blockProjectUpdate(@PathVariable Long projectId) {
-
-        return ResponseEntity.status(403).body(
-                new ApiResponse<>(false,
-                        "Project data is read-only in RMS. Please update in PMS.",
-                        null)
-        );
+        return ResponseEntity.status(403)
+                .body(ApiResponse.error("Project data is read-only in RMS. Please update in PMS."));
     }
 
     @GetMapping("get-projects")
@@ -163,15 +157,37 @@ public class ProjectGovernanceController {
 
     @GetMapping("/get-locations")
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
-    public ResponseEntity<?> getLocations() {
+    public ResponseEntity<ApiResponse<?>> getLocations() {
         return projectGovernanceService.getLocationsByStatus();
     }
 
     // Project KPI endpoint
     @GetMapping("/kpi")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<ApiResponse<?>> getProjectKpi() {
-        return projectGovernanceService.getProjectKpi();
+    public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
+        List<ProjectStatus> nonCompletedStatuses = List.of(
+            ProjectStatus.ACTIVE,
+            ProjectStatus.APPROVED,
+            ProjectStatus.ARCHIVED,
+            ProjectStatus.PLANNING
+        );
+        Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
+        Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
+        Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
+
+        Double avgResourceUtil = 0.0;
+        if (totalProjects != null && totalProjects > 0) {
+            avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
+        }
+
+        ProjectKpiDTO kpiDTO = new ProjectKpiDTO(
+            totalProjects != null ? totalProjects : 0L,
+            activeProjects != null ? activeProjects : 0L,
+            highRiskProjects != null ? highRiskProjects : 0L,
+            avgResourceUtil
+        );
+
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", kpiDTO));
     }
 
 }

@@ -48,13 +48,13 @@ public class ResourceController {
 
     @GetMapping("/get-all-resource-filters")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin', 'Project_Manager')")
-    public ResponseEntity<?> getAllResourcesFilters() {
+    public ResponseEntity<ApiResponse<?>> getAllResourcesFilters() {
         return resourceService.getAllResources();
     }
 
     @GetMapping("/get-all-resources")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Admin', 'Project_Manager')")
-    public ResponseEntity<?> getAllResources() {
+    public ResponseEntity<ApiResponse<?>> getAllResources() {
         return resourceService.getResources();
     }
 }
