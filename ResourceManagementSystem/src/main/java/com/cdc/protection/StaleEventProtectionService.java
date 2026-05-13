@@ -1,8 +1,10 @@
 package com.cdc.protection;
 
+import com.cdc.util.CdcUtcSupport;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -17,6 +19,12 @@ import java.time.LocalDateTime;
 @Service
 public class StaleEventProtectionService {
 
+    private final CdcUtcSupport cdcUtcSupport;
+
+    public StaleEventProtectionService(CdcUtcSupport cdcUtcSupport) {
+        this.cdcUtcSupport = cdcUtcSupport;
+    }
+
     /**
      * Check if incoming EOS event is stale compared to existing RMS state.
      * 
@@ -26,21 +34,23 @@ public class StaleEventProtectionService {
      * @return true if event is stale (should be rejected), false otherwise
      */
     public boolean isStaleEvent(LocalDateTime existingChangedAt, LocalDateTime incomingChangedAt, String entityId) {
+        return isStaleEvent(existingChangedAt, incomingChangedAt != null ? incomingChangedAt.toInstant(java.time.ZoneOffset.UTC) : null, entityId);
+    }
+
+    public boolean isStaleEvent(LocalDateTime existingChangedAt, Instant incomingChangedAt, String entityId) {
         if (existingChangedAt == null) {
-            // No existing timestamp - allow processing
             return false;
         }
         
         if (incomingChangedAt == null) {
-            // No incoming timestamp - log warning but allow processing
             log.warn("Incoming event has no timestamp for entity: {}, allowing processing", entityId);
             return false;
         }
-        
-        // CRITICAL: Reject if incoming event is older than existing state
-        if (incomingChangedAt.isBefore(existingChangedAt)) {
+
+        Instant existingInstant = existingChangedAt.toInstant(java.time.ZoneOffset.UTC);
+        if (incomingChangedAt.isBefore(existingInstant)) {
             log.warn("STALE EVENT DETECTED - Entity: {}, Existing: {}, Incoming: {}", 
-                    entityId, existingChangedAt, incomingChangedAt);
+                    entityId, existingInstant, incomingChangedAt);
             return true;
         }
         
@@ -54,6 +64,11 @@ public class StaleEventProtectionService {
      * @return Extracted timestamp or null if not found
      */
     public LocalDateTime extractEventTimestamp(Object payload) {
+        Instant instant = extractEventInstant(payload);
+        return instant != null ? cdcUtcSupport.utcDateTime(instant) : null;
+    }
+
+    public Instant extractEventInstant(Object payload) {
         if (payload == null) {
             return null;
         }
@@ -68,84 +83,11 @@ public class StaleEventProtectionService {
             for (String field : timestampFields) {
                 Object value = struct.get(field);
                 if (value != null) {
-                    return convertToTimestamp(value, field);
+                    return cdcUtcSupport.extractInstant(value);
                 }
             }
         }
         
         return null;
-    }
-
-    /**
-     * Convert various timestamp formats to LocalDateTime.
-     * Reuses existing CDC timestamp conversion logic.
-     */
-    private LocalDateTime convertToTimestamp(Object value, String fieldName) {
-        if (value == null) return null;
-        
-        // Handle LocalDateTime directly
-        if (value instanceof LocalDateTime) return (LocalDateTime) value;
-        
-        // Handle java.sql.Timestamp
-        if (value instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) value).toLocalDateTime();
-        }
-        
-        // Handle java.time.Instant
-        if (value instanceof java.time.Instant) {
-            return LocalDateTime.ofInstant((java.time.Instant) value, java.time.ZoneId.systemDefault());
-        }
-        
-        // Handle java.util.Date
-        if (value instanceof java.util.Date) {
-            return new java.sql.Timestamp(((java.util.Date) value).getTime()).toLocalDateTime();
-        }
-        
-        // Handle Long (timestamp)
-        if (value instanceof Long) {
-            return convertTimestampToDateTime((Long) value, fieldName);
-        }
-        
-        // Handle String conversion
-        if (value instanceof String) {
-            return convertStringToDateTime((String) value, fieldName);
-        }
-        
-        log.warn("Unsupported timestamp type for field {}: {}", fieldName, value.getClass().getName());
-        return null;
-    }
-    
-    private LocalDateTime convertTimestampToDateTime(long timestamp, String fieldName) {
-        try {
-            if (timestamp > 1_000_000_000_000_000L) { // microseconds (16+ digits)
-                return LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(timestamp / 1_000_000, (timestamp % 1_000_000) * 1000), java.time.ZoneId.systemDefault());
-            } else if (timestamp > 1_000_000_000_000L) { // milliseconds (13 digits)
-                return LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(timestamp), java.time.ZoneId.systemDefault());
-            } else { // seconds (10 digits)
-                return LocalDateTime.ofInstant(java.time.Instant.ofEpochSecond(timestamp), java.time.ZoneId.systemDefault());
-            }
-        } catch (Exception e) {
-            log.warn("Failed to convert Long timestamp for field {}: {}", fieldName, e.getMessage());
-            return null;
-        }
-    }
-    
-    private LocalDateTime convertStringToDateTime(String strValue, String fieldName) {
-        try {
-            strValue = strValue.trim();
-            if (strValue.isEmpty()) return null;
-            
-            // Try common date formats
-            if (strValue.contains("T")) {
-                return LocalDateTime.parse(strValue);
-            } else {
-                // Try parsing as date
-                java.time.LocalDate date = java.time.LocalDate.parse(strValue);
-                return date.atStartOfDay();
-            }
-        } catch (Exception e) {
-            log.warn("Failed to parse string date for field {}: {}", fieldName, e.getMessage());
-            return null;
-        }
     }
 }
