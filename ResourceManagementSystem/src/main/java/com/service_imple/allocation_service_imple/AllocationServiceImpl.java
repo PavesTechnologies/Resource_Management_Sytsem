@@ -590,7 +590,12 @@ public class AllocationServiceImpl implements AllocationService {
         }
 
         allocation.setAllocationEndDate(closureDate);
-        allocation.setAllocationStatus(AllocationStatus.ENDED);
+        // Use ROLLED_OFF status for role-off closures, ENDED for normal closures
+        if ("ROLE_OFF".equals(request.getReason())) {
+            allocation.setAllocationStatus(AllocationStatus.ROLLED_OFF);
+        } else {
+            allocation.setAllocationStatus(AllocationStatus.ENDED);
+        }
         allocation.setClosedBy("SYSTEM");
         allocation.setClosedAt(LocalDateTime.now());
         allocation.setClosureReason(request.getReason() != null ? request.getReason() : "Manual closure");

@@ -43,8 +43,15 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
             AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_status != 'ROLLED_OFF'
             AND ra.allocation_start_date <= :endDate
             AND ra.allocation_end_date >= :startDate
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         WHERE r.active_flag = 1
         AND (:designation IS NULL OR r.designation = :designation)
         AND (:location IS NULL OR r.working_location = :location)
@@ -57,14 +64,30 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             FROM resource_allocation ra_current 
             WHERE ra_current.resource_id = r.resource_id 
             AND ra_current.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra_current.allocation_status != 'ROLLED_OFF'
             AND ra_current.allocation_start_date <= :endDate
             AND ra_current.allocation_end_date >= :startDate
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra_current.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ) <= :allocationPercentage)
         AND (:project IS NULL OR EXISTS (
             SELECT 1 FROM resource_allocation ra2 
             WHERE ra2.resource_id = r.resource_id 
             AND ra2.project_id IN (SELECT p.pms_project_id FROM project p WHERE p.name = :project)
             AND ra2.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra2.allocation_status != 'ROLLED_OFF'
+            AND ra2.allocation_start_date <= :endDate
+            AND ra2.allocation_end_date >= :startDate
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra2.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ))
         GROUP BY r.resource_id
         ORDER BY r.full_name
@@ -110,6 +133,14 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
             AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_status != 'ROLLED_OFF'
+            AND ra.allocation_end_date >= CURRENT_DATE
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         WHERE r.active_flag = 1
         AND (:designation IS NULL OR r.designation = :designation)
         AND (:location IS NULL OR r.working_location = :location)
@@ -122,13 +153,28 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             FROM resource_allocation ra_current 
             WHERE ra_current.resource_id = r.resource_id 
             AND ra_current.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra_current.allocation_status != 'ROLLED_OFF'
             AND CURRENT_DATE BETWEEN ra_current.allocation_start_date AND ra_current.allocation_end_date
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra_current.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ) <= :allocationPercentage)
         AND (:project IS NULL OR EXISTS (
             SELECT 1 FROM resource_allocation ra2 
             WHERE ra2.resource_id = r.resource_id 
             AND ra2.project_id IN (SELECT p.pms_project_id FROM project p WHERE p.name = :project)
             AND ra2.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra2.allocation_status != 'ROLLED_OFF'
+            AND ra2.allocation_end_date >= CURRENT_DATE
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra2.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ))
         GROUP BY r.resource_id
         ORDER BY r.full_name
@@ -154,8 +200,15 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
             AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_status != 'ROLLED_OFF'
             AND ra.allocation_start_date <= :endDate
             AND ra.allocation_end_date >= :startDate
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         WHERE r.active_flag = 1
         AND (:designation IS NULL OR r.designation = :designation)
         AND (:location IS NULL OR r.working_location = :location)
@@ -168,13 +221,29 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             FROM resource_allocation ra_current 
             WHERE ra_current.resource_id = r.resource_id 
             AND ra_current.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra_current.allocation_status != 'ROLLED_OFF'
             AND CURRENT_DATE BETWEEN ra_current.allocation_start_date AND ra_current.allocation_end_date
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra_current.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ) <= :allocationPercentage)
         AND (:project IS NULL OR EXISTS (
             SELECT 1 FROM resource_allocation ra2 
             WHERE ra2.resource_id = r.resource_id 
             AND ra2.project_id IN (SELECT p.pms_project_id FROM project p WHERE p.name = :project)
             AND ra2.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra2.allocation_status != 'ROLLED_OFF'
+            AND ra2.allocation_start_date <= :endDate
+            AND ra2.allocation_end_date >= :startDate
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra2.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ))
         """, nativeQuery = true)
     Long getResourceTimelineWindowCount(
@@ -197,6 +266,14 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         LEFT JOIN resource_allocation ra
             ON ra.resource_id = r.resource_id
             AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_status != 'ROLLED_OFF'
+            AND ra.allocation_end_date >= CURRENT_DATE
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         WHERE r.active_flag = 1
         AND (:designation IS NULL OR r.designation = :designation)
         AND (:location IS NULL OR r.working_location = :location)
@@ -209,13 +286,28 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             FROM resource_allocation ra_current 
             WHERE ra_current.resource_id = r.resource_id 
             AND ra_current.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra_current.allocation_status != 'ROLLED_OFF'
             AND CURRENT_DATE BETWEEN ra_current.allocation_start_date AND ra_current.allocation_end_date
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra_current.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ) <= :allocationPercentage)
         AND (:project IS NULL OR EXISTS (
             SELECT 1 FROM resource_allocation ra2 
             WHERE ra2.resource_id = r.resource_id 
             AND ra2.project_id IN (SELECT p.pms_project_id FROM project p WHERE p.name = :project)
             AND ra2.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra2.allocation_status != 'ROLLED_OFF'
+            AND ra2.allocation_end_date >= CURRENT_DATE
+            AND NOT EXISTS (
+                SELECT 1 FROM role_off_event roe
+                WHERE roe.allocation_id = ra2.allocation_id
+                AND roe.role_off_status = 'FULFILLED'
+                AND roe.effective_role_off_date <= CURRENT_DATE
+            )
         ))
         """, nativeQuery = true)
     Long getResourceTimelineFullHistoryCount(
@@ -239,6 +331,12 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         WHERE ra.resource_id IN :resourceIds
         AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
         AND CURRENT_DATE BETWEEN ra.allocation_start_date AND ra.allocation_end_date
+        AND NOT EXISTS (
+            SELECT 1 FROM role_off_event roe
+            WHERE roe.allocation_id = ra.allocation_id
+            AND roe.role_off_status = 'FULFILLED'
+            AND roe.effective_role_off_date <= CURRENT_DATE
+        )
         ORDER BY ra.resource_id, p.name
         """, nativeQuery = true)
     List<CurrentProjectProjection> getCurrentProjects(@Param("resourceIds") List<String> resourceIds);
@@ -252,6 +350,13 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         FROM resource_allocation ra
         WHERE ra.resource_id IN :resourceIds
         AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        AND ra.allocation_end_date >= CURRENT_DATE
+        AND NOT EXISTS (
+            SELECT 1 FROM role_off_event roe
+            WHERE roe.allocation_id = ra.allocation_id
+            AND roe.role_off_status = 'FULFILLED'
+            AND roe.effective_role_off_date <= CURRENT_DATE
+        )
         GROUP BY ra.resource_id
         """, nativeQuery = true)
     List<CurrentAllocationProjection> getCurrentAllocations(@Param("resourceIds") List<String> resourceIds);
@@ -269,6 +374,13 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
         JOIN project p ON p.pms_project_id = ra.project_id
         WHERE ra.resource_id IN :resourceIds
         AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+        AND ra.allocation_end_date >= CURRENT_DATE
+        AND NOT EXISTS (
+            SELECT 1 FROM role_off_event roe
+            WHERE roe.allocation_id = ra.allocation_id
+            AND roe.role_off_status = 'FULFILLED'
+            AND roe.effective_role_off_date <= CURRENT_DATE
+        )
         ORDER BY ra.resource_id, ra.allocation_start_date
         """, nativeQuery = true)
     List<AllocationTimelineProjection> getAllocationTimeline(@Param("resourceIds") List<String> resourceIds);
@@ -312,8 +424,15 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             LEFT JOIN resource_allocation ra
                 ON ra.resource_id = r.resource_id
                 AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_status != 'ROLLED_OFF'
                 AND ra.allocation_start_date <= :endDate
                 AND ra.allocation_end_date >= :startDate
+                AND NOT EXISTS (
+                    SELECT 1 FROM role_off_event roe
+                    WHERE roe.allocation_id = ra.allocation_id
+                    AND roe.role_off_status = 'FULFILLED'
+                    AND roe.effective_role_off_date <= CURRENT_DATE
+                )
             WHERE r.active_flag = 1
             AND (:designation IS NULL OR r.designation = :designation)
             AND (:location IS NULL OR r.working_location = :location)
@@ -371,6 +490,14 @@ public interface ResourceTimelineRepository extends JpaRepository<Resource, Long
             LEFT JOIN resource_allocation ra
                 ON ra.resource_id = r.resource_id
                 AND ra.allocation_status IN ('ACTIVE', 'PLANNED')
+            AND ra.allocation_status != 'ROLLED_OFF'
+                AND ra.allocation_end_date >= CURRENT_DATE
+                AND NOT EXISTS (
+                    SELECT 1 FROM role_off_event roe
+                    WHERE roe.allocation_id = ra.allocation_id
+                    AND roe.role_off_status = 'FULFILLED'
+                    AND roe.effective_role_off_date <= CURRENT_DATE
+                )
             WHERE r.active_flag = 1
             AND (:designation IS NULL OR r.designation = :designation)
             AND (:location IS NULL OR r.working_location = :location)
