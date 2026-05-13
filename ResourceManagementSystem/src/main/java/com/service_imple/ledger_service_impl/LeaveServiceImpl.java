@@ -1,8 +1,8 @@
 package com.service_imple.ledger_service_impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.service_interface.ledger_service_interface.LeaveService;
-import com.dto.common.ApiHealthResponse;
-import com.dto.common.ExternalLeaveDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +15,7 @@ import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -24,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 public class LeaveServiceImpl implements LeaveService {
 
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
     
     @Value("${external.api.leave.base-url}")
     private String leaveApiBaseUrl;
@@ -32,8 +34,6 @@ public class LeaveServiceImpl implements LeaveService {
     private String leaveEmployeeEndpoint;
 
     private volatile boolean apiHealthy = true;
-    private volatile long lastHealthCheck = 0;
-    private static final long HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
     @Cacheable(value = "leaves", key = "#resourceId + '-' + #year")
@@ -43,21 +43,10 @@ public class LeaveServiceImpl implements LeaveService {
 
     private Set<LocalDate> getApprovedLeaveInternal(String resourceId, int year) throws LeaveApiException {
         try {
-            checkApiHealth();
-            
             String url = leaveApiBaseUrl + leaveEmployeeEndpoint.replace("{employeeId}", resourceId).replace("{year}", String.valueOf(year));
-            LeaveApiResponse response = restTemplate.getForObject(url, LeaveApiResponse.class);
-            
-            if (response == null || response.getLeaves() == null) {
-                return new HashSet<>();
-            }
-
-            Set<LocalDate> leaveDates = new HashSet<>();
-            for (ExternalLeaveDto leave : response.getLeaves()) {
-                if (leave.getLeaveDate() != null) {
-                    leaveDates.add(leave.getLeaveDate());
-                }
-            }
+            String responseBody = restTemplate.getForObject(url, String.class);
+            Set<LocalDate> leaveDates = parseApprovedLeaveDates(responseBody);
+            apiHealthy = true;
             return leaveDates;
 
         } catch (ResourceAccessException e) {
@@ -78,24 +67,68 @@ public class LeaveServiceImpl implements LeaveService {
         }
     }
 
+    private Set<LocalDate> parseApprovedLeaveDates(String responseBody) throws Exception {
+        Set<LocalDate> leaveDates = new HashSet<>();
+        if (responseBody == null || responseBody.isBlank()) {
+            return leaveDates;
+        }
+
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode leaveDatesNode = resolveApprovedLeaveDatesNode(root);
+        if (leaveDatesNode == null || leaveDatesNode.isNull() || !leaveDatesNode.isArray()) {
+            return leaveDates;
+        }
+
+        Iterator<JsonNode> iterator = leaveDatesNode.elements();
+        while (iterator.hasNext()) {
+            JsonNode leaveDateNode = iterator.next();
+            if (leaveDateNode == null || leaveDateNode.isNull()) {
+                continue;
+            }
+
+            if (leaveDateNode.isTextual()) {
+                leaveDates.add(LocalDate.parse(leaveDateNode.asText()));
+                continue;
+            }
+
+            JsonNode nestedDateNode = leaveDateNode.get("leaveDate");
+            if (nestedDateNode != null && !nestedDateNode.isNull() && !nestedDateNode.asText().isBlank()) {
+                leaveDates.add(LocalDate.parse(nestedDateNode.asText()));
+            }
+        }
+
+        return leaveDates;
+    }
+
+    private JsonNode resolveApprovedLeaveDatesNode(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
+        }
+        if (root.isArray()) {
+            return root;
+        }
+        if (root.has("leaves")) {
+            return root.get("leaves");
+        }
+        JsonNode dataNode = root.get("data");
+        if (dataNode == null || dataNode.isNull()) {
+            return null;
+        }
+        if (dataNode.isArray()) {
+            return dataNode;
+        }
+        if (dataNode.has("approvedLeaveDates")) {
+            return dataNode.get("approvedLeaveDates");
+        }
+        if (dataNode.has("leaves")) {
+            return dataNode.get("leaves");
+        }
+        return null;
+    }
+
     @Override
     public boolean isApiHealthy() {
-        long now = System.currentTimeMillis();
-        if (now - lastHealthCheck > HEALTH_CHECK_INTERVAL_MS) {
-            performHealthCheck();
-            lastHealthCheck = now;
-        }
         return apiHealthy;
-    }
-
-    private void checkApiHealth() throws LeaveApiException {
-        // Health check not implemented - API assumed to be available
-        // Add health check implementation if needed in the future
-    }
-
-    private void performHealthCheck() {
-        // Health check not implemented - API assumed to be healthy
-        apiHealthy = true;
     }
 
     @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
@@ -109,19 +142,4 @@ public class LeaveServiceImpl implements LeaveService {
         });
     }
 
-    public static class LeaveApiResponse {
-        private Set<ExternalLeaveDto> leaves;
-        private String resourceId;
-        private int year;
-        private String lastUpdated;
-
-        public Set<ExternalLeaveDto> getLeaves() { return leaves; }
-        public void setLeaves(Set<ExternalLeaveDto> leaves) { this.leaves = leaves; }
-        public String getResourceId() { return resourceId; }
-        public void setResourceId(String resourceId) { this.resourceId = resourceId; }
-        public int getYear() { return year; }
-        public void setYear(int year) { this.year = year; }
-        public String getLastUpdated() { return lastUpdated; }
-        public void setLastUpdated(String lastUpdated) { this.lastUpdated = lastUpdated; }
-    }
 }
