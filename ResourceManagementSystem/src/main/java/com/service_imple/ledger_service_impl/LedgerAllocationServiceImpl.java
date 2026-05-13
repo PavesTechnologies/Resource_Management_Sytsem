@@ -1,7 +1,6 @@
 package com.service_imple.ledger_service_impl;
 
 import com.service_interface.ledger_service_interface.LedgerAllocationDataService;
-import com.dto.common.ApiHealthResponse;
 import com.dto.common.ExternalAllocationDto;
 import com.dto.common.ExternalAllocationResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,13 +22,11 @@ import java.util.concurrent.CompletableFuture;
 public class LedgerAllocationServiceImpl implements LedgerAllocationDataService {
 
     private final RestTemplate restTemplate;
-    
+
     @Value("${allocation.api.base-url:http://localhost:8083/api/allocations}")
     private String allocationApiBaseUrl;
 
     private volatile boolean apiHealthy = true;
-    private volatile long lastHealthCheck = 0;
-    private static final long ALLOCATION_API_HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
     public AllocationData getAllocationDataForResourceAndDate(String resourceId, LocalDate date) {
@@ -38,8 +35,6 @@ public class LedgerAllocationServiceImpl implements LedgerAllocationDataService 
 
     private AllocationData getAllocationDataInternal(String resourceId, LocalDate date) {
         try {
-            checkApiHealth();
-            
             String url = String.format("%s/resources/%s/allocations?date=%s",
                     allocationApiBaseUrl, resourceId, date);
             ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
@@ -85,8 +80,6 @@ public class LedgerAllocationServiceImpl implements LedgerAllocationDataService 
 
     private AllocationData getAllocationDataInternalForMonth(String resourceId, YearMonth yearMonth) {
         try {
-            checkApiHealth();
-            
             String url = String.format("%s/resources/%s/allocations?month=%s-%s", 
                     allocationApiBaseUrl, resourceId, yearMonth.getYear(), yearMonth.getMonthValue());
             ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
@@ -127,28 +120,7 @@ public class LedgerAllocationServiceImpl implements LedgerAllocationDataService 
 
     @Override
     public boolean isApiHealthy() {
-        long now = System.currentTimeMillis();
-        if (now - lastHealthCheck > ALLOCATION_API_HEALTH_CHECK_INTERVAL_MS) {
-            performHealthCheck();
-            lastHealthCheck = now;
-        }
         return apiHealthy;
-    }
-
-    private void checkApiHealth() {
-        if (!apiHealthy) {
-            performHealthCheck();
-        }
-    }
-
-    private void performHealthCheck() {
-        try {
-            String healthUrl = allocationApiBaseUrl + "/health";
-            ApiHealthResponse response = restTemplate.getForObject(healthUrl, ApiHealthResponse.class);
-            apiHealthy = response != null && "UP".equals(response.getStatus());
-        } catch (Exception e) {
-            apiHealthy = false;
-        }
     }
 
     @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))

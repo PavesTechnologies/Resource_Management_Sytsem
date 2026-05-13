@@ -213,27 +213,6 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
         );
     }
 
-//    @Override
-//    public ResponseEntity<ApiResponse<?>> getProjectById(Long id) {
-//        Project project = projectRepository.findById(id).orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "404", "Project not Found!"));
-//        ProjectDetailsDTO projectDetailsDTO = new ProjectDetailsDTO();
-//        projectDetailsDTO.setPmsProjectId(project.getPmsProjectId());
-//        projectDetailsDTO.setProjectName(project.getName());
-//        projectDetailsDTO.setClientId(project.getClientId());
-//        projectDetailsDTO.setClientName(project.getClient().getClientName());
-//        projectDetailsDTO.setProjectManagerId(project.getProjectManagerId());
-//        projectDetailsDTO.setDeliveryModel(project.getDeliveryModel());
-//        projectDetailsDTO.setPrimaryLocation(project.getPrimaryLocation());
-//        projectDetailsDTO.setRiskLevel(project.getRiskLevel());
-//        projectDetailsDTO.setStartDate(project.getStartDate());
-//        projectDetailsDTO.setEndDate(project.getEndDate());
-//        projectDetailsDTO.setProjectBudget(project.getProjectBudget());
-//        projectDetailsDTO.setProjectStatus(project.getProjectStatus());
-//        projectDetailsDTO.setLifecycleStage(project.getLifecycleStage());
-//        projectDetailsDTO.setHasOverlap(project.getHasOverlap());
-//        return ResponseEntity.ok(new ApiResponse<>(true, "Project fetched successfully", projectDetailsDTO));
-//    }
-
     @Override
     public ResponseEntity<ApiResponse<?>> getProjectById(Long id) {
         Project project = projectRepository.findById(id)

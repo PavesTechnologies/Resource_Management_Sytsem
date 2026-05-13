@@ -36,7 +36,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final ResourceCertificateRepository resourceCertificateRepository;
-    private final ExternalApiTokenService ExternalApiTokenService;
 
     @Override
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
