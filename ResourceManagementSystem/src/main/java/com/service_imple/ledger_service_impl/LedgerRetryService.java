@@ -29,7 +29,7 @@ public class LedgerRetryService {
     public void processFailedEvents() {
         try {
             List<LedgerEventLog> failedEvents = ledgerEventLogRepository
-                    .findRetryableEvents(EventStatus.FAILED, 3, LocalDateTime.now().minusMinutes(15));
+                    .findRetryableEvents(EventStatus.RETRY_SCHEDULED, 3, LocalDateTime.now());
             
             for (LedgerEventLog event : failedEvents) {
                 try {
@@ -73,7 +73,7 @@ public class LedgerRetryService {
             return;
         }
         
-        event.setStatus(EventStatus.PENDING);
+        event.setStatus(EventStatus.NEW);
         event.setErrorMessage(null);
         ledgerEventLogRepository.save(event);
         

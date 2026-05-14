@@ -1,8 +1,10 @@
 package com.cdc.retry;
 
-import com.cdc.failure.CdcFailure;
-import com.cdc.failure.CdcFailureRepository;
 import com.cdc.service.EosDirectResyncService;
+import com.entity.ledger_entities.LedgerEventLog;
+import com.entity_enums.ledger_enums.EventStatus;
+import com.events.handler.LedgerEventHandler;
+import com.repo.ledger_repo.LedgerEventLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,157 +18,42 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UnifiedCdcRetryService {
 
-    private final CdcFailureRepository cdcFailureRepository;
+    private final LedgerEventHandler ledgerEventHandler;
+    private final LedgerEventLogRepository ledgerEventLogRepository;
     private final EosDirectResyncService eosDirectResyncService;
 
     @Transactional
     public void processFailedCdcEvents() {
-        try {
-            List<CdcFailure> failedEvents = cdcFailureRepository
-                    .findByStatusAndNextRetryAtBefore("NEW", LocalDateTime.now().minusMinutes(15));
-
-            for (CdcFailure event : failedEvents) {
-                try {
-                    retryFailedCdcEvent(event);
-                } catch (Exception e) {
-                    log.error("Failed to retry CDC event {} ({}): {}",
-                            event.getEntityId(), event.getEntityType(), e.getMessage(), e);
-                }
-            }
-            
-            // Clean up old resolved failures after retry processing
-            cleanupOldCdcFailures();
-        } catch (Exception e) {
-            log.error("Error processing failed CDC events: {}", e.getMessage(), e);
-        }
+        int processed = ledgerEventHandler.processPendingCdcEvents(50);
+        int recovered = ledgerEventHandler.recoverStalledCdcEvents();
+        log.info("CDC retry cycle completed: processed={}, recovered={}", processed, recovered);
     }
 
     @Transactional
     public void processCdcDlqEntries() {
-        try {
-            List<CdcFailure> dlqEntries = cdcFailureRepository
-                    .findByStatusAndNextRetryAtBefore("RETRY_EXHAUSTED", LocalDateTime.now());
-
-            for (CdcFailure dlqEntry : dlqEntries) {
-                try {
-                    processCdcDlqEntry(dlqEntry);
-                } catch (Exception e) {
-                    log.error("Failed to process CDC DLQ entry {} ({}): {}",
-                            dlqEntry.getEntityId(), dlqEntry.getEntityType(), e.getMessage(), e);
-                }
+        List<LedgerEventLog> deadLetters = ledgerEventLogRepository.findByConnectorNameAndStatusIn(
+                "EOS",
+                List.of(EventStatus.DEAD_LETTER)
+        );
+        for (LedgerEventLog event : deadLetters) {
+            try {
+                eosDirectResyncService.resync(event.getEntityType(), event.getEntityId());
+                event.setStatus(EventStatus.CANCELLED);
+                event.setErrorMessage(null);
+                event.setNextRetryAt(null);
+                event.setUpdatedAt(LocalDateTime.now());
+                ledgerEventLogRepository.save(event);
+            } catch (Exception ex) {
+                log.error("EOS direct resync failed for eventId={}: {}", event.getEventId(), ex.getMessage(), ex);
             }
-            
-            // Clean up old resolved failures after DLQ processing
-            cleanupOldCdcFailures();
-        } catch (Exception e) {
-            log.error("Error processing CDC DLQ: {}", e.getMessage(), e);
         }
-    }
-
-    @Transactional
-    public void retryFailedCdcEvent(CdcFailure event) {
-        event.setRetryCount(event.getRetryCount() + 1);
-        event.setNextRetryAt(calculateNextRetryTime(event.getRetryCount()));
-
-        if (event.getRetryCount() >= 3) {
-            event.setStatus("PERMANENTLY_FAILED");
-            cdcFailureRepository.save(event);
-            return;
-        }
-
-        event.setStatus("PENDING");
-        event.setErrorMessage(null);
-        cdcFailureRepository.save(event);
-
-        retryCdcEventProcessing(event);
-    }
-
-    @Transactional
-    public void processCdcDlqEntry(CdcFailure dlqEntry) {
-        try {
-            retryCdcEventProcessing(dlqEntry);
-            cdcFailureRepository.delete(dlqEntry);
-            log.info("CDC DLQ entry processed successfully: {} ({})",
-                    dlqEntry.getEntityId(), dlqEntry.getEntityType());
-
-        } catch (Exception e) {
-            dlqEntry.setRetryCount(dlqEntry.getRetryCount() + 1);
-            dlqEntry.setErrorMessage(e.getMessage());
-            dlqEntry.setNextRetryAt(calculateNextRetryTime(dlqEntry.getRetryCount()));
-
-            if (dlqEntry.getRetryCount() >= 3) {
-                dlqEntry.setStatus("RETRY_EXHAUSTED");
-            }
-
-            cdcFailureRepository.save(dlqEntry);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Retry routing
-    // -------------------------------------------------------------------------
-
-    private void retryCdcEventProcessing(CdcFailure event) {
-        String entityType = event.getEntityType();
-
-        if (entityType != null && entityType.startsWith("PMS-")) {
-            retryPmsEventProcessing(event);
-        } else if (entityType != null && entityType.startsWith("EOS-")) {
-            retryEosEventProcessing(event);
-        } else {
-            log.warn("Unknown CDC entity type: {} for entityId: {}", entityType, event.getEntityId());
-            event.setStatus("PERMANENTLY_FAILED");
-            event.setErrorMessage("Unknown entity type: " + entityType);
-            cdcFailureRepository.save(event);
-        }
-    }
-
-    private void retryPmsEventProcessing(CdcFailure event) {
-        // The stored payload is event.record().toString() — not a deserializable Struct.
-        // True replay requires the original Debezium event; it cannot be reconstructed here.
-        // Mark as PERMANENTLY_FAILED so the failure is visible and actionable.
-        log.error("Cannot replay PMS CDC event - payload is not deserializable; "
-                        + "manual intervention required for entityType={}, entityId={}",
-                event.getEntityType(), event.getEntityId());
-        event.setStatus("PERMANENTLY_FAILED");
-        event.setErrorMessage("Payload not deserializable; manual intervention required");
-        cdcFailureRepository.save(event);
-    }
-
-    private void retryEosEventProcessing(CdcFailure event) {
-        log.info("EOS CDC retry - re-fetching from EOS for entityType={}, entityId={}",
-                event.getEntityType(), event.getEntityId());
-        try {
-            eosDirectResyncService.resync(event.getEntityType(), event.getEntityId());
-            event.setStatus("RESOLVED");
-            event.setErrorMessage(null);
-            cdcFailureRepository.save(event);
-            log.info("EOS CDC retry resolved for entityType={}, entityId={}",
-                    event.getEntityType(), event.getEntityId());
-        } catch (Exception e) {
-            event.setErrorMessage("Retry failed: " + e.getMessage());
-            cdcFailureRepository.save(event);
-            log.error("EOS CDC retry threw exception for entityType={}, entityId={}: {}",
-                    event.getEntityType(), event.getEntityId(), e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    // -------------------------------------------------------------------------
-
-    private LocalDateTime calculateNextRetryTime(int retryCount) {
-        int delayMinutes = 15 * (int) Math.pow(2, retryCount);
-        return LocalDateTime.now().plusMinutes(delayMinutes);
     }
 
     @Transactional
     public void cleanupOldCdcFailures() {
-        try {
-            LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
-            int deleted = cdcFailureRepository.deleteOldFailures("RESOLVED", cutoff);
-            log.info("Cleaned up {} old CDC failures (PMS + EOS)", deleted);
-        } catch (Exception e) {
-            log.error("Error cleaning up old CDC failures: {}", e.getMessage(), e);
+        List<LedgerEventLog> legacyFailures = ledgerEventLogRepository.findByStatus(EventStatus.PERMANENTLY_FAILED);
+        if (!legacyFailures.isEmpty()) {
+            log.info("Legacy CDC failure rows still present: {}", legacyFailures.size());
         }
     }
 }

@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
@@ -21,6 +22,10 @@ import java.time.LocalDateTime;
            @Index(name = "idx_processed_flag", columnList = "processed_flag"),
            @Index(name = "idx_status", columnList = "status"),
            @Index(name = "idx_next_retry_at", columnList = "next_retry_at"),
+           @Index(name = "idx_connector_name", columnList = "connector_name"),
+           @Index(name = "idx_entity_type", columnList = "entity_type"),
+           @Index(name = "idx_entity_id", columnList = "entity_id"),
+           @Index(name = "idx_claim_owner", columnList = "claim_owner"),
            @Index(name = "idx_created_at", columnList = "created_at")
        })
 @Data
@@ -44,6 +49,42 @@ public class LedgerEventLog {
 
     @Column(name = "event_hash", nullable = false, length = 64)
     private String eventHash;
+
+    @Column(name = "connector_name", length = 50)
+    private String connectorName;
+
+    @Column(name = "entity_type", length = 100)
+    private String entityType;
+
+    @Column(name = "entity_id", length = 100)
+    private String entityId;
+
+    @Column(name = "source_table", length = 100)
+    private String sourceTable;
+
+    @Column(name = "operation_type", length = 20)
+    private String operationType;
+
+    @Column(name = "event_source", length = 50)
+    private String eventSource;
+
+    @Column(name = "payload", columnDefinition = "LONGTEXT")
+    private String payload;
+
+    @Column(name = "source_timestamp")
+    private Instant sourceTimestamp;
+
+    @Column(name = "claimed_at")
+    private Instant claimedAt;
+
+    @Column(name = "claim_owner", length = 120)
+    private String claimOwner;
+
+    @Column(name = "replay_of_event_id", length = 100)
+    private String replayOfEventId;
+
+    @Column(name = "last_error_at")
+    private Instant lastErrorAt;
 
     @Column(name = "processed_flag", nullable = false)
     private Boolean processedFlag;

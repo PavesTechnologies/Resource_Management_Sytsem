@@ -1,7 +1,9 @@
 package com.events.handler;
 
 import com.entity.ledger_entities.DeadLetterQueue;
+import com.entity.ledger_entities.LedgerEventLog;
 import com.entity_enums.ledger_enums.DLQStatus;
+import com.entity_enums.ledger_enums.EventStatus;
 import com.events.ledger_events.BaseLedgerEvent;
 import com.events.publisher.LedgerEventPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,6 +61,29 @@ public class DeadLetterQueueService {
 
         } catch (Exception e) {
             log.error("Failed to add event {} to dead letter queue: {}", event.getEventId(), e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void addCdcEventToDeadLetterQueue(LedgerEventLog eventLog, Exception exception, int retryCount) {
+        try {
+            DeadLetterQueue dlqEntry = DeadLetterQueue.builder()
+                    .eventId(eventLog.getEventId())
+                    .payload(eventLog.getPayload())
+                    .errorMessage(exception.getMessage())
+                    .retryCount(retryCount)
+                    .maxRetryCount(MAX_RETRY_COUNT)
+                    .status(DLQStatus.PENDING_RETRY)
+                    .nextRetryAt(LocalDateTime.now().plusMinutes(RETRY_DELAY_MINUTES))
+                    .originalEventType("CDC")
+                    .resourceId(eventLog.getEntityId())
+                    .eventDate(eventLog.getSourceTimestamp() != null
+                            ? LocalDateTime.ofInstant(eventLog.getSourceTimestamp(), java.time.ZoneOffset.UTC)
+                            : LocalDateTime.now())
+                    .build();
+            deadLetterQueueRepository.save(dlqEntry);
+        } catch (Exception e) {
+            log.error("Failed to add CDC event {} to DLQ: {}", eventLog.getEventId(), e.getMessage(), e);
         }
     }
 
@@ -133,6 +158,19 @@ public class DeadLetterQueueService {
     @Transactional
     public void processDLQEntry(DeadLetterQueue dlqEntry) {
         try {
+            if ("CDC".equals(dlqEntry.getOriginalEventType())) {
+                ledgerEventLogRepository.updateStatusAndRetryTime(
+                        dlqEntry.getEventId(),
+                        EventStatus.RETRY_SCHEDULED,
+                        LocalDateTime.now(),
+                        LocalDateTime.now()
+                );
+                dlqEntry.setStatus(DLQStatus.MANUALLY_PROCESSED);
+                dlqEntry.setUpdatedAt(LocalDateTime.now());
+                deadLetterQueueRepository.save(dlqEntry);
+                return;
+            }
+
             // Check if this is a ledger calculation payload
             if (dlqEntry.getOriginalEventType() != null && 
                 (dlqEntry.getOriginalEventType().equals("ALLOCATION_UPDATE") ||
