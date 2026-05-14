@@ -20,7 +20,13 @@ import java.util.UUID;
 @Table(name = "project_escalation", 
        uniqueConstraints = {
            @UniqueConstraint(columnNames = {"project_id", "email"}, 
-                           name = "uk_project_escalation_email")
+                           name = "uk_project_escalation_email"),
+           @UniqueConstraint(columnNames = {"project_id", "phone"}, 
+                           name = "uk_project_escalation_phone"),
+           @UniqueConstraint(columnNames = {"project_id", "contact_role", "escalation_level"}, 
+                           name = "uk_project_role_level"),
+           @UniqueConstraint(columnNames = {"project_id", "contact_name"}, 
+                           name = "uk_project_contact_name")
        })
 @Data
 @NoArgsConstructor

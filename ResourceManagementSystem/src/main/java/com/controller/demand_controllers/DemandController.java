@@ -32,7 +32,7 @@ public class DemandController {
     }
 
     @PutMapping("/update/pm")
-    @PreAuthorize("hasRole('Project_Manager')")
+    @PreAuthorize("hasAnyRole('Project_Manager','Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> updateDemandByPM(
             @RequestBody UpdateDemandDTO dto,
             @CurrentUser UserDTO userDTO) {
@@ -40,7 +40,7 @@ public class DemandController {
     }
 
     @DeleteMapping("/delete/pm/{demandId}")
-    @PreAuthorize("hasRole('Project_Manager','Resource_Manager','Delivery_Manager')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> deleteDemandByPM(
             @PathVariable UUID demandId,
             @CurrentUser UserDTO userDTO) {

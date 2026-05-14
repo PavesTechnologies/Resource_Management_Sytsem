@@ -165,29 +165,8 @@ public class ProjectGovernanceController {
     @GetMapping("/kpi")
     @PreAuthorize("hasRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<ProjectKpiDTO>> getProjectKpi() {
-        List<ProjectStatus> nonCompletedStatuses = List.of(
-            ProjectStatus.ACTIVE,
-            ProjectStatus.APPROVED,
-            ProjectStatus.ARCHIVED,
-            ProjectStatus.PLANNING
-        );
-        Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
-        Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
-        Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
 
-        Double avgResourceUtil = 0.0;
-        if (totalProjects != null && totalProjects > 0) {
-            avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
-        }
-
-        ProjectKpiDTO kpiDTO = new ProjectKpiDTO(
-            totalProjects != null ? totalProjects : 0L,
-            activeProjects != null ? activeProjects : 0L,
-            highRiskProjects != null ? highRiskProjects : 0L,
-            avgResourceUtil
-        );
-
-        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", kpiDTO));
+        return (ResponseEntity<ApiResponse<ProjectKpiDTO>>)
+                (ResponseEntity<?>) projectGovernanceService.getProjectKpi();
     }
-
 }

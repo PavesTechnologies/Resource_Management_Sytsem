@@ -15,7 +15,13 @@ import java.util.UUID;
 @Table(name = "client_escalation_contact", 
        uniqueConstraints = {
            @UniqueConstraint(columnNames = {"client_id", "email"}, 
-                           name = "uk_client_contact_email")
+                           name = "uk_client_contact_email"),
+           @UniqueConstraint(columnNames = {"client_id", "phone"}, 
+                           name = "uk_client_contact_phone"),
+           @UniqueConstraint(columnNames = {"client_id", "contact_name"}, 
+                           name = "uk_client_contact_name"),
+           @UniqueConstraint(columnNames = {"client_id", "contact_role", "escalation_level"}, 
+                           name = "uk_client_role_level")
        })
 @EntityListeners(AuditEntityListener.class)
 @Data

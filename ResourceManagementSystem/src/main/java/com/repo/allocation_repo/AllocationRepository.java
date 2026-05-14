@@ -215,13 +215,18 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findByApprovalStatus(ApprovalStatus status);
 
     /**
-     * Calculate average utilization percentage across all active resources
-     * Returns the average allocation percentage for all resources with ACTIVE allocations
+     * Calculate average utilization percentage across all resources
+     * Returns the average of total allocation percentages per resource
+     * For each resource, sums all active allocations on current date, then averages across all resources
      */
-    @Query("SELECT AVG(ra.allocationPercentage) FROM ResourceAllocation ra " +
-           "WHERE ra.allocationStatus = 'ACTIVE' " +
-           "AND ra.allocationStartDate <= CURRENT_DATE " +
-           "AND ra.allocationEndDate >= CURRENT_DATE")
+    @Query(value = "SELECT AVG(resource_total.total_allocation) FROM (" +
+           "SELECT SUM(ra.allocation_percentage) as total_allocation " +
+           "FROM resource_allocation ra " +
+           "WHERE ra.allocation_status = 'ACTIVE' " +
+           "AND ra.allocation_start_date <= CURDATE() " +
+           "AND ra.allocation_end_date >= CURDATE() " +
+           "GROUP BY ra.resource_id" +
+           ") resource_total", nativeQuery = true)
     Double calculateAverageUtilization();
 
     /**
