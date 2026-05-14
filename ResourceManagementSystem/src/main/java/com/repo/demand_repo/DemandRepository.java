@@ -103,4 +103,11 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
     List<Demand> findOpenDemands();
 
     List<Demand> findByDemandStatus(DemandStatus demandStatus);
+
+    // Calculate total allocation percentage for a PM across all demands they are responsible for
+    @Query("SELECT COALESCE(SUM(d.allocationPercentage), 0) FROM Demand d WHERE " +
+           "(d.project.projectManagerId = :pmId OR d.createdBy = :pmId) AND " +
+           "d.demandStatus NOT IN (:excludedStatuses)")
+    Integer calculateTotalAllocationForPM(@Param("pmId") Long pmId, 
+                                         @Param("excludedStatuses") List<DemandStatus> excludedStatuses);
 }

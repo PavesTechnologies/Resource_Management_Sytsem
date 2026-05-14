@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
+public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpecificationExecutor<Project> {
 
     @Query("SELECT p FROM Project p WHERE p.pmsProjectId = :projectId AND p.projectManagerId = :projectManagerId")
     Optional<Project> findByProjectIdAndManagerId(Long projectId, Long projectManagerId);
@@ -35,33 +35,34 @@ public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpe
 
     @Query("SELECT COALESCE(SUM(p.projectBudget), 0) FROM Project p WHERE p.clientId = :clientId")
     BigDecimal sumProjectBudgetByClientId(@Param("clientId") UUID clientId);
+
     @Modifying
     @Transactional
     @Query(value = """
-        INSERT INTO project (pms_project_id, last_synced_at)
-        VALUES (:id, :now)
-        ON DUPLICATE KEY UPDATE
-            last_synced_at = :now
-        """, nativeQuery = true)
+            INSERT INTO project (pms_project_id, last_synced_at)
+            VALUES (:id, :now)
+            ON DUPLICATE KEY UPDATE
+                last_synced_at = :now
+            """, nativeQuery = true)
     void upsertSkeleton(
             @Param("id") Long id,
             @Param("now") LocalDateTime now
     );
 
     @Query("""
-        SELECT p FROM Project p
-        WHERE p.clientId = :clientId
-        AND p.pmsProjectId <> :currentProjectId
-        AND p.startDate IS NOT NULL
-        AND p.endDate IS NOT NULL
-        AND (
-            (p.startDate BETWEEN :startDate AND :endDate)
-            OR
-            (p.endDate BETWEEN :startDate AND :endDate)
-            OR
-            (p.startDate <= :startDate AND p.endDate >= :endDate)
-        )
-    """)
+                SELECT p FROM Project p
+                WHERE p.clientId = :clientId
+                AND p.pmsProjectId <> :currentProjectId
+                AND p.startDate IS NOT NULL
+                AND p.endDate IS NOT NULL
+                AND (
+                    (p.startDate BETWEEN :startDate AND :endDate)
+                    OR
+                    (p.endDate BETWEEN :startDate AND :endDate)
+                    OR
+                    (p.startDate <= :startDate AND p.endDate >= :endDate)
+                )
+            """)
     List<Project> findOverlappingProjects(
             @Param("clientId") UUID clientId,
             @Param("startDate") LocalDateTime startDate,
@@ -77,13 +78,13 @@ public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpe
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query(value = """
-        INSERT INTO project (pms_project_id, name, last_synced_at, project_status, client_id, created_at)
-        VALUES (:id, :name, :now, 'ACTIVE', :clientId, :now)
-        ON DUPLICATE KEY UPDATE
-            last_synced_at = :now,
-            name = VALUES(name),
-            client_id = COALESCE(VALUES(client_id), client_id)
-        """, nativeQuery = true)
+            INSERT INTO project (pms_project_id, name, last_synced_at, project_status, client_id, created_at)
+            VALUES (:id, :name, :now, 'ACTIVE', :clientId, :now)
+            ON DUPLICATE KEY UPDATE
+                last_synced_at = :now,
+                name = VALUES(name),
+                client_id = COALESCE(VALUES(client_id), client_id)
+            """, nativeQuery = true)
     void upsertSkeleton(
             @Param("id") Long id,
             @Param("name") String name,
@@ -144,4 +145,19 @@ public interface  ProjectRepository extends JpaRepository<Project, Long>, JpaSpe
 
     @Query("SELECT COUNT(p) FROM Project p WHERE p.riskLevel = :riskLevel")
     Long countByRiskLevel(@Param("riskLevel") RiskLevel riskLevel);
+
+//    @Query("""
+//            SELECT COALESCE(AVG(ra.allocationPercentage), 0)
+//            FROM ResourceAllocation ra
+//            WHERE ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE
+//            """)
+//    Double calculateAverageUtilization();
+
+    @Query("""
+            SELECT COALESCE(AVG(ra.allocationPercentage), 0)
+            FROM ResourceAllocation ra
+            WHERE ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE
+            AND ra.project.resourceManagerId = :rmId
+            """)
+    Double calculateAverageUtilizationForRM(@Param("rmId") Long rmId);
 }

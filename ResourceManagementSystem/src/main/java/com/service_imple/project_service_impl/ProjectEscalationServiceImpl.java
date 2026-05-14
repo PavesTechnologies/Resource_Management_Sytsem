@@ -115,6 +115,30 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
             );
         }
 
+        // Check for duplicate phone number within the project
+        if (dto.getPhone() != null && !dto.getPhone().trim().isEmpty() &&
+            projectEscalationRepo.existsByPhoneAndProject_PmsProjectId(dto.getPhone(), project.getPmsProjectId())) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_PHONE",
+                "Phone number already exists for this project"
+            );
+        }
+
+        // Check for duplicate contact role and escalation level combination within the project
+        if (dto.getContactRole() != null && dto.getEscalationLevel() != null &&
+            projectEscalationRepo.existsByProject_PmsProjectIdAndContactRoleAndEscalationLevel(
+                project.getPmsProjectId(),
+                dto.getContactRole().name(),
+                dto.getEscalationLevel()
+            )) {
+            throw new ProjectExceptionHandler(
+                HttpStatus.CONFLICT,
+                "DUPLICATE_ROLE_LEVEL",
+                "Contact role and escalation level combination already exists for this project"
+            );
+        }
+
         ProjectEscalation escalation = ProjectEscalation.builder()
                 .project(project)
                 .escalationLevel(dto.getEscalationLevel())
@@ -172,6 +196,41 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                     HttpStatus.CONFLICT,
                     "DUPLICATE_CONTACT_NAME",
                     "Contact name already exists for this project"
+                );
+            }
+        }
+
+        // Check for duplicate phone number (excluding current escalation)
+        if (updatedData.getPhone() != null && !updatedData.getPhone().trim().isEmpty() && existingEscalation.getProject() != null) {
+            var existingPhoneEscalation = projectEscalationRepo.findByPhoneAndProjectIdExcludingId(
+                updatedData.getPhone(),
+                existingEscalation.getProject().getPmsProjectId(),
+                projectEscalationId
+            );
+            
+            if (existingPhoneEscalation.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_PHONE",
+                    "Phone number already exists for this project"
+                );
+            }
+        }
+
+        // Check for duplicate contact role and escalation level combination (excluding current escalation)
+        if (updatedData.getContactRole() != null && updatedData.getEscalationLevel() != null && existingEscalation.getProject() != null) {
+            var existingRoleLevelEscalation = projectEscalationRepo.findByProjectIdAndContactRoleAndEscalationLevelExcludingId(
+                existingEscalation.getProject().getPmsProjectId(),
+                updatedData.getContactRole().name(),
+                updatedData.getEscalationLevel(),
+                projectEscalationId
+            );
+            
+            if (existingRoleLevelEscalation.isPresent()) {
+                throw new ProjectExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_ROLE_LEVEL",
+                    "Contact role and escalation level combination already exists for this project"
                 );
             }
         }

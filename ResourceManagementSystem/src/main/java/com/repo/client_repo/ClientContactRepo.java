@@ -66,4 +66,17 @@ public interface ClientContactRepo extends JpaRepository<ClientEscalationContact
             @Param("contactRole") ContactRole contactRole,
             @Param("escalationLevel") String escalationLevel,
             @Param("excludeId") UUID excludeId);
+
+    boolean existsByPhoneAndClient_ClientId(String phone, UUID clientId);
+
+    @Query("""
+       SELECT c FROM ClientEscalationContact c
+       WHERE c.client.clientId = :clientId
+       AND c.phone = :phone
+       AND c.contactId != :excludeId
+       """)
+    Optional<ClientEscalationContact> findByPhoneAndClientIdExcludingId(
+            @Param("phone") String phone,
+            @Param("clientId") UUID clientId,
+            @Param("excludeId") UUID excludeId);
 }

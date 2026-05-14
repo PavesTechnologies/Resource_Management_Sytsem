@@ -24,6 +24,14 @@ import java.util.UUID;
                 @UniqueConstraint(
                         columnNames = {"company_id", "contact_role", "escalation_level"},
                         name = "uk_company_role_level"
+                ),
+                @UniqueConstraint(
+                        columnNames = {"company_id", "phone"},
+                        name = "uk_company_contact_phone"
+                ),
+                @UniqueConstraint(
+                        columnNames = {"company_id", "contact_name"},
+                        name = "uk_company_contact_name"
                 )
         }
 )

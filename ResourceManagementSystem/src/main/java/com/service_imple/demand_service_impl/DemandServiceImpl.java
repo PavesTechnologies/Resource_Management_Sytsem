@@ -139,7 +139,7 @@ public class DemandServiceImpl implements DemandService {
                             demandInfo.setSlaDueAt(demandSLA.getDueAt());
 
                             // Calculate SLA status
-                            if(demandSLA.getActiveFlag()) {
+                            if (demandSLA.getActiveFlag()) {
                                 if (demandSLA.getDueAt() != null) {
                                     if (today.isAfter(demandSLA.getDueAt())) {
                                         demandInfo.setSlaBreached(true);
@@ -442,7 +442,8 @@ private void detectAllocationConflicts(Demand demand) {
         if (isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
                 existing.getDemandStartDate(), existing.getDemandEndDate()) &&
                 existing.getDemandStatus() != DemandStatus.CANCELLED &&
-                existing.getDemandStatus() != DemandStatus.REJECTED) {
+                existing.getDemandStatus() != DemandStatus.REJECTED  &&
+                existing.getDemandStatus() != DemandStatus.FULFILLED) {
 
             totalAllocation += existing.getAllocationPercentage();
         }
@@ -734,7 +735,8 @@ private void validateCapacityLimits(Demand demand, DemandConflictValidationDTO v
         if (isDateRangeOverlapping(demand.getDemandStartDate(), demand.getDemandEndDate(),
                 existing.getDemandStartDate(), existing.getDemandEndDate()) &&
                 existing.getDemandStatus() != DemandStatus.CANCELLED &&
-                existing.getDemandStatus() != DemandStatus.REJECTED) {
+                existing.getDemandStatus() != DemandStatus.REJECTED  &&
+                existing.getDemandStatus() != DemandStatus.FULFILLED) {
 
             totalAllocation += existing.getAllocationPercentage();
         }
@@ -1117,25 +1119,28 @@ public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dt
                     "Demand not found"
             ));
 
-    // Only REQUESTED demands can be approved/rejected
-    if (demand.getDemandStatus() != DemandStatus.REQUESTED) {
-        throw new DemandExceptionHandler(
-                HttpStatus.BAD_REQUEST,
-                "INVALID_STATE",
-                "Only REQUESTED demands can be approved or rejected"
-        );
-    }
-
-    // APPROVE
+    // APPROVE - only REQUESTED demands can be approved
     if (dto.getDecision() == DemandStatus.APPROVED) {
-
+        if (demand.getDemandStatus() != DemandStatus.REQUESTED) {
+            throw new DemandExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Only REQUESTED demands can be approved"
+            );
+        }
         demand.setDemandStatus(DemandStatus.APPROVED);
         demand.setDmRejectionReason(null);
-
     }
 
-    // REJECT
+    // REJECT - DMs can reject both REQUESTED and APPROVED demands
     else if (dto.getDecision() == DemandStatus.REJECTED) {
+        if (demand.getDemandStatus() != DemandStatus.REQUESTED && demand.getDemandStatus() != DemandStatus.APPROVED) {
+            throw new DemandExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_STATE",
+                    "Only REQUESTED or APPROVED demands can be rejected by Delivery Manager"
+            );
+        }
 
         if (dto.getRejectionReason() == null || dto.getRejectionReason().isBlank()) {
             throw new DemandExceptionHandler(
@@ -2136,14 +2141,18 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 );
             }
 
-            // Validate project lifecycle stage if present
-            if (project.getLifecycleStage() != null &&
-                    !com.config.ProjectDemandRules.ALLOWED_LIFECYCLE_STAGES.contains(project.getLifecycleStage())) {
-                throw new DemandExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "LIFECYCLE_STAGE_NOT_ALLOWED",
-                        "Demands cannot be created for a project in lifecycle stage: " + project.getLifecycleStage()
-                );
+            // Validate PM allocation limit
+            if (project.getProjectManagerId() != null && project.getProjectManagerId().equals(id)) {
+                // User is the PM of this project
+                List<DemandStatus> excludedStatuses = List.of(DemandStatus.CANCELLED, DemandStatus.REJECTED, DemandStatus.FULFILLED);
+                Integer totalAllocationForPM = demandRepository.calculateTotalAllocationForPM(id, excludedStatuses);
+                if (totalAllocationForPM + dto.getAllocationPercentage() > 100) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "PM_ALLOCATION_LIMIT_EXCEEDED",
+                            "Project Manager allocation limit exceeded. Current total allocation: " + totalAllocationForPM + "%, Requested: " + dto.getAllocationPercentage() + "%"
+                    );
+                }
             }
 
             Demand tempDemand = createTempDemand(dto, project, role);

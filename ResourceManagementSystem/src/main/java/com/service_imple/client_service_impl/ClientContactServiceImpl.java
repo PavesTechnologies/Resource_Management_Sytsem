@@ -53,6 +53,13 @@ public class ClientContactServiceImpl implements ClientContactService {
                         .body(new ApiResponse<>(false, "Contact role and escalation level combination already exists for this client", null));
             }
 
+            // Check for duplicate phone number within the same client
+            if (clientContact.getPhone() != null && !clientContact.getPhone().trim().isEmpty() &&
+                clientContactRepo.existsByPhoneAndClient_ClientId(clientContact.getPhone(), client.getClientId())) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false, "Phone number already exists for this client", null));
+            }
+
             clientContact.setClient(client);
 
             ClientEscalationContact savedContact = clientContactRepo.save(clientContact);
@@ -100,6 +107,14 @@ public class ClientContactServiceImpl implements ClientContactService {
                     client.getClientId(), clientContact.getContactRole(), clientContact.getEscalationLevel(), clientContact.getContactId()).isPresent()) {
                 return ResponseEntity.badRequest()
                         .body(new ApiResponse<>(false, "Contact role and escalation level combination already exists for this client", null));
+            }
+
+            // Check for duplicate phone number (excluding current contact)
+            if (clientContact.getPhone() != null && !clientContact.getPhone().trim().isEmpty() &&
+                clientContactRepo.findByPhoneAndClientIdExcludingId(
+                    clientContact.getPhone(), client.getClientId(), clientContact.getContactId()).isPresent()) {
+                return ResponseEntity.badRequest()
+                        .body(new ApiResponse<>(false, "Phone number already exists for this client", null));
             }
 
             // Update fields

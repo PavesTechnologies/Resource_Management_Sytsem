@@ -151,6 +151,12 @@ public class CompanyContactServiceImpl implements CompanyContactService {
             System.out.println("DEBUG: Skipping duplicate check - contactRole or escalationLevel is null");
         }
 
+        // Step 3.5: Check for duplicate phone number within the same company
+        if (companyContact.getPhone() != null && !companyContact.getPhone().trim().isEmpty() &&
+                companyContactRepo.existsByPhoneAndCompany_CompanyId(companyContact.getPhone(), companyId)) {
+            throw new ClientExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_PHONE", "Phone number already exists for this company");
+        }
+
         // Step 4: Set real company object
         companyContact.setCompany(company);
 
@@ -216,6 +222,23 @@ public class CompanyContactServiceImpl implements CompanyContactService {
                     HttpStatus.CONFLICT,
                     "DUPLICATE_ROLE_LEVEL",
                     "Contact role and escalation level combination already exists for this company"
+                );
+            }
+        }
+
+        // Check for duplicate phone number (excluding current contact)
+        if (companyContact.getPhone() != null && !companyContact.getPhone().trim().isEmpty() && existingContact.getCompany() != null) {
+            var existingPhoneContact = companyContactRepo.findByPhoneAndCompanyIdExcludingId(
+                companyContact.getPhone(),
+                existingContact.getCompany().getCompanyId(),
+                contactId
+            );
+            
+            if (existingPhoneContact.isPresent()) {
+                throw new ClientExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "DUPLICATE_PHONE",
+                    "Phone number already exists for this company"
                 );
             }
         }
