@@ -40,7 +40,7 @@ public class DemandController {
     }
 
     @DeleteMapping("/delete/pm/{demandId}")
-    @PreAuthorize("hasRole('Project_Manager')")
+    @PreAuthorize("hasRole('Project_Manager','Resource_Manager','Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> deleteDemandByPM(
             @PathVariable UUID demandId,
             @CurrentUser UserDTO userDTO) {
