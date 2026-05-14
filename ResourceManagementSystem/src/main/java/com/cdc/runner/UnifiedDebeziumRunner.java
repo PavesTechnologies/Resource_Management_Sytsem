@@ -12,7 +12,13 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,6 +44,7 @@ public class UnifiedDebeziumRunner {
     private volatile boolean leadershipHeld;
     private volatile boolean engineStarted;
     private volatile boolean leadershipRenewalStarted;
+    private volatile boolean schemaHistoryRecoveryAttempted;
 
     public UnifiedDebeziumRunner(io.debezium.config.Configuration config,
                                  Consumer<RecordChangeEvent<SourceRecord>> eventHandler,
@@ -170,71 +177,7 @@ public class UnifiedDebeziumRunner {
         }
 
         try {
-
-            String offsetFile = config.asProperties().getProperty(
-                    "offset.storage.file.filename",
-                    "unknown"
-            );
-
-            log.info(
-                    "[{}] CDC leadership confirmed. Starting Debezium with offset file={}",
-                    runnerName,
-                    offsetFile
-            );
-
-            engine = DebeziumEngine
-                    .create(ChangeEventFormat.of(Connect.class))
-                    .using(config.asProperties())
-                    .notifying(event -> {
-                        try {
-                            eventHandler.accept(event);
-                        } catch (Exception ex) {
-                            log.error(
-                                    "[{}] CDC handler failure",
-                                    runnerName,
-                                    ex
-                            );
-                        }
-                    })
-                    .using((success, message, error) -> {
-
-                        if (error != null) {
-
-                            log.error(
-                                    "[{}] Debezium engine completed with error: {}",
-                                    runnerName,
-                                    error.getMessage(),
-                                    error
-                            );
-
-                        } else if (success && message.contains("snapshot")) {
-
-                            log.info(
-                                    "[{}] Initial snapshot completed successfully: {}",
-                                    runnerName,
-                                    message
-                            );
-
-                            log.info(
-                                    "[{}] Connector switched to realtime CDC streaming",
-                                    runnerName
-                            );
-
-                        } else {
-
-                            log.info(
-                                    "[{}] Debezium engine completed. Success={} {}",
-                                    runnerName,
-                                    success,
-                                    message
-                            );
-                        }
-                    })
-                    .build();
-
-            executor.execute(engine);
-
-            engineStarted = true;
+            startEngine(config.asProperties(), false);
 
             log.info(
                     "[{}] Debezium engine started successfully under leadership {}",
@@ -264,6 +207,167 @@ public class UnifiedDebeziumRunner {
 
                 leadershipHeld = false;
             }
+        }
+    }
+
+    private synchronized void startEngine(Properties properties, boolean recoveryMode) {
+        String offsetFile = properties.getProperty(
+                "offset.storage.file.filename",
+                "unknown"
+        );
+        String schemaHistoryFile = properties.getProperty(
+                "schema.history.internal.file.filename",
+                "unknown"
+        );
+        String snapshotMode = properties.getProperty("snapshot.mode", "unknown");
+
+        if (recoveryMode) {
+            log.warn(
+                    "[{}] Restarting Debezium in temporary schema recovery mode. offsetFile={}, schemaHistoryFile={}, snapshotMode={}",
+                    runnerName,
+                    offsetFile,
+                    schemaHistoryFile,
+                    snapshotMode
+            );
+        } else {
+            log.info(
+                    "[{}] CDC leadership confirmed. Starting Debezium with offset file={}, schemaHistoryFile={}, snapshotMode={}",
+                    runnerName,
+                    offsetFile,
+                    schemaHistoryFile,
+                    snapshotMode
+            );
+        }
+
+        engine = DebeziumEngine
+                .create(ChangeEventFormat.of(Connect.class))
+                .using(properties)
+                .notifying(event -> {
+                    try {
+                        eventHandler.accept(event);
+                    } catch (Exception ex) {
+                        log.error(
+                                "[{}] CDC handler failure",
+                                runnerName,
+                                ex
+                        );
+                    }
+                })
+                .using((success, message, error) -> {
+                    engineStarted = false;
+
+                    if (error != null) {
+                        log.error(
+                                "[{}] Debezium engine completed with error: {}",
+                                runnerName,
+                                error.getMessage(),
+                                error
+                        );
+
+                        if (attemptSchemaHistoryRecovery(properties, error)) {
+                            return;
+                        }
+
+                    } else if (success && message != null && message.contains("snapshot")) {
+
+                        log.info(
+                                "[{}] Initial snapshot completed successfully: {}",
+                                runnerName,
+                                message
+                        );
+
+                        log.info(
+                                "[{}] Connector switched to realtime CDC streaming",
+                                runnerName
+                        );
+
+                    } else {
+
+                        log.info(
+                                "[{}] Debezium engine completed. Success={} {}",
+                                runnerName,
+                                success,
+                                message
+                        );
+                    }
+                })
+                .build();
+
+        executor.execute(engine);
+
+        engineStarted = true;
+    }
+
+    private synchronized boolean attemptSchemaHistoryRecovery(Properties failedProperties, Throwable error) {
+        if (schemaHistoryRecoveryAttempted || !leadershipHeld || !isSchemaHistoryRecoveryCandidate(error)) {
+            return false;
+        }
+
+        schemaHistoryRecoveryAttempted = true;
+
+        String schemaHistoryFile = failedProperties.getProperty("schema.history.internal.file.filename");
+        String configuredSnapshotMode = config.asProperties().getProperty("rms.configured.snapshot.mode", "when_needed");
+
+        backupSchemaHistoryFile(schemaHistoryFile);
+
+        Properties recoveryProperties = new Properties();
+        recoveryProperties.putAll(config.asProperties());
+        recoveryProperties.setProperty("snapshot.mode", "schema_only_recovery");
+
+        log.warn(
+                "[{}] Detected recoverable schema history failure. Preserving offsets and retrying once with schema_only_recovery. Normal snapshot mode will revert to {} on the next clean startup.",
+                runnerName,
+                configuredSnapshotMode
+        );
+
+        try {
+            startEngine(recoveryProperties, true);
+            return true;
+        } catch (Exception recoveryStartFailure) {
+            log.error(
+                    "[{}] Debezium schema recovery restart failed: {}",
+                    runnerName,
+                    recoveryStartFailure.getMessage(),
+                    recoveryStartFailure
+            );
+            return false;
+        }
+    }
+
+    private boolean isSchemaHistoryRecoveryCandidate(Throwable error) {
+        String message = error != null && error.getMessage() != null
+                ? error.getMessage().toLowerCase()
+                : "";
+
+        return message.contains("db history topic is missing")
+                || message.contains("schema history")
+                || message.contains("schema isn't known to this connector")
+                || message.contains("history topic is missing");
+    }
+
+    private void backupSchemaHistoryFile(String schemaHistoryFile) {
+        if (schemaHistoryFile == null || schemaHistoryFile.isBlank()) {
+            return;
+        }
+
+        try {
+            Path schemaHistoryPath = Path.of(schemaHistoryFile);
+            if (!Files.exists(schemaHistoryPath)) {
+                log.warn("[{}] Schema history file is already missing at recovery time: {}",
+                        runnerName, schemaHistoryPath);
+                return;
+            }
+
+            Path backupPath = schemaHistoryPath.resolveSibling(
+                    schemaHistoryPath.getFileName() + ".corrupt-" + DateTimeFormatter.ISO_INSTANT.format(Instant.now()).replace(":", "-") + ".bak"
+            );
+            Files.move(schemaHistoryPath, backupPath, StandardCopyOption.REPLACE_EXISTING);
+
+            log.warn("[{}] Backed up schema history file before recovery: original={}, backup={}",
+                    runnerName, schemaHistoryPath, backupPath);
+        } catch (Exception ex) {
+            log.warn("[{}] Failed to back up schema history file before recovery: {}",
+                    runnerName, ex.getMessage(), ex);
         }
     }
 

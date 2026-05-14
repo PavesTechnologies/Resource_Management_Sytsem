@@ -1,12 +1,13 @@
 package com.cdc.config;
 
+import com.cdc.config.properties.CdcProperties;
 import com.cdc.listener.EosCdcHandler;
 import com.cdc.listener.PmsCdcHandler;
 import com.cdc.runner.UnifiedDebeziumRunner;
 import com.cdc.service.CdcConnectorLeadershipService;
 import io.debezium.config.Configuration;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -19,10 +20,9 @@ import org.springframework.context.annotation.Bean;
  * Eliminates duplicate runner code while maintaining separate configurations.
  */
 @org.springframework.context.annotation.Configuration
+@RequiredArgsConstructor
 public class UnifiedCdcRunnerConfig {
-
-    @Value("${cdc.enabled:true}")
-    private boolean cdcEnabled;
+    private final CdcProperties cdcProperties;
 
     /**
      * PMS CDC Runner bean.
@@ -38,7 +38,7 @@ public class UnifiedCdcRunnerConfig {
                 debeziumConfiguration,
                 pmsCdcHandler::handleEvent,
                 "PMS",
-                cdcEnabled,
+                cdcProperties.isEnabled(),
                 leadershipService
         );
     }
@@ -57,7 +57,7 @@ public class UnifiedCdcRunnerConfig {
                 eosDebeziumConfiguration,
                 eosCdcHandler::handleEvent,
                 "EOS",
-                cdcEnabled,
+                cdcProperties.isEnabled(),
                 leadershipService
         );
     }

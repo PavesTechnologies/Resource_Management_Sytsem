@@ -1,5 +1,7 @@
 package com.cdc.retry;
 
+import com.cdc.config.properties.CdcProperties;
+import com.cdc.config.properties.OfferLifecycleProperties;
 import com.cdc.service.EosDirectResyncService;
 import com.entity.ledger_entities.LedgerEventLog;
 import com.entity_enums.ledger_enums.EventStatus;
@@ -7,7 +9,6 @@ import com.events.handler.LedgerEventHandler;
 import com.repo.ledger_repo.LedgerEventLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,14 +23,8 @@ public class UnifiedCdcRetryService {
     private final LedgerEventHandler ledgerEventHandler;
     private final LedgerEventLogRepository ledgerEventLogRepository;
     private final EosDirectResyncService eosDirectResyncService;
-    @Value("${cdc.offer.waiting.max-days:45}")
-    private int offerWaitingMaxDays;
-    @Value("${cdc.cleanup.success-retention-days:30}")
-    private int successRetentionDays;
-    @Value("${cdc.cleanup.cancelled-retention-days:7}")
-    private int cancelledRetentionDays;
-    @Value("${cdc.cleanup.dead-letter-retention-days:90}")
-    private int deadLetterRetentionDays;
+    private final OfferLifecycleProperties offerLifecycleProperties;
+    private final CdcProperties cdcProperties;
 
     public void processFailedCdcEvents() {
         int processed = ledgerEventHandler.processPendingCdcEvents(50);
@@ -65,34 +60,46 @@ public class UnifiedCdcRetryService {
     public void cleanupOldCdcFailures() {
         LocalDateTime now = LocalDateTime.now();
         List<LedgerEventLog> legacyFailures = ledgerEventLogRepository.findByStatus(EventStatus.PERMANENTLY_FAILED);
+        CdcProperties.CleanupProperties cleanup = cdcProperties.getCleanup();
 
+        int expiredCompletedReconciliation = ledgerEventLogRepository.cancelExpiredWaitingDependencyEventsByLifecycleStatus(
+                "EOS",
+                "offer_letter_details",
+                EventStatus.WAITING_FOR_DEPENDENCY,
+                EventStatus.CANCELLED,
+                now.minusMinutes(offerLifecycleProperties.getCompleted().getReconciliation().getMaxMinutes()),
+                "offer_letter_details completed-state reconciliation expired due to COMPLETED_RECONCILIATION_TIMEOUT",
+                "Completed",
+                now,
+                now
+        );
         int expiredWaiting = ledgerEventLogRepository.cancelExpiredWaitingDependencyEvents(
                 "EOS",
                 "offer_letter_details",
                 EventStatus.WAITING_FOR_DEPENDENCY,
                 EventStatus.CANCELLED,
-                now.minusDays(offerWaitingMaxDays),
+                now.minusDays(offerLifecycleProperties.getWaiting().getMaxDays()),
                 "offer_letter_details waiting expired due to DEPENDENCY_TIMEOUT",
                 now,
                 now
         );
         int deletedSuccess = ledgerEventLogRepository.deleteOldCdcEventsByStatus(
                 EventStatus.SUCCESS,
-                now.minusDays(successRetentionDays)
+                now.minusDays(cleanup.getSuccessRetentionDays())
         );
         int deletedCancelled = ledgerEventLogRepository.deleteOldCdcEventsByStatus(
                 EventStatus.CANCELLED,
-                now.minusDays(cancelledRetentionDays)
+                now.minusDays(cleanup.getCancelledRetentionDays())
         );
         int deletedDeadLetter = ledgerEventLogRepository.deleteOldCdcEventsByStatus(
                 EventStatus.DEAD_LETTER,
-                now.minusDays(deadLetterRetentionDays)
+                now.minusDays(cleanup.getDeadLetterRetentionDays())
         );
 
         if (!legacyFailures.isEmpty()) {
             log.info("Legacy CDC failure rows still present: {}", legacyFailures.size());
         }
-        log.info("CDC cleanup completed: expiredWaiting={}, deletedSuccess={}, deletedCancelled={}, deletedDeadLetter={}",
-                expiredWaiting, deletedSuccess, deletedCancelled, deletedDeadLetter);
+        log.info("CDC cleanup completed: expiredCompletedReconciliation={}, expiredWaiting={}, deletedSuccess={}, deletedCancelled={}, deletedDeadLetter={}",
+                expiredCompletedReconciliation, expiredWaiting, deletedSuccess, deletedCancelled, deletedDeadLetter);
     }
 }
