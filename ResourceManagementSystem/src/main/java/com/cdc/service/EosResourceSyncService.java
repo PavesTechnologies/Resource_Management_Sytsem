@@ -1,18 +1,26 @@
 package com.cdc.service;
 
+import com.cdc.config.properties.OfferLifecycleProperties;
+import com.cdc.event.EmployeeDetailsCommittedEvent;
+import com.cdc.model.CdcProcessingOutcome;
 import com.cdc.protection.StaleEventProtectionService;
 import com.cdc.util.CdcUtcSupport;
 import com.entity.resource_entities.Resource;
+import com.entity_enums.ledger_enums.EventStatus;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.entity_enums.resource_enums.EmploymentType;
 import com.entity_enums.resource_enums.WorkingMode;
+import com.repo.ledger_repo.LedgerEventLogRepository;
 import com.repo.resource_repo.ResourceRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Struct;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -21,7 +29,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -31,16 +44,25 @@ public class EosResourceSyncService {
     private final JdbcTemplate eosJdbcTemplate;
     private final StaleEventProtectionService staleEventProtectionService;
     private final CdcUtcSupport cdcUtcSupport;
+    private final LedgerEventLogRepository ledgerEventLogRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final OfferLifecycleProperties offerLifecycleProperties;
 
     public EosResourceSyncService(
             ResourceRepository resourceRepository,
             @Qualifier("eosJdbcTemplate") JdbcTemplate eosJdbcTemplate,
             StaleEventProtectionService staleEventProtectionService,
-            CdcUtcSupport cdcUtcSupport) {
+            CdcUtcSupport cdcUtcSupport,
+            LedgerEventLogRepository ledgerEventLogRepository,
+            ApplicationEventPublisher applicationEventPublisher,
+            OfferLifecycleProperties offerLifecycleProperties) {
         this.resourceRepository = resourceRepository;
         this.eosJdbcTemplate = eosJdbcTemplate;
         this.staleEventProtectionService = staleEventProtectionService;
         this.cdcUtcSupport = cdcUtcSupport;
+        this.ledgerEventLogRepository = ledgerEventLogRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.offerLifecycleProperties = offerLifecycleProperties;
     }
 
     @Transactional
@@ -78,14 +100,45 @@ public class EosResourceSyncService {
             return;
         }
 
-        Resource resource = resourceRepository.findByIdWithLock(employeeId).orElseGet(Resource::new);
+        Resource resource = resourceRepository
+                .findByIdWithLock(employeeId)
+                .orElseGet(() -> {
+
+                    String workEmail = getMapString(data, "work_email");
+
+                    if (workEmail != null) {
+
+                        Optional<Resource> existingByEmail =
+                                resourceRepository.findByEmailIgnoreCase(workEmail);
+
+                        if (existingByEmail.isPresent()) {
+
+                            Resource existing = existingByEmail.get();
+
+                            log.error(
+                                    "Duplicate business identity detected. Existing resourceId={}, incoming employeeId={}, email={}",
+                                    existing.getResourceId(),
+                                    employeeId,
+                                    workEmail
+                            );
+
+                            // IMPORTANT:
+                            // Reuse existing entity WITHOUT changing primary key
+                            return existing;
+                        }
+                    }
+
+                    return new Resource();
+                });
         boolean isNew = resource.getVersion() == null;
         if (!isNew && staleEventProtectionService.isStaleEvent(resource.getChangedAt(), sourceTimestamp, employeeId)) {
             log.warn("Skipping stale EOS employee_details event for resourceId={}", employeeId);
             return;
         }
 
-        resource.setResourceId(employeeId);
+        if (isNew) {
+            resource.setResourceId(employeeId);
+        }
         applyEmployeeDetailsMappingFromMap(resource, data);
         applyDerivedFieldsFromMap(resource, data);
 
@@ -95,6 +148,7 @@ public class EosResourceSyncService {
 
         resource.setChangedAt(resolveChangedAt(data, sourceTimestamp));
         resourceRepository.save(resource);
+        publishEmployeeDetailsCommittedEvent(employeeId, getMapString(data, "work_email"));
         log.info("employee_details synced successfully for resourceId={}", employeeId);
     }
 
@@ -104,27 +158,52 @@ public class EosResourceSyncService {
     }
 
     @Transactional
-    public void processOfferDetailsFromMap(Map<String, Object> data, Instant sourceTimestamp) {
+    public CdcProcessingOutcome processOfferDetailsFromMap(Map<String, Object> data, Instant sourceTimestamp) {
+        return processOfferDetailsFromMap(data, sourceTimestamp, false);
+    }
+
+    @Transactional
+    public CdcProcessingOutcome processOfferDetailsFromMap(Map<String, Object> data, Instant sourceTimestamp, boolean dependencyReplay) {
         String mail = getMapString(data, "mail");
         String employeeId = getMapString(data, "employee_id");
+        String offerStatus = normalizeOfferStatus(getMapString(data, "status"));
         if (mail == null && employeeId == null) {
-            return;
+            return CdcProcessingOutcome.success();
         }
 
         if (employeeId == null) {
             employeeId = resolveEmployeeIdByUserUuid(getMapString(data, "user_uuid"));
         }
         if (employeeId == null) {
-            throw new IllegalStateException("Unable to resolve employee_id for offer letter payload");
+            return orchestrateMissingOfferDependency(mail, null, offerStatus, "employee_id could not be resolved from offer_letter_details payload");
         }
 
         Resource resource = resourceRepository.findByIdWithLock(employeeId).orElse(null);
         if (resource == null) {
-            throw new IllegalStateException("Resource not found for offer letter (mail=" + mail + ", employeeId=" + employeeId + ")");
+            return orchestrateMissingOfferDependency(mail, employeeId, offerStatus,
+                    "Resource not found for offer letter enrichment");
         }
-        if (staleEventProtectionService.isStaleEvent(resource.getChangedAt(), sourceTimestamp, employeeId)) {
-            log.warn("Skipping stale EOS offer_letter_details event for resourceId={}", employeeId);
-            return;
+
+        if (isNonActionableOfferStatus(offerStatus)) {
+            log.info("Skipping offer_letter_details enrichment for resourceId={}, mail={}, status={} because lifecycle state is non-actionable",
+                    employeeId, mail, offerStatus);
+            return CdcProcessingOutcome.cancelled(
+                    "offer_letter_details lifecycle state is non-actionable for enrichment",
+                    "NON_ACTIONABLE_STATUS",
+                    offerStatus
+            );
+        }
+
+        boolean staleOfferEvent = staleEventProtectionService.isStaleEvent(resource.getChangedAt(), sourceTimestamp, employeeId);
+        boolean allowDeferredReplay = dependencyReplay && staleOfferEvent && canApplyDeferredOfferEnrichment(resource);
+        if (staleOfferEvent && !allowDeferredReplay) {
+            log.warn("Skipping stale EOS offer_letter_details event for resourceId={}, mail={}, status={}, dependencyReplay={}",
+                    employeeId, mail, offerStatus, dependencyReplay);
+            return CdcProcessingOutcome.success();
+        }
+        if (allowDeferredReplay) {
+            log.info("Applying deferred offer_letter_details replay for resourceId={}, mail={}, status={} despite older source timestamp because enrichment fields are still incomplete",
+                    employeeId, mail, offerStatus);
         }
 
         resource.setDesignation(getMapString(data, "designation"));
@@ -137,9 +216,11 @@ public class EosResourceSyncService {
         }
 
         deriveHourlyCostRate(resource);
-        resource.setChangedAt(resolveChangedAt(data, sourceTimestamp));
+        resource.setChangedAt(resolveOfferChangedAt(resource, data, sourceTimestamp, allowDeferredReplay));
         resourceRepository.save(resource);
-        log.info("offer_letter_details enriched for resourceId={}, mail={}", resource.getResourceId(), mail);
+        log.info("offer_letter_details enriched for resourceId={}, mail={}, status={}, dependencyReplay={}",
+                resource.getResourceId(), mail, offerStatus, dependencyReplay);
+        return CdcProcessingOutcome.success();
     }
 
     @Transactional
@@ -335,6 +416,153 @@ public class EosResourceSyncService {
                 .divide(BigDecimal.valueOf(8), 2, RoundingMode.HALF_UP);
 
         resource.setHourlyCostRate(hourlyRate);
+    }
+
+    private LocalDateTime resolveOfferChangedAt(Resource resource,
+                                                Map<String, Object> data,
+                                                Instant sourceTimestamp,
+                                                boolean allowDeferredReplay) {
+        LocalDateTime resolved = resolveChangedAt(data, sourceTimestamp);
+        if (!allowDeferredReplay || resolved == null || resource.getChangedAt() == null) {
+            return resolved;
+        }
+        return resolved.isBefore(resource.getChangedAt()) ? resource.getChangedAt() : resolved;
+    }
+
+    private boolean canApplyDeferredOfferEnrichment(Resource resource) {
+        return isBlank(resource.getDesignation())
+                || resource.getAnnualCtc() == null
+                || isBlank(resource.getCurrencyType())
+                || resource.getHourlyCostRate() == null;
+    }
+
+    private CdcProcessingOutcome orchestrateMissingOfferDependency(String mail,
+                                                                   String employeeId,
+                                                                   String offerStatus,
+                                                                   String detail) {
+        String entityRef = employeeId != null ? employeeId : mail;
+        if (isWaitingOfferStatus(offerStatus)) {
+            String message = "offer_letter_details deferred because employee lifecycle dependency is not ready"
+                    + " [entityRef=" + entityRef + ", status=" + offerStatus + ", detail=" + detail + "]";
+            log.info(message);
+            return CdcProcessingOutcome.waiting(
+                    message,
+                    "EMPLOYEE_DETAILS_PENDING",
+                    offerStatus
+            );
+        }
+
+        if (offerLifecycleProperties.isCompletedStatus(offerStatus)) {
+            String message = "offer_letter_details deferred for completed-state reconciliation because employee lifecycle dependency is not ready"
+                    + " [entityRef=" + entityRef + ", status=" + offerStatus + ", detail=" + detail + "]";
+            log.info(message);
+            return CdcProcessingOutcome.waiting(
+                    message,
+                    "COMPLETED_RECONCILIATION_PENDING",
+                    offerStatus
+            );
+        }
+
+        if (isCancelledOfferStatus(offerStatus)) {
+            String reasonCode = "Rejected".equalsIgnoreCase(offerStatus)
+                    ? "OFFER_REJECTED"
+                    : "DRAFT_OFFER_NO_ACTION";
+            String message = "offer_letter_details cancelled because lifecycle state does not require enrichment"
+                    + " [entityRef=" + entityRef + ", status=" + offerStatus + ", detail=" + detail + "]";
+            log.info(message);
+            return CdcProcessingOutcome.cancelled(message, reasonCode, offerStatus);
+        }
+
+        String message = "offer_letter_details missing authoritative employee dependency for a retryable lifecycle state"
+                + " [entityRef=" + entityRef + ", status=" + offerStatus + ", detail=" + detail + "]";
+        log.warn(message);
+        throw new IllegalStateException(message);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int releaseWaitingOfferEventsAfterCommit(String employeeId, String workEmail) {
+        List<String> entityIds = new ArrayList<>(deduplicateEntityIds(employeeId, workEmail));
+        if (entityIds.isEmpty()) {
+            return 0;
+        }
+
+        int released = 0;
+        int batchNumber = 0;
+
+        while (true) {
+            List<Long> waitingIds = ledgerEventLogRepository.findWaitingDependencyEventIds(
+                    "EOS",
+                    "offer_letter_details",
+                    EventStatus.WAITING_FOR_DEPENDENCY,
+                    entityIds,
+                    PageRequest.of(0, offerLifecycleProperties.getWaiting().getReleaseBatchSize())
+            );
+
+            if (waitingIds.isEmpty()) {
+                break;
+            }
+
+            batchNumber++;
+            LocalDateTime now = cdcUtcSupport.utcDateTime(cdcUtcSupport.now());
+            int batchReleased = ledgerEventLogRepository.releaseWaitingDependencyEventsByIds(
+                    waitingIds,
+                    EventStatus.WAITING_FOR_DEPENDENCY,
+                    EventStatus.RETRY_SCHEDULED,
+                    now,
+                    now
+            );
+            released += batchReleased;
+
+            log.info("Released waiting offer_letter_details batch after employee_details commit: employeeId={}, workEmail={}, batchNumber={}, candidateIds={}, rowsUpdated={}",
+                    employeeId, workEmail, batchNumber, waitingIds.size(), batchReleased);
+
+            if (waitingIds.size() < offerLifecycleProperties.getWaiting().getReleaseBatchSize()) {
+                break;
+            }
+        }
+
+        if (released > 0) {
+            log.info("Released {} waiting offer_letter_details event(s) after employee_details commit for employeeId={}, workEmail={}, batchSize={}",
+                    released, employeeId, workEmail, offerLifecycleProperties.getWaiting().getReleaseBatchSize());
+        }
+
+        return released;
+    }
+
+    private void publishEmployeeDetailsCommittedEvent(String employeeId, String workEmail) {
+        applicationEventPublisher.publishEvent(new EmployeeDetailsCommittedEvent(employeeId, workEmail));
+    }
+
+    private Set<String> deduplicateEntityIds(String employeeId, String workEmail) {
+        Set<String> entityIds = new LinkedHashSet<>();
+        if (!isBlank(employeeId)) {
+            entityIds.add(employeeId);
+        }
+        if (!isBlank(workEmail)) {
+            entityIds.add(workEmail);
+        }
+        return entityIds;
+    }
+
+    private boolean isWaitingOfferStatus(String offerStatus) {
+        return "Offered".equalsIgnoreCase(offerStatus)
+                || offerLifecycleProperties.isWaitingStatus(offerStatus);
+    }
+
+    private boolean isCancelledOfferStatus(String offerStatus) {
+        return offerLifecycleProperties.isImmediateCancelStatus(offerStatus);
+    }
+
+    private boolean isNonActionableOfferStatus(String offerStatus) {
+        return offerLifecycleProperties.isNonActionableStatus(offerStatus);
+    }
+
+    private String normalizeOfferStatus(String offerStatus) {
+        return offerStatus != null ? offerStatus.trim() : null;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private String getMapString(Map<String, Object> data, String field) {

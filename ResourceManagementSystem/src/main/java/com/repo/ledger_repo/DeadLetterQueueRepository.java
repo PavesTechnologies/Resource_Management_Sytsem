@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,18 +42,22 @@ public interface DeadLetterQueueRepository extends JpaRepository<DeadLetterQueue
     Page<DeadLetterQueue> findOldEntries(@Param("cutoffDate") LocalDateTime cutoffDate, Pageable pageable);
 
     @Modifying
+    @Transactional
     @Query("UPDATE DeadLetterQueue dlq SET dlq.status = :newStatus, dlq.nextRetryAt = :nextRetryAt, dlq.retryCount = dlq.retryCount + 1, dlq.lastRetryAt = :lastRetryAt, dlq.updatedAt = :updatedAt WHERE dlq.id = :id")
     int markForRetry(@Param("id") Long id, @Param("newStatus") DLQStatus newStatus, @Param("nextRetryAt") LocalDateTime nextRetryAt, @Param("lastRetryAt") LocalDateTime lastRetryAt, @Param("updatedAt") LocalDateTime updatedAt);
 
     @Modifying
+    @Transactional
     @Query("UPDATE DeadLetterQueue dlq SET dlq.status = :newStatus, dlq.updatedAt = :updatedAt WHERE dlq.id = :id")
     int markAsManuallyProcessed(@Param("id") Long id, @Param("newStatus") DLQStatus newStatus, @Param("updatedAt") LocalDateTime updatedAt);
 
     @Modifying
+    @Transactional
     @Query("UPDATE DeadLetterQueue dlq SET dlq.status = :exhaustedStatus, dlq.updatedAt = :updatedAt WHERE dlq.id = :id AND dlq.retryCount >= dlq.maxRetryCount")
     int markAsExhausted(@Param("id") Long id, @Param("exhaustedStatus") DLQStatus exhaustedStatus, @Param("updatedAt") LocalDateTime updatedAt);
 
     @Modifying
+    @Transactional
     @Query("DELETE FROM DeadLetterQueue dlq WHERE dlq.status = :status AND dlq.createdAt < :cutoffDate")
     int deleteOldEntries(@Param("status") DLQStatus status, @Param("cutoffDate") LocalDateTime cutoffDate);
 

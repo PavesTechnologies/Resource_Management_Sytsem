@@ -1,9 +1,12 @@
 package com.cdc.listener;
 
 import com.cdc.config.EosTrackedColumns;
+import com.cdc.model.CdcProcessingOutcome;
 import com.cdc.payload.CdcEventPayload;
 import com.cdc.service.CdcInboxService;
 import com.cdc.service.EosResourceSyncService;
+import com.entity.ledger_entities.LedgerEventLog;
+import com.entity_enums.ledger_enums.EventStatus;
 import com.cdc.throttling.ReplayThrottlingService;
 import com.cdc.validation.ReplayFreshnessValidationService;
 import io.debezium.engine.RecordChangeEvent;
@@ -63,7 +66,12 @@ public class EosCdcHandler {
     }
 
     @Transactional
-    public void processInboxEvent(CdcEventPayload payload) {
+    public CdcProcessingOutcome processInboxEvent(CdcEventPayload payload) {
+        return processInboxEvent(payload, null);
+    }
+
+    @Transactional
+    public CdcProcessingOutcome processInboxEvent(CdcEventPayload payload, LedgerEventLog eventLog) {
         long startTime = System.currentTimeMillis();
         try {
             if (payload.getSourceTimestamp() != null) {
@@ -78,22 +86,34 @@ public class EosCdcHandler {
 
             if ("d".equals(payload.getOperation())) {
                 eosResourceSyncService.handleDeleteFromMap(payload.getTableName(), payload.getBefore(), payload.getSourceTimestamp());
-                return;
+                return CdcProcessingOutcome.success();
             }
 
             if (payload.getAfter() == null) {
-                return;
+                return CdcProcessingOutcome.success();
             }
 
             if (isTrackedUpdate(payload)) {
+                boolean dependencyReplay = eventLog != null
+                        && eventLog.getStatus() == EventStatus.WAITING_FOR_DEPENDENCY;
                 switch (payload.getTableName()) {
-                    case "employee_details" -> eosResourceSyncService.processEmployeeDetailsFromMap(payload.getAfter(), payload.getSourceTimestamp());
-                    case "offer_letter_details" -> eosResourceSyncService.processOfferDetailsFromMap(payload.getAfter(), payload.getSourceTimestamp());
-                    case "employee_exit" -> eosResourceSyncService.processEmployeeExitFromMap(payload.getAfter(), payload.getSourceTimestamp());
+                    case "employee_details" -> {
+                        eosResourceSyncService.processEmployeeDetailsFromMap(payload.getAfter(), payload.getSourceTimestamp());
+                        return CdcProcessingOutcome.success();
+                    }
+                    case "offer_letter_details" -> {
+                        return eosResourceSyncService.processOfferDetailsFromMap(
+                                payload.getAfter(), payload.getSourceTimestamp(), dependencyReplay);
+                    }
+                    case "employee_exit" -> {
+                        eosResourceSyncService.processEmployeeExitFromMap(payload.getAfter(), payload.getSourceTimestamp());
+                        return CdcProcessingOutcome.success();
+                    }
                     default -> {
                     }
                 }
             }
+            return CdcProcessingOutcome.success();
         } finally {
             replayThrottlingService.recordReplayCompletion(
                     payload.getEntityType(),

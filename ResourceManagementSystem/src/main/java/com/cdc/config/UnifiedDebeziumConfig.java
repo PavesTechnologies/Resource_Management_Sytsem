@@ -1,11 +1,14 @@
 package com.cdc.config;
 
+import com.cdc.config.properties.CdcProperties;
+import com.cdc.config.properties.EosCdcProperties;
 import io.debezium.config.Configuration;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,160 +27,100 @@ import java.nio.file.Paths;
  */
 @Slf4j
 @org.springframework.context.annotation.Configuration
+@RequiredArgsConstructor
 public class UnifiedDebeziumConfig {
-
-    // PMS Configuration Properties
-    @Value("${cdc.base.directory}")
-    private String pmsCdcBaseDir;
-
-    @Value("${cdc.database.type}")
-    private String pmsDbType;
-
-    @Value("${cdc.connector.class}")
-    private String pmsConnectorClass;
-
-    @Value("${cdc.database.hostname}")
-    private String pmsDbHostname;
-
-    @Value("${cdc.database.port}")
-    private String pmsDbPort;
-
-    @Value("${cdc.database.user}")
-    private String pmsDbUser;
-
-    @Value("${cdc.database.password}")
-    private String pmsDbPassword;
-
-    @Value("${cdc.database.name}")
-    private String pmsDbName;
-
-    @Value("${cdc.database.include.list}")
-    private String pmsDatabaseIncludeList;
-
-    @Value("${cdc.table.include.list}")
-    private String pmsTableIncludeList;
-
-    @Value("${cdc.server.name}")
-    private String pmsServerName;
-
-    @Value("${cdc.topic.prefix}")
-    private String pmsTopicPrefix;
-
-    // EOS Configuration Properties
-    @Value("${eos.cdc.base.directory}")
-    private String eosCdcBaseDir;
-
-    @Value("${eos.cdc.database.type}")
-    private String eosDbType;
-
-    @Value("${eos.cdc.connector.class}")
-    private String eosConnectorClass;
-
-    @Value("${eos.cdc.database.hostname}")
-    private String eosDbHostname;
-
-    @Value("${eos.cdc.database.port}")
-    private String eosDbPort;
-
-    @Value("${eos.cdc.database.user}")
-    private String eosDbUser;
-
-    @Value("${eos.cdc.database.password}")
-    private String eosDbPassword;
-
-    @Value("${eos.cdc.database.name}")
-    private String eosDbName;
-
-    @Value("${eos.cdc.database.include.list}")
-    private String eosDatabaseIncludeList;
-
-    @Value("${eos.cdc.table.include.list}")
-    private String eosTableIncludeList;
-
-    @Value("${eos.cdc.server.name}")
-    private String eosServerName;
-
-    @Value("${eos.cdc.topic.prefix}")
-    private String eosTopicPrefix;
-
-    @Value("${eos.cdc.connector.name}")
-    private String eosConnectorName;
-
-    @Value("${cdc.database.ssl.mode:required}")
-    private String pmsSslMode;
-
-    @Value("${cdc.snapshot.mode:initial}")
-    private String pmsSnapshotMode;
-
-    @Value("${eos.cdc.database.ssl.mode:required}")
-    private String eosSslMode;
-
-    @Value("${eos.cdc.snapshot.mode:initial}")
-    private String eosSnapshotMode;
+    private final CdcProperties cdcProperties;
+    private final EosCdcProperties eosCdcProperties;
 
     @Bean
     @Primary
     public Configuration debeziumConfiguration() {
-        logConnectorStartMode("PMS", "pms-project-cdc", pmsCdcBaseDir, "pms-project-offsets.dat", "pms-schema-history.dat");
+        CdcProperties.DatabaseProperties database = cdcProperties.getDatabase();
+        logConnectorStartMode("PMS", "pms-project-cdc", cdcProperties.getBaseDirectory(),
+                "pms-project-offsets.dat", "pms-schema-history.dat");
         return createConfiguration(
                 "pms-project-cdc",
-                pmsConnectorClass,
-                pmsCdcBaseDir,
-                pmsDbType,
-                pmsDbHostname,
-                pmsDbPort,
-                pmsDbUser,
-                pmsDbPassword,
-                pmsDbName,
-                pmsDatabaseIncludeList,
-                pmsTableIncludeList,
-                pmsServerName,
-                pmsTopicPrefix,
+                cdcProperties.getConnectorClass(),
+                cdcProperties.getBaseDirectory(),
+                database.getType(),
+                database.getHostname(),
+                String.valueOf(database.getPort()),
+                database.getUser(),
+                database.getPassword(),
+                database.getName(),
+                database.getIncludeList(),
+                cdcProperties.getTableIncludeList(),
+                cdcProperties.getServerName(),
+                cdcProperties.getTopicPrefix(),
                 5000,
                 1000,
                 15000,
                 "pms-project-offsets.dat",
                 "pms-schema-history.dat",
-                pmsSnapshotMode,
-                pmsSslMode
+                cdcProperties.getSnapshotMode(),
+                database.getSsl().getMode()
         );
     }
 
     @Bean("eosDebeziumConfiguration")
     public Configuration eosDebeziumConfiguration() {
-        logConnectorStartMode("EOS", eosConnectorName, eosCdcBaseDir, "eos-offsets.dat", "eos-schema-history.dat");
+        EosCdcProperties.DatabaseProperties database = eosCdcProperties.getDatabase();
+        String baseDirectory = resolveEosBaseDirectory();
+        logConnectorStartMode("EOS", eosCdcProperties.getConnectorName(), baseDirectory,
+                "eos-offsets.dat", "eos-schema-history.dat");
         return createConfiguration(
-                eosConnectorName,
-                eosConnectorClass,
-                eosCdcBaseDir,
-                eosDbType,
-                eosDbHostname,
-                eosDbPort,
-                eosDbUser,
-                eosDbPassword,
-                eosDbName,
-                eosDatabaseIncludeList,
-                eosTableIncludeList,
-                eosServerName,
-                eosTopicPrefix,
+                eosCdcProperties.getConnectorName(),
+                eosCdcProperties.getConnectorClass(),
+                baseDirectory,
+                database.getType(),
+                database.getHostname(),
+                String.valueOf(database.getPort()),
+                database.getUser(),
+                database.getPassword(),
+                database.getName(),
+                database.getIncludeList(),
+                eosCdcProperties.getTableIncludeList(),
+                eosCdcProperties.getServerName(),
+                eosCdcProperties.getTopicPrefix(),
                 25000,
                 2000,
                 35000,
                 "eos-offsets.dat",
                 "eos-schema-history.dat",
-                eosSnapshotMode,
-                eosSslMode
+                resolveEosSnapshotMode(),
+                database.getSsl().getMode()
         );
+    }
+
+    private String resolveEosBaseDirectory() {
+        return hasText(eosCdcProperties.getBaseDirectory())
+                ? eosCdcProperties.getBaseDirectory()
+                : cdcProperties.getBaseDirectory();
+    }
+
+    private String resolveEosSnapshotMode() {
+        return hasText(eosCdcProperties.getSnapshotMode())
+                ? eosCdcProperties.getSnapshotMode()
+                : cdcProperties.getSnapshotMode();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private void logConnectorStartMode(String system, String connectorName, String baseDir,
                                        String offsetFile, String schemaFile) {
         String resolvedBaseDir = Paths.get(baseDir).toAbsolutePath().normalize().toString();
-        boolean isFirstRun = !Files.exists(Paths.get(resolvedBaseDir, offsetFile)) &&
-                             !Files.exists(Paths.get(resolvedBaseDir, schemaFile));
+        Path offsetPath = Paths.get(resolvedBaseDir, offsetFile);
+        Path schemaPath = Paths.get(resolvedBaseDir, schemaFile);
+        boolean isFirstRun = !Files.exists(offsetPath) && !Files.exists(schemaPath);
+        boolean recoveryRequired = requiresSchemaHistoryRecovery(offsetPath, schemaPath);
         log.info("{} CDC offset directory: {}", system, resolvedBaseDir);
         if (isFirstRun) {
             log.info("{} CDC starting initial snapshot for connector: {}", system, connectorName);
+        } else if (recoveryRequired) {
+            log.warn("{} CDC detected missing or unreadable schema history with preserved offsets; starting temporary schema_only_recovery for connector: {}",
+                    system, connectorName);
         } else {
             log.info("{} CDC resuming incremental CDC from existing offsets for connector: {}", system, connectorName);
         }
@@ -240,7 +183,8 @@ public class UnifiedDebeziumConfig {
                 .with("table.include.list", tableIncludeList)
 
                 // Fixed CDC settings
-                .with("snapshot.mode", snapshotMode)
+                .with("rms.configured.snapshot.mode", snapshotMode)
+                .with("snapshot.mode", resolveSnapshotMode(resolvedBaseDir, offsetFileName, schemaHistoryFileName, snapshotMode))
                 .with("snapshot.locking.mode", "minimal")
                 .with("snapshot.fetch.size", "1024")
                 .with("offset.storage", "org.apache.kafka.connect.storage.FileOffsetBackingStore")
@@ -266,6 +210,38 @@ public class UnifiedDebeziumConfig {
         addDatabaseSpecificConfig(configBuilder, dbType, dbName);
 
         return configBuilder.build();
+    }
+
+    private String resolveSnapshotMode(String resolvedBaseDir,
+                                       String offsetFileName,
+                                       String schemaHistoryFileName,
+                                       String configuredSnapshotMode) {
+        Path offsetPath = Paths.get(resolvedBaseDir, offsetFileName);
+        Path schemaHistoryPath = Paths.get(resolvedBaseDir, schemaHistoryFileName);
+
+        if (requiresSchemaHistoryRecovery(offsetPath, schemaHistoryPath)) {
+            return "schema_only_recovery";
+        }
+
+        return configuredSnapshotMode;
+    }
+
+    private boolean requiresSchemaHistoryRecovery(Path offsetPath, Path schemaHistoryPath) {
+        if (!Files.exists(offsetPath)) {
+            return false;
+        }
+
+        if (!Files.exists(schemaHistoryPath)) {
+            return true;
+        }
+
+        try {
+            return Files.size(schemaHistoryPath) == 0L;
+        } catch (IOException ex) {
+            log.warn("Unable to inspect schema history file {}. Falling back to schema recovery: {}",
+                    schemaHistoryPath, ex.getMessage());
+            return true;
+        }
     }
 
     /**
