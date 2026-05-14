@@ -129,7 +129,8 @@ public class LedgerRetryService {
     public void cleanupOldEventLogs() {
         try {
             LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
-            int deleted = ledgerEventLogRepository.deleteOldEvents(cutoff);
+            int deleted = ledgerEventLogRepository.deleteOldNonCdcEvents(cutoff);
+            log.info("Deleted {} non-CDC ledger_event_log row(s) older than {}", deleted, cutoff);
         } catch (Exception e) {
             log.error("Error cleaning up old event logs: {}", e.getMessage(), e);
         }

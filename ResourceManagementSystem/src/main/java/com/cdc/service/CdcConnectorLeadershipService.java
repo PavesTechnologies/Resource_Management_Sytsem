@@ -1,10 +1,12 @@
 package com.cdc.service;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,17 +33,19 @@ public class CdcConnectorLeadershipService {
 
     private final JdbcTemplate jdbcTemplate;
     private final DataSource dataSource;
+    private final PlatformTransactionManager transactionManager;
     private final TransactionTemplate writeTransactionTemplate;
     private final MeterRegistry meterRegistry;
     private final String ownerId = System.getenv().getOrDefault("HOSTNAME", UUID.randomUUID().toString());
     private final ConcurrentMap<String, Boolean> leadershipStates = new ConcurrentHashMap<>();
 
-    public CdcConnectorLeadershipService(JdbcTemplate jdbcTemplate,
-                                         DataSource dataSource,
-                                         PlatformTransactionManager transactionManager,
+    public CdcConnectorLeadershipService(@Qualifier("cdcLeadershipJdbcTemplate") JdbcTemplate jdbcTemplate,
+                                         @Qualifier("dataSource") DataSource dataSource,
+                                         @Qualifier("cdcLeadershipTransactionManager") PlatformTransactionManager transactionManager,
                                          MeterRegistry meterRegistry) {
         this.jdbcTemplate = jdbcTemplate;
         this.dataSource = dataSource;
+        this.transactionManager = transactionManager;
         this.meterRegistry = meterRegistry;
         TransactionTemplate template = new TransactionTemplate(transactionManager);
         template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -53,33 +58,56 @@ public class CdcConnectorLeadershipService {
         Gauge.builder("rms.cdc.leadership.connectors", leadershipStates::size)
                 .description("Number of CDC connectors tracked for leadership")
                 .register(meterRegistry);
+
+        logLeadershipWiring();
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(
+            transactionManager = "cdcLeadershipTransactionManager",
+            propagation = Propagation.REQUIRES_NEW,
+            readOnly = false
+    )
     public boolean tryAcquireLeadership(String connectorName, Duration lockDuration) {
+
         try {
-            boolean acquired = Boolean.TRUE.equals(writeTransactionTemplate.execute(status -> {
-                forceWriteConnection();
-                return acquireOrRenewInternal(connectorName, lockDuration, false);
-            }));
+
+            forceWriteConnection();
+
+            boolean acquired =
+                    acquireOrRenewInternal(connectorName, lockDuration, false);
 
             leadershipStates.put(connectorName, acquired);
+
             if (acquired) {
                 log.info("[{}] CDC leadership acquired for {}", ownerId, connectorName);
             } else {
                 log.info("[{}] CDC leadership unavailable for {}. Current leader={}",
-                        ownerId, connectorName, currentLeader(connectorName).orElse("unknown"));
+                        ownerId,
+                        connectorName,
+                        currentLeader(connectorName).orElse("unknown"));
             }
+
             return acquired;
+
         } catch (Exception ex) {
+
             leadershipStates.put(connectorName, false);
+
             log.error("[{}] CDC leadership acquisition failed for {}: {}",
-                    ownerId, connectorName, ex.getMessage(), ex);
+                    ownerId,
+                    connectorName,
+                    ex.getMessage(),
+                    ex);
+
             return false;
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(
+            transactionManager = "cdcLeadershipTransactionManager",
+            propagation = Propagation.REQUIRES_NEW,
+            readOnly = false
+    )
     public boolean renewLeadership(String connectorName, Duration lockDuration) {
         try {
             boolean renewed = Boolean.TRUE.equals(writeTransactionTemplate.execute(status -> {
@@ -103,7 +131,11 @@ public class CdcConnectorLeadershipService {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(
+            transactionManager = "cdcLeadershipTransactionManager",
+            propagation = Propagation.REQUIRES_NEW,
+            readOnly = false
+    )
     public void release(String connectorName) {
         try {
             writeTransactionTemplate.executeWithoutResult(status -> {
@@ -202,10 +234,59 @@ public class CdcConnectorLeadershipService {
         try {
             Connection connection = DataSourceUtils.getConnection(dataSource);
             if (connection.isReadOnly()) {
+                log.error("CDC leadership obtained read-only connection. {}",
+                        describeConnection(connection));
                 connection.setReadOnly(false);
+                if (connection.isReadOnly()) {
+                    throw new IllegalStateException("CDC leadership transaction received a read-only connection");
+                }
             }
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to obtain write-capable connection for CDC leadership", ex);
         }
+    }
+
+    private void logLeadershipWiring() {
+        log.info(
+                "CDC leadership wiring: jdbcTemplateBean=cdcLeadershipJdbcTemplate, jdbcTemplateDataSourceClass={}, jdbcTemplateDataSourceId={}, dataSourceBean=dataSource, dataSourceClass={}, dataSourceId={}, transactionManagerBean=cdcLeadershipTransactionManager, transactionManagerClass={}, dataSourceDetails={}",
+                className(jdbcTemplate.getDataSource()),
+                identity(jdbcTemplate.getDataSource()),
+                className(dataSource),
+                identity(dataSource),
+                transactionManager.getClass().getName(),
+                describeDataSource(dataSource)
+        );
+    }
+
+    private String describeConnection(Connection connection) {
+        try {
+            DatabaseMetaData metaData = connection.getMetaData();
+            return "connectionClass=" + className(connection) +
+                    ", connectionId=" + identity(connection) +
+                    ", readOnly=" + connection.isReadOnly() +
+                    ", autoCommit=" + connection.getAutoCommit() +
+                    ", jdbcUrl=" + metaData.getURL();
+        } catch (Exception ex) {
+            return "connectionClass=" + className(connection) +
+                    ", connectionId=" + identity(connection) +
+                    ", describeError=" + ex.getMessage();
+        }
+    }
+
+    private String describeDataSource(DataSource target) {
+        if (target instanceof HikariDataSource hikari) {
+            return "poolName=" + hikari.getPoolName() +
+                    ", jdbcUrl=" + hikari.getJdbcUrl() +
+                    ", hikariReadOnly=" + hikari.isReadOnly();
+        }
+        return "type=" + className(target);
+    }
+
+    private String className(Object target) {
+        return target == null ? "null" : target.getClass().getName();
+    }
+
+    private String identity(Object target) {
+        return target == null ? "null" : Integer.toHexString(System.identityHashCode(target));
     }
 }

@@ -8,13 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
-import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
@@ -27,35 +23,6 @@ import java.util.Map;
 @Configuration
 @EnableCaching
 public class RedisConfig {
-
-    @Bean
-    public RedisConnectionFactory redisConnectionFactory() {
-
-        RedisStandaloneConfiguration standalone =
-                new RedisStandaloneConfiguration("localhost", 6379);
-
-        LettuceClientConfiguration clientConfig =
-                LettuceClientConfiguration.builder()
-                        .commandTimeout(Duration.ofSeconds(2))
-                        .shutdownTimeout(Duration.ofMillis(100))
-                        .build();
-
-        LettuceConnectionFactory factory =
-                new LettuceConnectionFactory(standalone, clientConfig);
-
-        factory.setShareNativeConnection(false);
-        factory.setValidateConnection(false); // IMPORTANT: avoid blocking validation
-
-        // Test connection and log status
-        try {
-            factory.getConnection().ping();
-            log.info("Redis connection established successfully");
-        } catch (Exception e) {
-            log.warn("Redis connection failed - application will run in degraded mode without caching: {}", e.getMessage());
-        }
-
-        return factory;
-    }
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory factory) {
@@ -95,37 +62,13 @@ public class RedisConfig {
         configs.put("resource-timelines", config.entryTtl(Duration.ofMinutes(5)));
         configs.put("demands", config.entryTtl(Duration.ofHours(1)));
 
-        try {
-            RedisCacheManager cacheManager = RedisCacheManager.builder(factory)
-                    .cacheDefaults(config)
-                    .withInitialCacheConfigurations(configs)
-                    .build();
-            
-            log.info("Redis CacheManager initialized successfully");
-            return cacheManager;
-            
-        } catch (RedisConnectionFailureException e) {
-            log.warn("Redis CacheManager initialization failed - caching will be disabled: {}", e.getMessage());
-            // Return a no-op cache manager that doesn't actually cache
-            return createNoOpCacheManager();
-        } catch (Exception e) {
-            log.error("Unexpected error initializing Redis CacheManager - caching will be disabled: {}", e.getMessage());
-            return createNoOpCacheManager();
-        }
-    }
-    
-    /**
-     * Create a no-op cache manager for graceful degradation when Redis is unavailable.
-     */
-    private RedisCacheManager createNoOpCacheManager() {
-        log.warn("Creating no-op cache manager - application will run without caching");
-        
-        // Return a cache manager that doesn't actually cache anything
-        return RedisCacheManager.builder()
-                .cacheDefaults(RedisCacheConfiguration.defaultCacheConfig()
-                        .entryTtl(Duration.ofSeconds(1)) // Very short TTL
-                        .disableCachingNullValues())
+        RedisCacheManager cacheManager = RedisCacheManager.builder(factory)
+                .cacheDefaults(config)
+                .withInitialCacheConfigurations(configs)
                 .build();
+
+        log.info("Redis CacheManager configured with {} cache regions", configs.size());
+        return cacheManager;
     }
 
 }

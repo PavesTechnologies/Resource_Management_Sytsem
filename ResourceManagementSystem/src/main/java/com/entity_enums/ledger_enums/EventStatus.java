@@ -6,6 +6,7 @@ public enum EventStatus {
     PROCESSING,
     SUCCESS,
     RETRY_SCHEDULED,
+    WAITING_FOR_DEPENDENCY,
     DEAD_LETTER,
     CANCELLED,
 

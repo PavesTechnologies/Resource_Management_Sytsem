@@ -1,9 +1,7 @@
 package com.events.handler;
 
-import com.cdc.listener.EosCdcHandler;
-import com.cdc.listener.PmsCdcHandler;
-import com.cdc.payload.CdcEventPayload;
-import com.cdc.payload.CdcPayloadCodec;
+import com.cdc.model.CdcProcessingOutcome;
+import com.cdc.service.InboxEventProcessor;
 import com.cdc.util.CdcUtcSupport;
 import com.entity.ledger_entities.LedgerEventLog;
 import com.entity_enums.ledger_enums.EventStatus;
@@ -15,10 +13,13 @@ import com.repo.ledger_repo.LedgerEventLogRepository;
 import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.event.EventListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -37,12 +38,15 @@ public class LedgerEventHandler {
     private final LedgerEventLogRepository eventLogRepository;
     private final LedgerAvailabilityCalculationService availabilityCalculationService;
     private final DeadLetterQueueService deadLetterQueueService;
-    private final PmsCdcHandler pmsCdcHandler;
-    private final EosCdcHandler eosCdcHandler;
-    private final CdcPayloadCodec cdcPayloadCodec;
     private final CdcUtcSupport cdcUtcSupport;
+    private final InboxEventProcessor inboxEventProcessor;
+    private final ObjectProvider<LedgerEventHandler> ledgerEventHandlerProvider;
     private final String processorOwner = System.getenv().getOrDefault("HOSTNAME", UUID.randomUUID().toString());
     private static final int MAX_RETRY_COUNT = 5;
+    @Value("${cdc.offer.waiting.max-days:45}")
+    private int offerWaitingMaxDays;
+    @Value("${cdc.offer.waiting.retry-hours:6}")
+    private int offerWaitingRetryHours;
 
     @EventListener
     @Async("ledgerEventHandlerExecutor")
@@ -65,21 +69,116 @@ public class LedgerEventHandler {
         handleLedgerEvent(event);
     }
 
-    @Transactional
     public int processPendingCdcEvents(int batchSize) {
         List<LedgerEventLog> candidates = eventLogRepository.findReadyCdcEvents(
-                List.of(EventStatus.NEW, EventStatus.RETRY_SCHEDULED, EventStatus.PENDING, EventStatus.FAILED),
+                List.of(EventStatus.NEW, EventStatus.RETRY_SCHEDULED, EventStatus.WAITING_FOR_DEPENDENCY, EventStatus.PENDING, EventStatus.FAILED),
                 cdcUtcSupport.utcDateTime(cdcUtcSupport.now()),
                 PageRequest.of(0, batchSize)
         );
 
+        log.info("CDC polling cycle started: owner={}, batchSize={}, candidates={}",
+                processorOwner, batchSize, candidates.size());
+
         int processed = 0;
         for (LedgerEventLog candidate : candidates) {
-            if (claimAndProcess(candidate)) {
-                processed++;
+            try {
+                if (ledgerEventHandlerProvider.getObject().claimAndProcess(candidate)) {
+                    processed++;
+                }
+            } catch (Exception ex) {
+                log.error("CDC per-event transaction failed before completion for eventId={}, owner={}, cause={}",
+                        candidate.getEventId(), processorOwner, ex.getMessage(), ex);
             }
         }
+
+        log.info("CDC polling cycle completed: owner={}, processed={}, candidates={}",
+                processorOwner, processed, candidates.size());
+
         return processed;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean claimAndProcess(LedgerEventLog candidate) {
+        Instant claimedAt = cdcUtcSupport.now();
+        LocalDateTime updatedAt = cdcUtcSupport.utcDateTime(claimedAt);
+
+        log.info("Attempting CDC claim: eventId={}, ledgerId={}, owner={}, currentStatus={}",
+                candidate.getEventId(), candidate.getId(), processorOwner, candidate.getStatus());
+
+        int claimed = eventLogRepository.claimEvent(
+                candidate.getId(),
+                List.of(EventStatus.NEW, EventStatus.RETRY_SCHEDULED, EventStatus.WAITING_FOR_DEPENDENCY, EventStatus.PENDING, EventStatus.FAILED),
+                EventStatus.CLAIMED,
+                processorOwner,
+                claimedAt,
+                updatedAt
+        );
+
+        if (claimed == 0) {
+            log.debug("CDC claim skipped because another node already handled it: eventId={}, ledgerId={}, owner={}",
+                    candidate.getEventId(), candidate.getId(), processorOwner);
+            return false;
+        }
+
+        log.info("CDC claim acquired: eventId={}, ledgerId={}, owner={}, claimedAt={}",
+                candidate.getEventId(), candidate.getId(), processorOwner, claimedAt);
+
+        int markedProcessing = eventLogRepository.markClaimedEventAsProcessing(
+                candidate.getId(),
+                EventStatus.CLAIMED,
+                EventStatus.PROCESSING,
+                processorOwner,
+                updatedAt,
+                updatedAt
+        );
+
+        if (markedProcessing == 0) {
+            log.warn("CDC claim ownership lost before processing state transition: eventId={}, ledgerId={}, owner={}",
+                    candidate.getEventId(), candidate.getId(), processorOwner);
+            return false;
+        }
+
+        LedgerEventLog eventLog = eventLogRepository.findById(candidate.getId()).orElse(null);
+        if (eventLog == null) {
+            log.warn("CDC claimed event disappeared before processing: ledgerId={}, owner={}",
+                    candidate.getId(), processorOwner);
+            return false;
+        }
+
+        try {
+            CdcProcessingOutcome processingOutcome = inboxEventProcessor.processSingleEvent(eventLog);
+
+            if (processingOutcome.getOutcomeType() == CdcProcessingOutcome.OutcomeType.WAITING_FOR_DEPENDENCY) {
+                handleWaitingOutcome(eventLog, processingOutcome);
+                return true;
+            }
+
+            if (processingOutcome.getOutcomeType() == CdcProcessingOutcome.OutcomeType.CANCELLED) {
+                handleCancelledOutcome(eventLog, processingOutcome);
+                return true;
+            }
+
+            int successUpdated = eventLogRepository.markCdcEventAsSuccess(
+                    eventLog.getId(),
+                    processorOwner,
+                    EventStatus.SUCCESS,
+                    cdcUtcSupport.utcDateTime(cdcUtcSupport.now()),
+                    cdcUtcSupport.utcDateTime(cdcUtcSupport.now())
+            );
+
+            if (successUpdated == 0) {
+                throw new IllegalStateException("CDC success transition rejected for owner " + processorOwner);
+            }
+
+            log.info("CDC event completed successfully: eventId={}, ledgerId={}, owner={}",
+                    eventLog.getEventId(), eventLog.getId(), processorOwner);
+            return true;
+        } catch (Exception ex) {
+            log.error("CDC event processing failed inside transaction: eventId={}, ledgerId={}, owner={}, cause={}",
+                    eventLog.getEventId(), eventLog.getId(), processorOwner, ex.getMessage(), ex);
+            handleCdcFailure(eventLog, ex);
+            return false;
+        }
     }
 
     @Transactional
@@ -100,66 +199,10 @@ public class LedgerEventHandler {
         return recovered;
     }
 
-    private boolean claimAndProcess(LedgerEventLog candidate) {
-        Instant claimedAt = cdcUtcSupport.now();
-        LocalDateTime updatedAt = cdcUtcSupport.utcDateTime(claimedAt);
-        int claimed = eventLogRepository.claimEvent(
-                candidate.getId(),
-                List.of(EventStatus.NEW, EventStatus.RETRY_SCHEDULED, EventStatus.PENDING, EventStatus.FAILED),
-                EventStatus.CLAIMED,
-                processorOwner,
-                claimedAt,
-                updatedAt
-        );
-        if (claimed == 0) {
-            return false;
-        }
-
-        eventLogRepository.markClaimedEventAsProcessing(
-                candidate.getId(),
-                EventStatus.CLAIMED,
-                EventStatus.PROCESSING,
-                processorOwner,
-                updatedAt,
-                updatedAt
-        );
-
-        LedgerEventLog eventLog = eventLogRepository.findById(candidate.getId()).orElse(null);
-        if (eventLog == null) {
-            return false;
-        }
-
-        try {
-            processCdcEvent(eventLog);
-            eventLogRepository.markCdcEventAsSuccess(
-                    eventLog.getId(),
-                    processorOwner,
-                    EventStatus.SUCCESS,
-                    cdcUtcSupport.utcDateTime(cdcUtcSupport.now()),
-                    cdcUtcSupport.utcDateTime(cdcUtcSupport.now())
-            );
-            return true;
-        } catch (Exception ex) {
-            handleCdcFailure(eventLog, ex);
-            return false;
-        }
-    }
-
-    private void processCdcEvent(LedgerEventLog eventLog) {
-        CdcEventPayload payload = cdcPayloadCodec.deserialize(eventLog.getPayload());
-        if ("PMS".equalsIgnoreCase(eventLog.getConnectorName())) {
-            pmsCdcHandler.processInboxEvent(payload);
-        } else if ("EOS".equalsIgnoreCase(eventLog.getConnectorName())) {
-            eosCdcHandler.processInboxEvent(payload);
-        } else {
-            throw new IllegalStateException("Unsupported CDC connector: " + eventLog.getConnectorName());
-        }
-    }
-
     private void handleCdcFailure(LedgerEventLog eventLog, Exception exception) {
         int nextRetryCount = (eventLog.getRetryCount() == null ? 0 : eventLog.getRetryCount()) + 1;
         if (nextRetryCount >= MAX_RETRY_COUNT) {
-            eventLogRepository.markCdcEventAsDeadLetter(
+            int deadLettered = eventLogRepository.markCdcEventAsDeadLetter(
                     eventLog.getId(),
                     processorOwner,
                     EventStatus.DEAD_LETTER,
@@ -167,12 +210,14 @@ public class LedgerEventHandler {
                     cdcUtcSupport.now(),
                     cdcUtcSupport.utcDateTime(cdcUtcSupport.now())
             );
+            log.warn("CDC event moved to dead letter state: eventId={}, ledgerId={}, owner={}, retryCount={}, rowsUpdated={}, cause={}",
+                    eventLog.getEventId(), eventLog.getId(), processorOwner, nextRetryCount, deadLettered, exception.getMessage());
             deadLetterQueueService.addCdcEventToDeadLetterQueue(eventLog, exception, nextRetryCount);
             return;
         }
 
         LocalDateTime nextRetryAt = cdcUtcSupport.utcDateTime(cdcUtcSupport.now().plusSeconds((long) Math.pow(2, nextRetryCount) * 30L));
-        eventLogRepository.rescheduleCdcEvent(
+        int rescheduled = eventLogRepository.rescheduleCdcEvent(
                 eventLog.getId(),
                 processorOwner,
                 EventStatus.RETRY_SCHEDULED,
@@ -182,6 +227,77 @@ public class LedgerEventHandler {
                 cdcUtcSupport.now(),
                 cdcUtcSupport.utcDateTime(cdcUtcSupport.now())
         );
+        log.warn("CDC event rescheduled for retry: eventId={}, ledgerId={}, owner={}, retryCount={}, nextRetryAt={}, rowsUpdated={}, cause={}",
+                eventLog.getEventId(), eventLog.getId(), processorOwner, nextRetryCount, nextRetryAt, rescheduled, exception.getMessage());
+    }
+
+    private void handleWaitingOutcome(LedgerEventLog eventLog, CdcProcessingOutcome processingOutcome) {
+        if (hasWaitingExceededSla(eventLog)) {
+            markCdcEventCancelled(
+                    eventLog,
+                    buildDependencyTimeoutMessage(eventLog, processingOutcome),
+                    "DEPENDENCY_TIMEOUT",
+                    processingOutcome.getLifecycleStatus()
+            );
+            return;
+        }
+
+        LocalDateTime nextRetryAt = cdcUtcSupport.utcDateTime(cdcUtcSupport.now().plusSeconds(offerWaitingRetryHours * 3600L));
+        int deferred = eventLogRepository.markCdcEventAsWaiting(
+                eventLog.getId(),
+                processorOwner,
+                EventStatus.WAITING_FOR_DEPENDENCY,
+                processingOutcome.getMessage(),
+                nextRetryAt,
+                cdcUtcSupport.now(),
+                cdcUtcSupport.utcDateTime(cdcUtcSupport.now()),
+                cdcUtcSupport.utcDateTime(cdcUtcSupport.now())
+        );
+        log.info("CDC event moved to WAITING_FOR_DEPENDENCY: eventId={}, ledgerId={}, owner={}, nextRetryAt={}, rowsUpdated={}, offerStatus={}, reason={}",
+                eventLog.getEventId(), eventLog.getId(), processorOwner, nextRetryAt, deferred,
+                processingOutcome.getLifecycleStatus(), processingOutcome.getReasonCode());
+    }
+
+    private void handleCancelledOutcome(LedgerEventLog eventLog, CdcProcessingOutcome processingOutcome) {
+        markCdcEventCancelled(
+                eventLog,
+                processingOutcome.getMessage(),
+                processingOutcome.getReasonCode(),
+                processingOutcome.getLifecycleStatus()
+        );
+    }
+
+    private void markCdcEventCancelled(LedgerEventLog eventLog,
+                                       String errorMessage,
+                                       String reasonCode,
+                                       String offerStatus) {
+        int cancelled = eventLogRepository.markCdcEventAsCancelled(
+                eventLog.getId(),
+                processorOwner,
+                EventStatus.CANCELLED,
+                errorMessage,
+                cdcUtcSupport.now(),
+                cdcUtcSupport.utcDateTime(cdcUtcSupport.now()),
+                cdcUtcSupport.utcDateTime(cdcUtcSupport.now())
+        );
+        log.info("CDC event cancelled without retry: eventId={}, ledgerId={}, owner={}, rowsUpdated={}, offerStatus={}, reasonCode={}, message={}",
+                eventLog.getEventId(), eventLog.getId(), processorOwner, cancelled, offerStatus, reasonCode, errorMessage);
+    }
+
+    private boolean hasWaitingExceededSla(LedgerEventLog eventLog) {
+        LocalDateTime referenceTime = eventLog.getCreatedAt();
+        return referenceTime != null && referenceTime.isBefore(cdcUtcSupport.utcDateTime(cdcUtcSupport.now().minusSeconds(offerWaitingMaxDays * 86400L)));
+    }
+
+    private String buildDependencyTimeoutMessage(LedgerEventLog eventLog,
+                                                 CdcProcessingOutcome processingOutcome) {
+        return "offer_letter_details waiting expired after "
+                + offerWaitingMaxDays
+                + " day(s); cancelling orchestration cleanup"
+                + " [eventId=" + eventLog.getEventId()
+                + ", entityId=" + eventLog.getEntityId()
+                + ", offerStatus=" + processingOutcome.getLifecycleStatus()
+                + ", reason=DEPENDENCY_TIMEOUT]";
     }
 
     private void handleLedgerEvent(BaseLedgerEvent event) {
