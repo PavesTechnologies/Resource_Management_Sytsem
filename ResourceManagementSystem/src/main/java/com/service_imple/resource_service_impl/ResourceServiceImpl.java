@@ -38,116 +38,90 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> createResource(Resource resource) {
-        try {
-            if (resource.getFullName() == null || resource.getFullName().trim().isEmpty()) {
-                throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "FULL_NAME_REQUIRED", "Full name is required");
-            }
-
-            if (resource.getEmail() != null && resourceRepository.existsByEmail(resource.getEmail())) {
-                throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists");
-            }
-
-            resource.setChangedAt(LocalDateTime.now());
-
-            
-            if (resource.getActiveFlag() == null) resource.setActiveFlag(true);
-            if (resource.getEmploymentStatus() == null) resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
-
-            Resource savedResource = resourceRepository.save(resource);
-            benchDetectionService.initializeResourceState(savedResource.getResourceId());
-            resourceEventService.triggerLedgerCalculationAfterCreate(savedResource.getResourceId());
-
-            return new ResponseEntity<>(new ApiResponse(true, "Resource created successfully", savedResource.getResourceId()), HttpStatus.CREATED);
-
-        } catch (ProjectExceptionHandler e) {
-            return new ResponseEntity<>(new ApiResponse(false, e.getMessage(), null), e.getStatus());
-        } catch (Exception e) {
-            log.error("Failed to create resource: {}", e.getMessage());
-            return new ResponseEntity<>(new ApiResponse(false, "Failed to create resource", null), HttpStatus.INTERNAL_SERVER_ERROR);
+        if (resource.getFullName() == null || resource.getFullName().trim().isEmpty()) {
+            throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "FULL_NAME_REQUIRED", "Full name is required");
         }
+
+        if (resource.getEmail() != null && resourceRepository.existsByEmail(resource.getEmail())) {
+            throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists");
+        }
+
+        resource.setChangedAt(LocalDateTime.now());
+        if (resource.getActiveFlag() == null) {
+            resource.setActiveFlag(true);
+        }
+        if (resource.getEmploymentStatus() == null) {
+            resource.setEmploymentStatus(EmploymentStatus.ACTIVE);
+        }
+
+        Resource savedResource = resourceRepository.save(resource);
+        benchDetectionService.initializeResourceState(savedResource.getResourceId());
+        resourceEventService.triggerLedgerCalculationAfterCreate(savedResource.getResourceId());
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Created successfully", savedResource.getResourceId()));
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> getResourceById(String resourceId) {
-        try {
-            Resource resource = resourceRepository.findById(resourceId)
-                    .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
-            return ResponseEntity.ok(new ApiResponse(true, "Resource retrieved successfully", resource));
-        } catch (ProjectExceptionHandler e) {
-            return new ResponseEntity<>(new ApiResponse(false, e.getMessage(), null), e.getStatus());
-        } catch (Exception e) {
-            log.error("Failed to retrieve resource {}: {}", resourceId, e.getMessage());
-            return new ResponseEntity<>(new ApiResponse(false, "Failed to retrieve resource", null), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        Resource resource = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", resource));
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> getResourceByEmployeeCode(String employeeCode) {
-        return null;
+        throw new ProjectExceptionHandler(HttpStatus.BAD_REQUEST, "EMPLOYEE_CODE_UNSUPPORTED",
+                "Resource lookup by employee code is not supported");
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> updateResource(Resource resource) {
-        try {
-            Resource existing = resourceRepository.findById(resource.getResourceId())
-                    .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
+        Resource existing = resourceRepository.findById(resource.getResourceId())
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
 
-            if (resource.getEmail() != null && !resource.getEmail().equals(existing.getEmail()) && resourceRepository.existsByEmail(resource.getEmail())) {
-                throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists");
-            }
-
-            // ATTRITION TRIGGER
-            if (resource.getDateOfExit() != null && EmploymentStatus.ON_NOTICE.equals(resource.getEmploymentStatus())) {
-                log.info("Attrition detected for resource: {}. Triggering attrition flow.", resource.getResourceId());
-                roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit(), 0L); // System user ID
-            }
-
-            resourceRepository.save(resource);
-            resourceEventService.triggerLedgerCalculationAfterUpdate(resource.getResourceId());
-            
-            return ResponseEntity.ok(new ApiResponse(true, "Resource updated successfully", existing.getResourceId()));
-        } catch (ProjectExceptionHandler e) {
-            return new ResponseEntity<>(new ApiResponse(false, e.getMessage(), null), e.getStatus());
-        } catch (Exception e) {
-            log.error("Failed to update resource: {}", e.getMessage());
-            return new ResponseEntity<>(new ApiResponse(false, "Failed to update resource", null), HttpStatus.INTERNAL_SERVER_ERROR);
+        if (resource.getEmail() != null
+                && !resource.getEmail().equals(existing.getEmail())
+                && resourceRepository.existsByEmail(resource.getEmail())) {
+            throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists");
         }
+
+        if (resource.getDateOfExit() != null && EmploymentStatus.ON_NOTICE.equals(resource.getEmploymentStatus())) {
+            log.info("Attrition detected for resource: {}. Triggering attrition flow.", resource.getResourceId());
+            roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit(), 0L);
+        }
+
+        resourceRepository.save(resource);
+        resourceEventService.triggerLedgerCalculationAfterUpdate(resource.getResourceId());
+        return ResponseEntity.ok(ApiResponse.success("Updated successfully", existing.getResourceId()));
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> deleteResource(String resourceId) {
-        try {
-            Resource existing = resourceRepository.findById(resourceId)
-                    .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
+        Resource existing = resourceRepository.findById(resourceId)
+                .orElseThrow(() -> new ProjectExceptionHandler(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", "Resource not found"));
 
-            ledgerRepository.deleteByResourceId(resourceId);
-            resourceRepository.delete(existing);
-            resourceEventService.triggerLedgerCleanupAfterDelete(resourceId);
-
-            return ResponseEntity.ok(new ApiResponse(true, "Resource deleted successfully", resourceId));
-        } catch (ProjectExceptionHandler e) {
-            return new ResponseEntity<>(new ApiResponse(false, e.getMessage(), null), e.getStatus());
-        } catch (Exception e) {
-            log.error("Failed to delete resource {}: {}", resourceId, e.getMessage());
-            return new ResponseEntity<>(new ApiResponse(false, "Failed to delete resource", null), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        ledgerRepository.deleteByResourceId(resourceId);
+        resourceRepository.delete(existing);
+        resourceEventService.triggerLedgerCleanupAfterDelete(resourceId);
+        return ResponseEntity.ok(ApiResponse.success("Deleted successfully"));
     }
 
     @Override
-    public ResponseEntity<?> getAllResources() {
+    public ResponseEntity<ApiResponse<?>> getAllResources() {
         List<String> uniqueLocations = resourceRepository.findDistinctLocations();
         List<String> uniqueDesignations = resourceRepository.findDistinctDesignations();
         Long maxExperience = resourceRepository.findMaxExperience();
         List<String> projectNames = projectRepo.findProjectNamesExceptStatus(ProjectStatus.COMPLETED);
         ResourceFiltersDTO dto = new ResourceFiltersDTO(uniqueLocations, uniqueDesignations, maxExperience, projectNames);
-        return ResponseEntity.ok(new ApiResponse<>(true, "Resource Filters retrieved successfully", dto));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", dto));
     }
 
     @Override
-    public ResponseEntity<?> getResources() {
+    public ResponseEntity<ApiResponse<?>> getResources() {
         List<ResourceNameDTO> resources = resourceRepository.findAll().stream()
                 .map(resource -> new ResourceNameDTO(resource.getFullName(), resource.getResourceId(), resource.getDesignation()))
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(new ApiResponse<>(true, "Resources retrieved successfully", resources));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", resources));
     }
 }

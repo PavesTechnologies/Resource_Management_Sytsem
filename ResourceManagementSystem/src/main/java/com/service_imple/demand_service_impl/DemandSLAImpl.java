@@ -1,11 +1,13 @@
 package com.service_imple.demand_service_impl;
 
+import com.global_exception_handler.DemandExceptionHandler;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.demand_dto.DemandSlaResponseDTO;
 import com.entity.demand_entities.DemandSLA;
 import com.repo.demand_repo.DemandSLARepository;
 import com.service_interface.demand_service_interface.DemandSLAService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -21,14 +23,15 @@ public class DemandSLAImpl implements DemandSLAService {
     private DemandSLARepository demandSLARepository;
 
     @Override
-    public ResponseEntity<?> getAllDemandSLA() {
+    public ResponseEntity<ApiResponse<?>> getAllDemandSLA() {
         List<DemandSLA> demandSLA = demandSLARepository.findAll().stream().toList();
-        return ResponseEntity.ok(new ApiResponse<>(true, "Demand SLA fetched successfully", demandSLA));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", demandSLA));
     }
 
     @Override
-    public ResponseEntity<?> getDemandSLAById(UUID demandId) {
-        DemandSLA demandSLA = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId).orElseThrow(()-> new RuntimeException("Demand Not Found!"));
+    public ResponseEntity<ApiResponse<?>> getDemandSLAById(UUID demandId) {
+        DemandSLA demandSLA = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId)
+                .orElseThrow(() -> new DemandExceptionHandler(HttpStatus.NOT_FOUND, "DEMAND_SLA_NOT_FOUND", "Demand SLA not found"));
         LocalDate now = LocalDate.now();
 
         long difference = ChronoUnit.DAYS.between(now, demandSLA.getDueAt());
@@ -54,7 +57,7 @@ public class DemandSLAImpl implements DemandSLAService {
                 .priorityLevel(priority)
                 .build();
 
-        return ResponseEntity.ok(new ApiResponse<>(true, "Demand SLA fetched Successfully!", response));
+        return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", response));
     }
 
     private String calculatePriority(DemandSLA demandSLA,

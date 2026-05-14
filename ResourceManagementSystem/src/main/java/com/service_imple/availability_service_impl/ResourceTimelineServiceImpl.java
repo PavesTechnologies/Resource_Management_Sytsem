@@ -2,7 +2,7 @@ package com.service_imple.availability_service_impl;
 
 import com.dto.availability_dto.ResourceTimelineDTO;
 import com.dto.availability_dto.ResourceTimelineResponseDTO;
-import com.dto.availability_dto.ResourceTimelineApiResponse;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.SkillInfoDTO;
 import com.dto.skill_dto.CertificationInfoDTO;
 import com.dto.allocation_dto.AllocationTimelineItem;
@@ -17,7 +17,6 @@ import com.repo.skill_repo.ResourceSkillRepository;
 import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.repo.skill_repo.ResourceCertificateRepository;
 import com.service_interface.availability_service_interface.ResourceTimelineService;
-import com.service_imple.external_api_impl.ExternalApiTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,6 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final ResourceCertificateRepository resourceCertificateRepository;
-    private final ExternalApiTokenService ExternalApiTokenService;
 
     @Override
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
@@ -72,7 +70,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     @Override
     @Transactional(readOnly = true)
     @Cacheable(value = "resource-timelines", key = "#startDate + '-' + #endDate + '-' + #designation + '-' + #location + '-' + #minExp + '-' + #maxExp + '-' + #employmentType + '-' + #status + '-' + #search + '-' + #allocationPercentage + '-' + #project + '-' + #page + '-' + #size")
-    public ResourceTimelineApiResponse getResourceTimelineWindow(
+    public ApiResponse<?> getResourceTimelineWindow(
             LocalDate startDate,
             LocalDate endDate,
             String designation,
@@ -89,11 +87,11 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
         
         // Validate date requirements
         if ((startDate == null && endDate != null) || (startDate != null && endDate == null)) {
-            return ResourceTimelineApiResponse.error("Both startDate and endDate must be provided together, or both must be null");
+            return ApiResponse.error("Both startDate and endDate must be provided together, or both must be null");
         }
         
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            return ResourceTimelineApiResponse.error("startDate must not be after endDate");
+            return ApiResponse.error("startDate must not be after endDate");
         }
 
         if (search != null && search.isBlank()) {
@@ -243,7 +241,7 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                 })
                 .collect(Collectors.toList());
         
-        return ResourceTimelineApiResponse.success("Timeline fetched successfully", responseDTOs, page, size, totalCount);
+        return ApiResponse.success("Data fetched successfully", responseDTOs, page, size, totalCount);
     }
 
     @Override

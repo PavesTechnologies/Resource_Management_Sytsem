@@ -1,14 +1,11 @@
 package com.cdc.listener;
 
 import com.cdc.config.EosTrackedColumns;
-import com.cdc.execution.CdcSafeExecutor;
-import com.cdc.protection.StaleEventProtectionService;
+import com.cdc.payload.CdcEventPayload;
+import com.cdc.service.CdcInboxService;
 import com.cdc.service.EosResourceSyncService;
 import com.cdc.throttling.ReplayThrottlingService;
-import com.cdc.util.DebeziumChangeDetector;
 import com.cdc.validation.ReplayFreshnessValidationService;
-import com.entity.resource_entities.Resource;
-import com.repo.resource_repo.ResourceRepository;
 import io.debezium.engine.RecordChangeEvent;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +13,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Component
@@ -26,11 +25,9 @@ import java.util.Set;
 public class EosCdcHandler {
 
     private final EosResourceSyncService eosResourceSyncService;
-    private final CdcSafeExecutor cdcSafeExecutor;
-    private final StaleEventProtectionService staleEventProtectionService;
     private final ReplayThrottlingService replayThrottlingService;
     private final ReplayFreshnessValidationService replayFreshnessValidationService;
-    private final ResourceRepository resourceRepository;
+    private final CdcInboxService cdcInboxService;
 
     @PostConstruct
     void initFreshnessThresholds() {
@@ -40,92 +37,82 @@ public class EosCdcHandler {
     }
 
     public void handleEvent(RecordChangeEvent<SourceRecord> event) {
-
         Struct value = (Struct) event.record().value();
-        if (value == null) return;
+        if (value == null) {
+            return;
+        }
 
         String operation = value.getString("op");
         Struct before = value.getStruct("before");
-        Struct after  = value.getStruct("after");
+        Struct after = value.getStruct("after");
         String tableName = extractTableName(event);
-
-        if (!isSupportedTable(tableName)) return;
+        if (!isSupportedTable(tableName)) {
+            return;
+        }
 
         String entityType = "EOS-" + tableName;
-        String entityId   = extractEntityId(after != null ? after : before);
-        String opLabel    = "d".equals(operation) ? "DELETE"
-                          : "c".equals(operation) || "r".equals(operation) ? "CREATE"
-                          : "UPDATE";
-
-        // --- Throttle check ---
-        ReplayThrottlingService.ThrottlingResult throttle =
-                replayThrottlingService.checkReplayAllowed(entityType);
+        String entityId = extractEntityId(after != null ? after : before);
+        ReplayThrottlingService.ThrottlingResult throttle = replayThrottlingService.checkReplayAllowed(entityType);
         if (!throttle.isAllowed()) {
             log.warn("EOS CDC throttled - entityType={}, entityId={}, reason={}",
                     entityType, entityId, throttle.getReason());
             return;
         }
 
-        // --- Stale-event + freshness check (UPDATE / INSERT only) ---
-        if (after != null && !"d".equals(operation)) {
-
-            // Skip processing if no tracked columns changed (UPDATE path only)
-            if (before != null) {
-                Set<String> changed = DebeziumChangeDetector.detectChangedColumns(before, after);
-                if (!EosTrackedColumns.containsTrackedChanges(changed)) {
-                    log.debug("EOS CDC skipped - no tracked columns changed for entityId={}", entityId);
-                    return;
-                }
-            }
-
-            LocalDateTime incomingTs = staleEventProtectionService.extractEventTimestamp(after);
-            if (incomingTs != null) {
-                Resource existing = resourceRepository.findById(entityId).orElse(null);
-
-                // Stale-event guard
-                if (existing != null && staleEventProtectionService.isStaleEvent(
-                        existing.getChangedAt(), incomingTs, entityId)) {
-                    log.warn("EOS CDC stale event rejected - entityId={}", entityId);
-                    return;
-                }
-
-                // Freshness validation (warn-only; does not block processing)
-                ReplayFreshnessValidationService.FreshnessValidationResult freshness =
-                        replayFreshnessValidationService.validateFreshness(entityType, incomingTs, entityId);
-                if (!freshness.isValid()) {
-                    log.warn("EOS CDC freshness check failed - entityId={}, message={}",
-                            entityId, freshness.getMessage());
-                }
-            }
-        }
-
-        log.info("EOS CDC EVENT -> table={}, op={}, entityId={}", tableName, operation, entityId);
-
-        long startTime = System.currentTimeMillis();
-
-        cdcSafeExecutor.execute(entityType, entityId, opLabel, event.record().toString(), () -> {
-            try {
-                dispatchEvent(tableName, operation, before, after);
-            } finally {
-                replayThrottlingService.recordReplayCompletion(
-                        entityType, System.currentTimeMillis() - startTime);
-            }
-        });
+        cdcInboxService.persist("EOS", tableName, operation, entityType, entityId, event);
     }
 
-    // -------------------------------------------------------------------------
+    @Transactional
+    public void processInboxEvent(CdcEventPayload payload) {
+        long startTime = System.currentTimeMillis();
+        try {
+            if (payload.getSourceTimestamp() != null) {
+                ReplayFreshnessValidationService.FreshnessValidationResult freshness =
+                        replayFreshnessValidationService.validateFreshness(
+                                payload.getEntityType(), payload.getSourceTimestamp().atOffset(java.time.ZoneOffset.UTC).toLocalDateTime(), payload.getEntityId());
+                if (!freshness.isValid()) {
+                    log.warn("EOS CDC freshness check failed - entityId={}, message={}",
+                            payload.getEntityId(), freshness.getMessage());
+                }
+            }
 
-    private void dispatchEvent(String tableName, String operation, Struct before, Struct after) {
-        if ("d".equals(operation)) {
-            eosResourceSyncService.handleDelete(tableName, before);
-            return;
+            if ("d".equals(payload.getOperation())) {
+                eosResourceSyncService.handleDeleteFromMap(payload.getTableName(), payload.getBefore(), payload.getSourceTimestamp());
+                return;
+            }
+
+            if (payload.getAfter() == null) {
+                return;
+            }
+
+            if (isTrackedUpdate(payload)) {
+                switch (payload.getTableName()) {
+                    case "employee_details" -> eosResourceSyncService.processEmployeeDetailsFromMap(payload.getAfter(), payload.getSourceTimestamp());
+                    case "offer_letter_details" -> eosResourceSyncService.processOfferDetailsFromMap(payload.getAfter(), payload.getSourceTimestamp());
+                    case "employee_exit" -> eosResourceSyncService.processEmployeeExitFromMap(payload.getAfter(), payload.getSourceTimestamp());
+                    default -> {
+                    }
+                }
+            }
+        } finally {
+            replayThrottlingService.recordReplayCompletion(
+                    payload.getEntityType(),
+                    System.currentTimeMillis() - startTime
+            );
         }
-        if (after == null) return;
-        switch (tableName) {
-            case "employee_details"     -> eosResourceSyncService.processEmployeeDetails(after);
-            case "offer_letter_details" -> eosResourceSyncService.processOfferDetails(after);
-            case "employee_exit"        -> eosResourceSyncService.processEmployeeExit(after);
+    }
+
+    private boolean isTrackedUpdate(CdcEventPayload payload) {
+        if (payload.getBefore() == null || payload.getAfter() == null) {
+            return true;
         }
+        Set<String> changed = new LinkedHashSet<>();
+        payload.getAfter().forEach((key, value) -> {
+            if (!Objects.equals(value, payload.getBefore().get(key))) {
+                changed.add(key);
+            }
+        });
+        return EosTrackedColumns.containsTrackedChanges(changed);
     }
 
     private boolean isSupportedTable(String tableName) {
@@ -136,21 +123,28 @@ public class EosCdcHandler {
 
     private String extractTableName(RecordChangeEvent<SourceRecord> event) {
         Struct value = (Struct) event.record().value();
-        if (value == null) return "unknown";
+        if (value == null) {
+            return "unknown";
+        }
         Struct source = value.getStruct("source");
         return source != null ? source.getString("table") : "unknown";
     }
 
     private String extractEntityId(Struct struct) {
-        if (struct == null) return "unknown";
-        // employee_details and employee_exit use employee_id; offer_letter_details uses mail
+        if (struct == null) {
+            return "unknown";
+        }
         if (struct.schema().field("employee_id") != null) {
             Object id = struct.get("employee_id");
-            if (id != null) return id.toString();
+            if (id != null) {
+                return id.toString();
+            }
         }
         if (struct.schema().field("mail") != null) {
             Object mail = struct.get("mail");
-            if (mail != null) return mail.toString();
+            if (mail != null) {
+                return mail.toString();
+            }
         }
         return "unknown";
     }

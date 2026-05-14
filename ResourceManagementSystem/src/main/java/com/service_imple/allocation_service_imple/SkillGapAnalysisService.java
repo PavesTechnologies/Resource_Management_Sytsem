@@ -5,7 +5,7 @@ import com.dto.allocation_dto.SkillGapAnalysisResponseDTO;
 import com.dto.allocation_dto.AllocationRequestDTO;
 import com.entity.demand_entities.Demand;
 import com.entity.skill_entities.*;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.AllocationExceptionHandler;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.*;
@@ -156,7 +156,7 @@ public class SkillGapAnalysisService {
             
             if (requestPercentage != null && demandPercentage != null && 
                 !requestPercentage.equals(demandPercentage)) {
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ALLOCATION_PERCENTAGE_MISMATCH",
                         String.format("Allocation percentage (%d%%) must match demand requirement (%d%%)", 
@@ -188,7 +188,7 @@ public class SkillGapAnalysisService {
                         .map(Skill::getName)
                         .collect(Collectors.toList());
                 
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "MISSING_REQUIRED_SKILLS",
                         "Missing required skills: " + String.join(", ", missingSkillNames)
@@ -217,7 +217,7 @@ public class SkillGapAnalysisService {
                         .map(cert -> cert.getProviderName() != null ? cert.getProviderName() : cert.getCertificateId().toString())
                         .collect(Collectors.toList());
                 
-                throw new ProjectExceptionHandler(
+                throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "MISSING_REQUIRED_CERTIFICATIONS",
                         "Missing required certifications: " + String.join(", ", missingCertificateNames)

@@ -151,6 +151,19 @@ public class BenchService {
         
         return benchResources.stream()
                 .map(this::convertToBenchResourceDTO)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get high-risk bench resources
+     */
+    @Transactional(readOnly = true)
+    public List<BenchResourceDTO> getHighRiskBenchResources() {
+        log.debug("Fetching high-risk bench resources");
+        return getAllBenchResources()
+                .stream()
+                .filter(dto -> "HIGH".equals(dto.getRiskLevel()) || "CRITICAL".equals(dto.getRiskLevel()))
                 .collect(Collectors.toList());
     }
 
@@ -165,6 +178,7 @@ public class BenchService {
         
         return benchResources.stream()
                 .map(this::convertToBenchResourceDTO)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -179,6 +193,7 @@ public class BenchService {
         
         return benchResources.stream()
                 .map(this::convertToBenchResourceDTO)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -207,7 +222,7 @@ public class BenchService {
         // 🔥 NEW: COST + RISK CALCULATION
         List<BenchResourceDTO> benchResources = getAllBenchResources();
 
-        BigDecimal totalCost = getAllBenchResources().stream()
+        BigDecimal totalCost = benchResources.stream()
                 .filter(dto -> dto.getTotalBenchCost() != null)
                 .map(BenchResourceDTO::getTotalBenchCost)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -457,7 +472,7 @@ public class BenchService {
      * Get bench resources for bench endpoint
      */
     @Transactional(readOnly = true)
-    @Cacheable(value = "bench-resources", key = "T(java.time.LocalDate).now().toString()")
+    @Cacheable(value = "bench-resources", key = "'bench-pool-' + T(java.time.LocalDate).now().toString()")
     public List<BenchPoolResponseDTO> getBenchResources() {
 
         List<Object[]> benchResourcesData = benchDetectionRepository.findBenchResourcesWithDetails();
@@ -635,7 +650,7 @@ public class BenchService {
                 .build();
     }
 
-    public ResponseEntity<?> updateSubState(UpdateSubStateRequestDTO request, UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<ResourceState>> updateSubState(UpdateSubStateRequestDTO request, UserDTO userDTO) {
         ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
         SubState oldSubState = resourceState.getSubState();
         SubState newSubState = request.getNewSubState();

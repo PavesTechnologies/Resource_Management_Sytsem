@@ -10,6 +10,6 @@ public interface ResourceService {
     ResponseEntity<ApiResponse<?>> getResourceByEmployeeCode(String employeeCode);
     ResponseEntity<ApiResponse<?>> updateResource(Resource resource);
     ResponseEntity<ApiResponse<?>> deleteResource(String resourceId);
-    ResponseEntity<?> getAllResources();
-    ResponseEntity<?> getResources();
+    ResponseEntity<ApiResponse<?>> getAllResources();
+    ResponseEntity<ApiResponse<?>> getResources();
 }

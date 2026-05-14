@@ -4,7 +4,6 @@ import com.dto.centralised_dto.ApiResponse;
 import com.entity.client_entities.ClientCompliance;
 import com.entity_enums.client_enums.RequirementType;
 import com.global_exception_handler.ClientExceptionHandler;
-import com.global_exception_handler.ProjectExceptionHandler;
 import com.repo.client_repo.ClientComplianceRepo;
 import com.service_interface.client_service_interface.ClientComplianceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +25,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
     public ResponseEntity<ApiResponse<?>> createClientCompliance(ClientCompliance clientCompliance) {
         if (clientCompliance.getRequirementType() == RequirementType.SKILL
                 && clientCompliance.getSkill() == null) {
-            throw new ProjectExceptionHandler( HttpStatus.BAD_REQUEST,
+            throw new ClientExceptionHandler( HttpStatus.BAD_REQUEST,
                     "BAD_REQUEST",
                     "Skill must be selected for SKILL requirement type"
             );
@@ -34,7 +33,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
 
         if (clientCompliance.getRequirementType() == RequirementType.CERTIFICATION
                 && clientCompliance.getCertificate() == null) {
-            throw new ProjectExceptionHandler(
+            throw new ClientExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "Certificate must be selected for CERTIFICATION requirement type",
                     null
@@ -45,7 +44,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
         if (clientCompliance.getClient() != null && clientCompliance.getRequirementName() != null) {
             if (clientComplianceRepo.existsByClient_ClientIdAndRequirementName(
                     clientCompliance.getClient().getClientId(), clientCompliance.getRequirementName())) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "Requirement name already exists for this client",
                         null
@@ -58,7 +57,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
                 && clientCompliance.getClient() != null && clientCompliance.getCertificate() != null) {
             if (clientComplianceRepo.existsByClient_ClientIdAndCertificate(
                     clientCompliance.getClient().getClientId(), clientCompliance.getCertificate())) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "Certificate already exists for this client",
                         null
@@ -71,7 +70,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
                 && clientCompliance.getClient() != null && clientCompliance.getSkill() != null) {
             if (clientComplianceRepo.existsByClient_ClientIdAndSkill(
                     clientCompliance.getClient().getClientId(), clientCompliance.getSkill())) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "Skill already exists for this client",
                         null
@@ -82,10 +81,10 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         ApiResponse<ClientCompliance> apiResponse= new ApiResponse<>();
         if(Compliance!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Created Successfully",Compliance));
+            return ResponseEntity.ok(ApiResponse.success("Client Pre-requisite Created Successfully",Compliance));
         }
         else {
-            throw new ClientExceptionHandler("Client Pre-requisite creation Failed");
+            throw ClientExceptionHandler.badRequest("Client Pre-requisite creation Failed");
         }
     }
 
@@ -97,7 +96,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
                     clientCompliance.getClient().getClientId(), 
                     clientCompliance.getRequirementName(),
                     clientCompliance.getComplianceId()).isPresent()) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "Requirement name already exists for this client",
                         null
@@ -112,7 +111,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
                     clientCompliance.getClient().getClientId(), 
                     clientCompliance.getCertificate(),
                     clientCompliance.getComplianceId()).isPresent()) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "Certificate already exists for this client",
                         null
@@ -127,7 +126,7 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
                     clientCompliance.getClient().getClientId(), 
                     clientCompliance.getSkill(),
                     clientCompliance.getComplianceId()).isPresent()) {
-                throw new ProjectExceptionHandler(
+                throw new ClientExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "Skill already exists for this client",
                         null
@@ -137,31 +136,31 @@ public class ClientComplianceServiceImpl implements ClientComplianceService {
 
         ClientCompliance Compliance=clientComplianceRepo.save(clientCompliance);
         if(Compliance!=null) {
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Updated Successfully",Compliance));
+            return ResponseEntity.ok(ApiResponse.success("Client Pre-requisite Updated Successfully",Compliance));
         }
         else {
-            throw new ClientExceptionHandler("Client Pre-requisite Update Failed");
+            throw ClientExceptionHandler.badRequest("Client Pre-requisite Update Failed");
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> deleteClientCompliance(UUID id) {
         ClientCompliance compliance = clientComplianceRepo.findById(id)
-                .orElseThrow(() -> new ClientExceptionHandler("Client Pre-requisite not found"));
+                .orElseThrow(() -> ClientExceptionHandler.badRequest("Client Pre-requisite not found"));
         
         try {
             clientComplianceRepo.delete(compliance);
-            return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite Deleted Successfully",compliance));
+            return ResponseEntity.ok(ApiResponse.success("Client Pre-requisite Deleted Successfully",compliance));
         } catch (Exception e) {
-            throw new ClientExceptionHandler("Client Pre-requisite Deletion Failed: " + e.getMessage());
+            throw ClientExceptionHandler.badRequest("Client Pre-requisite Deletion Failed: " + e.getMessage());
         }
     }
 
     @Override
     public ResponseEntity<ApiResponse<?>> getClientCompliance(UUID clientId) {
-        List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> new ClientExceptionHandler("Failed to fentch client Compliance"));
+        List<ClientCompliance> Compliance=clientComplianceRepo.findAllByClient_ClientId(clientId).orElseThrow(() -> ClientExceptionHandler.badRequest("Failed to fentch client Compliance"));
 
-        return ResponseEntity.ok(apiResponse.getAPIResponse(true,"Client Pre-requisite fetched Successfully",Compliance));
+        return ResponseEntity.ok(ApiResponse.success("Client Pre-requisite fetched Successfully",Compliance));
 
     }
 }

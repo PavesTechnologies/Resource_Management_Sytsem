@@ -80,7 +80,7 @@ public class ClientAssetAssignmentController {
     }
 
     @GetMapping("/project/{projectId}")
-    public ResponseEntity<?> getAssignmentsByProjectId(@PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getAssignmentsByProjectId(@PathVariable Long projectId) {
         return ResponseEntity.ok(service.getAssignmentsByProjectId(projectId));
     }
 }

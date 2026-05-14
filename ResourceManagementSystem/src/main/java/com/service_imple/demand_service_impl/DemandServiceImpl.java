@@ -19,7 +19,7 @@ import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
-import com.global_exception_handler.ProjectExceptionHandler;
+import com.global_exception_handler.DemandExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.demand_repo.DemandSLARepository;
@@ -28,7 +28,7 @@ import com.repo.project_repo.ProjectSLARepo;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_interface.demand_service_interface.DemandService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -82,7 +81,7 @@ public class DemandServiceImpl implements DemandService {
         try {
             // Validate resource manager ID
             if (resourceManagerId == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "RESOURCE_MANAGER_ID_REQUIRED",
                         "Resource Manager ID is required"
@@ -161,22 +160,18 @@ public class DemandServiceImpl implements DemandService {
                     })
                     .collect(java.util.stream.Collectors.toList());
 
-            return ApiResponse.success(
-                    "Demands retrieved successfully",
-                    formattedDemands
-            );
+            ApiResponse<Object> response = new ApiResponse<>();
+            return response.getAPIResponse(true, "Demands retrieved successfully", formattedDemands);
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (DemandExceptionHandler e) {
             // Business validation failure
-            return ApiResponse.error(
-                    e.getMessage()
-            );
+            ApiResponse<Object> response = new ApiResponse<>();
+            return response.getAPIResponse(false, e.getMessage(), null);
 
         } catch (Exception e) {
             // Unexpected failure
-            return ApiResponse.error(
-                    "Failed to retrieve demands: " + e.getMessage()
-            );
+            ApiResponse<Object> response = new ApiResponse<>();
+            return response.getAPIResponse(false, "Failed to retrieve demands: " + e.getMessage(), null);
         }
     }
 
@@ -200,7 +195,7 @@ public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long cre
     try {
         // Validate created by ID
         if (createdBy == null) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "CREATED_BY_ID_REQUIRED",
                     "Created By ID is required"
@@ -208,7 +203,7 @@ public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long cre
         }
 
         if (projectId == null) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "PROJECT_ID_REQUIRED",
                     "Project ID is required"
@@ -220,7 +215,7 @@ public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long cre
         demands = demandRepository.findByCreatedByAndProjectId(createdBy, projectId);
 
         if (demands == null || demands.isEmpty()) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.NOT_FOUND,
                     "NO_DEMANDS_FOUND",
                     "No demands found for this project"
@@ -292,26 +287,18 @@ public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long cre
                 })
                 .collect(java.util.stream.Collectors.toList());
 
-        ApiResponse response = ApiResponse.success(
-                "Demands retrieved successfully",
-                formattedDemands
-        );
+        ApiResponse<Object> response = new ApiResponse<>();
+        return new ResponseEntity<>(response.getAPIResponse(true, "Demands retrieved successfully", formattedDemands), HttpStatus.OK);
 
-        return new ResponseEntity<>(response, HttpStatus.OK);
-
-    } catch (ProjectExceptionHandler e) {
+    } catch (DemandExceptionHandler e) {
         // Business validation failure
-        ApiResponse response = ApiResponse.error(
-                e.getMessage()
-        );
-        return new ResponseEntity<>(response, e.getStatus());
+        ApiResponse<Object> response = new ApiResponse<>();
+        return new ResponseEntity<>(response.getAPIResponse(false, e.getMessage(), null), e.getStatus());
 
     } catch (Exception e) {
         // Unexpected failure
-        ApiResponse response = ApiResponse.error(
-                "Failed to retrieve demands: " + e.getMessage()
-        );
-        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        ApiResponse<Object> response = new ApiResponse<>();
+        return new ResponseEntity<>(response.getAPIResponse(false, "Failed to retrieve demands: " + e.getMessage(), null), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
 
@@ -647,7 +634,7 @@ public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandCo
 
         // Validate project exists
         Project project = projectRepository.findById(dto.getProjectId())
-                .orElseThrow(() -> new ProjectExceptionHandler(
+                .orElseThrow(() -> new DemandExceptionHandler(
                         HttpStatus.NOT_FOUND,
                         "PROJECT_NOT_FOUND",
                         "Project not found"
@@ -657,13 +644,13 @@ public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandCo
         DeliveryRoleExpectation role;
         try {
             role = roleRepository.findById(dto.getDeliveryRole())
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new DemandExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "ROLE_NOT_FOUND",
                             "Role not found with ID: " + dto.getDeliveryRole()
                     ));
         } catch (IllegalArgumentException e) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_ROLE_ID",
                     "Invalid role ID format. Expected UUID format, received: " + dto.getDeliveryRole()
@@ -697,7 +684,7 @@ public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandCo
 
         return ResponseEntity.ok(ApiResponse.success("Validation completed", validation));
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (DemandExceptionHandler e) {
         return new ResponseEntity<>(
                 ApiResponse.error(e.getMessage()),
                 e.getStatus()
@@ -949,7 +936,7 @@ private void validateBusinessRules(Demand demand, DemandConflictValidationDTO va
 public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resourceManagerId) {
 
     if (resourceManagerId == null) {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "RESOURCE_MANAGER_ID_REQUIRED",
                 "Resource Manager ID is required"
@@ -1030,7 +1017,7 @@ public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resou
                 ApiResponse.success("Demand KPI retrieved successfully", kpi)
         );
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (DemandExceptionHandler e) {
         return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
     } catch (Exception e) {
         return new ResponseEntity<>(
@@ -1101,7 +1088,7 @@ public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
                 ApiResponse.success("Dashboard KPI retrieved successfully", kpi)
         );
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (DemandExceptionHandler e) {
         return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
     } catch (Exception e) {
         return new ResponseEntity<>(
@@ -1116,7 +1103,7 @@ public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
 public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dto) {
 
     if (dto.getDemandId() == null) {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "DEMAND_ID_REQUIRED",
                 "Demand ID is required"
@@ -1124,7 +1111,7 @@ public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dt
     }
 
     Demand demand = demandRepository.findById(dto.getDemandId())
-            .orElseThrow(() -> new ProjectExceptionHandler(
+            .orElseThrow(() -> new DemandExceptionHandler(
                     HttpStatus.NOT_FOUND,
                     "DEMAND_NOT_FOUND",
                     "Demand not found"
@@ -1132,7 +1119,7 @@ public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dt
 
     // Only REQUESTED demands can be approved/rejected
     if (demand.getDemandStatus() != DemandStatus.REQUESTED) {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_STATE",
                 "Only REQUESTED demands can be approved or rejected"
@@ -1151,7 +1138,7 @@ public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dt
     else if (dto.getDecision() == DemandStatus.REJECTED) {
 
         if (dto.getRejectionReason() == null || dto.getRejectionReason().isBlank()) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "REJECTION_REASON_REQUIRED",
                     "Rejection reason is mandatory"
@@ -1163,7 +1150,7 @@ public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dt
     }
 
     else {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_DECISION",
                 "Decision must be APPROVED or REJECTED"
@@ -1181,7 +1168,7 @@ public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dt
 public ResponseEntity<ApiResponse<DemandKpiDTO>> getDeliveryManagerKpi(UserDTO userDTO) {
     try {
         if (userDTO == null || userDTO.getId() == null) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "USER_REQUIRED",
                     "User information is required from authentication token"
@@ -1210,7 +1197,7 @@ public ResponseEntity<ApiResponse<DemandKpiDTO>> getDeliveryManagerKpi(UserDTO u
                 ApiResponse.success("Delivery Manager KPI retrieved successfully", kpi)
         );
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (DemandExceptionHandler e) {
         return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
     } catch (Exception e) {
         return new ResponseEntity<>(
@@ -1227,7 +1214,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
         UserDTO userDTO) {
 
     if (dto.getDemandId() == null) {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "DEMAND_ID_REQUIRED",
                 "Demand ID is required"
@@ -1235,7 +1222,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
     }
 
     Demand demand = demandRepository.findById(dto.getDemandId())
-            .orElseThrow(() -> new ProjectExceptionHandler(
+            .orElseThrow(() -> new DemandExceptionHandler(
                     HttpStatus.NOT_FOUND,
                     "DEMAND_NOT_FOUND",
                     "Demand not found"
@@ -1244,7 +1231,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
     DemandStatus decision = dto.getDecision();
 
     if (decision == null) {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "DECISION_REQUIRED",
                 "Decision is required"
@@ -1253,7 +1240,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
 
     // RM can only act on APPROVED demands
     if (demand.getDemandStatus() != DemandStatus.APPROVED) {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_STATE",
                 "Only APPROVED demands can be fulfilled or rejected by Resource Manager"
@@ -1274,7 +1261,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
 
         // Check if required number of resources are allocated
         if (activeAllocations < demand.getResourcesRequired()) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INSUFFICIENT_ALLOCATIONS",
                     String.format("Cannot mark demand as FULFILLED. Demand '%s' requires %d resources but only %d are allocated",
@@ -1284,7 +1271,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
 
         // Check if over-allocated
         if (activeAllocations > demand.getResourcesRequired()) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "OVER_ALLOCATION",
                     String.format("Cannot mark demand as FULFILLED. Demand '%s' requires %d resources but %d are allocated",
@@ -1300,7 +1287,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
                         alloc.getAllocationStatus() != AllocationStatus.PLANNED);
 
         if (hasInvalidStatus) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_ALLOCATION_STATUS",
                     "Cannot mark demand as FULFILLED. All allocations must be in ACTIVE or PLANNED status"
@@ -1320,7 +1307,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
     else if (decision == DemandStatus.REJECTED) {
 
         if (dto.getRejectionReason() == null || dto.getRejectionReason().isBlank()) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "REJECTION_REASON_REQUIRED",
                     "Rejection reason is mandatory"
@@ -1332,7 +1319,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
     }
 
     else {
-        throw new ProjectExceptionHandler(
+        throw new DemandExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_DECISION",
                 "Resource Manager can only mark demand as FULFILLED or REJECTED"
@@ -1350,7 +1337,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
 public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryManagerDemandDetails(UserDTO userDTO) {
     try {
         if (userDTO == null || userDTO.getId() == null) {
-            throw new ProjectExceptionHandler(
+            throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "USER_REQUIRED",
                     "User information is required from authentication token"
@@ -1451,7 +1438,7 @@ public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryMa
                 ApiResponse.success("Demands retrieved successfully", allDemands)
         );
 
-    } catch (ProjectExceptionHandler e) {
+    } catch (DemandExceptionHandler e) {
         return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
     } catch (Exception e) {
         return new ResponseEntity<>(
@@ -1538,10 +1525,9 @@ public List<Demand> getOpenDemands() {
 @Override
 public List<Demand> getApprovedDemands() {
     log.info("Getting approved demands for bench matching");
-    List<Demand> approvedDemands = demandRepository.findOpenDemands();
-    log.info("Found {} approved demands out of all demands", approvedDemands.size());
+    List<Demand> approvedDemands = demandRepository.findByDemandStatus(DemandStatus.APPROVED);
+    log.info("Found {} approved demands", approvedDemands.size());
 
-    // Log the details of found demands for debugging
     approvedDemands.forEach(demand ->
             log.debug("Approved Demand: ID={}, Name={}, Status={}",
                     demand.getDemandId(), demand.getDemandName(), demand.getDemandStatus())
@@ -1637,7 +1623,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             // =========================
 
             if (dto == null || dto.getDemandId() == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_INPUT",
                         "Demand ID is required"
@@ -1645,7 +1631,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             Demand demand = demandRepository.findById(dto.getDemandId())
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new DemandExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "DEMAND_NOT_FOUND",
                             "Demand not found"
@@ -1653,7 +1639,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Only creator can update
             if (!demand.getCreatedBy().equals(userDTO.getId())) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.FORBIDDEN,
                         "UNAUTHORIZED",
                         "Only demand creator can update this demand"
@@ -1662,7 +1648,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Cannot edit fulfilled/cancelled
             if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_STATE",
                         "Cannot update fulfilled demand"
@@ -1670,7 +1656,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             if (demand.getDemandStatus() == DemandStatus.CANCELLED) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_STATE",
                         "Cannot update cancelled demand"
@@ -1725,8 +1711,22 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 demand.setDemandPriority(dto.getDemandPriority());
             }
 
+            // Status can only be moved DRAFT → SUBMITTED by the creator via updateDemand.
+            // All other transitions (APPROVED, REJECTED, FULFILLED, CANCELLED) are
+            // handled by dedicated workflow endpoints and must not be set here.
             if (dto.getDemandStatus() != null) {
-                demand.setDemandStatus(dto.getDemandStatus());
+                DemandStatus current = demand.getDemandStatus();
+                DemandStatus requested = dto.getDemandStatus();
+                boolean allowed = (current == DemandStatus.DRAFT && requested == DemandStatus.REQUESTED)
+                        || (current == DemandStatus.REQUESTED && requested == DemandStatus.DRAFT);
+                if (!allowed) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "INVALID_STATUS_TRANSITION",
+                            "Status transition from " + current + " to " + requested + " is not allowed via update."
+                    );
+                }
+                demand.setDemandStatus(requested);
             }
 
             if (dto.getDemandCommitment() != null) {
@@ -1756,7 +1756,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 if (!dto.getDeliveryRole().equals(existingRoleId)) {
                     DeliveryRoleExpectation role = roleRepository
                             .findById(dto.getDeliveryRole())
-                            .orElseThrow(() -> new ProjectExceptionHandler(
+                            .orElseThrow(() -> new DemandExceptionHandler(
                                     HttpStatus.NOT_FOUND, "ROLE_NOT_FOUND",
                                     "Role not found with ID: " + dto.getDeliveryRole()
                             ));
@@ -1771,7 +1771,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             if (demand.getDemandStartDate()
                     .isAfter(demand.getDemandEndDate())) {
 
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_DATE_RANGE",
                         "Start date cannot be after end date"
@@ -1785,7 +1785,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             if (demand.getAllocationPercentage() < 1 ||
                     demand.getAllocationPercentage() > 100) {
 
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_ALLOCATION",
                         "Allocation percentage must be between 1 and 100"
@@ -1798,7 +1798,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             if (demand.getResourcesRequired() < 1) {
 
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_RESOURCES_REQUIRED",
                         "Resources required must be at least 1"
@@ -1863,7 +1863,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                     )
             );
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (DemandExceptionHandler e) {
 
             return new ResponseEntity<>(
                     ApiResponse.error(e.getMessage()),
@@ -1886,7 +1886,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
         try {
             // Validate project ID
             if (projectId == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "PROJECT_ID_REQUIRED",
                         "Project ID is required"
@@ -1895,7 +1895,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate project exists
             Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new DemandExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "PROJECT_NOT_FOUND",
                             "Project not found with ID: " + projectId
@@ -1988,7 +1988,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                     formattedDemands
             ));
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (DemandExceptionHandler e) {
             return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
             return new ResponseEntity<>(
@@ -1999,13 +1999,14 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     }
 
     @Override
+    @Transactional
     @CacheEvict(value = "demands", allEntries = true)
     @AuditLog(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.CREATE)
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
         try {
             // Validate input
             if (dto == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_INPUT",
                         "Demand data is required"
@@ -2013,7 +2014,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             if (id == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "CREATED_BY_REQUIRED",
                         "Created by user ID is required"
@@ -2021,7 +2022,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             if (dto.getDeliveryRole() == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "DELIVERY_ROLE_REQUIRED",
                         "Delivery role is required"
@@ -2029,7 +2030,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             if (dto.getDemandStartDate() == null || dto.getDemandEndDate() == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "DATES_REQUIRED",
                         "Start date and end date are required"
@@ -2037,7 +2038,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             if (dto.getAllocationPercentage() == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "ALLOCATION_REQUIRED",
                         "Allocation percentage is required"
@@ -2046,7 +2047,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate date logic
             if (dto.getDemandStartDate().isAfter(dto.getDemandEndDate())) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_DATE_RANGE",
                         "Start date cannot be after end date"
@@ -2055,7 +2056,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate allocation percentage
             if (dto.getAllocationPercentage() < 1 || dto.getAllocationPercentage() > 100) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_ALLOCATION",
                         "Allocation percentage must be between 1 and 100"
@@ -2064,7 +2065,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate resources required
             if (dto.getResourcesRequired() == null || dto.getResourcesRequired() < 1) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_RESOURCES_REQUIRED",
                         "Resources required must be at least 1"
@@ -2073,7 +2074,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate project exists
             Project project = projectRepository.findById(dto.getProjectId())
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new DemandExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "PROJECT_NOT_FOUND",
                             "Project not found with ID: " + dto.getProjectId()
@@ -2083,13 +2084,13 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             DeliveryRoleExpectation role;
             try {
                 role = roleRepository.findById(dto.getDeliveryRole())
-                        .orElseThrow(() -> new ProjectExceptionHandler(
+                        .orElseThrow(() -> new DemandExceptionHandler(
                                 HttpStatus.NOT_FOUND,
                                 "ROLE_NOT_FOUND",
                                 "Role not found with ID: " + dto.getDeliveryRole()
                         ));
             } catch (IllegalArgumentException e) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_ROLE_ID",
                         "Invalid role ID format. Expected UUID format, received: " + dto.getDeliveryRole()
@@ -2100,7 +2101,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             Resource outgoingResource = null;
             if (dto.getDemandType() == DemandType.REPLACEMENT) {
                 if (dto.getOutgoingResourceId() == null) {
-                    throw new ProjectExceptionHandler(
+                    throw new DemandExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "OUTGOING_RESOURCE_REQUIRED",
                             "Outgoing resource ID is required for replacement demands"
@@ -2108,7 +2109,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 }
 
                 outgoingResource = resourceRepository.findById(dto.getOutgoingResourceId())
-                        .orElseThrow(() -> new ProjectExceptionHandler(
+                        .orElseThrow(() -> new DemandExceptionHandler(
                                 HttpStatus.NOT_FOUND,
                                 "OUTGOING_RESOURCE_NOT_FOUND",
                                 "Outgoing resource not found with ID: " + dto.getOutgoingResourceId()
@@ -2118,7 +2119,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             // Validate business rules for demand type
             if (dto.getDemandType() == DemandType.NET_NEW) {
                 if (dto.getDemandJustification() == null || dto.getDemandJustification().trim().length() < 20) {
-                    throw new ProjectExceptionHandler(
+                    throw new DemandExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "INSUFFICIENT_JUSTIFICATION",
                             "Net-New demand requires detailed business justification (minimum 20 characters)"
@@ -2126,42 +2127,52 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 }
             }
 
-//            // Create temporary demand for conflict validation
+            // Validate project is in an allowed status for demand creation
+            if (!com.config.ProjectDemandRules.ALLOWED_PROJECT_STATUSES.contains(project.getProjectStatus())) {
+                throw new DemandExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PROJECT_STATUS_NOT_ALLOWED",
+                        "Demands cannot be created for a project in status: " + project.getProjectStatus()
+                );
+            }
+
+            // Validate project lifecycle stage if present
+            if (project.getLifecycleStage() != null &&
+                    !com.config.ProjectDemandRules.ALLOWED_LIFECYCLE_STAGES.contains(project.getLifecycleStage())) {
+                throw new DemandExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "LIFECYCLE_STAGE_NOT_ALLOWED",
+                        "Demands cannot be created for a project in lifecycle stage: " + project.getLifecycleStage()
+                );
+            }
+
             Demand tempDemand = createTempDemand(dto, project, role);
-//
-//            // Run conflict validation
-//            ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse =
-//                    validateDemandConflicts(dto);
-//
-//            if (!validationResponse.getStatusCode().is2xxSuccessful()) {
-//                throw new ProjectExceptionHandler(
-//                        HttpStatus.BAD_REQUEST,
-//                        "VALIDATION_FAILED",
-//                        "Demand validation failed: " + validationResponse.getBody().getMessage()
-//                );
-//            }
-//
-//            DemandConflictValidationDTO validation = validationResponse.getBody().getData();
-            
-            // Check if demand has blocking conflicts
-//            if (validation != null && !validation.isCanSubmit()) {
-//                List<String> errorMessages = validation.getConflicts().stream()
-//                        .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
-//                        .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
-//                        .collect(java.util.stream.Collectors.toList());
-//
-//                throw new ProjectExceptionHandler(
-//                        HttpStatus.BAD_REQUEST,
-//                        "BLOCKING_CONFLICTS",
-//                        "Demand has blocking conflicts: " + String.join(", ", errorMessages)
-//                );
-//            }
+
+            // Run conflict validation
+            ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse =
+                    validateDemandConflicts(dto);
+
+            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody() != null) {
+                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
+                if (validation != null && !validation.isCanSubmit()) {
+                    List<String> errorMessages = validation.getConflicts().stream()
+                            .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
+                            .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
+                            .collect(java.util.stream.Collectors.toList());
+
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "BLOCKING_CONFLICTS",
+                            "Demand has blocking conflicts: " + String.join(", ", errorMessages)
+                    );
+                }
+            }
 
             // Check for exact duplicates
             List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(dto.getProjectId());
             for (Demand existing : existingDemands) {
                 if (isExactDuplicate(tempDemand, existing)) {
-                    throw new ProjectExceptionHandler(
+                    throw new DemandExceptionHandler(
                             HttpStatus.CONFLICT,
                             "DUPLICATE_DEMAND",
                             "Exact duplicate demand already exists"
@@ -2176,7 +2187,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             demand.setDemandName(dto.getDemandName() != null ? dto.getDemandName() : 
                     "Demand for " + role.getRole().getRoleName() + " in " + project.getName());
             demand.setDemandType(dto.getDemandType());
-            demand.setDemandStatus(dto.getDemandStatus() != null ? dto.getDemandStatus() : DemandStatus.DRAFT);
+            demand.setDemandStatus(DemandStatus.DRAFT); // always start in DRAFT; status advances via workflow
             demand.setDemandStartDate(dto.getDemandStartDate());
             demand.setDemandEndDate(dto.getDemandEndDate());
             demand.setAllocationPercentage(dto.getAllocationPercentage());
@@ -2200,16 +2211,16 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             // Run conflict detection and resolution
-//            detectAllocationConflicts(savedDemand);
-//            detectTimelineConflicts(savedDemand);
-//            detectSkillConflicts(savedDemand);
+            detectAllocationConflicts(savedDemand);
+            detectTimelineConflicts(savedDemand);
+            detectSkillConflicts(savedDemand);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Demand created successfully", 
                     savedDemand.getDemandId()
             ));
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (DemandExceptionHandler e) {
             return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
             return new ResponseEntity<>(
@@ -2222,7 +2233,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     
     @Override
-    @CacheEvict(value = "demands", allEntries = true)
+    @Cacheable(value = "demands", key = "#demandId")
     public ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId) {
         try {
             // Validate demand ID
@@ -2345,7 +2356,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
         try {
             // Validate demand ID
             if (demandId == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "DEMAND_ID_REQUIRED",
                         "Demand ID is required"
@@ -2354,7 +2365,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate user
             if (userDTO == null || userDTO.getId() == null) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "USER_REQUIRED",
                         "User information is required for authorization"
@@ -2363,7 +2374,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Find existing demand
             Demand demand = demandRepository.findById(demandId)
-                    .orElseThrow(() -> new ProjectExceptionHandler(
+                    .orElseThrow(() -> new DemandExceptionHandler(
                             HttpStatus.NOT_FOUND,
                             "DEMAND_NOT_FOUND",
                             "Demand not found with ID: " + demandId
@@ -2371,7 +2382,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate authorization - only demand creator can delete
             if (!demand.getCreatedBy().equals(userDTO.getId())) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.FORBIDDEN,
                         "UNAUTHORIZED",
                         "Only the demand creator can delete this demand"
@@ -2380,7 +2391,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
             // Validate demand status for deletion
             if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_STATE",
                         "Cannot delete fulfilled demand"
@@ -2388,7 +2399,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             if (demand.getDemandStatus() == DemandStatus.APPROVED) {
-                throw new ProjectExceptionHandler(
+                throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
                         "INVALID_STATE",
                         "Cannot delete approved demand. Cancel it instead."
@@ -2404,7 +2415,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         .count();
 
                 if (activeAllocations > 0) {
-                    throw new ProjectExceptionHandler(
+                    throw new DemandExceptionHandler(
                             HttpStatus.BAD_REQUEST,
                             "HAS_ACTIVE_ALLOCATIONS",
                             "Cannot delete demand with active allocations. End allocations first."
@@ -2428,7 +2439,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                     demandId
             ));
 
-        } catch (ProjectExceptionHandler e) {
+        } catch (DemandExceptionHandler e) {
             return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
             return new ResponseEntity<>(

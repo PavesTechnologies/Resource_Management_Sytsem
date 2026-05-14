@@ -1,13 +1,15 @@
 package com.global_exception_handler;
 
 import com.dto.centralised_dto.ApiResponse;
-import org.springframework.http.ResponseEntity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.LocalDateTime;
@@ -15,158 +17,133 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-
 @Slf4j
-@ControllerAdvice
-public class GlobalExceptionHandler{
+@RestControllerAdvice
+public class GlobalExceptionHandler {
 
+    // ── Demand domain ─────────────────────────────────────────────────────────
+    @ExceptionHandler(DemandExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleDemandException(DemandExceptionHandler ex) {
+        log.warn("Demand exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Allocation domain ─────────────────────────────────────────────────────
+    @ExceptionHandler(AllocationExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleAllocationException(AllocationExceptionHandler ex) {
+        log.warn("Allocation exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Role-off domain ───────────────────────────────────────────────────────
+    @ExceptionHandler(RoleOffExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleRoleOffException(RoleOffExceptionHandler ex) {
+        log.warn("RoleOff exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Availability / bench domain ───────────────────────────────────────────
+    @ExceptionHandler(AvailabilityExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleAvailabilityException(AvailabilityExceptionHandler ex) {
+        log.warn("Availability exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Client / company domain ───────────────────────────────────────────────
     @ExceptionHandler(ClientExceptionHandler.class)
-    public ResponseEntity<ApiResponse> handleClientException(ClientExceptionHandler e){
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(e.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.badRequest().body(apiResponse);
-    }
-//    @ExceptionHandler(DataIntegrityViolationException.class)
-//    public ResponseEntity<ApiResponse<?>> handleDataIntegrityViolation(
-//            DataIntegrityViolationException e) {
-//
-//        ApiResponse<?> apiResponse = new ApiResponse<>();
-//        apiResponse.setSuccess(false);
-//
-//        // Customize message for UNIQUE constraint
-//        apiResponse.setMessage("Serial number already exists");
-//
-//        apiResponse.setData(null);
-//        return ResponseEntity.badRequest().body(apiResponse);
-//    }
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse> handleValidationExceptions(
-            MethodArgumentNotValidException ex) {
-        
-        String errorMessage = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> {
-                    String fieldName = error.getField();
-                    String message = error.getDefaultMessage();
-                    // Convert field name to readable format
-                    String readableFieldName = fieldName.replaceAll("([a-z])([A-Z])", "$1 $2")
-                                                           .replaceAll("^([a-z])", "$1")
-                                                           .toLowerCase();
-                    readableFieldName = Character.toUpperCase(readableFieldName.charAt(0)) + readableFieldName.substring(1);
-                    return readableFieldName + ": " + message;
-                })
-                .collect(Collectors.joining(", "));
-        
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(errorMessage);
-        apiResponse.setData(null);
-        
-        return ResponseEntity.badRequest().body(apiResponse);
+    public ResponseEntity<ApiResponse<?>> handleClientException(ClientExceptionHandler ex) {
+        log.warn("Client exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
     }
 
+    // ── Skill / certificate / taxonomy domain ─────────────────────────────────
+    @ExceptionHandler(SkillExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleSkillException(SkillExceptionHandler ex) {
+        log.warn("Skill exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Project / resource domain ─────────────────────────────────────────────
     @ExceptionHandler(ProjectExceptionHandler.class)
-    public ResponseEntity<?> handleProjectException(ProjectExceptionHandler ex) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("errorCode", ex.getErrorCode());
-        response.put("message", ex.getMessage());
-        response.put("timestamp", LocalDateTime.now());
-        response.put("data", null);
-
-        return ResponseEntity
-                .status(ex.getStatus())
-                .body(response);
+    public ResponseEntity<ApiResponse<?>> handleProjectException(ProjectExceptionHandler ex) {
+        log.warn("Project exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
     }
 
+    // ── CDC domain ────────────────────────────────────────────────────────────
+    @ExceptionHandler(CDCExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleCdcException(CDCExceptionHandler ex) {
+        log.warn("CDC exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Security domain (application-level security violations) ──────────────
+    @ExceptionHandler(SecurityExceptionHandler.class)
+    public ResponseEntity<ApiResponse<?>> handleSecurityDomainException(SecurityExceptionHandler ex) {
+        log.warn("Security exception [{}]: {}", ex.getErrorCode(), ex.getMessage());
+        return buildDomainResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    // ── Bean-validation errors (@Valid / @Validated) ──────────────────────────
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<?>> handleValidationException(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        fieldError -> fieldError.getField(),
+                        fieldError -> fieldError.getDefaultMessage()
+                ));
+        return ResponseEntity.badRequest().body(ApiResponse.error("Validation failed", errors));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<?>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.error("Validation failed",
+                Map.of(ex.getName(), "Invalid value")));
+    }
+
+    // ── Spring Security authentication / authorization ────────────────────────
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse> handleAuthenticationException(AuthenticationException ex) {
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage("Authentication failed: " + ex.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(apiResponse);
+    public ResponseEntity<ApiResponse<?>> handleAuthenticationException(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Unauthorized"));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ApiResponse> handleAccessDeniedException(AccessDeniedException ex) {
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage("Access denied: " + ex.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(apiResponse);
+    public ResponseEntity<ApiResponse<?>> handleAccessDeniedException(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("Forbidden"));
     }
 
+    // ── External API errors ───────────────────────────────────────────────────
     @ExceptionHandler(HttpClientErrorException.class)
-    public ResponseEntity<ApiResponse> handleHttpClientErrorException(HttpClientErrorException ex) {
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-
+    public ResponseEntity<ApiResponse<?>> handleHttpClientErrorException(HttpClientErrorException ex) {
+        String message;
         if (ex.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-            apiResponse.setMessage("External API authentication failed. Please check credentials.");
+            message = "External API authentication failed. Please check credentials.";
         } else if (ex.getStatusCode() == HttpStatus.FORBIDDEN) {
-            apiResponse.setMessage("Access denied to external API.");
+            message = "Access denied to external API.";
         } else {
-            apiResponse.setMessage("External API error: " + ex.getMessage());
+            message = "External API error: " + ex.getMessage();
         }
-
-        apiResponse.setData(null);
-        return ResponseEntity.status(ex.getStatusCode()).body(apiResponse);
+        return ResponseEntity.status(ex.getStatusCode()).body(ApiResponse.error(message));
     }
 
-    @ExceptionHandler(SkillTaxonomyExceptionHandler.class)
-    public ResponseEntity<ApiResponse> handleSkillTaxonomyException(SkillTaxonomyExceptionHandler e) {
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(e.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.badRequest().body(apiResponse);
+    // ── Shared response builder ───────────────────────────────────────────────
+    private ResponseEntity<ApiResponse<?>> buildDomainResponse(
+            HttpStatus status, String errorCode, String message) {
+        Map<String, Object> errorDetails = new HashMap<>();
+        errorDetails.put("errorCode", errorCode);
+        errorDetails.put("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(status).body(ApiResponse.error(message, errorDetails));
     }
 
-    @ExceptionHandler(CertificationComplianceException.class)
-    public ResponseEntity<ApiResponse> handleCertificationException(
-            CertificationComplianceException e) {
-
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(e.getMessage());
-        apiResponse.setData(null);
-
-        return ResponseEntity.badRequest().body(apiResponse);
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<?>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
     }
 
-    @ExceptionHandler(SkillValidationException.class)
-    public ResponseEntity<ApiResponse> handleSkillValidationException(SkillValidationException e) {
-        log.warn("Skill validation error: {}", e.getMessage());
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(e.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.badRequest().body(apiResponse);
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ApiResponse<?>> handleRuntimeException(RuntimeException ex) {
+        log.error("Unhandled runtime exception", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Internal server error"));
     }
-
-    @ExceptionHandler(DuplicateRoleExpectationException.class)
-    public ResponseEntity<ApiResponse> handleDuplicateRoleExpectationException(DuplicateRoleExpectationException e) {
-        log.warn("Duplicate role expectation: {}", e.getMessage());
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(e.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiResponse);
-    }
-
-    @ExceptionHandler(AllocationExceptionHandler.class)
-    public ResponseEntity<ApiResponse> handleResourceAllocationException(AllocationExceptionHandler e) {
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage(e.getMessage());
-        apiResponse.setData(null);
-        return ResponseEntity.badRequest().body(apiResponse);
-    }
-
 }

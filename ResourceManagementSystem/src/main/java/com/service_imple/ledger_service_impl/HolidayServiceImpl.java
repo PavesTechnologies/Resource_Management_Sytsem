@@ -1,8 +1,8 @@
 package com.service_imple.ledger_service_impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.service_interface.ledger_service_interface.HolidayService;
-import com.dto.common.ApiHealthResponse;
-import com.dto.common.ExternalHolidayDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +15,7 @@ import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -24,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 public class HolidayServiceImpl implements HolidayService {
 
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
     
     @Value("${external.api.holiday.base-url}")
     private String holidayApiBaseUrl;
@@ -32,8 +34,6 @@ public class HolidayServiceImpl implements HolidayService {
     private String holidayYearEndpoint;
 
     private volatile boolean apiHealthy = true;
-    private volatile long lastHealthCheck = 0;
-    private static final long HEALTH_CHECK_INTERVAL_MS = 60000;
 
     @Override
     @Cacheable(value = "holidays", key = "#year")
@@ -43,22 +43,9 @@ public class HolidayServiceImpl implements HolidayService {
 
     private Set<LocalDate> getHolidaysInternal(int year) throws HolidayApiException {
         try {
-            checkApiHealth();
-            
             String url = holidayApiBaseUrl + holidayYearEndpoint.replace("{year}", String.valueOf(year));
-            HolidayApiResponse response = restTemplate.getForObject(url, HolidayApiResponse.class);
-            
-            if (response == null || response.getHolidays() == null) {
-                apiHealthy = false;
-                return new HashSet<>();
-            }
-
-            Set<LocalDate> holidays = new HashSet<>();
-            for (ExternalHolidayDto holiday : response.getHolidays()) {
-                if (holiday.getDate() != null && holiday.isActive()) {
-                    holidays.add(LocalDate.parse(holiday.getDate()));
-                }
-            }
+            String responseBody = restTemplate.getForObject(url, String.class);
+            Set<LocalDate> holidays = parseHolidayDates(responseBody);
 
             apiHealthy = true;
             return holidays;
@@ -78,24 +65,69 @@ public class HolidayServiceImpl implements HolidayService {
         }
     }
 
+    private Set<LocalDate> parseHolidayDates(String responseBody) throws Exception {
+        Set<LocalDate> holidays = new HashSet<>();
+        if (responseBody == null || responseBody.isBlank()) {
+            return holidays;
+        }
+
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode holidaysNode = resolveHolidayArray(root);
+        if (holidaysNode == null || holidaysNode.isNull() || !holidaysNode.isArray()) {
+            return holidays;
+        }
+
+        Iterator<JsonNode> iterator = holidaysNode.elements();
+        while (iterator.hasNext()) {
+            JsonNode holiday = iterator.next();
+            String date = textValue(holiday, "holidayDate", "date");
+            boolean active = true;
+            if (holiday.has("isActive")) {
+                active = holiday.path("isActive").asBoolean();
+            } else if (holiday.has("active")) {
+                active = holiday.path("active").asBoolean();
+            }
+
+            if (date != null && active) {
+                holidays.add(LocalDate.parse(date));
+            }
+        }
+
+        return holidays;
+    }
+
+    private JsonNode resolveHolidayArray(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
+        }
+        if (root.isArray()) {
+            return root;
+        }
+        if (root.has("holidays")) {
+            return root.get("holidays");
+        }
+        if (root.has("data")) {
+            return root.get("data");
+        }
+        return null;
+    }
+
+    private String textValue(JsonNode node, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            JsonNode valueNode = node.get(fieldName);
+            if (valueNode != null && !valueNode.isNull()) {
+                String value = valueNode.asText();
+                if (!value.isBlank()) {
+                    return value;
+                }
+            }
+        }
+        return null;
+    }
+
     @Override
     public boolean isApiHealthy() {
-        long now = System.currentTimeMillis();
-        if (now - lastHealthCheck > HEALTH_CHECK_INTERVAL_MS) {
-            performHealthCheck();
-            lastHealthCheck = now;
-        }
         return apiHealthy;
-    }
-
-    private void checkApiHealth() throws HolidayApiException {
-        // Health check not implemented - API assumed to be available
-        // Add health check implementation if needed in the future
-    }
-
-    private void performHealthCheck() {
-        // Health check not implemented - API assumed to be healthy
-        apiHealthy = true;
     }
 
     @Retryable(value = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
@@ -119,16 +151,4 @@ public class HolidayServiceImpl implements HolidayService {
         }
     }
 
-    public static class HolidayApiResponse {
-        private Set<ExternalHolidayDto> holidays;
-        private int year;
-        private String lastUpdated;
-
-        public Set<ExternalHolidayDto> getHolidays() { return holidays; }
-        public void setHolidays(Set<ExternalHolidayDto> holidays) { this.holidays = holidays; }
-        public int getYear() { return year; }
-        public void setYear(int year) { this.year = year; }
-        public String getLastUpdated() { return lastUpdated; }
-        public void setLastUpdated(String lastUpdated) { this.lastUpdated = lastUpdated; }
-    }
 }

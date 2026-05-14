@@ -101,4 +101,6 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
     @Query("SELECT d FROM Demand d WHERE " +
            "d.demandStatus = com.entity_enums.demand_enums.DemandStatus.APPROVED")
     List<Demand> findOpenDemands();
+
+    List<Demand> findByDemandStatus(DemandStatus demandStatus);
 }

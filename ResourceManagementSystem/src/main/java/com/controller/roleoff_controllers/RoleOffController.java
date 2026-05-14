@@ -1,6 +1,7 @@
 package com.controller.roleoff_controllers;
 
 import com.dto.allocation_dto.RoleOffRequestDTO;
+import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.roleoff_dto.BulkRoleOffRequestDTO;
 import com.entity.roleoff_entities.RoleOffEvent;
@@ -26,29 +27,27 @@ public class RoleOffController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
-    public ResponseEntity<?> roleOff(
+    public ResponseEntity<ApiResponse<?>> roleOff(
             @RequestBody com.dto.allocation_dto.RoleOffRequestDTO dto,
             @CurrentUser UserDTO userDTO)
     {
-
         return roleOffServiceImpl.roleOffByRM(dto, userDTO);
     }
 
     @PostMapping("/{id}/manual-replacement")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
-    public ResponseEntity<?> manualReplacement(
+    public ResponseEntity<ApiResponse<String>> manualReplacement(
             @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
-
         roleOffServiceImpl.manualReplacement(id, userDTO.getId());
-        return ResponseEntity.ok("Manual replacement created");
+        return ResponseEntity.ok(ApiResponse.success("Manual replacement created", "Manual replacement created"));
     }
 
     // ========== SEPARATE RESOURCE MANAGER ENDPOINTS ==========
 
     @PostMapping("/{id}/rm-approve")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> rmApprove(
+    public ResponseEntity<ApiResponse<?>> rmApprove(
             @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.rmApprove(id, userDTO);
@@ -56,7 +55,7 @@ public class RoleOffController {
 
     @PostMapping("/{id}/rm-reject")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> rmReject(
+    public ResponseEntity<ApiResponse<?>> rmReject(
             @PathVariable UUID id,
             @RequestParam String rejectionReason,
             @CurrentUser UserDTO userDTO) {
@@ -67,7 +66,7 @@ public class RoleOffController {
 
     @PostMapping("/{id}/dl-fulfill")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> dlFulfill(
+    public ResponseEntity<ApiResponse<?>> dlFulfill(
             @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.dlFulfill(id, userDTO);
@@ -75,7 +74,7 @@ public class RoleOffController {
 
     @PostMapping("/{id}/dl-reject")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> dlReject(
+    public ResponseEntity<ApiResponse<?>> dlReject(
             @PathVariable UUID id,
             @RequestParam String rejectionReason,
             @CurrentUser UserDTO userDTO) {
@@ -86,7 +85,7 @@ public class RoleOffController {
 
     @PostMapping("/{id}/pm-cancel")
     @PreAuthorize("hasRole('Project_Manager')")
-    public ResponseEntity<?> pmCancel(
+    public ResponseEntity<ApiResponse<?>> pmCancel(
             @PathVariable UUID id,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.pmCancel(id, userDTO);
@@ -94,18 +93,19 @@ public class RoleOffController {
 
     @PostMapping("/role-off-rm")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> roleOffByRM(@RequestBody RoleOffRequestDTO roleOff, @CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> roleOffByRM(@RequestBody RoleOffRequestDTO roleOff, @CurrentUser UserDTO userDTO) {
         return roleOffService.roleOffByRM(roleOff, userDTO);
     }
 
     @GetMapping("/get-resources/{projectId}")
     @PreAuthorize("hasAnyRole('Project_Manager', 'Resource_Manager')")
-    public ResponseEntity<?> getResources(@CurrentUser UserDTO userDTO, @PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<?>> getResources(@CurrentUser UserDTO userDTO, @PathVariable Long projectId) {
         return roleOffService.getResources(userDTO.getId(), projectId);
     }
 
     @GetMapping("/get-role-off-project-kpi/{projectId}")
-    public ResponseEntity<?> getRoleOffProjectKPI(@PathVariable Long projectId, @CurrentUser UserDTO userDTO) {
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
+    public ResponseEntity<ApiResponse<?>> getRoleOffProjectKPI(@PathVariable Long projectId, @CurrentUser UserDTO userDTO) {
         return roleOffService.getRoleOffKPI(projectId, userDTO.getId());
     }
 
@@ -116,9 +116,9 @@ public class RoleOffController {
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
-    public ResponseEntity<List<RoleOffEvent>> getAllRoleOffEvents() {
+    public ResponseEntity<ApiResponse<List<RoleOffEvent>>> getAllRoleOffEvents() {
         List<RoleOffEvent> events = roleOffService.getAllRoleOffEvents();
-        return ResponseEntity.ok(events);
+        return ResponseEntity.ok(ApiResponse.success("Role-off events retrieved successfully", events));
     }
 
     /**
@@ -126,9 +126,9 @@ public class RoleOffController {
      */
     @GetMapping("/project/{projectId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
-    public ResponseEntity<List<RoleOffEvent>> getRoleOffEventsByProject(@PathVariable Long projectId) {
+    public ResponseEntity<ApiResponse<List<RoleOffEvent>>> getRoleOffEventsByProject(@PathVariable Long projectId) {
         List<RoleOffEvent> events = roleOffService.getRoleOffEventsByProject(projectId);
-        return ResponseEntity.ok(events);
+        return ResponseEntity.ok(ApiResponse.success("Role-off events for project retrieved successfully", events));
     }
 
     /**
@@ -136,7 +136,7 @@ public class RoleOffController {
      */
     @GetMapping("/pending-dm-action")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> getRoleOffsPendingDMAction(@CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> getRoleOffsPendingDMAction(@CurrentUser UserDTO userDTO) {
         return roleOffService.getDMRoleOffEvents(userDTO.getId());
     }
 
@@ -145,9 +145,8 @@ public class RoleOffController {
      */
     @GetMapping("/fulfilled-dm-action")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> getFulfilledRoleOffsForDM(
+    public ResponseEntity<ApiResponse<?>> getFulfilledRoleOffsForDM(
             @CurrentUser UserDTO userDTO) {
-
         return roleOffService.getFulfilledRoleOffEvents(userDTO.getId());
     }
 
@@ -156,7 +155,7 @@ public class RoleOffController {
      */
     @GetMapping("/approved-today")
     @PreAuthorize("hasAnyRole('Delivery_Manager', 'Resource_Manager', 'Admin')")
-    public ResponseEntity<?> getRoleOffsApprovedToday(
+    public ResponseEntity<ApiResponse<?>> getRoleOffsApprovedToday(
             @RequestParam(required = false) Long projectId,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.getRoleOffsApprovedToday(projectId, userDTO.getId());
@@ -167,9 +166,9 @@ public class RoleOffController {
      */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
-    public ResponseEntity<RoleOffEvent> getRoleOffEventById(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<RoleOffEvent>> getRoleOffEventById(@PathVariable UUID id) {
         RoleOffEvent event = roleOffService.getRoleOffEventById(id);
-        return ResponseEntity.ok(event);
+        return ResponseEntity.ok(ApiResponse.success("Role-off event retrieved successfully", event));
     }
 
     /**
@@ -177,20 +176,20 @@ public class RoleOffController {
      */
     @GetMapping("/resource/{resourceId}")
     @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin')")
-    public ResponseEntity<List<RoleOffEvent>> getRoleOffEventsByResource(@PathVariable String resourceId) {
+    public ResponseEntity<ApiResponse<List<RoleOffEvent>>> getRoleOffEventsByResource(@PathVariable String resourceId) {
         List<RoleOffEvent> events = roleOffService.getRoleOffEventsByResource(resourceId);
-        return ResponseEntity.ok(events);
+        return ResponseEntity.ok(ApiResponse.success("Role-off events for resource retrieved successfully", events));
     }
 
     @GetMapping("/get-role-off-rm")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> getRoleOffEventsRM(@CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> getRoleOffEventsRM(@CurrentUser UserDTO userDTO) {
         return roleOffService.getRMRoleOffEvents(userDTO.getId());
     }
 
     @GetMapping("/get-role-off-dm")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> getRoleOffEventsDM(@CurrentUser UserDTO userDTO) {
+    public ResponseEntity<ApiResponse<?>> getRoleOffEventsDM(@CurrentUser UserDTO userDTO) {
         return roleOffService.getDMRoleOffEvents(userDTO.getId());
     }
 
@@ -198,16 +197,16 @@ public class RoleOffController {
      * Get all role-off reason enum values
      */
     @GetMapping("/reasons")
-    public ResponseEntity<List<RoleOffReason>> getRoleOffReasons() {
+    public ResponseEntity<ApiResponse<List<RoleOffReason>>> getRoleOffReasons() {
         List<RoleOffReason> reasons = List.of(RoleOffReason.values());
-        return ResponseEntity.ok(reasons);
+        return ResponseEntity.ok(ApiResponse.success("Role-off reasons retrieved successfully", reasons));
     }
 
     // ========== BULK ROLE-OFF ENDPOINTS FOR PLANNED ROLE TYPE ==========
 
     @PostMapping("/bulk-planned")
     @PreAuthorize("hasAnyRole('Project_Manager', 'Resource_Manager')")
-    public ResponseEntity<?> bulkPlannedRoleOff(
+    public ResponseEntity<ApiResponse<?>> bulkPlannedRoleOff(
             @RequestBody BulkRoleOffRequestDTO bulkRequest,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.bulkPlannedRoleOff(bulkRequest, userDTO);
@@ -215,7 +214,7 @@ public class RoleOffController {
 
     @PostMapping("/bulk-rm-approve")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> bulkRmApprove(
+    public ResponseEntity<ApiResponse<?>> bulkRmApprove(
             @RequestBody List<UUID> ids,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.bulkRmApprove(ids, userDTO);
@@ -223,7 +222,7 @@ public class RoleOffController {
 
     @PostMapping("/bulk-rm-reject")
     @PreAuthorize("hasRole('Resource_Manager')")
-    public ResponseEntity<?> bulkRmReject(
+    public ResponseEntity<ApiResponse<?>> bulkRmReject(
             @RequestBody List<UUID> ids,
             @RequestParam String rejectionReason,
             @CurrentUser UserDTO userDTO) {
@@ -232,7 +231,7 @@ public class RoleOffController {
 
     @PostMapping("/bulk-dl-fulfill")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> bulkDlFulfill(
+    public ResponseEntity<ApiResponse<?>> bulkDlFulfill(
             @RequestBody List<UUID> ids,
             @CurrentUser UserDTO userDTO) {
         return roleOffService.bulkDlFulfill(ids, userDTO);
@@ -240,7 +239,7 @@ public class RoleOffController {
 
     @PostMapping("/bulk-dl-reject")
     @PreAuthorize("hasRole('Delivery_Manager')")
-    public ResponseEntity<?> bulkDlReject(
+    public ResponseEntity<ApiResponse<?>> bulkDlReject(
             @RequestBody List<UUID> ids,
             @RequestParam String rejectionReason,
             @CurrentUser UserDTO userDTO) {

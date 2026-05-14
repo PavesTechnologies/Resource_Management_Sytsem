@@ -1,8 +1,9 @@
 package com.controller.skill_controllers;
 
+import com.dto.centralised_dto.ApiResponse;
 import com.entity.skill_entities.ProficiencyLevel;
 import com.service_interface.skill_service_interface.ProficiencyService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -12,32 +13,32 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/proficiency")
 @CrossOrigin
+@RequiredArgsConstructor
 public class ProficiencyController {
 
-    @Autowired
-    ProficiencyService proficiencyService;
+    private final ProficiencyService proficiencyService;
 
     @PostMapping("/create")
     @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<?> createProficiencyLevel(@RequestBody ProficiencyLevel proficiencyLevel) {
+    public ResponseEntity<ApiResponse<ProficiencyLevel>> createProficiencyLevel(@RequestBody ProficiencyLevel proficiencyLevel) {
         return proficiencyService.createProficiencyLevel(proficiencyLevel);
     }
 
     @PutMapping("/update/{proficiencyId}")
     @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<?> updateProficiencyLevel(@RequestBody ProficiencyLevel proficiencyLevel, @PathVariable UUID proficiencyId) {
+    public ResponseEntity<ApiResponse<ProficiencyLevel>> updateProficiencyLevel(@RequestBody ProficiencyLevel proficiencyLevel, @PathVariable UUID proficiencyId) {
         return proficiencyService.updateProficiencyLevel(proficiencyLevel, proficiencyId);
     }
 
     @GetMapping("/get-all-proficiency-levels")
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager','Project_Manager')")
-    public ResponseEntity<?> getAllProficiencyLevels() {
+    public ResponseEntity<ApiResponse<?>> getAllProficiencyLevels() {
         return proficiencyService.getAllProficiencyLevels();
     }
 
     @DeleteMapping("/delete/{proficiencyId}")
     @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<?> deleteProficiencyLevel(@PathVariable UUID proficiencyId) {
+    public ResponseEntity<ApiResponse<Void>> deleteProficiencyLevel(@PathVariable UUID proficiencyId) {
         return proficiencyService.deleteProficiencyLevel(proficiencyId);
     }
 }
