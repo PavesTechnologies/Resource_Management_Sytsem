@@ -2,15 +2,13 @@ package com;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.core.env.Environment;
-
-import java.util.Arrays;
-import java.util.List;
 
 @SpringBootApplication
+@ConfigurationPropertiesScan
 @EnableScheduling
 @EnableAsync
 @EnableAspectJAutoProxy

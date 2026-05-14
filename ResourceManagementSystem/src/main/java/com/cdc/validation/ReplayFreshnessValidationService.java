@@ -1,8 +1,8 @@
 package com.cdc.validation;
 
+import com.cdc.config.properties.CdcProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -34,15 +34,7 @@ public class ReplayFreshnessValidationService {
     
     // Freshness statistics tracking
     private final Map<String, FreshnessStatistics> statistics = new ConcurrentHashMap<>();
-
-    @Value("${cdc.freshness.default-threshold-minutes:60}")
-    private int defaultFreshnessThresholdMinutes;
-
-    @Value("${cdc.freshness.enabled:true}")
-    private boolean freshnessValidationEnabled;
-
-    @Value("${cdc.freshness.timezone:UTC}")
-    private String timezone;
+    private final CdcProperties cdcProperties;
 
     /**
      * Validate replay freshness for CDC event.
@@ -53,7 +45,7 @@ public class ReplayFreshnessValidationService {
      * @return Freshness validation result
      */
     public FreshnessValidationResult validateFreshness(String entityType, LocalDateTime eventTimestamp, String entityId) {
-        if (!freshnessValidationEnabled) {
+        if (!freshnessValidationEnabled()) {
             return FreshnessValidationResult.success("Freshness validation disabled");
         }
 
@@ -62,7 +54,7 @@ public class ReplayFreshnessValidationService {
             int thresholdMinutes = getFreshnessThreshold(entityType);
             
             // Calculate event age
-            LocalDateTime now = LocalDateTime.now(ZoneId.of(timezone));
+            LocalDateTime now = LocalDateTime.now(ZoneId.of(cdcProperties.getFreshness().getTimezone()));
             Duration eventAge = Duration.between(eventTimestamp, now);
             
             // Check if event is too old
@@ -109,7 +101,7 @@ public class ReplayFreshnessValidationService {
      * @return Freshness threshold in minutes
      */
     public int getFreshnessThreshold(String entityType) {
-        return freshnessThresholds.getOrDefault(entityType, defaultFreshnessThresholdMinutes);
+        return freshnessThresholds.getOrDefault(entityType, defaultFreshnessThresholdMinutes());
     }
 
     /**
@@ -148,8 +140,16 @@ public class ReplayFreshnessValidationService {
      * @param enabled Whether freshness validation should be enabled
      */
     public void setFreshnessValidationEnabled(boolean enabled) {
-        this.freshnessValidationEnabled = enabled;
+        cdcProperties.getFreshness().setEnabled(enabled);
         log.info("Freshness validation {}", enabled ? "enabled" : "disabled");
+    }
+
+    private int defaultFreshnessThresholdMinutes() {
+        return cdcProperties.getFreshness().getDefaultThresholdMinutes();
+    }
+
+    private boolean freshnessValidationEnabled() {
+        return cdcProperties.getFreshness().isEnabled();
     }
 
     /**

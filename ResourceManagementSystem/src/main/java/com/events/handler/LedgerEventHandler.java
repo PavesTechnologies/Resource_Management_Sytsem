@@ -1,5 +1,6 @@
 package com.events.handler;
 
+import com.cdc.config.properties.OfferLifecycleProperties;
 import com.cdc.model.CdcProcessingOutcome;
 import com.cdc.service.InboxEventProcessor;
 import com.cdc.util.CdcUtcSupport;
@@ -15,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.event.EventListener;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -41,12 +41,9 @@ public class LedgerEventHandler {
     private final CdcUtcSupport cdcUtcSupport;
     private final InboxEventProcessor inboxEventProcessor;
     private final ObjectProvider<LedgerEventHandler> ledgerEventHandlerProvider;
+    private final OfferLifecycleProperties offerLifecycleProperties;
     private final String processorOwner = System.getenv().getOrDefault("HOSTNAME", UUID.randomUUID().toString());
     private static final int MAX_RETRY_COUNT = 5;
-    @Value("${cdc.offer.waiting.max-days:45}")
-    private int offerWaitingMaxDays;
-    @Value("${cdc.offer.waiting.retry-hours:6}")
-    private int offerWaitingRetryHours;
 
     @EventListener
     @Async("ledgerEventHandlerExecutor")
@@ -232,7 +229,7 @@ public class LedgerEventHandler {
     }
 
     private void handleWaitingOutcome(LedgerEventLog eventLog, CdcProcessingOutcome processingOutcome) {
-        if (hasWaitingExceededSla(eventLog)) {
+        if (hasWaitingExceededSla(eventLog, processingOutcome.getLifecycleStatus())) {
             markCdcEventCancelled(
                     eventLog,
                     buildDependencyTimeoutMessage(eventLog, processingOutcome),
@@ -242,7 +239,7 @@ public class LedgerEventHandler {
             return;
         }
 
-        LocalDateTime nextRetryAt = cdcUtcSupport.utcDateTime(cdcUtcSupport.now().plusSeconds(offerWaitingRetryHours * 3600L));
+        LocalDateTime nextRetryAt = calculateNextWaitingRetryAt(eventLog, processingOutcome.getLifecycleStatus());
         int deferred = eventLogRepository.markCdcEventAsWaiting(
                 eventLog.getId(),
                 processorOwner,
@@ -284,15 +281,41 @@ public class LedgerEventHandler {
                 eventLog.getEventId(), eventLog.getId(), processorOwner, cancelled, offerStatus, reasonCode, errorMessage);
     }
 
-    private boolean hasWaitingExceededSla(LedgerEventLog eventLog) {
+    private boolean hasWaitingExceededSla(LedgerEventLog eventLog, String lifecycleStatus) {
         LocalDateTime referenceTime = eventLog.getCreatedAt();
-        return referenceTime != null && referenceTime.isBefore(cdcUtcSupport.utcDateTime(cdcUtcSupport.now().minusSeconds(offerWaitingMaxDays * 86400L)));
+        return referenceTime != null && referenceTime.isBefore(expirationThreshold(lifecycleStatus));
+    }
+
+    private LocalDateTime calculateNextWaitingRetryAt(LedgerEventLog eventLog, String lifecycleStatus) {
+        LocalDateTime candidate = cdcUtcSupport.utcDateTime(cdcUtcSupport.now().plus(offerLifecycleProperties.waitingRetryInterval()));
+        if (!offerLifecycleProperties.isCompletedStatus(lifecycleStatus) || eventLog.getCreatedAt() == null) {
+            return candidate;
+        }
+
+        LocalDateTime completedDeadline = eventLog.getCreatedAt().plus(offerLifecycleProperties.completedReconciliationWindow());
+        return candidate.isAfter(completedDeadline) ? completedDeadline : candidate;
+    }
+
+    private LocalDateTime expirationThreshold(String lifecycleStatus) {
+        if (offerLifecycleProperties.isCompletedStatus(lifecycleStatus)) {
+            return cdcUtcSupport.utcDateTime(cdcUtcSupport.now().minus(offerLifecycleProperties.completedReconciliationWindow()));
+        }
+        return cdcUtcSupport.utcDateTime(cdcUtcSupport.now().minus(offerLifecycleProperties.waitingWindow()));
     }
 
     private String buildDependencyTimeoutMessage(LedgerEventLog eventLog,
                                                  CdcProcessingOutcome processingOutcome) {
+        if (offerLifecycleProperties.isCompletedStatus(processingOutcome.getLifecycleStatus())) {
+            return "offer_letter_details completed-state reconciliation expired after "
+                    + offerLifecycleProperties.getCompleted().getReconciliation().getMaxMinutes()
+                    + " minute(s); cancelling orchestration cleanup"
+                    + " [eventId=" + eventLog.getEventId()
+                    + ", entityId=" + eventLog.getEntityId()
+                    + ", offerStatus=" + processingOutcome.getLifecycleStatus()
+                    + ", reason=COMPLETED_RECONCILIATION_TIMEOUT]";
+        }
         return "offer_letter_details waiting expired after "
-                + offerWaitingMaxDays
+                + offerLifecycleProperties.getWaiting().getMaxDays()
                 + " day(s); cancelling orchestration cleanup"
                 + " [eventId=" + eventLog.getEventId()
                 + ", entityId=" + eventLog.getEntityId()

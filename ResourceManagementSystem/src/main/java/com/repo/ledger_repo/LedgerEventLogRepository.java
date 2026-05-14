@@ -289,6 +289,37 @@ public interface LedgerEventLogRepository extends JpaRepository<LedgerEventLog, 
                                        @Param("nextRetryAt") LocalDateTime nextRetryAt,
                                        @Param("updatedAt") LocalDateTime updatedAt);
 
+    @Query("""
+        SELECT lel.id FROM LedgerEventLog lel
+        WHERE lel.connectorName = :connectorName
+          AND lel.sourceTable = :sourceTable
+          AND lel.status = :waitingStatus
+          AND lel.entityId IN :entityIds
+        ORDER BY lel.createdAt ASC
+        """)
+    List<Long> findWaitingDependencyEventIds(@Param("connectorName") String connectorName,
+                                             @Param("sourceTable") String sourceTable,
+                                             @Param("waitingStatus") EventStatus waitingStatus,
+                                             @Param("entityIds") List<String> entityIds,
+                                             Pageable pageable);
+
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE LedgerEventLog lel
+        SET lel.status = :retryStatus,
+            lel.errorMessage = null,
+            lel.nextRetryAt = :nextRetryAt,
+            lel.updatedAt = :updatedAt
+        WHERE lel.id IN :ids
+          AND lel.status = :waitingStatus
+        """)
+    int releaseWaitingDependencyEventsByIds(@Param("ids") List<Long> ids,
+                                            @Param("waitingStatus") EventStatus waitingStatus,
+                                            @Param("retryStatus") EventStatus retryStatus,
+                                            @Param("nextRetryAt") LocalDateTime nextRetryAt,
+                                            @Param("updatedAt") LocalDateTime updatedAt);
+
     @Modifying
     @Transactional
     @Query("""
@@ -313,6 +344,33 @@ public interface LedgerEventLogRepository extends JpaRepository<LedgerEventLog, 
                                              @Param("errorMessage") String errorMessage,
                                              @Param("completedAt") LocalDateTime completedAt,
                                              @Param("updatedAt") LocalDateTime updatedAt);
+
+    @Modifying
+    @Transactional
+    @Query("""
+        UPDATE LedgerEventLog lel
+        SET lel.status = :cancelledStatus,
+            lel.processedFlag = true,
+            lel.errorMessage = :errorMessage,
+            lel.nextRetryAt = null,
+            lel.processingCompletedAt = :completedAt,
+            lel.claimOwner = null,
+            lel.updatedAt = :updatedAt
+        WHERE lel.connectorName = :connectorName
+          AND lel.sourceTable = :sourceTable
+          AND lel.status = :waitingStatus
+          AND lel.createdAt < :cutoffDate
+          AND LOWER(COALESCE(lel.errorMessage, '')) LIKE LOWER(CONCAT('%status=', :lifecycleStatus, '%'))
+        """)
+    int cancelExpiredWaitingDependencyEventsByLifecycleStatus(@Param("connectorName") String connectorName,
+                                                              @Param("sourceTable") String sourceTable,
+                                                              @Param("waitingStatus") EventStatus waitingStatus,
+                                                              @Param("cancelledStatus") EventStatus cancelledStatus,
+                                                              @Param("cutoffDate") LocalDateTime cutoffDate,
+                                                              @Param("errorMessage") String errorMessage,
+                                                              @Param("lifecycleStatus") String lifecycleStatus,
+                                                              @Param("completedAt") LocalDateTime completedAt,
+                                                              @Param("updatedAt") LocalDateTime updatedAt);
 
     @Modifying
     @Transactional

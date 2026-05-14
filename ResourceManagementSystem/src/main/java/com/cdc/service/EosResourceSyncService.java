@@ -1,5 +1,7 @@
 package com.cdc.service;
 
+import com.cdc.config.properties.OfferLifecycleProperties;
+import com.cdc.event.EmployeeDetailsCommittedEvent;
 import com.cdc.model.CdcProcessingOutcome;
 import com.cdc.protection.StaleEventProtectionService;
 import com.cdc.util.CdcUtcSupport;
@@ -13,9 +15,12 @@ import com.repo.resource_repo.ResourceRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Struct;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -40,18 +45,24 @@ public class EosResourceSyncService {
     private final StaleEventProtectionService staleEventProtectionService;
     private final CdcUtcSupport cdcUtcSupport;
     private final LedgerEventLogRepository ledgerEventLogRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final OfferLifecycleProperties offerLifecycleProperties;
 
     public EosResourceSyncService(
             ResourceRepository resourceRepository,
             @Qualifier("eosJdbcTemplate") JdbcTemplate eosJdbcTemplate,
             StaleEventProtectionService staleEventProtectionService,
             CdcUtcSupport cdcUtcSupport,
-            LedgerEventLogRepository ledgerEventLogRepository) {
+            LedgerEventLogRepository ledgerEventLogRepository,
+            ApplicationEventPublisher applicationEventPublisher,
+            OfferLifecycleProperties offerLifecycleProperties) {
         this.resourceRepository = resourceRepository;
         this.eosJdbcTemplate = eosJdbcTemplate;
         this.staleEventProtectionService = staleEventProtectionService;
         this.cdcUtcSupport = cdcUtcSupport;
         this.ledgerEventLogRepository = ledgerEventLogRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.offerLifecycleProperties = offerLifecycleProperties;
     }
 
     @Transactional
@@ -137,7 +148,7 @@ public class EosResourceSyncService {
 
         resource.setChangedAt(resolveChangedAt(data, sourceTimestamp));
         resourceRepository.save(resource);
-        releaseWaitingOfferEvents(employeeId, getMapString(data, "work_email"));
+        publishEmployeeDetailsCommittedEvent(employeeId, getMapString(data, "work_email"));
         log.info("employee_details synced successfully for resourceId={}", employeeId);
     }
 
@@ -441,6 +452,17 @@ public class EosResourceSyncService {
             );
         }
 
+        if (offerLifecycleProperties.isCompletedStatus(offerStatus)) {
+            String message = "offer_letter_details deferred for completed-state reconciliation because employee lifecycle dependency is not ready"
+                    + " [entityRef=" + entityRef + ", status=" + offerStatus + ", detail=" + detail + "]";
+            log.info(message);
+            return CdcProcessingOutcome.waiting(
+                    message,
+                    "COMPLETED_RECONCILIATION_PENDING",
+                    offerStatus
+            );
+        }
+
         if (isCancelledOfferStatus(offerStatus)) {
             String reasonCode = "Rejected".equalsIgnoreCase(offerStatus)
                     ? "OFFER_REJECTED"
@@ -457,26 +479,58 @@ public class EosResourceSyncService {
         throw new IllegalStateException(message);
     }
 
-    private void releaseWaitingOfferEvents(String employeeId, String workEmail) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int releaseWaitingOfferEventsAfterCommit(String employeeId, String workEmail) {
         List<String> entityIds = new ArrayList<>(deduplicateEntityIds(employeeId, workEmail));
         if (entityIds.isEmpty()) {
-            return;
+            return 0;
         }
 
-        LocalDateTime now = cdcUtcSupport.utcDateTime(cdcUtcSupport.now());
-        int released = ledgerEventLogRepository.releaseWaitingDependencyEvents(
-                "EOS",
-                "offer_letter_details",
-                EventStatus.WAITING_FOR_DEPENDENCY,
-                EventStatus.RETRY_SCHEDULED,
-                entityIds,
-                now,
-                now
-        );
-        if (released > 0) {
-            log.info("Released {} waiting offer_letter_details event(s) after employee_details sync for employeeId={}, workEmail={}",
-                    released, employeeId, workEmail);
+        int released = 0;
+        int batchNumber = 0;
+
+        while (true) {
+            List<Long> waitingIds = ledgerEventLogRepository.findWaitingDependencyEventIds(
+                    "EOS",
+                    "offer_letter_details",
+                    EventStatus.WAITING_FOR_DEPENDENCY,
+                    entityIds,
+                    PageRequest.of(0, offerLifecycleProperties.getWaiting().getReleaseBatchSize())
+            );
+
+            if (waitingIds.isEmpty()) {
+                break;
+            }
+
+            batchNumber++;
+            LocalDateTime now = cdcUtcSupport.utcDateTime(cdcUtcSupport.now());
+            int batchReleased = ledgerEventLogRepository.releaseWaitingDependencyEventsByIds(
+                    waitingIds,
+                    EventStatus.WAITING_FOR_DEPENDENCY,
+                    EventStatus.RETRY_SCHEDULED,
+                    now,
+                    now
+            );
+            released += batchReleased;
+
+            log.info("Released waiting offer_letter_details batch after employee_details commit: employeeId={}, workEmail={}, batchNumber={}, candidateIds={}, rowsUpdated={}",
+                    employeeId, workEmail, batchNumber, waitingIds.size(), batchReleased);
+
+            if (waitingIds.size() < offerLifecycleProperties.getWaiting().getReleaseBatchSize()) {
+                break;
+            }
         }
+
+        if (released > 0) {
+            log.info("Released {} waiting offer_letter_details event(s) after employee_details commit for employeeId={}, workEmail={}, batchSize={}",
+                    released, employeeId, workEmail, offerLifecycleProperties.getWaiting().getReleaseBatchSize());
+        }
+
+        return released;
+    }
+
+    private void publishEmployeeDetailsCommittedEvent(String employeeId, String workEmail) {
+        applicationEventPublisher.publishEvent(new EmployeeDetailsCommittedEvent(employeeId, workEmail));
     }
 
     private Set<String> deduplicateEntityIds(String employeeId, String workEmail) {
@@ -491,25 +545,16 @@ public class EosResourceSyncService {
     }
 
     private boolean isWaitingOfferStatus(String offerStatus) {
-        if (offerStatus == null) {
-            return false;
-        }
         return "Offered".equalsIgnoreCase(offerStatus)
-                || "Accepted".equalsIgnoreCase(offerStatus)
-                || "Submitted".equalsIgnoreCase(offerStatus)
-                || "Verified".equalsIgnoreCase(offerStatus)
-                || "Joining".equalsIgnoreCase(offerStatus)
-                || "Joining Pending".equalsIgnoreCase(offerStatus)
-                || "Rescheduled".equalsIgnoreCase(offerStatus);
+                || offerLifecycleProperties.isWaitingStatus(offerStatus);
     }
 
     private boolean isCancelledOfferStatus(String offerStatus) {
-        return "Rejected".equalsIgnoreCase(offerStatus)
-                || "Created".equalsIgnoreCase(offerStatus);
+        return offerLifecycleProperties.isImmediateCancelStatus(offerStatus);
     }
 
     private boolean isNonActionableOfferStatus(String offerStatus) {
-        return isCancelledOfferStatus(offerStatus);
+        return offerLifecycleProperties.isNonActionableStatus(offerStatus);
     }
 
     private String normalizeOfferStatus(String offerStatus) {
