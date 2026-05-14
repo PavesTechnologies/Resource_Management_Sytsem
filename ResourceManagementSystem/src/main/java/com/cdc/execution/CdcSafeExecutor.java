@@ -14,7 +14,8 @@ public class CdcSafeExecutor {
 
     /**
      * Executes CDC logic safely.
-     * Any exception is captured and stored.
+     * Any exception is captured, stored, and rethrown so Debezium does not
+     * acknowledge progress without durable recovery state.
      */
     public void execute(
             String entityType,
@@ -36,8 +37,9 @@ public class CdcSafeExecutor {
                     payload
             );
 
-            // IMPORTANT:
-            // Exception is swallowed to keep Debezium alive
+            log.error("CDC execution failed for entityType={}, entityId={}, operation={}: {}",
+                    entityType, entityId, operation, ex.getMessage(), ex);
+            throw ex;
         }
     }
 }

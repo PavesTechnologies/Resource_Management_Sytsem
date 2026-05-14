@@ -3,8 +3,10 @@ package com.cdc.config;
 import com.cdc.listener.EosCdcHandler;
 import com.cdc.listener.PmsCdcHandler;
 import com.cdc.runner.UnifiedDebeziumRunner;
+import com.cdc.service.CdcConnectorLeadershipService;
 import io.debezium.config.Configuration;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -19,6 +21,9 @@ import org.springframework.context.annotation.Bean;
 @org.springframework.context.annotation.Configuration
 public class UnifiedCdcRunnerConfig {
 
+    @Value("${cdc.enabled:true}")
+    private boolean cdcEnabled;
+
     /**
      * PMS CDC Runner bean.
      * Uses PMS-specific configuration and handler.
@@ -26,12 +31,15 @@ public class UnifiedCdcRunnerConfig {
     @Bean("pmsDebeziumRunner")
     public UnifiedDebeziumRunner pmsDebeziumRunner(
             Configuration debeziumConfiguration,
-            PmsCdcHandler pmsCdcHandler) {
+            PmsCdcHandler pmsCdcHandler,
+            CdcConnectorLeadershipService leadershipService) {
         
         return new UnifiedDebeziumRunner(
                 debeziumConfiguration,
                 pmsCdcHandler::handleEvent,
-                "PMS"
+                "PMS",
+                cdcEnabled,
+                leadershipService
         );
     }
 
@@ -42,12 +50,15 @@ public class UnifiedCdcRunnerConfig {
     @Bean("eosDebeziumRunner")
     public UnifiedDebeziumRunner eosDebeziumRunner(
             @Qualifier("eosDebeziumConfiguration") Configuration eosDebeziumConfiguration,
-            EosCdcHandler eosCdcHandler) {
+            EosCdcHandler eosCdcHandler,
+            CdcConnectorLeadershipService leadershipService) {
         
         return new UnifiedDebeziumRunner(
                 eosDebeziumConfiguration,
                 eosCdcHandler::handleEvent,
-                "EOS"
+                "EOS",
+                cdcEnabled,
+                leadershipService
         );
     }
 }

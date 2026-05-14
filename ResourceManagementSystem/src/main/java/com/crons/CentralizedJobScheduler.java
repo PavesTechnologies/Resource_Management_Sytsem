@@ -2,6 +2,7 @@ package com.crons;
 
 import com.cdc.retry.UnifiedCdcRetryService;
 import com.events.handler.DeadLetterQueueService;
+import com.events.handler.LedgerEventHandler;
 import com.service_imple.allocation_service_imple.AllocationServiceImpl;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.bench_service_impl.ResourceStateInitializationService;
@@ -43,6 +44,7 @@ public class CentralizedJobScheduler {
     private final LedgerRetryService ledgerRetryService;
     private final DeadLetterQueueService deadLetterQueueService;
     private final UnifiedCdcRetryService unifiedCdcRetryService;
+    private final LedgerEventHandler ledgerEventHandler;
     private final ResourceStateInitializationService resourceStateService;
     private final JobLoggingService jobLoggingService;
 
@@ -53,6 +55,7 @@ public class CentralizedJobScheduler {
             LedgerRetryService ledgerRetryService,
             DeadLetterQueueService deadLetterQueueService,
             UnifiedCdcRetryService unifiedCdcRetryService,
+            LedgerEventHandler ledgerEventHandler,
             ResourceStateInitializationService resourceStateService,
             JobLoggingService jobLoggingService) {
         this.certificateExpiryScheduler = certificateExpiryScheduler;
@@ -61,6 +64,7 @@ public class CentralizedJobScheduler {
         this.ledgerRetryService = ledgerRetryService;
         this.deadLetterQueueService = deadLetterQueueService;
         this.unifiedCdcRetryService = unifiedCdcRetryService;
+        this.ledgerEventHandler = ledgerEventHandler;
         this.resourceStateService = resourceStateService;
         this.jobLoggingService = jobLoggingService;
     }
@@ -162,6 +166,17 @@ public class CentralizedJobScheduler {
                 unifiedCdcRetryService::processFailedCdcEvents);
         runJob("CDC-DLQ-RETRY",
                 unifiedCdcRetryService::processCdcDlqEntries);
+    }
+
+    @Scheduled(fixedDelayString = "${cdc.inbox.poll-interval-ms:5000}")
+    @SchedulerLock(
+            name = "RMS_CDC_Inbox_Processor",
+            lockAtLeastFor = "PT1S",
+            lockAtMostFor = "PT30S"
+    )
+    public void runCdcInboxProcessor() {
+        runJob("CDC-INBOX-PROCESSOR",
+                () -> ledgerEventHandler.processPendingCdcEvents(25));
     }
 
     // ═══════════════════════════════════════════════════════════════════════
