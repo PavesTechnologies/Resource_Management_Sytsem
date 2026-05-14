@@ -119,6 +119,8 @@ public class CentralizedJobScheduler {
                 ledgerRetryService::cleanupOldDlqEntries);
         runJob("DLQ-CLEANUP-DEADLETTER",
                 deadLetterQueueService::cleanupOldEntries);
+        runJob("CDC-CLEANUP",
+                unifiedCdcRetryService::cleanupOldCdcFailures);
         runJob("RESOURCE-STATE-CHECK",
                 resourceStateService::dailyResourceStateCheck);
         runJob("DELETE-OLD-JOB-LOGS",

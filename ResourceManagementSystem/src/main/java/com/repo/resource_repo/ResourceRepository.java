@@ -16,6 +16,8 @@ public interface ResourceRepository extends JpaRepository<Resource, String> {
     Optional<Resource> findByEmail(String email);
     boolean existsByEmail(String email);
 
+    Optional<Resource> findByEmailIgnoreCase(String email);
+
     @Query("SELECT DISTINCT r.workingLocation FROM Resource r")
     List<String> findDistinctLocations();
 

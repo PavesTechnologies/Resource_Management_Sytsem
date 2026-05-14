@@ -14,20 +14,20 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "ledger_event_log",
-       indexes = {
-           @Index(name = "idx_event_id", columnList = "event_id"),
-           @Index(name = "idx_resource_id", columnList = "resource_id"),
-           @Index(name = "idx_event_type", columnList = "event_type"),
-           @Index(name = "idx_event_hash", columnList = "event_hash"),
-           @Index(name = "idx_processed_flag", columnList = "processed_flag"),
-           @Index(name = "idx_status", columnList = "status"),
-           @Index(name = "idx_next_retry_at", columnList = "next_retry_at"),
-           @Index(name = "idx_connector_name", columnList = "connector_name"),
-           @Index(name = "idx_entity_type", columnList = "entity_type"),
-           @Index(name = "idx_entity_id", columnList = "entity_id"),
-           @Index(name = "idx_claim_owner", columnList = "claim_owner"),
-           @Index(name = "idx_created_at", columnList = "created_at")
-       })
+        indexes = {
+                @Index(name = "idx_event_id", columnList = "event_id"),
+                @Index(name = "idx_resource_id", columnList = "resource_id"),
+                @Index(name = "idx_event_type", columnList = "event_type"),
+                @Index(name = "idx_event_hash", columnList = "event_hash"),
+                @Index(name = "idx_processed_flag", columnList = "processed_flag"),
+                @Index(name = "idx_status", columnList = "status"),
+                @Index(name = "idx_next_retry_at", columnList = "next_retry_at"),
+                @Index(name = "idx_connector_name", columnList = "connector_name"),
+                @Index(name = "idx_entity_type", columnList = "entity_type"),
+                @Index(name = "idx_entity_id", columnList = "entity_id"),
+                @Index(name = "idx_claim_owner", columnList = "claim_owner"),
+                @Index(name = "idx_created_at", columnList = "created_at")
+        })
 @Data
 @Builder
 @NoArgsConstructor
@@ -38,34 +38,34 @@ public class LedgerEventLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "event_id", nullable = false, unique = true, length = 100)
+    @Column(name = "event_id", nullable = false, unique = true, length = 255)
     private String eventId;
 
-    @Column(name = "resource_id", nullable = false, length = 20)
+    @Column(name = "resource_id", nullable = false, length = 255)
     private String resourceId;
 
-    @Column(name = "event_type", nullable = false, length = 50)
+    @Column(name = "event_type", nullable = false, length = 100)
     private String eventType;
 
-    @Column(name = "event_hash", nullable = false, length = 64)
+    @Column(name = "event_hash", nullable = false, length = 128)
     private String eventHash;
 
-    @Column(name = "connector_name", length = 50)
+    @Column(name = "connector_name", length = 100)
     private String connectorName;
 
-    @Column(name = "entity_type", length = 100)
+    @Column(name = "entity_type", length = 255)
     private String entityType;
 
-    @Column(name = "entity_id", length = 100)
+    @Column(name = "entity_id", length = 255)
     private String entityId;
 
-    @Column(name = "source_table", length = 100)
+    @Column(name = "source_table", length = 255)
     private String sourceTable;
 
-    @Column(name = "operation_type", length = 20)
+    @Column(name = "operation_type", length = 50)
     private String operationType;
 
-    @Column(name = "event_source", length = 50)
+    @Column(name = "event_source", length = 100)
     private String eventSource;
 
     @Column(name = "payload", columnDefinition = "LONGTEXT")
@@ -77,10 +77,10 @@ public class LedgerEventLog {
     @Column(name = "claimed_at")
     private Instant claimedAt;
 
-    @Column(name = "claim_owner", length = 120)
+    @Column(name = "claim_owner", length = 255)
     private String claimOwner;
 
-    @Column(name = "replay_of_event_id", length = 100)
+    @Column(name = "replay_of_event_id", length = 255)
     private String replayOfEventId;
 
     @Column(name = "last_error_at")
@@ -93,7 +93,7 @@ public class LedgerEventLog {
     private Integer retryCount;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 50)
     private EventStatus status;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
