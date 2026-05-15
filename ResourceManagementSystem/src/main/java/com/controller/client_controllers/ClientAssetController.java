@@ -5,6 +5,7 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.client_dto.SerialNumberDto;
 import com.entity.client_entities.ClientAsset;
 import com.service_imple.client_service_impl.ClientAssetServiceImpl;
+import com.service_interface.client_service_interface.ClientAssetService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/client-assets")
 public class ClientAssetController {
-    private final ClientAssetServiceImpl service;
+    private final ClientAssetService service;
 
     public ClientAssetController(ClientAssetServiceImpl service) {
         this.service = service;
