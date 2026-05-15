@@ -39,11 +39,11 @@ public interface ClientAssetService {
     ApiResponse<?> getAssetsByClient(UUID ClientId);
     ApiResponse<ClientAsset> getAssetById(UUID assetId);
 
-    Map<String, Object> getAssetManagementDashboard();
-    Map<String, Object> getTotalAssetsCount();
-    Map<String, Object> getAssignedAssetsCount();
-    Map<String, Object> getAvailableAssetsCount();
-    Map<String, Object> getAssetUtilizationPercentage();
+//    Map<String, Object> getAssetManagementDashboard();
+//    Map<String, Object> getTotalAssetsCount();
+//    Map<String, Object> getAssignedAssetsCount();
+//    Map<String, Object> getAvailableAssetsCount();
+//    Map<String, Object> getAssetUtilizationPercentage();
     Map<String, Object> getAssetDashboardByClient(UUID clientId);
 
     /**
