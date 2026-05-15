@@ -315,84 +315,73 @@ public class ProjectGovernanceServiceImpl implements ProjectGovernanceService {
     @Override
     public ResponseEntity<ApiResponse<?>> getProjectKpi() {
         try {
+
             // Total Projects count (excluding completed projects)
             List<ProjectStatus> nonCompletedStatuses = List.of(
-                ProjectStatus.ACTIVE,
-                ProjectStatus.APPROVED,
-                ProjectStatus.ARCHIVED,
-                ProjectStatus.PLANNING
+                    ProjectStatus.ACTIVE,
+                    ProjectStatus.APPROVED,
+                    ProjectStatus.ARCHIVED,
+                    ProjectStatus.PLANNING
             );
-            Long totalProjects = projectRepository.countByProjectStatuses(nonCompletedStatuses);
+
+            Long totalProjects =
+                    projectRepository.countByProjectStatuses(nonCompletedStatuses);
 
             // Active Projects count
-            Long activeProjects = projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
+            Long activeProjects =
+                    projectRepository.countByProjectStatus(ProjectStatus.ACTIVE);
 
             // High Risk Projects count
-            Long highRiskProjects = projectRepository.countByRiskLevel(RiskLevel.HIGH);
+            Long highRiskProjects =
+                    projectRepository.countByRiskLevel(RiskLevel.HIGH);
 
-            // Calculate Average Resource Utilization using real allocation data
-            Double avgResourceUtil = 0.0;
-            String calculationSource = "default";
-            
-            System.out.println("=== KPI CALCULATION DEBUG START ===");
-            System.out.println("Total Projects: " + totalProjects);
-            System.out.println("Active Projects: " + activeProjects);
-            System.out.println("High Risk Projects: " + highRiskProjects);
-            
-            try {
-                System.out.println("Attempting to get real utilization from allocationRepository...");
-                
-                // Test basic query first
-                Long activeAllocCount = allocationRepository.count();
-                System.out.println("Total allocations in DB: " + activeAllocCount);
-                
-                // Get real average utilization from active allocations
-                Double realUtilization = allocationRepository.calculateAverageUtilization();
-                System.out.println("Raw realUtilization from DB: " + realUtilization);
-                
-                if (realUtilization != null) {
-                    avgResourceUtil = realUtilization;
-                    calculationSource = "real_allocation_data";
-                    System.out.println("SUCCESS: Using real utilization: " + avgResourceUtil);
-                } else {
-                    System.out.println("WARNING: realUtilization is null");
-                    // Fallback to previous calculation if real data is null
-                    if (totalProjects != null && totalProjects > 0) {
-                        avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
-                        calculationSource = "fallback_project_ratio_null";
-                        System.out.println("FALLBACK (null): Using project ratio: " + avgResourceUtil);
-                    }
-                }
-            } catch (Exception e) {
-                System.out.println("ERROR: Exception in real utilization calculation: " + e.getMessage());
-                e.printStackTrace();
-                // Fallback to previous calculation if real data fails
-                if (totalProjects != null && totalProjects > 0) {
-                    avgResourceUtil = (double) (activeProjects * 100) / totalProjects;
-                    calculationSource = "fallback_project_ratio_exception";
-                    System.out.println("FALLBACK (exception): Using project ratio: " + avgResourceUtil);
-                }
+            // REAL Average Resource Utilization from allocations
+            Double avgResourceUtil =
+                    allocationRepository.calculateAverageUtilization();
+
+            if (avgResourceUtil == null) {
+                avgResourceUtil = 0.0;
             }
-            
-            System.out.println("Final calculationSource: " + calculationSource);
-            System.out.println("Final avgResourceUtil: " + avgResourceUtil);
-            System.out.println("=== KPI CALCULATION DEBUG END ===");
 
-            // Create ProjectKpiDTO with the calculated KPI data
+            // Round to 2 decimal places
+            avgResourceUtil =
+                    Math.round(avgResourceUtil * 100.0) / 100.0;
+
+            // Create KPI DTO
             ProjectKpiDTO projectKpiDTO = new ProjectKpiDTO();
-            projectKpiDTO.setTotalProjects(totalProjects != null ? totalProjects : 0L);
-            projectKpiDTO.setActiveProjects(activeProjects != null ? activeProjects : 0L);
-            projectKpiDTO.setHighRiskProjects(highRiskProjects != null ? highRiskProjects : 0L);
+
+            projectKpiDTO.setTotalProjects(
+                    totalProjects != null ? totalProjects : 0L
+            );
+
+            projectKpiDTO.setActiveProjects(
+                    activeProjects != null ? activeProjects : 0L
+            );
+
+            projectKpiDTO.setHighRiskProjects(
+                    highRiskProjects != null ? highRiskProjects : 0L
+            );
+
             projectKpiDTO.setAvgResourceUtil(avgResourceUtil);
 
-            // Add debug info to message for verification
-            String message = "Project KPI data retrieved successfully (Source: " + calculationSource + ", Utilization: " + avgResourceUtil + "%)";
-            return ResponseEntity.ok(new ApiResponse<>(true, message, projectKpiDTO));
+            return ResponseEntity.ok(
+                    new ApiResponse<>(
+                            true,
+                            "Project KPI data retrieved successfully",
+                            projectKpiDTO
+                    )
+            );
 
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                new ApiResponse<>(false, "Failed to retrieve project KPI data: " + e.getMessage(), null)
-            );
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(
+                            new ApiResponse<>(
+                                    false,
+                                    "Failed to retrieve project KPI data: " + e.getMessage(),
+                                    null
+                            )
+                    );
         }
     }
 }

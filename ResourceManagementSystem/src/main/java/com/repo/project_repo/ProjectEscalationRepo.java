@@ -60,4 +60,32 @@ public interface ProjectEscalationRepo extends JpaRepository<ProjectEscalation, 
             @Param("contactName") String contactName, 
             @Param("projectId") Long projectId,
             @Param("excludeId") UUID excludeId);
+
+    boolean existsByPhoneAndProject_PmsProjectId(String phone, Long projectId);
+
+    @Query("""
+       SELECT pe FROM ProjectEscalation pe
+       WHERE pe.project.pmsProjectId = :projectId
+       AND pe.phone = :phone
+       AND pe.projectEscalationId != :excludeId
+       """)
+    Optional<ProjectEscalation> findByPhoneAndProjectIdExcludingId(
+            @Param("phone") String phone,
+            @Param("projectId") Long projectId,
+            @Param("excludeId") UUID excludeId);
+
+    boolean existsByProject_PmsProjectIdAndContactRoleAndEscalationLevel(Long projectId, String contactRole, String escalationLevel);
+
+    @Query("""
+       SELECT pe FROM ProjectEscalation pe
+       WHERE pe.project.pmsProjectId = :projectId
+       AND pe.contactRole = :contactRole
+       AND pe.escalationLevel = :escalationLevel
+       AND pe.projectEscalationId != :excludeId
+       """)
+    Optional<ProjectEscalation> findByProjectIdAndContactRoleAndEscalationLevelExcludingId(
+            @Param("projectId") Long projectId,
+            @Param("contactRole") String contactRole,
+            @Param("escalationLevel") String escalationLevel,
+            @Param("excludeId") UUID excludeId);
 }

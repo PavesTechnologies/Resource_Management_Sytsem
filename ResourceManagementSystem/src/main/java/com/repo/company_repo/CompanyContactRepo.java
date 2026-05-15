@@ -77,4 +77,17 @@ public interface CompanyContactRepo extends JpaRepository<CompanyEscalationConta
             @Param("contactRole") ContactRole contactRole,
             @Param("escalationLevel") String escalationLevel,
             @Param("excludeId") UUID excludeId);
+
+    boolean existsByPhoneAndCompany_CompanyId(String phone, UUID companyId);
+
+    @Query("""
+       SELECT c FROM CompanyEscalationContact c
+       WHERE c.company.companyId = :companyId
+       AND c.phone = :phone
+       AND c.contactId != :excludeId
+       """)
+    Optional<CompanyEscalationContact> findByPhoneAndCompanyIdExcludingId(
+            @Param("phone") String phone,
+            @Param("companyId") UUID companyId,
+            @Param("excludeId") UUID excludeId);
 }
