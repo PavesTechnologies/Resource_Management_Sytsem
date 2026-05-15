@@ -672,9 +672,9 @@ public class AllocationServiceImpl implements AllocationService {
 
     private Integer calculateRemainingAllocationPercentage(String resourceId, LocalDate startDate, LocalDate endDate, UUID currentId) {
         try {
-            int total = allocationRepository.findConflictingAllocations(resourceId, startDate.minusDays(1), endDate.plusDays(1))
-                    .stream().filter(a -> !a.getAllocationId().equals(currentId)).mapToInt(ResourceAllocation::getAllocationPercentage).sum();
-            return Math.max(0, 130 - total);
+            int total = allocationRepository.findConflictingAllocations(resourceId, startDate, endDate)
+                    .stream().filter(a -> a.getAllocationId().equals(currentId)).mapToInt(ResourceAllocation::getAllocationPercentage).sum();
+            return Math.max(0, 100 - total);
         } catch (Exception e) {
             log.error("Error calculating remaining capacity for {}: {}", resourceId, e.getMessage());
             return 130;

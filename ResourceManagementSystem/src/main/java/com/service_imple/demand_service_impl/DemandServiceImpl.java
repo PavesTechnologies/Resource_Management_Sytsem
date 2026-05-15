@@ -2244,7 +2244,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     
     @Override
     @Cacheable(value = "demands", key = "#demandId")
-    public ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId) {
+    public ResponseEntity<ApiResponse<DemandDetailNestedResponseDTO>> getDemandById(UUID demandId) {
         try {
             // Validate demand ID
             if (demandId == null) {
