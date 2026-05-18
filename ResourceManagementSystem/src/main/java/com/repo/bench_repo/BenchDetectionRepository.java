@@ -18,20 +18,28 @@ import java.util.Optional;
 public interface BenchDetectionRepository extends JpaRepository<ResourceState, Long> {
 
     /**
-     * Find resources eligible for bench detection
-     * Resources with NO active allocation and meeting eligibility criteria
+     * Find resources eligible for bench detection.
+     * Excludes resources that have a PLANNED allocation starting on or before lookAheadDate
+     * to avoid falsely benching resources in short inter-project gaps.
      */
     @Query("""
         SELECT DISTINCT r.resourceId
         FROM Resource r
-        LEFT JOIN ResourceAllocation a 
+        LEFT JOIN ResourceAllocation a
           ON a.resource = r
           AND a.allocationStatus = 'ACTIVE'
         WHERE a.id IS NULL
           AND r.activeFlag = true
           AND (r.noticeStartDate IS NULL OR r.noticeStartDate > :currentDate)
+          AND NOT EXISTS (
+              SELECT 1 FROM ResourceAllocation future
+              WHERE future.resource = r
+                AND future.allocationStatus = 'PLANNED'
+                AND future.allocationStartDate <= :lookAheadDate
+          )
         """)
-    List<String> findBenchEligibleResources(@Param("currentDate") LocalDate currentDate);
+    List<String> findBenchEligibleResources(@Param("currentDate") LocalDate currentDate,
+                                            @Param("lookAheadDate") LocalDate lookAheadDate);
 
     /**
      * Find current active state for a resource by resourceId and currentFlag

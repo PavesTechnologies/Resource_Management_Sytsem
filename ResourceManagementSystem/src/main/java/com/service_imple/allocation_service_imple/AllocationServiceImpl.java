@@ -74,16 +74,16 @@ public class AllocationServiceImpl implements AllocationService {
             DemandProjectData demandProjectData = validationService.validateDemandOrProject(allocationRequest);
             
             // Validate that demand is approved by delivery manager before allowing allocation
-            if (allocationRequest.getDemandId() != null && demandProjectData.getDemand() != null) {
-                Demand demand = demandProjectData.getDemand();
-                if (demand.getDemandStatus() != DemandStatus.APPROVED) {
-                    throw new AllocationExceptionHandler(
-                        HttpStatus.BAD_REQUEST,
-                        "DEMAND_NOT_APPROVED",
-                        "Cannot allocate resources to demand '" + demand.getDemandName() + "'. Demand must be approved by Delivery Manager before resource allocation. Current status: " + demand.getDemandStatus()
-                    );
-                }
-            }
+//            if (allocationRequest.getDemandId() != null && demandProjectData.getDemand() != null) {
+//                Demand demand = demandProjectData.getDemand();
+//                if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+//                    throw new AllocationExceptionHandler(
+//                        HttpStatus.BAD_REQUEST,
+//                        "DEMAND_NOT_APPROVED",
+//                        "Cannot allocate resources to demand '" + demand.getDemandName() + "'. Demand must be approved by Delivery Manager before resource allocation. Current status: " + demand.getDemandStatus()
+//                    );
+//                }
+//            }
             
             AllocationPreloadedData preloadedData = validationService.preloadAllocationData(allocationRequest, demandProjectData.getDemand());
             AllocationValidationResult validationResult = validationService.validateResourcesInParallel(allocationRequest, demandProjectData, preloadedData);
@@ -699,6 +699,19 @@ public class AllocationServiceImpl implements AllocationService {
             }
         } catch (Exception e) {
             log.error("Failed to process auto-closures: {}", e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void activatePlannedAllocations() {
+        try {
+            LocalDate today = LocalDate.now();
+            int updated = allocationRepository.activatePlannedAllocations(today);
+            if (updated > 0) {
+                log.info("Activated {} planned allocations with start date on or before {}", updated, today);
+            }
+        } catch (Exception e) {
+            log.error("Failed to activate planned allocations: {}", e.getMessage());
         }
     }
 }
