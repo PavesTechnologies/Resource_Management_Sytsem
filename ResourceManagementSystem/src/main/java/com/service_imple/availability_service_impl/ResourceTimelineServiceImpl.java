@@ -69,7 +69,11 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "resource-timelines", key = "#startDate + '-' + #endDate + '-' + #designation + '-' + #location + '-' + #minExp + '-' + #maxExp + '-' + #employmentType + '-' + #status + '-' + #search + '-' + #allocationPercentage + '-' + #project + '-' + #page + '-' + #size")
+    @Cacheable(
+        value = "resource-timelines",
+        key = "#startDate + '-' + #endDate + '-' + (#designation ?: 'ALL') + '-' + (#location ?: 'ALL') + '-' + (#minExp ?: '0') + '-' + (#maxExp ?: '999') + '-' + (#employmentType ?: 'ALL') + '-' + (#status ?: 'ALL') + '-' + (#search ?: '') + '-' + (#allocationPercentage ?: '0') + '-' + (#project ?: 'ALL') + '-' + #page + '-' + #size",
+        unless = "#search != null && !#search.isEmpty()"
+    )
     public ApiResponse<?> getResourceTimelineWindow(
             LocalDate startDate,
             LocalDate endDate,
