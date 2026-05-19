@@ -104,7 +104,7 @@ public class ResourceServiceImpl implements ResourceService {
         ledgerRepository.deleteByResourceId(resourceId);
         resourceRepository.delete(existing);
         resourceEventService.triggerLedgerCleanupAfterDelete(resourceId);
-        return ResponseEntity.ok(ApiResponse.success("Deleted successfully"));
+        return ResponseEntity.ok(ApiResponse.success("Deleted successfully", existing));
     }
 
     @Override

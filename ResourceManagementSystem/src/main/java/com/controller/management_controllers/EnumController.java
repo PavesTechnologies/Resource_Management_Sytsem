@@ -31,8 +31,16 @@ public class EnumController {
             "AllocationStatus",
             "Allocation",
             "Defines the status of resource allocations",
-            new String[]{"PLANNED", "ACTIVE", "ENDED", "CANCELLED"},
-            "PLANNED: Tentative allocation affecting projected availability, ACTIVE: Confirmed allocation affecting firm availability, ENDED: Historical allocation ignored in calculations, CANCELLED: Cancelled allocation ignored in calculations"
+            new String[]{"PLANNED", "ACTIVE", "ENDED", "CANCELLED", "FULFILLED", "ROLLED_OFF"},
+            "PLANNED: Tentative allocation affecting projected availability, ACTIVE: Confirmed allocation affecting firm availability, ENDED: Historical allocation ignored in calculations, CANCELLED: Cancelled allocation ignored in calculations, FULFILLED: Allocation fulfilled and complete, ROLLED_OFF: Resource rolled off from allocation"
+        ));
+
+        enums.add(new EnumSpecificationDTO(
+            "AllocationType",
+            "Allocation",
+            "Defines the type of resource allocation based on start timing",
+            new String[]{"ACTIVE", "PLANNED"},
+            "ACTIVE: Resource allocation starts immediately from current date, PLANNED: Resource allocation is planned for a future start date and auto-activates on that date"
         ));
 
         // Centralised Enums

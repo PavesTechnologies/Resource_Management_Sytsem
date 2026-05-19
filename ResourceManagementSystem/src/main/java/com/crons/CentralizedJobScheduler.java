@@ -85,6 +85,8 @@ public class CentralizedJobScheduler {
                 certificateExpiryScheduler::updateStatuses);
         runJob("ALLOCATION-AUTO-CLOSURE",
                 allocationClosureScheduler::processAutoClosures);
+        runJob("PLANNED-ALLOCATION-ACTIVATION",
+                allocationClosureScheduler::activatePlannedAllocations);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

@@ -5,5 +5,6 @@ public enum AllocationModificationStatus {
     APPROVED,
     REJECTED,
     CANCELLED,
-    FULFILLED
+    FULFILLED,
+    DELETED
 }

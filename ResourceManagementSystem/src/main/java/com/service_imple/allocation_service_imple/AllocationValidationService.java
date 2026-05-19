@@ -14,6 +14,7 @@ import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.ResourceCertificate;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.AllocationType;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
@@ -150,6 +151,10 @@ public class AllocationValidationService {
                 );
             }
             
+            // STRICT VALIDATION: Allocation percentage must match demand's allocation percentage
+            // This validation cannot be bypassed by skipValidation or override flags
+            validateAllocationPercentageMatchesDemand(request.getAllocationPercentage(), demand);
+            
             // Validate total allocations don't exceed demand's required resources
             int providedResources = request.getResourceId() != null ? request.getResourceId().size() : 0;
             int requiredResources = demand.getResourcesRequired();
@@ -187,6 +192,37 @@ public class AllocationValidationService {
         }
         
         return new DemandProjectData(demand, project);
+    }
+
+    /**
+     * STRICT VALIDATION: Validates that allocation percentage exactly matches demand's allocation percentage
+     * This validation CANNOT be bypassed by skipValidation or override flags
+     * This ensures PM-defined allocation percentages are strictly enforced during RM allocation
+     */
+    public void validateAllocationPercentageMatchesDemand(Integer requestedPercentage, Demand demand) {
+        if (demand == null || demand.getAllocationPercentage() == null) {
+            return; // Skip validation if no demand or demand has no allocation percentage
+        }
+        
+        Integer demandPercentage = demand.getAllocationPercentage();
+        
+        if (requestedPercentage == null) {
+            throw new AllocationExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "ALLOCATION_PERCENTAGE_REQUIRED",
+                String.format("Allocation percentage is required. Demand '%s' requires %d%% allocation. This field will be auto-populated from the demand.",
+                             demand.getDemandName(), demandPercentage)
+            );
+        }
+        
+        if (!requestedPercentage.equals(demandPercentage)) {
+            throw new AllocationExceptionHandler(
+                HttpStatus.BAD_REQUEST,
+                "ALLOCATION_PERCENTAGE_MISMATCH",
+                String.format("Allocation percentage mismatch: Demand '%s' requires exactly %d%% allocation, but %d%% was requested. Resource Managers cannot modify the allocation percentage defined by the Project Manager. Please use the exact allocation percentage from the demand.",
+                             demand.getDemandName(), demandPercentage, requestedPercentage)
+            );
+        }
     }
 
     /**
@@ -292,6 +328,8 @@ public class AllocationValidationService {
                 allocation.setAllocationEndDate(request.getAllocationEndDate());
                 allocation.setAllocationPercentage(request.getAllocationPercentage());
                 allocation.setAllocationStatus(request.getAllocationStatus());
+                allocation.setAllocationType(request.getAllocationType() != null ? request.getAllocationType() : AllocationType.ACTIVE);
+                allocation.setPlannedStartDate(request.getPlannedStartDate());
                 allocation.setCreatedBy(request.getCreatedBy());
                 allocation.setRequestBeyondCapacityApproval(request.getRequestBeyondCapacityApproval());
                 
@@ -400,7 +438,7 @@ public class AllocationValidationService {
             throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "SKILL_GAP_MISMATCH",
-                String.format("Resource %d does not meet skill requirements for demand '%s'. Match: %.1f%%, Risk: %s", 
+                String.format("Resource %s does not meet skill requirements for demand '%s'. Match: %.1f%%, Risk: %s", 
                              resourceId, demand.getDemandName(), skillGapResult.getMatchPercentage(), skillGapResult.getRiskLevel())
             );
         }
@@ -410,7 +448,7 @@ public class AllocationValidationService {
             throw new AllocationExceptionHandler(
                 HttpStatus.BAD_REQUEST,
                 "LOW_SKILL_MATCH",
-                String.format("Resource %d has low skill match (%.1f%%) for demand '%s'. Minimum 50%% required", 
+                String.format("Resource %s has low skill match (%.1f%%) for demand '%s'. Minimum 50%% required", 
                              resourceId, skillGapResult.getMatchPercentage(), demand.getDemandName())
             );
         }
