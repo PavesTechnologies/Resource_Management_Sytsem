@@ -87,6 +87,8 @@ public class CentralizedJobScheduler {
                 allocationClosureScheduler::activatePlannedAllocations);
         runJob("ALLOCATION-AUTO-CLOSURE",
                 allocationClosureScheduler::processAutoClosures);
+        runJob("PLANNED-ALLOCATION-ACTIVATION",
+                allocationClosureScheduler::activatePlannedAllocations);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

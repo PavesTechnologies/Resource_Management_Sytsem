@@ -20,14 +20,16 @@ import java.util.UUID;
 public interface AllocationRepository extends JpaRepository<ResourceAllocation, UUID> {
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
-           "LEFT JOIN FETCH ra.resource " +
-           "LEFT JOIN FETCH ra.demand d " +
-           "LEFT JOIN FETCH d.project p " +
-           "LEFT JOIN FETCH p.client " +
-           "LEFT JOIN FETCH ra.project proj " +
-           "LEFT JOIN FETCH proj.client " +
-           "WHERE ra.resource.resourceId = :resourceId")
-    List<ResourceAllocation> findByResource_ResourceId(String resourceId);
+            "LEFT JOIN FETCH ra.resource " +
+            "LEFT JOIN FETCH ra.demand d " +
+            "LEFT JOIN FETCH d.project p " +
+            "LEFT JOIN FETCH p.client " +
+            "LEFT JOIN FETCH ra.project proj " +
+            "LEFT JOIN FETCH proj.client " +
+            "WHERE ra.resource.resourceId = :resourceId " +
+            "AND ra.allocationStatus <> 'DELETED'")
+    List<ResourceAllocation> findByResource_ResourceId(
+            @Param("resourceId") String resourceId);
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
            "WHERE ra.resource.resourceId = :resourceId " +
@@ -43,28 +45,31 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findByResource_ResourceIdAndAllocationStatus(
             @Param("resourceId") String resourceId, 
             @Param("status") AllocationStatus status);
-    
-    @Query("SELECT ra FROM ResourceAllocation ra " +
-           "LEFT JOIN FETCH ra.resource " +
-           "LEFT JOIN FETCH ra.demand d " +
-           "LEFT JOIN FETCH d.project p " +
-           "LEFT JOIN FETCH p.client " +
-           "LEFT JOIN FETCH ra.project proj " +
-           "LEFT JOIN FETCH proj.client " +
-           "WHERE ra.demand.demandId = :demandId")
-    List<ResourceAllocation> findByDemand_DemandId(@Param("demandId") UUID demandId);
-    
-    @Query("SELECT ra FROM ResourceAllocation ra " +
-           "LEFT JOIN FETCH ra.resource " +
-           "LEFT JOIN FETCH ra.demand d " +
-           "LEFT JOIN FETCH d.project p " +
-           "LEFT JOIN FETCH p.client " +
-           "LEFT JOIN FETCH ra.project proj " +
-           "LEFT JOIN FETCH proj.client " +
-           "WHERE ra.project.pmsProjectId = :projectId")
-    List<ResourceAllocation> findByProject_PmsProjectId(@Param("projectId") Long projectId);
 
-    @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId")
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+            "LEFT JOIN FETCH ra.resource " +
+            "LEFT JOIN FETCH ra.demand d " +
+            "LEFT JOIN FETCH d.project p " +
+            "LEFT JOIN FETCH p.client " +
+            "LEFT JOIN FETCH ra.project proj " +
+            "LEFT JOIN FETCH proj.client " +
+            "WHERE ra.demand.demandId = :demandId " +
+            "AND ra.allocationStatus <> 'DELETED'")
+    List<ResourceAllocation> findByDemand_DemandId(@Param("demandId") UUID demandId);
+
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+            "LEFT JOIN FETCH ra.resource " +
+            "LEFT JOIN FETCH ra.demand d " +
+            "LEFT JOIN FETCH d.project p " +
+            "LEFT JOIN FETCH p.client " +
+            "LEFT JOIN FETCH ra.project proj " +
+            "LEFT JOIN FETCH proj.client " +
+            "WHERE ra.project.pmsProjectId = :projectId " +
+            "AND ra.allocationStatus <> 'DELETED'")
+    List<ResourceAllocation> findByProject_PmsProjectId(
+            @Param("projectId") Long projectId);
+
+    @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId AND ra.allocationStatus <> 'DELETED'")
     List<Resource> findResourcesByProjectId(@Param("projectId") Long projectId);
 
     @Query("""
@@ -119,14 +124,16 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     int activatePlannedAllocations(@Param("today") LocalDate today);
 
     @Query("SELECT ra FROM ResourceAllocation ra " +
-           "LEFT JOIN FETCH ra.resource " +
-           "LEFT JOIN FETCH ra.demand d " +
-           "LEFT JOIN FETCH d.project p " +
-           "LEFT JOIN FETCH p.client " +
-           "LEFT JOIN FETCH ra.project proj " +
-           "LEFT JOIN FETCH proj.client " +
-           "WHERE ra.allocationId IN :allocationIds")
-    List<ResourceAllocation> findByAllocationIdIn(@Param("allocationIds") List<UUID> allocationIds);
+            "LEFT JOIN FETCH ra.resource " +
+            "LEFT JOIN FETCH ra.demand d " +
+            "LEFT JOIN FETCH d.project p " +
+            "LEFT JOIN FETCH p.client " +
+            "LEFT JOIN FETCH ra.project proj " +
+            "LEFT JOIN FETCH proj.client " +
+            "WHERE ra.allocationId IN :allocationIds " +
+            "AND ra.allocationStatus <> 'DELETED'")
+    List<ResourceAllocation> findByAllocationIdIn(
+            @Param("allocationIds") List<UUID> allocationIds);
 
     @Query("SELECT COUNT(ra) > 0 FROM ResourceAllocation ra " +
            "WHERE (ra.demand.project.client.clientId = :clientId OR ra.project.client.clientId = :clientId) " +
@@ -141,6 +148,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "LEFT JOIN FETCH ra.project proj " +
            "LEFT JOIN FETCH proj.client " +
            "WHERE ra.resource.resourceId = :resourceId " +
+            "AND ra.allocationStatus <> 'DELETED'" +
            "AND ra.allocationStartDate <= :date " +
            "AND ra.allocationEndDate >= :date")
     List<ResourceAllocation> findByResource_ResourceIdAndAllocationStartDateLessThanEqualAndAllocationEndDateGreaterThanEqual(
@@ -232,4 +240,15 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "AND ra.allocationStartDate <= CURRENT_DATE " +
            "AND ra.allocationEndDate >= CURRENT_DATE")
     Long countActiveAllocatedResources();
+
+    /**
+     * Find PLANNED allocations that should be activated on or before a given date
+     * Used by scheduler to auto-activate PLANNED allocations
+     */
+    @Query("SELECT ra FROM ResourceAllocation ra " +
+           "WHERE ra.allocationType = 'PLANNED' " +
+           "AND ra.allocationStatus = 'PLANNED' " +
+           "AND ra.plannedStartDate IS NOT NULL " +
+           "AND ra.plannedStartDate <= :date")
+    List<ResourceAllocation> findPlannedAllocationsToActivate(@Param("date") LocalDate date);
 }

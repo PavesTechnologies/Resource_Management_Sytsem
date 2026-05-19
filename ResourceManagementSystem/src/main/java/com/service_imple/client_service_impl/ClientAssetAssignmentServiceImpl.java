@@ -193,7 +193,7 @@ public class ClientAssetAssignmentServiceImpl implements ClientAssetAssignmentSe
         return ResponseEntity.ok( new ApiResponse<>(
                 true,
                 "Asset assignment deleted successfully",
-                null
+                assignment
         ));
     }
 

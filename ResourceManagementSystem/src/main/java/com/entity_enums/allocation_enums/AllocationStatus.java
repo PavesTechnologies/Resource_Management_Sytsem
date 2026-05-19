@@ -6,5 +6,6 @@ public enum AllocationStatus {
     ENDED,       // Historical, ignored in calculations
     CANCELLED,
     FULFILLED,   // Ignored in calculations
-    ROLLED_OFF   // Role-off completed, allocation ended due to role-off
+    ROLLED_OFF,   // Role-off completed, allocation ended due to role-off
+    DELETED
 }

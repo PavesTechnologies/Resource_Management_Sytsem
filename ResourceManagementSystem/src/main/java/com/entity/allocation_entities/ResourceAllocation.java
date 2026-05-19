@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.AllocationType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.time.LocalDate;
@@ -93,6 +94,20 @@ public class ResourceAllocation {
     @Enumerated(EnumType.STRING)
     @Column(name = "allocation_status", nullable = false)
     private AllocationStatus allocationStatus;
+
+    /**
+     * Allocation Type - ACTIVE (starts immediately) or PLANNED (future start date)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "allocation_type", nullable = false)
+    private AllocationType allocationType;
+
+    /**
+     * Planned start date for PLANNED allocation type
+     * For ACTIVE type, this should be null or equal to allocationStartDate
+     */
+    @Column(name = "planned_start_date")
+    private LocalDate plannedStartDate;
 
     /**
      * User or system who created this allocation
