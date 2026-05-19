@@ -9,5 +9,6 @@ import java.util.UUID;
 public class DeliveryRoleExpectationResponse {
     private UUID dev_role_id;
     private String role;
+    private String category;
     private List<RoleSkillRequirement> skills;
 }

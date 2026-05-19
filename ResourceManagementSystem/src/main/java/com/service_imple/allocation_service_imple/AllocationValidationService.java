@@ -96,19 +96,19 @@ public class AllocationValidationService {
         
         if (request.getAllocationPercentage() <= 0 || request.getAllocationPercentage() > 100) {
             // Check if this is a special condition request for >100% allocation
-            if (request.getAllocationPercentage() > 100 && request.getAllocationPercentage() <= 130) {
-                if (!Boolean.TRUE.equals(request.getRequestBeyondCapacityApproval())) {
+            if (request.getAllocationPercentage() > 100) {
+
                     throw new AllocationExceptionHandler(
                         HttpStatus.BAD_REQUEST,
-                        "SPECIAL_CONDITION_APPROVAL_REQUIRED",
+                        "Allocation percent exceded",
                         "Allocation percentage above 100% requires special condition approval. Maximum allowed is 130% with approval."
                     );
-                }
+
             } else {
                 throw new AllocationExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_PERCENTAGE",
-                    "Allocation percentage must be between 1 and 100 normally, or up to 130% with special condition approval"
+                    "Allocation percentage must be between 1 and 100 normally"
                 );
             }
         }
@@ -190,7 +190,7 @@ public class AllocationValidationService {
             }
             project = projectOpt.get();
         }
-        
+
         return new DemandProjectData(demand, project);
     }
 
@@ -627,6 +627,6 @@ public class AllocationValidationService {
                 "Client '" + targetProject.getClient().getClientName() + "' is not active. Current status: " +
                 (targetProject.getClient().getStatus() != null ? targetProject.getClient().getStatus().name() : "UNKNOWN")
             );
+            }
         }
     }
-}

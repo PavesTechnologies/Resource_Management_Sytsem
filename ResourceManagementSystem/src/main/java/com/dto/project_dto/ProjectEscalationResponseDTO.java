@@ -32,7 +32,7 @@ public class ProjectEscalationResponseDTO {
     private String email;
     private String phone;
     private Boolean activeFlag;
-//    private Set<EscalationTriggerType> triggers;
+    private Set<EscalationTriggerType> triggers;
     private EscalationSource source;
     private Set<UUID> contactId;
 }

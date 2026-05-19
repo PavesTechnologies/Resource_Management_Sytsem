@@ -119,6 +119,10 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     @Query("UPDATE ResourceAllocation ra SET ra.allocationStatus = :newStatus WHERE ra.allocationStatus = 'ACTIVE' AND ra.allocationEndDate < :today")
     int autoCloseAllocations(@Param("today") LocalDate today, @Param("newStatus") AllocationStatus newStatus);
 
+    @Modifying
+    @Query("UPDATE ResourceAllocation ra SET ra.allocationStatus = 'ACTIVE' WHERE ra.allocationStatus = 'PLANNED' AND ra.allocationStartDate <= :today")
+    int activatePlannedAllocations(@Param("today") LocalDate today);
+
     @Query("SELECT ra FROM ResourceAllocation ra " +
             "LEFT JOIN FETCH ra.resource " +
             "LEFT JOIN FETCH ra.demand d " +

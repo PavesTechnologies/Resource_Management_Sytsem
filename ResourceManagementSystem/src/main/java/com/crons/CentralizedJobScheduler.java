@@ -19,7 +19,7 @@ import java.util.UUID;
  * Single point of governance for all scheduled jobs in the RMS platform.
  *
  * Schedule map:
- *   00:00  RMS_Daily_Midnight_Batch     — certificate status, allocation auto-closure
+ *   00:00  RMS_Daily_Midnight_Batch     — certificate status, planned→active activation, allocation auto-closure
  *   01:00  RMS_Nightly_Bench_Detection  — bench resource detection & state update
  *   02:00  RMS_Nightly_Cleanup_Batch    — DLQ cleanup, resource-state check, CDC failure cleanup, job-log purge
  *   02:30  RMS_EventLogs_Cleanup        — ledger event-log purge
@@ -83,6 +83,8 @@ public class CentralizedJobScheduler {
         log.info("[{}] Starting RMS_Daily_Midnight_Batch", NODE_ID);
         runJob("CERTIFICATE-STATUS-UPDATE",
                 certificateExpiryScheduler::updateStatuses);
+        runJob("PLANNED-TO-ACTIVE-ACTIVATION",
+                allocationClosureScheduler::activatePlannedAllocations);
         runJob("ALLOCATION-AUTO-CLOSURE",
                 allocationClosureScheduler::processAutoClosures);
         runJob("PLANNED-ALLOCATION-ACTIVATION",

@@ -22,8 +22,8 @@ public class ResourceCertificateRequestDTO {
     @JsonProperty("skillId")
     private UUID skillId; // certification skill
     
-    @JsonProperty("proficiencyId")
-    private UUID proficiencyId;
+//    @JsonProperty("proficiencyId")
+//    private UUID proficiencyId;
     
     @JsonProperty("issuedDate")
     private LocalDate issuedDate;

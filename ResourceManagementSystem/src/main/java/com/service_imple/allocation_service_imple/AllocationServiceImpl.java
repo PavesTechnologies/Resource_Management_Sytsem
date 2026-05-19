@@ -82,7 +82,7 @@ public class AllocationServiceImpl implements AllocationService {
                     allocationRequest.setAllocationPercentage(demand.getAllocationPercentage());
                     log.info("Auto-populated allocation percentage from demand: {}%", demand.getAllocationPercentage());
                 }
-                
+
                 // Validate that demand is approved by delivery manager before allowing allocation
                 if (demand.getDemandStatus() != DemandStatus.APPROVED) {
                     throw new AllocationExceptionHandler(
@@ -95,7 +95,7 @@ public class AllocationServiceImpl implements AllocationService {
             
             // Validate and set allocation type logic
             validateAndSetAllocationType(allocationRequest);
-            
+
             AllocationPreloadedData preloadedData = validationService.preloadAllocationData(allocationRequest, demandProjectData.getDemand());
             AllocationValidationResult validationResult = validationService.validateResourcesInParallel(allocationRequest, demandProjectData, preloadedData);
 
@@ -243,7 +243,7 @@ public class AllocationServiceImpl implements AllocationService {
             if (existingAllocation.isEmpty()) return ResponseEntity.notFound().build();
 
             ResourceAllocation allocation = existingAllocation.get();
-            
+
             // Check if allocation is already cancelled or ended
             if (allocation.getAllocationStatus() == AllocationStatus.CANCELLED ||
                     allocation.getAllocationStatus() == AllocationStatus.ENDED ||
@@ -258,7 +258,7 @@ public class AllocationServiceImpl implements AllocationService {
             }
 
             // For PLANNED allocations, cancellation before activation should revert demand status
-            boolean wasPlannedAllocation = allocation.getAllocationType() == AllocationType.PLANNED 
+            boolean wasPlannedAllocation = allocation.getAllocationType() == AllocationType.PLANNED
                     && allocation.getAllocationStatus() == AllocationStatus.PLANNED;
 
             allocation.setAllocationStatus(AllocationStatus.CANCELLED);
@@ -268,12 +268,12 @@ public class AllocationServiceImpl implements AllocationService {
             ResourceAllocation cancelledAllocation = allocationRepository.save(allocation);
             updateAvailabilityLedgerForAllocation(cancelledAllocation);
 
-            // If this was a PLANNED allocation cancelled before activation, 
+            // If this was a PLANNED allocation cancelled before activation,
             // the demand status will be recalculated by checkAndUpdateDemandFulfillment
             // which will revert it to APPROVED if no longer fulfilled
             if (cancelledAllocation.getDemand() != null) {
                 checkAndUpdateDemandFulfillment(cancelledAllocation.getDemand().getDemandId());
-                log.info("PLANNED allocation {} cancelled. Demand {} fulfillment status recalculated.", 
+                log.info("PLANNED allocation {} cancelled. Demand {} fulfillment status recalculated.",
                         allocationId, cancelledAllocation.getDemand().getDemandId());
             }
 
@@ -732,14 +732,14 @@ public class AllocationServiceImpl implements AllocationService {
         if (demand == null) return;
 
         // Count both ACTIVE and PLANNED allocations for demand fulfillment
-        // This allows demand to be FULFILLED when all resources are allocated, 
+        // This allows demand to be FULFILLED when all resources are allocated,
         // regardless of whether they are ACTIVE or PLANNED
         List<ResourceAllocation> allocated = allocationRepository.findByDemand_DemandId(demandId).stream()
                 .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE || a.getAllocationStatus() == AllocationStatus.PLANNED)
                 .toList();
 
         // Check if demand is fulfilled: enough allocations with correct percentage
-        boolean isFulfilled = allocated.size() >= demand.getResourcesRequired() 
+        boolean isFulfilled = allocated.size() >= demand.getResourcesRequired()
                 && allocated.stream().allMatch(a -> a.getAllocationPercentage().equals(demand.getAllocationPercentage()));
 
         if (isFulfilled) {
@@ -794,13 +794,13 @@ public class AllocationServiceImpl implements AllocationService {
      * Validate and set allocation type logic
      * - ACTIVE: allocationStartDate must be today or in the past, set to today if in past
      * - PLANNED: allocationStartDate must be in the future, use plannedStartDate
-     * 
-     * AUTO-INFERENCE: If allocationStatus is PLANNED and allocationType is not set, 
+     *
+     * AUTO-INFERENCE: If allocationStatus is PLANNED and allocationType is not set,
      * automatically set allocationType to PLANNED for better UX
      */
     private void validateAndSetAllocationType(AllocationRequestDTO allocationRequest) {
         LocalDate today = LocalDate.now();
-        
+
         // Auto-infer allocationType from allocationStatus for better UX
         if (allocationRequest.getAllocationType() == null) {
             if (allocationRequest.getAllocationStatus() == AllocationStatus.PLANNED) {
@@ -899,7 +899,7 @@ public class AllocationServiceImpl implements AllocationService {
     public void activatePlannedAllocations() {
         try {
             LocalDate today = LocalDate.now();
-            
+
             // Use optimized repository query to find PLANNED allocations that should be activated today
             List<ResourceAllocation> plannedAllocations = allocationRepository.findPlannedAllocationsToActivate(today);
 
@@ -916,17 +916,17 @@ public class AllocationServiceImpl implements AllocationService {
                     // Update allocation status to ACTIVE
                     allocation.setAllocationStatus(AllocationStatus.ACTIVE);
                     allocationRepository.save(allocation);
-                    
+
                     // Move resource to project state
                     if (allocation.getResource() != null) {
                         benchDetectionService.moveToProject(allocation.getResource().getResourceId(), allocation.getAllocationId());
                     }
-                    
+
                     // Update availability ledger
                     updateAvailabilityLedgerForAllocation(allocation);
-                    
+
                     activatedCount++;
-                    log.info("Activated PLANNED allocation {} for resource {}", 
+                    log.info("Activated PLANNED allocation {} for resource {}",
                             allocation.getAllocationId(), allocation.getResource().getResourceId());
                 } catch (Exception e) {
                     log.error("Failed to activate PLANNED allocation {}: {}", allocation.getAllocationId(), e.getMessage());

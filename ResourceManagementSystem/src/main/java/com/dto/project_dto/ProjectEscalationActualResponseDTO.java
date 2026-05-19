@@ -23,7 +23,6 @@ public class ProjectEscalationActualResponseDTO {
     private String phone;
     private Boolean activeFlag;
     private EscalationSource source;
-
     private UUID contactId;
 
 }

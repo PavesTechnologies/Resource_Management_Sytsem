@@ -106,14 +106,14 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
         }
         
         // Check for duplicate contact name within the project
-        if (dto.getContactName() != null && 
-            projectEscalationRepo.existsByContactNameAndProject_PmsProjectId(dto.getContactName(), project.getPmsProjectId())) {
-            throw new ProjectExceptionHandler(
-                HttpStatus.CONFLICT,
-                "DUPLICATE_CONTACT_NAME", 
-                "Contact name already exists for this project"
-            );
-        }
+//        if (dto.getContactName() != null &&
+//            projectEscalationRepo.existsByContactNameAndProject_PmsProjectId(dto.getContactName(), project.getPmsProjectId())) {
+//            throw new ProjectExceptionHandler(
+//                HttpStatus.CONFLICT,
+//                "DUPLICATE_CONTACT_NAME",
+//                "Contact name already exists for this project"
+//            );
+//        }
 
         // Check for duplicate phone number within the project
         if (dto.getPhone() != null && !dto.getPhone().trim().isEmpty() &&
@@ -129,7 +129,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
         if (dto.getContactRole() != null && dto.getEscalationLevel() != null &&
             projectEscalationRepo.existsByProject_PmsProjectIdAndContactRoleAndEscalationLevel(
                 project.getPmsProjectId(),
-                dto.getContactRole().name(),
+                dto.getContactRole(),
                 dto.getEscalationLevel()
             )) {
             throw new ProjectExceptionHandler(
@@ -147,6 +147,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
                 .email(dto.getEmail())
                 .phone(dto.getPhone())
                 .activeFlag(dto.getActiveFlag() != null ? dto.getActiveFlag() : Boolean.TRUE)
+                .triggers(dto.getTriggers())
                 .source(EscalationSource.MANUAL)
                 .build();
 
@@ -221,7 +222,7 @@ public class ProjectEscalationServiceImpl implements ProjectEscalationService {
         if (updatedData.getContactRole() != null && updatedData.getEscalationLevel() != null && existingEscalation.getProject() != null) {
             var existingRoleLevelEscalation = projectEscalationRepo.findByProjectIdAndContactRoleAndEscalationLevelExcludingId(
                 existingEscalation.getProject().getPmsProjectId(),
-                updatedData.getContactRole().name(),
+                updatedData.getContactRole(),
                 updatedData.getEscalationLevel(),
                 projectEscalationId
             );
