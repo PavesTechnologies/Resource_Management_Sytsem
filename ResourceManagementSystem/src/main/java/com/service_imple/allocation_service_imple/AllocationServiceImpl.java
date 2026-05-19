@@ -65,6 +65,7 @@ public class AllocationServiceImpl implements AllocationService {
         @CacheEvict(value = "active-allocations", allEntries = true),
         @CacheEvict(value = "dashboard-kpis", allEntries = true),
         @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true),
         @CacheEvict(value = "demands", allEntries = true)
     })
@@ -136,6 +137,7 @@ public class AllocationServiceImpl implements AllocationService {
         @CacheEvict(value = "active-allocations", allEntries = true),
         @CacheEvict(value = "dashboard-kpis", allEntries = true),
         @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true),
         @CacheEvict(value = "demands", allEntries = true)
     })
@@ -585,6 +587,7 @@ public class AllocationServiceImpl implements AllocationService {
         @CacheEvict(value = "active-allocations", allEntries = true),
         @CacheEvict(value = "dashboard-kpis", allEntries = true),
         @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true),
         @CacheEvict(value = "demands", allEntries = true)
     })

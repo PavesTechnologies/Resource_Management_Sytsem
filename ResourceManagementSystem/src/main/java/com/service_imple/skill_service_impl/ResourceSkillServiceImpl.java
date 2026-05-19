@@ -52,7 +52,8 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "resource-skills", key = "#dto.resourceId"),
-        @CacheEvict(value = "resource-timelines", allEntries = true)
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
     })
     public String addSkillsToResource(ResourceSkillBulkRequestDTO dto) {
         // Validate resource exists and is active before proceeding
@@ -397,7 +398,8 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "resource-skills", key = "#dto.resourceId"),
-        @CacheEvict(value = "resource-timelines", allEntries = true)
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
     })
     public ResourceSkill updateResourceSkill(UUID resourceSkillId, ResourceSkillRequestDTO dto) {
         // Find the existing resource skill
@@ -518,7 +520,8 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "resource-skills", allEntries = true),
-        @CacheEvict(value = "resource-timelines", allEntries = true)
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
     })
     public String deleteResourceSkill(UUID resourceSkillId) {
         // Find the existing resource skill
