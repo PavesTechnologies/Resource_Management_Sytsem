@@ -4,6 +4,7 @@ import com.repo.bench_repo.BenchDetectionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class ResourceStateInitializationService {
 
     private final BenchDetectionRepository benchDetectionRepository;
     private final BenchService benchService;
+    private final CacheManager cacheManager;
 
     /**
      * Initialize resource states on application startup
@@ -31,6 +33,13 @@ public class ResourceStateInitializationService {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void initializeResourceStatesOnStartup() {
+        log.info("Clearing all caches on startup");
+        cacheManager.getCacheNames().forEach(name -> {
+            var cache = cacheManager.getCache(name);
+            if (cache != null) cache.clear();
+        });
+        log.info("All caches cleared on startup");
+
         log.info("Starting resource state initialization on application startup");
         
         try {
@@ -105,7 +114,7 @@ public class ResourceStateInitializationService {
      */
     private List<String> findResourcesWithoutStates() {
         // Find resources eligible for bench but without any state record
-        return benchDetectionRepository.findBenchEligibleResources(LocalDate.now())
+        return benchDetectionRepository.findBenchEligibleResources(LocalDate.now(), LocalDate.now().plusDays(14))
                 .stream()
                 .filter(resourceId -> {
                     // Check if resource has no current state

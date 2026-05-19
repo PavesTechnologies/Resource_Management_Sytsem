@@ -21,7 +21,9 @@ import com.repo.bench_repo.ResourceCostRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -546,7 +548,7 @@ public class BenchService {
         
         // Get total ready now resources (all bench sub-states: READY, NOT_AVAILABLE, LOW_UTILIZATION)
         // Note: This matches the filter criteria used by bench-resources API
-        long totalReadyNowResources = benchDetectionRepository.countBenchResources();
+        long totalReadyNowResources = benchDetectionRepository.countReadyBenchResources();
         log.debug("Total ready now resources: {}", totalReadyNowResources);
         
         // Get total risk watch resources (>30 days in Bench or Pool)
@@ -651,6 +653,11 @@ public class BenchService {
                 .build();
     }
 
+    @Caching(evict = {
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<ResourceState>> updateSubState(UpdateSubStateRequestDTO request, UserDTO userDTO) {
         ResourceState resourceState = benchDetectionRepository.findByResourceIdAndCurrentFlagTrue(request.getResourceId()).orElseThrow(() -> new RuntimeException("Resource Not Found with a Active Flag."));
         SubState oldSubState = resourceState.getSubState();
@@ -699,8 +706,8 @@ public class BenchService {
      */
     private void validateSubStateTransition(SubState oldSubState, SubState newSubState) {
         // Define valid transitions
-        Set<SubState> benchSubStates = Set.of(SubState.READY, SubState.NOT_AVAILABLE, SubState.LOW_UTILIZATION);
-        Set<SubState> poolSubStates = Set.of(SubState.TRAINING_POOL, SubState.SHADOW, SubState.COE, SubState.RND, SubState.TRAINING);
+        Set<SubState> benchSubStates = Set.of(SubState.READY, SubState.TRAINING, SubState.LOW_UTILIZATION,SubState.SHADOW);
+        Set<SubState> poolSubStates = Set.of(SubState.TRAINING_POOL, SubState.COE, SubState.RND);
 
         // All transitions are allowed, but log the category change for audit
         boolean oldIsBench = benchSubStates.contains(oldSubState);

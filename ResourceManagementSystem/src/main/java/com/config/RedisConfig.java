@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +23,7 @@ import java.util.Map;
 @Slf4j
 @Configuration
 @EnableCaching
+@ConditionalOnProperty(name = "app.redis.enabled", havingValue = "true", matchIfMissing = true)
 public class RedisConfig {
 
     @Bean
@@ -58,6 +60,7 @@ public class RedisConfig {
         configs.put("active-allocations", config.entryTtl(Duration.ofMinutes(5)));
         configs.put("dashboard-kpis", config.entryTtl(Duration.ofMinutes(15)));
         configs.put("bench-resources", config.entryTtl(Duration.ofMinutes(10)));
+        configs.put("bench-matches", config.entryTtl(Duration.ofMinutes(30)));
         configs.put("resource-skills", config.entryTtl(Duration.ofHours(2)));
         configs.put("resource-timelines", config.entryTtl(Duration.ofMinutes(5)));
         configs.put("demands", config.entryTtl(Duration.ofHours(1)));

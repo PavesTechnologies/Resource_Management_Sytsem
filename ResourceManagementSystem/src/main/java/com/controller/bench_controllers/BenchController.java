@@ -119,7 +119,7 @@ public class BenchController {
      * GET /api/bench/kpi
      */
     @GetMapping("/kpi")
-    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager', 'Admin', 'Project_Manager')")
+    @PreAuthorize("hasAnyRole('Resource_Manager')")
     public ResponseEntity<ApiResponse<BenchKPIDTO>> getBenchKPI() {
         BenchKPIDTO kpi = benchDetectionService.getBenchKPI();
         return ResponseEntity.ok(ApiResponse.success("Bench KPI metrics retrieved successfully", kpi));
