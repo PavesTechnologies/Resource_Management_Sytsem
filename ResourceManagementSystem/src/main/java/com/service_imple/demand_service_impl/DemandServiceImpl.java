@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -1613,7 +1614,10 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     // ============================
 
     @Override
-    @CacheEvict(value = "demands", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "demands", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     @AuditLog(module = AuditConstants.Modules.DEMAND,
             entity = "Demand",
             action = AuditConstants.Actions.UPDATE)
@@ -2000,7 +2004,10 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     @Override
     @Transactional
-    @CacheEvict(value = "demands", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "demands", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     @AuditLog(module = AuditConstants.Modules.DEMAND, entity = "Demand", action = AuditConstants.Actions.CREATE)
     public ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id) {
         try {
@@ -2355,6 +2362,10 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     @Override
     @Transactional
     @CacheEvict(value = "demands", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "demands", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> deleteDemand(UUID demandId, UserDTO userDTO) {
         try {
             // Validate demand ID
