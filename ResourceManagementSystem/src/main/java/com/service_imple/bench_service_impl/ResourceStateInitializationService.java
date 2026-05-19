@@ -105,7 +105,7 @@ public class ResourceStateInitializationService {
      */
     private List<String> findResourcesWithoutStates() {
         // Find resources eligible for bench but without any state record
-        return benchDetectionRepository.findBenchEligibleResources(LocalDate.now())
+        return benchDetectionRepository.findBenchEligibleResources(LocalDate.now(),LocalDate.now().plusDays(14))
                 .stream()
                 .filter(resourceId -> {
                     // Check if resource has no current state

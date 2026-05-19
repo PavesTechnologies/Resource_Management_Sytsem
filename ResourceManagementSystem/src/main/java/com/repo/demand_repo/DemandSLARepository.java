@@ -27,4 +27,6 @@ public interface DemandSLARepository extends JpaRepository<DemandSLA, UUID> {
        AND d.activeFlag = true
        """)
     int deactivateByDemandId(@Param("demandId") UUID demandId);
+
+    void deleteByDemand_DemandId(UUID demandId);
 }
