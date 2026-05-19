@@ -30,9 +30,11 @@ import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -60,6 +62,10 @@ public class DemandServiceImpl implements DemandService {
     private final AllocationRepository allocationRepository;
     private final DeliveryRoleExpectationRepository roleRepository;
 
+    @Lazy
+    @Autowired
+    private DemandServiceImpl self;
+
     public DemandServiceImpl(DemandRepository demandRepository,
                            DemandSLARepository demandSLARepository,
                            ProjectSLARepo projectSLARepository,
@@ -77,7 +83,8 @@ public class DemandServiceImpl implements DemandService {
     }
 
     
-    @Cacheable(value = "demands", key = "#resourceManagerId")
+    @Transactional(readOnly = true)
+    @Cacheable(value = "demands", key = "'rm-' + #resourceManagerId")
     public ApiResponse<?> getDemandsByResourceManagerIdData(Long resourceManagerId) {
         try {
             // Validate resource manager ID
@@ -93,6 +100,7 @@ public class DemandServiceImpl implements DemandService {
             List<Demand> demands = demandRepository.findByProjectResourceManagerId(resourceManagerId);
 
             List<DemandDetailResponseDTO> formattedDemands = demands.stream()
+                    .filter(demand -> demand.getDemandStatus() != DemandStatus.REQUESTED)
 
                     // 🔥 STORY 3 – SORT BY DERIVED PRIORITY SCORE (DESC)
                     .sorted((d1, d2) -> Integer.compare(
@@ -970,20 +978,20 @@ public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resou
 
             if (status == DemandStatus.DRAFT ||
                     status == DemandStatus.REJECTED ||
-                    status == DemandStatus.FULFILLED) {
+                    status == DemandStatus.CANCELLED) {
                 continue;
             }
 
             // -------- STATUS COUNTS --------
             switch (status) {
-                case REQUESTED -> kpi.setPending(kpi.getPending() + 1);
-                case APPROVED -> kpi.setApproved(kpi.getApproved() + 1);
+                case FULFILLED -> kpi.setApproved(kpi.getApproved() + 1);//approved
+                case APPROVED -> kpi.setActive(kpi.getActive()+1);
+
             }
 
-            // -------- ACTIVE --------
-            if ((status == DemandStatus.REQUESTED || status == DemandStatus.APPROVED)
-                    && commitment == DemandCommitment.CONFIRMED) {
-                kpi.setActive(kpi.getActive() + 1);
+            if(status == DemandStatus.APPROVED && commitment == DemandCommitment.CONFIRMED)
+            {
+                kpi.setPending(kpi.getPending()+1);
             }
 
             // -------- SOFT --------
@@ -1250,7 +1258,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_STATE",
                 "Only APPROVED demands can be fulfilled or rejected by Resource Manager"
-            );
+        );
     }
 
     // -------- FULFILLED --------
@@ -1487,8 +1495,8 @@ private DemandKpiDTO calculateDemandKpi(List<Demand> demands) {
         }
 
         // Active demands
-        if ((status == DemandStatus.REQUESTED || status == DemandStatus.APPROVED)
-                && commitment == DemandCommitment.CONFIRMED) {
+        if ((status == DemandStatus.REQUESTED)
+                ) {
             kpi.setActive(kpi.getActive() + 1);
         }
 
@@ -2163,21 +2171,21 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse =
                     validateDemandConflicts(dto);
 
-//            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody() != null) {
-//                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
-//                if (validation != null && !validation.isCanSubmit()) {
-//                    List<String> errorMessages = validation.getConflicts().stream()
-//                            .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
-//                            .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
-//                            .collect(java.util.stream.Collectors.toList());
-//
-//                    throw new DemandExceptionHandler(
-//                            HttpStatus.BAD_REQUEST,
-//                            "BLOCKING_CONFLICTS",
-//                            "Demand has blocking conflicts: " + String.join(", ", errorMessages)
-//                    );
-//                }
-//            }
+            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody() != null) {
+                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
+                if (validation != null && !validation.isCanSubmit()) {
+                    List<String> errorMessages = validation.getConflicts().stream()
+                            .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
+                            .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
+                            .collect(java.util.stream.Collectors.toList());
+
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "BLOCKING_CONFLICTS",
+                            "Demand has blocking conflicts: " + String.join(", ", errorMessages)
+                    );
+                }
+            }
 
             // Check for exact duplicates
             List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(dto.getProjectId());
@@ -2242,126 +2250,117 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     
     @Override
-    @Cacheable(value = "demands", key = "#demandId")
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<DemandDetailNestedResponseDTO>> getDemandById(UUID demandId) {
+        if (demandId == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Demand ID is required"));
+        }
         try {
-            // Validate demand ID
-            if (demandId == null) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Demand ID is required"));
-            }
-
-            // Fetch demand from database
-            Optional<Demand> demandOpt = demandRepository.findById(demandId);
-            if (demandOpt.isEmpty()) {
+            DemandDetailNestedResponseDTO demandInfo = self.fetchDemandDetailDTO(demandId);
+            if (demandInfo == null) {
                 return ResponseEntity.ok(ApiResponse.success("Demand not found", null));
             }
-
-            Demand demand = demandOpt.get();
-
-            // Get SLA details for demand
-            Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
-
-            DemandDetailNestedResponseDTO demandInfo = DemandDetailNestedResponseDTO.builder()
-                    // Basic Demand Info
-                    .demandId(demand.getDemandId())
-                    .demandName(demand.getDemandName())
-                    .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : null)
-                    .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : null)
-                    .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : null)
-                    .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : null)
-                    .demandStartDate(demand.getDemandStartDate())
-                    .demandEndDate(demand.getDemandEndDate())
-                    .minExp(demand.getMinExp())
-                    .resourceRequired(demand.getResourcesRequired())
-                    .allocation(demand.getAllocationPercentage())
-                    .demandJustification(demand.getDemandJustification())
-                    .priorityScore(calculatePriorityScore(demand))
-                    
-                    // Rejection Information
-                    .rejectionInfo(DemandDetailNestedResponseDTO.RejectionInfo.builder()
-                            .rejectionReason(null)
-                            .rmRejectionReason(demand.getRmRejectionReason())
-                            .dmRejectionReason(demand.getDmRejectionReason())
-                            .build())
-                    
-                    // Client Information
-                    .clientInfo(DemandDetailNestedResponseDTO.ClientInfo.builder()
-                            .clientName(demand.getProject().getClient() != null ?
-                                    demand.getProject().getClient().getClientName() : null)
-                            .build())
-                    
-                    // Project Information
-                    .projectInfo(DemandDetailNestedResponseDTO.ProjectInfo.builder()
-                            .projectId(demand.getProject().getPmsProjectId())
-                            .projectName(demand.getProject().getName())
-                            .deliveryModel(demand.getProject().getDeliveryModel() != null ? 
-                                    demand.getProject().getDeliveryModel().toString() : null)
-                            .location(demand.getProject().getPrimaryLocation())
-                            .lifecycle(demand.getProject().getLifecycleStage() != null ? 
-                                    demand.getProject().getLifecycleStage().toString() : null)
-                            .riskLevel(demand.getProject().getRiskLevel() != null ? 
-                                    demand.getProject().getRiskLevel().toString() : null)
-                            .staffingReadiness(demand.getProject().getStaffingReadinessStatus() != null ? 
-                                    demand.getProject().getStaffingReadinessStatus().toString() : null)
-                            .status(demand.getProject().getProjectStatus() != null ? 
-                                    demand.getProject().getProjectStatus().toString() : null)
-                            .build())
-                    
-                    // Skills and Requirements
-                    .DemandskillsRequirements(DemandDetailNestedResponseDTO.DemandskillsRequirements.builder()
-                            .requiredSkills(buildRequiredSkillsDTO(demand))
-                            .requiredCertificates(buildRequiredCertificatesDTO(demand))
-                            .deliveryRoleDetails(buildDeliveryRoleDetailsDTO(demand))
-                            .build())
-                    
-                    .build();
-
-            // Add SLA details if present
-            if (demandSLAOpt.isPresent()) {
-                DemandSLA demandSLA = demandSLAOpt.get();
-                LocalDate today = LocalDate.now();
-
-                DemandDetailNestedResponseDTO.SLAInfo slaInfo = DemandDetailNestedResponseDTO.SLAInfo.builder()
-                        .demandSlaId(demandSLA.getDemandSlaId())
-                        .slaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : null)
-                        .slaDurationDays(demandSLA.getSlaDurationDays())
-                        .warningThresholdDays(demandSLA.getWarningThresholdDays())
-                        .slaCreatedAt(demandSLA.getCreatedAt())
-                        .slaDueAt(demandSLA.getDueAt())
-                        .fulfillDate(demandSLA.getFulfillDate())
-                        .build();
-                
-                // Calculate SLA status
-                if(demandSLA.getActiveFlag() != null && demandSLA.getActiveFlag()) {
-                    if (demandSLA.getDueAt() != null) {
-                        if (today.isAfter(demandSLA.getDueAt())) {
-                            slaInfo.setSlaBreached(true);
-                            slaInfo.setOverdueDays(java.time.temporal.ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
-                            slaInfo.setRemainingDays(0L);
-                        } else {
-                            slaInfo.setSlaBreached(false);
-                            slaInfo.setRemainingDays(java.time.temporal.ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
-                            slaInfo.setOverdueDays(0L);
-                        }
-                    }
-                } else {
-                    slaInfo.setSlaBreached(false);
-                    slaInfo.setRemainingDays(0L);
-                    slaInfo.setOverdueDays(0L);
-                }
-                
-                demandInfo.setSlaInfo(slaInfo);
-            }
-
             return ResponseEntity.ok(ApiResponse.success("Demand retrieved successfully", demandInfo));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Failed to retrieve demand: " + e.getMessage()));
         }
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "demands", key = "'id-' + #demandId")
+    public DemandDetailNestedResponseDTO fetchDemandDetailDTO(UUID demandId) {
+        Optional<Demand> demandOpt = demandRepository.findById(demandId);
+        if (demandOpt.isEmpty()) {
+            return null;
+        }
+
+        Demand demand = demandOpt.get();
+        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+
+        DemandDetailNestedResponseDTO demandInfo = DemandDetailNestedResponseDTO.builder()
+                .demandId(demand.getDemandId())
+                .demandName(demand.getDemandName())
+                .demandStatus(demand.getDemandStatus() != null ? demand.getDemandStatus().toString() : null)
+                .demandPriority(demand.getDemandPriority() != null ? demand.getDemandPriority().toString() : null)
+                .demandType(demand.getDemandType() != null ? demand.getDemandType().toString() : null)
+                .deliveryModel(demand.getDeliveryModel() != null ? demand.getDeliveryModel().toString() : null)
+                .demandStartDate(demand.getDemandStartDate())
+                .demandEndDate(demand.getDemandEndDate())
+                .minExp(demand.getMinExp())
+                .resourceRequired(demand.getResourcesRequired())
+                .allocation(demand.getAllocationPercentage())
+                .demandJustification(demand.getDemandJustification())
+                .priorityScore(calculatePriorityScore(demand))
+                .rejectionInfo(DemandDetailNestedResponseDTO.RejectionInfo.builder()
+                        .rejectionReason(null)
+                        .rmRejectionReason(demand.getRmRejectionReason())
+                        .dmRejectionReason(demand.getDmRejectionReason())
+                        .build())
+                .clientInfo(DemandDetailNestedResponseDTO.ClientInfo.builder()
+                        .clientName(demand.getProject().getClient() != null ?
+                                demand.getProject().getClient().getClientName() : null)
+                        .build())
+                .projectInfo(DemandDetailNestedResponseDTO.ProjectInfo.builder()
+                        .projectId(demand.getProject().getPmsProjectId())
+                        .projectName(demand.getProject().getName())
+                        .deliveryModel(demand.getProject().getDeliveryModel() != null ?
+                                demand.getProject().getDeliveryModel().toString() : null)
+                        .location(demand.getProject().getPrimaryLocation())
+                        .lifecycle(demand.getProject().getLifecycleStage() != null ?
+                                demand.getProject().getLifecycleStage().toString() : null)
+                        .riskLevel(demand.getProject().getRiskLevel() != null ?
+                                demand.getProject().getRiskLevel().toString() : null)
+                        .staffingReadiness(demand.getProject().getStaffingReadinessStatus() != null ?
+                                demand.getProject().getStaffingReadinessStatus().toString() : null)
+                        .status(demand.getProject().getProjectStatus() != null ?
+                                demand.getProject().getProjectStatus().toString() : null)
+                        .build())
+                .DemandskillsRequirements(DemandDetailNestedResponseDTO.DemandskillsRequirements.builder()
+                        .requiredSkills(buildRequiredSkillsDTO(demand))
+                        .requiredCertificates(buildRequiredCertificatesDTO(demand))
+                        .deliveryRoleDetails(buildDeliveryRoleDetailsDTO(demand))
+                        .build())
+                .build();
+
+        if (demandSLAOpt.isPresent()) {
+            DemandSLA demandSLA = demandSLAOpt.get();
+            LocalDate today = LocalDate.now();
+
+            DemandDetailNestedResponseDTO.SLAInfo slaInfo = DemandDetailNestedResponseDTO.SLAInfo.builder()
+                    .demandSlaId(demandSLA.getDemandSlaId())
+                    .slaType(demandSLA.getSlaType() != null ? demandSLA.getSlaType().toString() : null)
+                    .slaDurationDays(demandSLA.getSlaDurationDays())
+                    .warningThresholdDays(demandSLA.getWarningThresholdDays())
+                    .slaCreatedAt(demandSLA.getCreatedAt())
+                    .slaDueAt(demandSLA.getDueAt())
+                    .fulfillDate(demandSLA.getFulfillDate())
+                    .build();
+
+            if (demandSLA.getActiveFlag() != null && demandSLA.getActiveFlag()) {
+                if (demandSLA.getDueAt() != null) {
+                    if (today.isAfter(demandSLA.getDueAt())) {
+                        slaInfo.setSlaBreached(true);
+                        slaInfo.setOverdueDays(ChronoUnit.DAYS.between(demandSLA.getDueAt(), today));
+                        slaInfo.setRemainingDays(0L);
+                    } else {
+                        slaInfo.setSlaBreached(false);
+                        slaInfo.setRemainingDays(ChronoUnit.DAYS.between(today, demandSLA.getDueAt()));
+                        slaInfo.setOverdueDays(0L);
+                    }
+                }
+            } else {
+                slaInfo.setSlaBreached(false);
+                slaInfo.setRemainingDays(0L);
+                slaInfo.setOverdueDays(0L);
+            }
+
+            demandInfo.setSlaInfo(slaInfo);
+        }
+
+        return demandInfo;
+    }
+
     @Override
-    @Transactional
-    @CacheEvict(value = "demands", allEntries = true)
     @Caching(evict = {
         @CacheEvict(value = "demands", allEntries = true),
         @CacheEvict(value = "bench-matches", allEntries = true)
@@ -2437,10 +2436,15 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 }
             }
 
-            // delete child SLA first
-            demandSLARepository.deleteByDemand_DemandId(demandId);
-
-            // then delete demand
+            // Archive SLA if exists
+            Optional<DemandSLA> demandSLAOpt = demandSLARepository
+                    .findByDemand_DemandIdAndActiveFlagTrue(demandId);
+            if (demandSLAOpt.isPresent()) {
+                DemandSLA demandSLA = demandSLAOpt.get();
+                demandSLA.setActiveFlag(false);
+                demandSLARepository.save(demandSLA);
+            }
+            // Delete the demand
             demandRepository.delete(demand);
 
             return ResponseEntity.ok(ApiResponse.success(

@@ -234,10 +234,11 @@ public class AllocationServiceImpl implements AllocationService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "active-allocations", allEntries = true),
-        @CacheEvict(value = "dashboard-kpis", allEntries = true),
-        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true),
-        @CacheEvict(value = "demands", allEntries = true)
+        @CacheEvict(value = "demands",            allEntries = true)
     })
     public ResponseEntity<ApiResponse<?>> cancelAllocation(UUID allocationId, String cancelledBy) {
         try {
@@ -290,6 +291,14 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands",            allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> approveAllocation(UUID allocationId, String dmName) {
 
         ResourceAllocation allocation = allocationRepository.findById(allocationId)
@@ -330,6 +339,11 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> rejectAllocation(UUID allocationId, String reason, String dmName) {
 
         ResourceAllocation allocation = allocationRepository.findById(allocationId)
@@ -870,10 +884,11 @@ public class AllocationServiceImpl implements AllocationService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "active-allocations", allEntries = true),
-        @CacheEvict(value = "dashboard-kpis", allEntries = true),
-        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true),
-        @CacheEvict(value = "demands", allEntries = true)
+        @CacheEvict(value = "demands",            allEntries = true)
     })
     public void processAutoClosures() {
         try {
@@ -894,10 +909,11 @@ public class AllocationServiceImpl implements AllocationService {
     @Transactional
     @Caching(evict = {
         @CacheEvict(value = "active-allocations", allEntries = true),
-        @CacheEvict(value = "dashboard-kpis", allEntries = true),
-        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true),
-        @CacheEvict(value = "demands", allEntries = true)
+        @CacheEvict(value = "demands",            allEntries = true)
     })
     public void activatePlannedAllocations() {
         try {
@@ -946,10 +962,11 @@ public class AllocationServiceImpl implements AllocationService {
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "active-allocations", allEntries = true),
-            @CacheEvict(value = "dashboard-kpis", allEntries = true),
-            @CacheEvict(value = "bench-resources", allEntries = true),
+            @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+            @CacheEvict(value = "bench-resources",    allEntries = true),
+            @CacheEvict(value = "bench-matches",      allEntries = true),
             @CacheEvict(value = "resource-timelines", allEntries = true),
-            @CacheEvict(value = "demands", allEntries = true)
+            @CacheEvict(value = "demands",            allEntries = true)
     })
     public ResponseEntity<ApiResponse<?>> deleteAllocation(UUID allocationId, UserDTO user) {
 
