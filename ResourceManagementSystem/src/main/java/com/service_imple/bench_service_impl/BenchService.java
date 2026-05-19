@@ -66,8 +66,9 @@ public class BenchService {
         log.info("Starting bench detection process");
         
         try {
-            // Fetch eligible resourceIds (no active allocation + eligibility criteria)
-            List<String> eligibleResourceIds = benchDetectionRepository.findBenchEligibleResources(LocalDate.now());
+            // Exclude resources with a PLANNED allocation starting within 14 days (inter-project gap buffer)
+            LocalDate today = LocalDate.now();
+            List<String> eligibleResourceIds = benchDetectionRepository.findBenchEligibleResources(today, today.plusDays(14));
             
             log.info("Found {} resources eligible for bench detection", eligibleResourceIds.size());
             
