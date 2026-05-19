@@ -115,8 +115,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         
         if (existing.isEmpty()) {
             throw SkillExceptionHandler.badRequest(
-                    "No role expectations found for roleId: " + roleId + 
-                    ". Use POST endpoint to create instead.");
+                    "No role expectations found for role: " + role.getRoleName());
         }
 
         // Delete existing expectations
@@ -311,8 +310,8 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                 .role(role)
                 .skill(skill)
                 .subSkill(subSkill)
-                .proficiencyLevel(proficiencyLevel)
-                .mandatoryFlag(subDto.getMandatoryFlag())
+                .subSkillProficiencyLevel(proficiencyLevel)
+                .subSkillMandatoryFlag(subDto.getMandatoryFlag())
                 .status("ACTIVE")
                 .build();
 
@@ -409,6 +408,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
 
         response.setRole(expectations.get(0).getRole().getRoleName());
         response.setDev_role_id(expectations.get(0).getId());
+        response.setCategory(expectations.get(0).getSkill().getCategory().getName());
 
         Map<String, List<DeliveryRoleExpectation>> groupedBySkill = expectations.stream()
                 .collect(Collectors.groupingBy(e -> e.getSkill().getName()));
@@ -423,13 +423,15 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
                     .map(e -> {
                         RoleRequirementDetail detail = new RoleRequirementDetail();
                         detail.setSubSkill(e.getSubSkill() != null ? e.getSubSkill().getName() : null);
-                        detail.setProficiency(e.getProficiencyLevel().getProficiencyName());
-                        detail.setMandatoryFlag(e.getMandatoryFlag());
+                        detail.setProficiency(e.getSubSkillProficiencyLevel() != null ? e.getSubSkillProficiencyLevel().getProficiencyName() : null);
+                        detail.setMandatoryFlag(e.getSubSkillMandatoryFlag());
                         return detail;
                     })
                     .collect(Collectors.toList());
 
-            skillReq.setRequirements(requirements);
+            skillReq.setSubSkills(requirements);
+            skillReq.setProficiency(entry.getValue().get(0).getProficiencyLevel().getProficiencyName());
+            skillReq.setMandatoryFlag(entry.getValue().get(0).getMandatoryFlag());
             skillRequirements.add(skillReq);
         }
 
@@ -459,7 +461,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         for (DeliveryRoleExpectation expectation : expectations) {
             RoleSkillRequirement skillReq = new RoleSkillRequirement();
             skillReq.setSkill(expectation.getSkill().getName());
-            skillReq.setSubSkill(expectation.getSubSkill() != null ? expectation.getSubSkill().getName() : null);
+            skillReq.setMandatoryFlag(expectation.getMandatoryFlag());
             skillReq.setProficiency(expectation.getProficiencyLevel().getProficiencyName());
 
             if (Boolean.TRUE.equals(expectation.getMandatoryFlag())) {

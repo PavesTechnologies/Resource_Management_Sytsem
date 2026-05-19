@@ -6,7 +6,7 @@ import java.util.List;
 @Data
 public class RoleSkillRequirement {
     private String skill;
-    private String subSkill;
     private String proficiency;
-    private List<RoleRequirementDetail> requirements;
+    private boolean mandatoryFlag;
+    private List<RoleRequirementDetail> subSkills;
 }

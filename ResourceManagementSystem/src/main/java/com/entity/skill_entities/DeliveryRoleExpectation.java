@@ -53,14 +53,30 @@ public class DeliveryRoleExpectation {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "skill"})
     private SubSkill subSkill;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "proficiency_id", nullable = false,
-            foreignKey = @ForeignKey(name = "fk_expectation_proficiency"))
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private ProficiencyLevel proficiencyLevel;
+//    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+//    @JoinColumn(name = "proficiency_id", nullable = false,
+//            foreignKey = @ForeignKey(name = "fk_expectation_proficiency"))
+//    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+//    private ProficiencyLevel proficiencyLevel;
+@ManyToOne(fetch = FetchType.LAZY, optional = false)
+@JoinColumn(name = "proficiency_id", nullable = false,
+        referencedColumnName = "proficiency_id",
+        foreignKey = @ForeignKey(name = "fk_expectation_proficiency"))
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+private ProficiencyLevel proficiencyLevel;
 
     @Column(name = "mandatory_flag", nullable = false)
     private Boolean mandatoryFlag;
+
+    @Column(name = "sub_skill_mandatory_flag")
+    private Boolean subSkillMandatoryFlag;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sub_skill_proficiency_id",
+            referencedColumnName = "proficiency_id",
+            foreignKey = @ForeignKey(name = "fk_expectation_subskill_proficiency"))
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private ProficiencyLevel subSkillProficiencyLevel;
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
