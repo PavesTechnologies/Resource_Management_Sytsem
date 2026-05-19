@@ -87,4 +87,9 @@ public interface AllocationService {
      * and reverts it to APPROVED if the fulfilling allocations are gone.
      */
     void checkAndUpdateDemandFulfillment(UUID demandId);
+
+    /**
+     * Deletes a resource allocation
+     */
+    ResponseEntity<ApiResponse<?>> deleteAllocation(UUID allocationId, UserDTO user);
 }

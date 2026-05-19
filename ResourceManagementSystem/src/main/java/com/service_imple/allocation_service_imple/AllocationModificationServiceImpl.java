@@ -51,6 +51,24 @@ public class AllocationModificationServiceImpl implements AllocationModification
     public ResponseEntity<ApiResponse<?>> createUnifiedAllocationChangeFromDTO(
             CreateAllocationModificationDTO dto, UserDTO userDTO) {
         try {
+            // Get allocation first to check if it's linked to a demand
+            ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
+
+            // STRICT VALIDATION: If allocation is linked to a demand, percentage cannot be changed
+            if (allocation.getDemand() != null) {
+                Integer demandPercentage = allocation.getDemand().getAllocationPercentage();
+                Integer currentPercentage = allocation.getAllocationPercentage();
+                Integer requestedPercentage = dto.getRequestedAllocationPercentage();
+
+                if (requestedPercentage != null && !requestedPercentage.equals(currentPercentage)) {
+                    throw AllocationExceptionHandler.badRequest(
+                        String.format("Allocation percentage cannot be modified for demand-based allocations. Demand '%s' requires exactly %d%% allocation. Current allocation is %d%%, requested change to %d%% is not allowed. Resource Managers cannot modify the allocation percentage defined by the Project Manager.",
+                            allocation.getDemand().getDemandName(), demandPercentage, currentPercentage, requestedPercentage)
+                    );
+                }
+            }
+
             // Check for role-off scenario
             if (validator.shouldTriggerRoleOff(dto.getRequestedAllocationPercentage())) {
                 return triggerRoleOffProcessFromDTO(dto, userDTO);
@@ -64,10 +82,6 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     dto.getOverrideEndDate(),
                     dto.getReason()
             );
-
-            // Get allocation
-            ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
-                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
 
             // System determines if override is needed
             boolean overrideRequired = validator.checkIfOverrideRequired(
@@ -334,6 +348,24 @@ public class AllocationModificationServiceImpl implements AllocationModification
     @Transactional
     public ResponseEntity<ApiResponse<?>> createModification(CreateAllocationModificationDTO dto, UserDTO userDTO) {
         try {
+            // Get allocation first to check if it's linked to a demand
+            ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
+                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
+
+            // STRICT VALIDATION: If allocation is linked to a demand, percentage cannot be changed
+            if (allocation.getDemand() != null) {
+                Integer demandPercentage = allocation.getDemand().getAllocationPercentage();
+                Integer currentPercentage = allocation.getAllocationPercentage();
+                Integer requestedPercentage = dto.getRequestedAllocationPercentage();
+
+                if (requestedPercentage != null && !requestedPercentage.equals(currentPercentage)) {
+                    throw AllocationExceptionHandler.badRequest(
+                        String.format("Allocation percentage cannot be modified for demand-based allocations. Demand '%s' requires exactly %d%% allocation. Current allocation is %d%%, requested change to %d%% is not allowed. Resource Managers cannot modify the allocation percentage defined by the Project Manager.",
+                            allocation.getDemand().getDemandName(), demandPercentage, currentPercentage, requestedPercentage)
+                    );
+                }
+            }
+
             // Check if this should trigger Role-Off workflow
             if (validator.shouldTriggerRoleOff(dto.getRequestedAllocationPercentage())) {
                 return triggerRoleOffProcess(dto, userDTO);
@@ -346,10 +378,6 @@ public class AllocationModificationServiceImpl implements AllocationModification
                     dto.getEffectiveDate(),
                     dto.getReason()
             );
-
-            // Get allocation for modification creation
-            ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
-                    .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
 
             // Check if override is needed
             boolean isOverride = checkIfOverrideRequired(allocation.getResource().getResourceId(), dto);
@@ -710,6 +738,8 @@ public class AllocationModificationServiceImpl implements AllocationModification
         newAllocation.setAllocationEndDate(endDate);
         newAllocation.setAllocationPercentage(newPercentage);
         newAllocation.setAllocationStatus(original.getAllocationStatus());
+        newAllocation.setAllocationType(original.getAllocationType());
+        newAllocation.setPlannedStartDate(original.getPlannedStartDate());
         newAllocation.setCreatedBy(original.getCreatedBy());
         
         return newAllocation;
@@ -896,15 +926,16 @@ public class AllocationModificationServiceImpl implements AllocationModification
                         .body(ApiResponse.error("You can only delete your own modification requests"));
             }
 
-            // Check if modification is still requested (can only delete requested modifications)
-            if (modification.getStatus() != AllocationModificationStatus.REQUESTED) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("Can only delete requested modification requests"));
-            }
+             // Check if modification is still requested (can only delete requested modifications)
+             if (modification.getStatus() != AllocationModificationStatus.REQUESTED) {
+                 return ResponseEntity.badRequest()
+                         .body(ApiResponse.error("Can only delete requested modification requests"));
+             }
 
-            modificationRepository.delete(modification);
-            
-            return ResponseEntity.ok(ApiResponse.success("Modification request deleted successfully", null));
+             modificationRepository.delete(modification);
+             modificationRepository.flush();
+             
+             return ResponseEntity.ok(ApiResponse.success("Modification request deleted successfully", modification));
 
         } catch (AllocationExceptionHandler e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

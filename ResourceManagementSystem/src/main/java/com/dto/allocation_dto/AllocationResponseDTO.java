@@ -15,6 +15,8 @@ public class AllocationResponseDTO {
     private LocalDate allocationEndDate;
     private Integer allocationPercentage;
     private String allocationStatus;
+    private String allocationType;
+    private LocalDate plannedStartDate;
     private String createdBy;
     private Integer remainingAllocationPercentage;
 }

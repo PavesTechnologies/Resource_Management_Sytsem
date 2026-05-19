@@ -649,7 +649,7 @@ public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandCo
                             HttpStatus.NOT_FOUND,
                             "ROLE_NOT_FOUND",
                             "Role not found with ID: " + dto.getDeliveryRole()
-                    ));
+                        ));
         } catch (IllegalArgumentException e) {
             throw new DemandExceptionHandler(
                     HttpStatus.BAD_REQUEST,
@@ -1649,7 +1649,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         HttpStatus.FORBIDDEN,
                         "UNAUTHORIZED",
                         "Only demand creator can update this demand"
-                );
+                    );
             }
 
             // Cannot edit fulfilled/cancelled
@@ -1877,13 +1877,8 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             );
 
         } catch (Exception e) {
-
-            return new ResponseEntity<>(
-                    ApiResponse.error(
-                            "Failed to update demand : " + e.getMessage()
-                    ),
-                    HttpStatus.INTERNAL_SERVER_ERROR
-            );
+            log.error("Failed to update demand: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to update demand", e);
         }
     }
 
@@ -2139,7 +2134,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         HttpStatus.BAD_REQUEST,
                         "PROJECT_STATUS_NOT_ALLOWED",
                         "Demands cannot be created for a project in status: " + project.getProjectStatus()
-                );
+                    );
             }
 
             // Validate PM allocation limit
@@ -2233,10 +2228,8 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
         } catch (DemandExceptionHandler e) {
             return new ResponseEntity<>(ApiResponse.error(e.getMessage()), e.getStatus());
         } catch (Exception e) {
-            return new ResponseEntity<>(
-                    ApiResponse.error("Failed to create demand: " + e.getMessage()),
-                    HttpStatus.INTERNAL_SERVER_ERROR
-            );
+            log.error("Failed to create demand: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to create demand", e);
         }
     }
 
@@ -2396,7 +2389,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         HttpStatus.FORBIDDEN,
                         "UNAUTHORIZED",
                         "Only the demand creator can delete this demand"
-                );
+                    );
             }
 
             // Validate demand status for deletion

@@ -1,6 +1,7 @@
 package com.dto.allocation_dto;
 
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.AllocationType;
 import com.entity_enums.roleoff_enums.RoleOffReason;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,7 +33,6 @@ public class AllocationRequestDTO {
     @NotNull(message = "Allocation end date is required")
     private LocalDate allocationEndDate;
 
-    @NotNull(message = "Allocation percentage is required")
     @Min(value = 1, message = "Allocation percentage must be at least 1")
     @Max(value = 130, message = "Allocation percentage cannot exceed 130")
     private Integer allocationPercentage;
@@ -41,6 +41,18 @@ public class AllocationRequestDTO {
 
     @NotNull(message = "Allocation status is required")
     private AllocationStatus allocationStatus;
+
+    /**
+     * Allocation Type - ACTIVE (starts immediately) or PLANNED (future start date)
+     * If not provided, defaults to ACTIVE
+     */
+    private AllocationType allocationType;
+
+    /**
+     * Planned start date for PLANNED allocation type
+     * Required if allocationType is PLANNED, ignored for ACTIVE type
+     */
+    private LocalDate plannedStartDate;
 
     private String createdBy;
 
@@ -61,5 +73,21 @@ public class AllocationRequestDTO {
     public boolean isEndDateValid() {
         return allocationEndDate != null && allocationStartDate != null 
                && !allocationEndDate.isBefore(allocationStartDate);
+    }
+
+    @AssertTrue(message = "PLANNED allocation requires a planned start date in the future")
+    public boolean isPlannedAllocationValid() {
+        if (allocationType == com.entity_enums.allocation_enums.AllocationType.PLANNED) {
+            return plannedStartDate != null && plannedStartDate.isAfter(java.time.LocalDate.now());
+        }
+        return true;
+    }
+
+    @AssertTrue(message = "ACTIVE allocation cannot have a planned start date")
+    public boolean isActiveAllocationValid() {
+        if (allocationType == com.entity_enums.allocation_enums.AllocationType.ACTIVE) {
+            return plannedStartDate == null;
+        }
+        return true;
     }
 }
