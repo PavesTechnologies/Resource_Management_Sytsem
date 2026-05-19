@@ -53,7 +53,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @PutMapping("/{roleId}")
-    @PreAuthorize("hasRole('Admin')")
+    @PreAuthorize("hasAnyRole('Admin', 'Project_Manager', 'Resource_Manager')")
     public ResponseEntity<ApiResponse<DeliveryRoleExpectationResponse>> updateRoleExpectations(
             @PathVariable UUID roleId,
             @Valid @RequestBody DeliveryRoleExpectationRequest request) {
@@ -119,8 +119,6 @@ public class DeliveryRoleExpectationController {
     @GetMapping
     @PreAuthorize("hasAnyRole('Admin', 'Resource_Manager', 'Project_Manager')")
     public ResponseEntity<ApiResponse<List<DeliveryRoleExpectationResponse>>> getAllRoleExpectations() {
-        
-        log.info("Admin request to get all role expectations");
         
         try {
             List<DeliveryRoleExpectationResponse> responses = service.getAllRoleExpectations();

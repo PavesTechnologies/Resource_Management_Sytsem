@@ -12,6 +12,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.Set;
 import java.util.UUID;
@@ -77,8 +79,9 @@ public class ProjectEscalation {
 //    @ElementCollection(targetClass = EscalationTriggerType.class, fetch = FetchType.EAGER)
 //    @CollectionTable(name = "project_escalation_triggers", joinColumns = @JoinColumn(name = "project_escalation_id"))
 //    @Enumerated(EnumType.STRING)
-//    @Column(name = "trigger_type")
-//    private Set<EscalationTriggerType> triggers;
+    @Column(name = "trigger_type")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Set<EscalationTriggerType> triggers;
 
     @NotNull(message = "Escalation source is required")
     @Enumerated(EnumType.STRING)

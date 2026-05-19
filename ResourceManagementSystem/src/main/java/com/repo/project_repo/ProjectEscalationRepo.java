@@ -1,6 +1,7 @@
 package com.repo.project_repo;
 
 import com.entity.project_entities.ProjectEscalation;
+import com.entity_enums.client_enums.ContactRole;
 import com.entity_enums.project_enums.EscalationLevel;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -74,7 +75,7 @@ public interface ProjectEscalationRepo extends JpaRepository<ProjectEscalation, 
             @Param("projectId") Long projectId,
             @Param("excludeId") UUID excludeId);
 
-    boolean existsByProject_PmsProjectIdAndContactRoleAndEscalationLevel(Long projectId, String contactRole, String escalationLevel);
+    boolean existsByProject_PmsProjectIdAndContactRoleAndEscalationLevel(Long projectId, ContactRole contactRole, String escalationLevel);
 
     @Query("""
        SELECT pe FROM ProjectEscalation pe
@@ -85,7 +86,7 @@ public interface ProjectEscalationRepo extends JpaRepository<ProjectEscalation, 
        """)
     Optional<ProjectEscalation> findByProjectIdAndContactRoleAndEscalationLevelExcludingId(
             @Param("projectId") Long projectId,
-            @Param("contactRole") String contactRole,
+            @Param("contactRole") ContactRole contactRole,
             @Param("escalationLevel") String escalationLevel,
             @Param("excludeId") UUID excludeId);
 }
