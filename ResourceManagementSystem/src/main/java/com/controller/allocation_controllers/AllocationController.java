@@ -98,6 +98,7 @@ public class AllocationController {
     public ResponseEntity<ApiResponse<?>> getPendingApprovals() {
         return allocationService.getPendingApprovals();
     }
+
     @PostMapping("/approvals/{allocationId}/approve")
     @PreAuthorize("hasRole('Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> approve(
@@ -114,6 +115,14 @@ public class AllocationController {
             @CurrentUser UserDTO user) {
 
         return allocationService.rejectAllocation(allocationId, dto.getRejectionReason(), user.getName());
+    }
+
+    @DeleteMapping("/{allocationId}")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin')")
+    public ResponseEntity<ApiResponse<?>> deleteAllocation(
+            @PathVariable UUID allocationId,
+            @CurrentUser UserDTO user) {
+        return allocationService.deleteAllocation(allocationId, user);
     }
 
 }

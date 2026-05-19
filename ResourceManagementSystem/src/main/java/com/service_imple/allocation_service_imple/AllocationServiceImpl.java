@@ -10,7 +10,9 @@ import com.entity.bench.ResourceState;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
 import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.allocation_enums.AllocationType;
 import com.entity_enums.allocation_enums.ApprovalStatus;
+import com.entity_enums.allocation_enums.AllocationModificationStatus;
 import com.entity_enums.bench.StateType;
 import com.entity_enums.bench.SubState;
 import com.entity_enums.demand_enums.DemandStatus;
@@ -74,18 +76,27 @@ public class AllocationServiceImpl implements AllocationService {
             validationService.validateRequest(allocationRequest);
             DemandProjectData demandProjectData = validationService.validateDemandOrProject(allocationRequest);
             
-            // Validate that demand is approved by delivery manager before allowing allocation
-//            if (allocationRequest.getDemandId() != null && demandProjectData.getDemand() != null) {
-//                Demand demand = demandProjectData.getDemand();
-//                if (demand.getDemandStatus() != DemandStatus.APPROVED) {
-//                    throw new AllocationExceptionHandler(
-//                        HttpStatus.BAD_REQUEST,
-//                        "DEMAND_NOT_APPROVED",
-//                        "Cannot allocate resources to demand '" + demand.getDemandName() + "'. Demand must be approved by Delivery Manager before resource allocation. Current status: " + demand.getDemandStatus()
-//                    );
-//                }
-//            }
+            // Auto-populate allocation percentage from demand if not provided
+            if (allocationRequest.getDemandId() != null && demandProjectData.getDemand() != null) {
+                Demand demand = demandProjectData.getDemand();
+                if (allocationRequest.getAllocationPercentage() == null) {
+                    allocationRequest.setAllocationPercentage(demand.getAllocationPercentage());
+                    log.info("Auto-populated allocation percentage from demand: {}%", demand.getAllocationPercentage());
+                }
+
+                // Validate that demand is approved by delivery manager before allowing allocation
+                if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+                    throw new AllocationExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DEMAND_NOT_APPROVED",
+                        "Cannot allocate resources to demand '" + demand.getDemandName() + "'. Demand must be approved by Delivery Manager before resource allocation. Current status: " + demand.getDemandStatus()
+                    );
+                }
+            }
             
+            // Validate and set allocation type logic
+            validateAndSetAllocationType(allocationRequest);
+
             AllocationPreloadedData preloadedData = validationService.preloadAllocationData(allocationRequest, demandProjectData.getDemand());
             AllocationValidationResult validationResult = validationService.validateResourcesInParallel(allocationRequest, demandProjectData, preloadedData);
 
@@ -147,9 +158,22 @@ public class AllocationServiceImpl implements AllocationService {
             if (existingAllocation.isEmpty()) return ResponseEntity.notFound().build();
 
             ResourceAllocation allocation = existingAllocation.get();
-            if (allocation.getAllocationStatus() == AllocationStatus.ENDED || allocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
+
+            if (allocation.getAllocationStatus() == AllocationStatus.DELETED) {
                 ApiResponse<Object> response = new ApiResponse<>();
-                return ResponseEntity.badRequest().body(response.getAPIResponse(false, "Closed or cancelled allocations cannot be modified", null));
+                return ResponseEntity.badRequest().body(
+                        response.getAPIResponse(false,
+                                "Deleted allocations cannot be modified", null));
+            }
+
+            if (allocation.getAllocationStatus() == AllocationStatus.ENDED ||
+                    allocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
+
+                ApiResponse<Object> response = new ApiResponse<>();
+
+                return ResponseEntity.badRequest().body(
+                        response.getAPIResponse(false,
+                                "Closed or cancelled allocations cannot be modified", null));
             }
 
             if (allocationRequest.getAllocationStatus() == AllocationStatus.ENDED) {
@@ -157,10 +181,23 @@ public class AllocationServiceImpl implements AllocationService {
                         "Use the role-off flow to end an allocation.");
             }
 
+            // STRICT VALIDATION: If allocation is linked to a demand, allocation percentage cannot be changed
+            if (allocation.getDemand() != null && allocationRequest.getAllocationPercentage() != null) {
+                validationService.validateAllocationPercentageMatchesDemand(allocationRequest.getAllocationPercentage(), allocation.getDemand());
+            }
+
+            // Validate and set allocation type logic for updates
+            validateAndSetAllocationType(allocationRequest);
+
             allocation.setAllocationStartDate(allocationRequest.getAllocationStartDate());
             allocation.setAllocationEndDate(allocationRequest.getAllocationEndDate());
-            allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
+            // Only update allocation percentage if it's provided and passes validation
+            if (allocationRequest.getAllocationPercentage() != null) {
+                allocation.setAllocationPercentage(allocationRequest.getAllocationPercentage());
+            }
             allocation.setAllocationStatus(allocationRequest.getAllocationStatus());
+            allocation.setAllocationType(allocationRequest.getAllocationType() != null ? allocationRequest.getAllocationType() : AllocationType.ACTIVE);
+            allocation.setPlannedStartDate(allocationRequest.getPlannedStartDate());
 
             validateResourceCapacityForUpdate(allocationId, allocationRequest);
             ResourceAllocation updatedAllocation = allocationRepository.save(allocation);
@@ -195,12 +232,37 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true),
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands", allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> cancelAllocation(UUID allocationId, String cancelledBy) {
         try {
             Optional<ResourceAllocation> existingAllocation = allocationRepository.findById(allocationId);
             if (existingAllocation.isEmpty()) return ResponseEntity.notFound().build();
 
             ResourceAllocation allocation = existingAllocation.get();
+
+            // Check if allocation is already cancelled or ended
+            if (allocation.getAllocationStatus() == AllocationStatus.CANCELLED ||
+                    allocation.getAllocationStatus() == AllocationStatus.ENDED ||
+                    allocation.getAllocationStatus() == AllocationStatus.ROLLED_OFF ||
+                    allocation.getAllocationStatus() == AllocationStatus.DELETED) {
+
+                ApiResponse<Object> response = new ApiResponse<>();
+
+                return ResponseEntity.badRequest().body(
+                        response.getAPIResponse(false,
+                                "Allocation is already closed or deleted", null));
+            }
+
+            // For PLANNED allocations, cancellation before activation should revert demand status
+            boolean wasPlannedAllocation = allocation.getAllocationType() == AllocationType.PLANNED
+                    && allocation.getAllocationStatus() == AllocationStatus.PLANNED;
+
             allocation.setAllocationStatus(AllocationStatus.CANCELLED);
             allocation.setClosedBy(cancelledBy != null ? cancelledBy : "SYSTEM");
             allocation.setClosedAt(LocalDateTime.now());
@@ -208,8 +270,13 @@ public class AllocationServiceImpl implements AllocationService {
             ResourceAllocation cancelledAllocation = allocationRepository.save(allocation);
             updateAvailabilityLedgerForAllocation(cancelledAllocation);
 
+            // If this was a PLANNED allocation cancelled before activation,
+            // the demand status will be recalculated by checkAndUpdateDemandFulfillment
+            // which will revert it to APPROVED if no longer fulfilled
             if (cancelledAllocation.getDemand() != null) {
                 checkAndUpdateDemandFulfillment(cancelledAllocation.getDemand().getDemandId());
+                log.info("PLANNED allocation {} cancelled. Demand {} fulfillment status recalculated.",
+                        allocationId, cancelledAllocation.getDemand().getDemandId());
             }
 
             ApiResponse<Object> response = new ApiResponse<>();
@@ -415,11 +482,21 @@ public class AllocationServiceImpl implements AllocationService {
         log.info("Quick allocating resource {} to demand {} by user {} with {}% allocation",
                 resourceId, demandId, user.getName(), allocationPercentage);
 
+        // Fetch demand to get allocation percentage if not provided
+        Integer finalAllocationPercentage = allocationPercentage;
+        if (finalAllocationPercentage == null && demandId != null) {
+            Optional<Demand> demandOpt = demandRepository.findById(demandId);
+            if (demandOpt.isPresent()) {
+                finalAllocationPercentage = demandOpt.get().getAllocationPercentage();
+                log.info("Auto-populated allocation percentage from demand for quick allocation: {}%", finalAllocationPercentage);
+            }
+        }
+
         // Create quick allocation DTO from parameters
         QuickAllocationDTO quickAllocation = QuickAllocationDTO.builder()
                 .resourceId(resourceId)
                 .demandId(demandId)
-                .allocationPercentage(allocationPercentage)
+                .allocationPercentage(finalAllocationPercentage)
                 .build();
         
         // Convert quick allocation to full allocation request
@@ -440,6 +517,7 @@ public class AllocationServiceImpl implements AllocationService {
                 .allocationStartDate(calculateStartDate(quickAllocation.getDemandId()))
                 .allocationEndDate(calculateEndDate(quickAllocation.getDemandId()))
                 .allocationStatus(AllocationStatus.ACTIVE)
+                .allocationType(AllocationType.ACTIVE)
                 .createdBy(user.getName())
                 .skipValidation(false)
                 .build();
@@ -500,17 +578,33 @@ public class AllocationServiceImpl implements AllocationService {
             int requested = allocation.getAllocationPercentage();
             int totalAllocation = internal + currentProject + requested;
 
+            // Set allocation type and planned start date from the request
+            // These should already be set by the validation service, but ensure they're set
+            if (allocation.getAllocationType() == null) {
+                allocation.setAllocationType(AllocationType.ACTIVE);
+            }
+
             // ✅ WITHIN NORMAL CAPACITY (<=100%)
             if (totalAllocation <= 100) {
                 allocation.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
-                allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+                // For ACTIVE type, set to ACTIVE; for PLANNED type, set to PLANNED
+                if (allocation.getAllocationType() == AllocationType.PLANNED) {
+                    allocation.setAllocationStatus(AllocationStatus.PLANNED);
+                } else {
+                    allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+                }
             }
             // ⚠ EXCEEDS 100% BUT <=130% (SPECIAL CONDITIONS)
             else if (totalAllocation <= 130) {
                 // Check if beyond capacity approval is granted
                 if (Boolean.TRUE.equals(allocation.getRequestBeyondCapacityApproval())) {
                     allocation.setApprovalStatus(ApprovalStatus.APPROVED);
-                    allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+                    // For ACTIVE type, set to ACTIVE; for PLANNED type, set to PLANNED
+                    if (allocation.getAllocationType() == AllocationType.PLANNED) {
+                        allocation.setAllocationStatus(AllocationStatus.PLANNED);
+                    } else {
+                        allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+                    }
                 } else {
                     allocation.setApprovalStatus(ApprovalStatus.PENDING);
                     allocation.setAllocationStatus(AllocationStatus.PLANNED);
@@ -596,8 +690,15 @@ public class AllocationServiceImpl implements AllocationService {
         if (allocationOpt.isEmpty()) return ResponseEntity.notFound().build();
 
         ResourceAllocation allocation = allocationOpt.get();
-        if (allocation.getAllocationStatus() == AllocationStatus.ENDED) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Allocation already ended", null));
+
+        if (allocation.getAllocationStatus() == AllocationStatus.ENDED ||
+                allocation.getAllocationStatus() == AllocationStatus.DELETED ||
+                allocation.getAllocationStatus() == AllocationStatus.CANCELLED ||
+                allocation.getAllocationStatus() == AllocationStatus.ROLLED_OFF) {
+
+            return ResponseEntity.badRequest().body(
+                    new ApiResponse<>(false,
+                            "Allocation is already closed or deleted", null));
         }
 
         LocalDate closureDate = request.getClosureDate() != null ? request.getClosureDate() : LocalDate.now();
@@ -630,29 +731,35 @@ public class AllocationServiceImpl implements AllocationService {
 
     @Override
     public void checkAndUpdateDemandFulfillment(UUID demandId) {
-        try {
-            Demand demand = demandRepository.findById(demandId).orElse(null);
-            if (demand == null) return;
+        Demand demand = demandRepository.findById(demandId).orElse(null);
+        if (demand == null) return;
 
-            List<ResourceAllocation> active = allocationRepository.findByDemand_DemandId(demandId).stream()
-                    .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE).toList();
+        // Count both ACTIVE and PLANNED allocations for demand fulfillment
+        // This allows demand to be FULFILLED when all resources are allocated,
+        // regardless of whether they are ACTIVE or PLANNED
+        List<ResourceAllocation> allocated = allocationRepository.findByDemand_DemandId(demandId).stream()
+                .filter(a -> a.getAllocationStatus() == AllocationStatus.ACTIVE || a.getAllocationStatus() == AllocationStatus.PLANNED)
+                .toList();
 
-            if (active.size() >= demand.getResourcesRequired() && active.stream().allMatch(a -> a.getAllocationPercentage().equals(demand.getAllocationPercentage()))) {
-                if (demand.getDemandStatus() != DemandStatus.FULFILLED) {
-                    demand.setDemandStatus(DemandStatus.FULFILLED);
-                    demandRepository.save(demand);
-                    demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId).ifPresent(sla -> {
-                        sla.setActiveFlag(false);
-                        sla.setFulfillDate(LocalDate.now());
-                        demandSLARepository.save(sla);
-                    });
-                }
-            } else if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
-                demand.setDemandStatus(DemandStatus.APPROVED);
+        // Check if demand is fulfilled: enough allocations with correct percentage
+        boolean isFulfilled = allocated.size() >= demand.getResourcesRequired()
+                && allocated.stream().allMatch(a -> a.getAllocationPercentage().equals(demand.getAllocationPercentage()));
+
+        if (isFulfilled) {
+            if (demand.getDemandStatus() != DemandStatus.FULFILLED) {
+                demand.setDemandStatus(DemandStatus.FULFILLED);
                 demandRepository.save(demand);
+                demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId).ifPresent(sla -> {
+                    sla.setActiveFlag(false);
+                    sla.setFulfillDate(LocalDate.now());
+                    demandSLARepository.save(sla);
+                });
             }
-        } catch (Exception e) {
-            log.error("Demand fulfillment check failed for {}: {}", demandId, e.getMessage());
+        } else if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
+            // If not fulfilled but was marked as FULFILLED, revert to APPROVED
+            // This handles the case when a PLANNED allocation is cancelled
+            demand.setDemandStatus(DemandStatus.APPROVED);
+            demandRepository.save(demand);
         }
     }
 
@@ -669,6 +776,8 @@ public class AllocationServiceImpl implements AllocationService {
         dto.setAllocationEndDate(allocation.getAllocationEndDate());
         dto.setAllocationPercentage(allocation.getAllocationPercentage());
         dto.setAllocationStatus(allocation.getAllocationStatus().name());
+        dto.setAllocationType(allocation.getAllocationType() != null ? allocation.getAllocationType().name() : null);
+        dto.setPlannedStartDate(allocation.getPlannedStartDate());
         dto.setCreatedBy(allocation.getCreatedBy());
         return dto;
     }
@@ -685,6 +794,72 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     /**
+     * Validate and set allocation type logic
+     * - ACTIVE: allocationStartDate must be today or in the past, set to today if in past
+     * - PLANNED: allocationStartDate must be in the future, use plannedStartDate
+     *
+     * AUTO-INFERENCE: If allocationStatus is PLANNED and allocationType is not set,
+     * automatically set allocationType to PLANNED for better UX
+     */
+    private void validateAndSetAllocationType(AllocationRequestDTO allocationRequest) {
+        LocalDate today = LocalDate.now();
+
+        // Auto-infer allocationType from allocationStatus for better UX
+        if (allocationRequest.getAllocationType() == null) {
+            if (allocationRequest.getAllocationStatus() == AllocationStatus.PLANNED) {
+                // User sent PLANNED status without allocationType, auto-set to PLANNED
+                allocationRequest.setAllocationType(AllocationType.PLANNED);
+                log.info("Auto-inferred allocationType=PLANNED from allocationStatus=PLANNED");
+            } else {
+                // Default to ACTIVE for other statuses
+                allocationRequest.setAllocationType(AllocationType.ACTIVE);
+            }
+        }
+
+        if (allocationRequest.getAllocationType() == AllocationType.ACTIVE) {
+            // ACTIVE allocation: start date must be today or in the past
+            if (allocationRequest.getAllocationStartDate() == null) {
+                allocationRequest.setAllocationStartDate(today);
+            } else if (allocationRequest.getAllocationStartDate().isAfter(today)) {
+                throw new AllocationExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_ACTIVE_ALLOCATION_DATE",
+                    "ACTIVE allocation cannot have a future start date. Use PLANNED allocation type for future dates."
+                );
+            } else if (allocationRequest.getAllocationStartDate().isBefore(today)) {
+                // If start date is in the past, set it to today
+                allocationRequest.setAllocationStartDate(today);
+            }
+            // plannedStartDate should be null for ACTIVE type
+            allocationRequest.setPlannedStartDate(null);
+        } else if (allocationRequest.getAllocationType() == AllocationType.PLANNED) {
+            // PLANNED allocation: must have plannedStartDate in the future
+            if (allocationRequest.getPlannedStartDate() == null) {
+                // Auto-infer plannedStartDate from allocationStartDate if provided and is in future
+                if (allocationRequest.getAllocationStartDate() != null && allocationRequest.getAllocationStartDate().isAfter(today)) {
+                    allocationRequest.setPlannedStartDate(allocationRequest.getAllocationStartDate());
+                    log.info("Auto-populated plannedStartDate={} from allocationStartDate for PLANNED allocation", allocationRequest.getAllocationStartDate());
+                } else {
+                    throw new AllocationExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PLANNED_START_DATE_REQUIRED",
+                        "PLANNED allocation requires a planned start date in the future. Please provide either 'plannedStartDate' or 'allocationStartDate' with a future date."
+                    );
+                }
+            }
+            if (allocationRequest.getPlannedStartDate().isBefore(today) || allocationRequest.getPlannedStartDate().isEqual(today)) {
+                throw new AllocationExceptionHandler(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_PLANNED_START_DATE",
+                    "PLANNED allocation must have a start date in the future."
+                );
+            }
+            // Set allocationStartDate to today for PLANNED type (allocation doesn't actually start until plannedStartDate)
+            allocationRequest.setAllocationStartDate(today);
+        }
+    }
+
+    /**
      * Cached service method wrapper for repository query
      */
     @Cacheable(value = "active-allocations", key = "#resourceId + '-' + #date")
@@ -693,6 +868,13 @@ public class AllocationServiceImpl implements AllocationService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true),
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands", allEntries = true)
+    })
     public void processAutoClosures() {
         try {
             LocalDate today = LocalDate.now();
@@ -705,16 +887,186 @@ public class AllocationServiceImpl implements AllocationService {
         }
     }
 
+    /**
+     * Automatically activate PLANNED allocations whose planned start date has arrived
+     * This should run daily to check for PLANNED allocations that need to be activated
+     */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis", allEntries = true),
+        @CacheEvict(value = "bench-resources", allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands", allEntries = true)
+    })
     public void activatePlannedAllocations() {
         try {
             LocalDate today = LocalDate.now();
-            int updated = allocationRepository.activatePlannedAllocations(today);
-            if (updated > 0) {
-                log.info("Activated {} planned allocations with start date on or before {}", updated, today);
+
+            // Use optimized repository query to find PLANNED allocations that should be activated today
+            List<ResourceAllocation> plannedAllocations = allocationRepository.findPlannedAllocationsToActivate(today);
+
+            if (plannedAllocations.isEmpty()) {
+                log.debug("No PLANNED allocations to activate today");
+                return;
             }
+
+            log.info("Found {} PLANNED allocations to activate", plannedAllocations.size());
+            int activatedCount = 0;
+
+            for (ResourceAllocation allocation : plannedAllocations) {
+                try {
+                    // Update allocation status to ACTIVE
+                    allocation.setAllocationStatus(AllocationStatus.ACTIVE);
+                    allocationRepository.save(allocation);
+
+                    // Move resource to project state
+                    if (allocation.getResource() != null) {
+                        benchDetectionService.moveToProject(allocation.getResource().getResourceId(), allocation.getAllocationId());
+                    }
+
+                    // Update availability ledger
+                    updateAvailabilityLedgerForAllocation(allocation);
+
+                    activatedCount++;
+                    log.info("Activated PLANNED allocation {} for resource {}",
+                            allocation.getAllocationId(), allocation.getResource().getResourceId());
+                } catch (Exception e) {
+                    log.error("Failed to activate PLANNED allocation {}: {}", allocation.getAllocationId(), e.getMessage());
+                }
+            }
+
+            log.info("Successfully activated {} PLANNED allocations", activatedCount);
         } catch (Exception e) {
-            log.error("Failed to activate planned allocations: {}", e.getMessage());
+            log.error("Failed to process PLANNED allocation activation: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "active-allocations", allEntries = true),
+            @CacheEvict(value = "dashboard-kpis", allEntries = true),
+            @CacheEvict(value = "bench-resources", allEntries = true),
+            @CacheEvict(value = "resource-timelines", allEntries = true),
+            @CacheEvict(value = "demands", allEntries = true)
+    })
+    public ResponseEntity<ApiResponse<?>> deleteAllocation(UUID allocationId, UserDTO user) {
+
+        try {
+
+            Optional<ResourceAllocation> allocationOpt =
+                    allocationRepository.findById(allocationId);
+
+            if (allocationOpt.isEmpty()) {
+                ApiResponse<Object> response = new ApiResponse<>();
+                return ResponseEntity.notFound().build();
+            }
+
+            ResourceAllocation allocation = allocationOpt.get();
+
+            // Prevent deletion of ACTIVE allocations
+            if (allocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
+
+                ApiResponse<Object> response = new ApiResponse<>();
+
+                return ResponseEntity.badRequest().body(
+                        response.getAPIResponse(
+                                false,
+                                "Cannot delete ACTIVE allocation. Please use cancel or close instead.",
+                                null
+                        )
+                );
+            }
+
+            // Prevent duplicate deletion
+            if (allocation.getAllocationStatus() == AllocationStatus.DELETED) {
+
+                ApiResponse<Object> response = new ApiResponse<>();
+
+                return ResponseEntity.badRequest().body(
+                        response.getAPIResponse(
+                                false,
+                                "Allocation is already deleted",
+                                null
+                        )
+                );
+            }
+
+            UUID demandId = allocation.getDemand() != null
+                    ? allocation.getDemand().getDemandId()
+                    : null;
+
+            String resourceId = allocation.getResource() != null
+                    ? allocation.getResource().getResourceId()
+                    : null;
+
+            // Create audit record
+            AllocationModification deletionRecord = new AllocationModification();
+
+            deletionRecord.setAllocation(allocation);
+            deletionRecord.setCurrentAllocationPercentage(
+                    allocation.getAllocationPercentage());
+
+            deletionRecord.setReason(
+                    "Resource Allocation Deleted from "
+                            + allocation.getAllocationStatus()
+                            + " status");
+
+            deletionRecord.setRequestedBy(user.getName());
+            deletionRecord.setRequestedAt(LocalDateTime.now());
+            deletionRecord.setStatus(AllocationModificationStatus.DELETED);
+
+            allocationModificationRepository.save(deletionRecord);
+
+            // SOFT DELETE
+            allocation.setAllocationStatus(AllocationStatus.DELETED);
+            allocation.setClosedBy(user.getName());
+            allocation.setClosedAt(LocalDateTime.now());
+
+            ResourceAllocation deletedAllocation =
+                    allocationRepository.save(allocation);
+
+            // Update demand fulfillment
+            if (demandId != null) {
+
+                checkAndUpdateDemandFulfillment(demandId);
+
+                log.info(
+                        "Allocation {} deleted. Demand {} fulfillment recalculated.",
+                        allocationId,
+                        demandId
+                );
+            }
+
+            // Trigger bench detection
+            if (resourceId != null) {
+                benchDetectionService.detectBenchResources();
+            }
+
+            ApiResponse<Object> response = new ApiResponse<>();
+
+            return ResponseEntity.ok(
+                    response.getAPIResponse(
+                            true,
+                            "Allocation deleted successfully",
+                            mapToResponseDTO(deletedAllocation)
+                    )
+            );
+
+        } catch (Exception e) {
+
+            log.error("Error deleting allocation {}", allocationId, e);
+
+            ApiResponse<Object> response = new ApiResponse<>();
+
+            return ResponseEntity.internalServerError().body(
+                    response.getAPIResponse(
+                            false,
+                            "Error deleting allocation",
+                            null
+                    )
+            );
         }
     }
 }

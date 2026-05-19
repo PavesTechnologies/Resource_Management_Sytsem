@@ -149,7 +149,7 @@ public class ClientContactServiceImpl implements ClientContactService {
 
             clientContactRepo.delete(existingContact);
 
-            return ResponseEntity.ok(new ApiResponse<>(true, "Client contact deleted successfully", null));
+            return ResponseEntity.ok(new ApiResponse<>(true, "Client contact deleted successfully", existingContact));
 
         } catch (RuntimeException e) {
             log.error("Error deleting client contact: {}", e.getMessage());
