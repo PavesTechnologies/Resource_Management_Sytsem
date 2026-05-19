@@ -970,7 +970,6 @@ public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resou
 
             if (status == DemandStatus.DRAFT ||
                     status == DemandStatus.REJECTED ||
-                    status == DemandStatus.CANCELLED ||
                     status == DemandStatus.FULFILLED) {
                 continue;
             }
@@ -1251,7 +1250,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
                 HttpStatus.BAD_REQUEST,
                 "INVALID_STATE",
                 "Only APPROVED demands can be fulfilled or rejected by Resource Manager"
-        );
+            );
     }
 
     // -------- FULFILLED --------
@@ -2164,21 +2163,21 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validationResponse =
                     validateDemandConflicts(dto);
 
-            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody() != null) {
-                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
-                if (validation != null && !validation.isCanSubmit()) {
-                    List<String> errorMessages = validation.getConflicts().stream()
-                            .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
-                            .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
-                            .collect(java.util.stream.Collectors.toList());
-
-                    throw new DemandExceptionHandler(
-                            HttpStatus.BAD_REQUEST,
-                            "BLOCKING_CONFLICTS",
-                            "Demand has blocking conflicts: " + String.join(", ", errorMessages)
-                    );
-                }
-            }
+//            if (validationResponse.getStatusCode().is2xxSuccessful() && validationResponse.getBody() != null) {
+//                DemandConflictValidationDTO validation = validationResponse.getBody().getData();
+//                if (validation != null && !validation.isCanSubmit()) {
+//                    List<String> errorMessages = validation.getConflicts().stream()
+//                            .filter(conflict -> "ERROR".equals(conflict.getSeverity()))
+//                            .map(DemandConflictValidationDTO.ConflictDetail::getDescription)
+//                            .collect(java.util.stream.Collectors.toList());
+//
+//                    throw new DemandExceptionHandler(
+//                            HttpStatus.BAD_REQUEST,
+//                            "BLOCKING_CONFLICTS",
+//                            "Demand has blocking conflicts: " + String.join(", ", errorMessages)
+//                    );
+//                }
+//            }
 
             // Check for exact duplicates
             List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(dto.getProjectId());
@@ -2361,6 +2360,8 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     }
 
     @Override
+    @Transactional
+    @CacheEvict(value = "demands", allEntries = true)
     @Caching(evict = {
         @CacheEvict(value = "demands", allEntries = true),
         @CacheEvict(value = "bench-matches", allEntries = true)
@@ -2436,15 +2437,10 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 }
             }
 
-            // Archive SLA if exists
-            Optional<DemandSLA> demandSLAOpt = demandSLARepository
-                    .findByDemand_DemandIdAndActiveFlagTrue(demandId);
-            if (demandSLAOpt.isPresent()) {
-                DemandSLA demandSLA = demandSLAOpt.get();
-                demandSLA.setActiveFlag(false);
-                demandSLARepository.save(demandSLA);
-            }
-            // Delete the demand
+            // delete child SLA first
+            demandSLARepository.deleteByDemand_DemandId(demandId);
+
+            // then delete demand
             demandRepository.delete(demand);
 
             return ResponseEntity.ok(ApiResponse.success(

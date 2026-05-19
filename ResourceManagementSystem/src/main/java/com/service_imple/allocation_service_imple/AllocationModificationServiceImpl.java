@@ -611,7 +611,11 @@ public class AllocationModificationServiceImpl implements AllocationModification
         
         dto.setCurrentAllocationPercentage(modification.getCurrentAllocationPercentage());
         dto.setRequestedAllocationPercentage(modification.getRequestedAllocationPercentage());
-        dto.setEffectiveDate(modification.getEffectiveDate().toString());
+        dto.setEffectiveDate(
+                modification.getEffectiveDate() != null
+                        ? modification.getEffectiveDate().toString()
+                        : null
+        );
         dto.setStatus(modification.getStatus());
         dto.setRequestedBy(modification.getRequestedBy());
         dto.setApprovedBy(modification.getApprovedBy());
