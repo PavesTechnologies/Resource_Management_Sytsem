@@ -4,7 +4,6 @@ public enum SubState {
     READY,
     TRAINING,
     SHADOW,
-    NOT_AVAILABLE,
     LOW_UTILIZATION,
     COE,
     RND,

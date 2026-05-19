@@ -16,7 +16,9 @@ import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandRepository; // Import DemandRepository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -135,6 +137,8 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "bench-matches", key = "(#skill ?: 'ALL') + '-' + (#minExp ?: '0')")
     public List<ResourceMatchResponse> getHighQualityResourceMatches(String skill, Integer minExp) {
         log.info("Getting bench-demand matches with filters - skill: {}, minExp: {} (APPROVED demands only)", skill, minExp);
 
