@@ -72,6 +72,19 @@ public class AllocationServiceImpl implements AllocationService {
         try {
             validationService.validateRequest(allocationRequest);
             DemandProjectData demandProjectData = validationService.validateDemandOrProject(allocationRequest);
+            
+            // Validate that demand is approved by delivery manager before allowing allocation
+            if (allocationRequest.getDemandId() != null && demandProjectData.getDemand() != null) {
+                Demand demand = demandProjectData.getDemand();
+                if (demand.getDemandStatus() != DemandStatus.APPROVED) {
+                    throw new AllocationExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "DEMAND_NOT_APPROVED",
+                        "Cannot allocate resources to demand '" + demand.getDemandName() + "'. Demand must be approved by Delivery Manager before resource allocation. Current status: " + demand.getDemandStatus()
+                    );
+                }
+            }
+            
             AllocationPreloadedData preloadedData = validationService.preloadAllocationData(allocationRequest, demandProjectData.getDemand());
             AllocationValidationResult validationResult = validationService.validateResourcesInParallel(allocationRequest, demandProjectData, preloadedData);
 
@@ -659,9 +672,9 @@ public class AllocationServiceImpl implements AllocationService {
 
     private Integer calculateRemainingAllocationPercentage(String resourceId, LocalDate startDate, LocalDate endDate, UUID currentId) {
         try {
-            int total = allocationRepository.findConflictingAllocations(resourceId, startDate.minusDays(1), endDate.plusDays(1))
-                    .stream().filter(a -> !a.getAllocationId().equals(currentId)).mapToInt(ResourceAllocation::getAllocationPercentage).sum();
-            return Math.max(0, 130 - total);
+            int total = allocationRepository.findConflictingAllocations(resourceId, startDate, endDate)
+                    .stream().filter(a -> a.getAllocationId().equals(currentId)).mapToInt(ResourceAllocation::getAllocationPercentage).sum();
+            return Math.max(0, 100 - total);
         } catch (Exception e) {
             log.error("Error calculating remaining capacity for {}: {}", resourceId, e.getMessage());
             return 130;

@@ -61,14 +61,14 @@ public class AllocationController {
     }
 
     @GetMapping("/demand/{demandId}")
-    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Delivery_Manager','Project_Manager')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByDemand(
             @PathVariable UUID demandId) {
         return allocationService.getAllocationsByDemand(demandId);
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Admin', 'Delivery_Manager')")
+    @PreAuthorize("hasAnyRole('Resource_Manager', 'Project_Manager', 'Delivery_Manager')")
     public ResponseEntity<ApiResponse<?>> getAllocationsByProject(
             @PathVariable Long projectId) {
         return allocationService.getAllocationsByProject(projectId);

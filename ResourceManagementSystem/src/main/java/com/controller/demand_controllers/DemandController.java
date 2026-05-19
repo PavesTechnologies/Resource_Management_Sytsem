@@ -56,7 +56,7 @@ public class DemandController {
 
     @GetMapping("/{demandId}")
     @PreAuthorize("hasAnyRole('Resource_Manager','Project_Manager','Delivery_Manager')")
-    public ResponseEntity<ApiResponse<?>> getDemandById(@PathVariable UUID demandId) {
+    public ResponseEntity<ApiResponse<DemandDetailNestedResponseDTO>> getDemandById(@PathVariable UUID demandId) {
         return demandService.getDemandById(demandId);
     }
 

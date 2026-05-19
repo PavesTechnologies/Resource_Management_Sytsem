@@ -101,6 +101,9 @@ public class ClientAssetServiceImpl implements ClientAssetService {
             // ========================================================================
             List<String> serialNumbers = new ArrayList<>();
 
+            if(serialFile == null || serialFile.isEmpty())
+                throw new RuntimeException("Serial file is required");
+
             if (serialFile != null && !serialFile.isEmpty()) {
                 
                 // Parse Excel file
@@ -334,78 +337,78 @@ public class ClientAssetServiceImpl implements ClientAssetService {
     }
 
 
-    @Override
-    public Map<String, Object> getAssetManagementDashboard() {
-
-        Map<String, Object> data = new HashMap<>();
-
-        data.put("totalAssets",
-                assetRepository.sumQuantity());
-
-        data.put("assignedAssets",
-                assignmentRepo.countActiveAssigned());
-
-        long total = assetRepository.sumQuantity();
-        long assigned = assignmentRepo.countActiveAssigned();
-
-        data.put("availableAssets",
-                Math.max(0, total - assigned));
-
-        double utilization =
-                total == 0 ? 0.0 : (assigned * 100.0) / total;
-
-        data.put("utilizationPercentage",
-                Math.round(utilization * 100.0) / 100.0);
-
-        return Map.of(
-                "success", true,
-                "message", "Asset management dashboard data",
-                "data", data
-        );
-    }
-
-
-    @Override
-    public Map<String, Object> getTotalAssetsCount() {
-        long totalAssets = assetRepository.sumQuantity();
-        return Map.of("success", true, "message", "Total assets count", "data", totalAssets);
-    }
-
-    @Override
-    public Map<String, Object> getAssignedAssetsCount() {
-        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
-        return Map.of("success", true, "message", "Assigned assets count", "data", assignedAssets);
-    }
-
-    @Override
-    public Map<String, Object> getAvailableAssetsCount() {
-        long totalAssets = assetRepository.count();
-        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
-        long availableAssets = totalAssets - assignedAssets;
-        return Map.of("success", true, "message", "Available assets count", "data", availableAssets);
-    }
-
-    @Override
-    public Map<String, Object> getAssetUtilizationPercentage() {
-
-        Long total = assetRepository.sumQuantity();
-
-        if (total == null || total == 0) {
-            return Map.of(
-                    "success", true,
-                    "data", 0.0
-            );
-        }
-
-        long assigned = assignmentRepo.countActiveAssigned();
-
-        double utilization = (assigned * 100.0) / total;
-
-        return Map.of(
-                "success", true,
-                "data", Math.round(utilization * 100.0) / 100.0
-        );
-    }
+//    @Override
+//    public Map<String, Object> getAssetManagementDashboard() {
+//
+//        Map<String, Object> data = new HashMap<>();
+//
+//        data.put("totalAssets",
+//                assetRepository.sumQuantity());
+//
+//        data.put("assignedAssets",
+//                assignmentRepo.countActiveAssigned());
+//
+//        long total = assetRepository.sumQuantity();
+//        long assigned = assignmentRepo.countActiveAssigned();
+//
+//        data.put("availableAssets",
+//                Math.max(0, total - assigned));
+//
+//        double utilization =
+//                total == 0 ? 0.0 : (assigned * 100.0) / total;
+//
+//        data.put("utilizationPercentage",
+//                Math.round(utilization * 100.0) / 100.0);
+//
+//        return Map.of(
+//                "success", true,
+//                "message", "Asset management dashboard data",
+//                "data", data
+//        );
+//    }
+//
+//
+//    @Override
+//    public Map<String, Object> getTotalAssetsCount() {
+//        long totalAssets = assetRepository.sumQuantity();
+//        return Map.of("success", true, "message", "Total assets count", "data", totalAssets);
+//    }
+//
+//    @Override
+//    public Map<String, Object> getAssignedAssetsCount() {
+//        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+//        return Map.of("success", true, "message", "Assigned assets count", "data", assignedAssets);
+//    }
+//
+//    @Override
+//    public Map<String, Object> getAvailableAssetsCount() {
+//        long totalAssets = assetRepository.count();
+//        long assignedAssets = assetRepository.countByStatus(AssetStatus.ACTIVE);
+//        long availableAssets = totalAssets - assignedAssets;
+//        return Map.of("success", true, "message", "Available assets count", "data", availableAssets);
+//    }
+//
+//    @Override
+//    public Map<String, Object> getAssetUtilizationPercentage() {
+//
+//        Long total = assetRepository.sumQuantity();
+//
+//        if (total == null || total == 0) {
+//            return Map.of(
+//                    "success", true,
+//                    "data", 0.0
+//            );
+//        }
+//
+//        long assigned = assignmentRepo.countActiveAssigned();
+//
+//        double utilization = (assigned * 100.0) / total;
+//
+//        return Map.of(
+//                "success", true,
+//                "data", Math.round(utilization * 100.0) / 100.0
+//        );
+//    }
     @Override
     public Map<String, Object> getAssetDashboardByClient(UUID clientId) {
 

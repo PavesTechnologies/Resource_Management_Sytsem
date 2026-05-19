@@ -67,29 +67,20 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId")
     List<Resource> findResourcesByProjectId(@Param("projectId") Long projectId);
 
-    @Query("SELECT ra FROM ResourceAllocation ra " +
-           "LEFT JOIN FETCH ra.resource " +
-           "LEFT JOIN FETCH ra.demand d " +
-           "LEFT JOIN FETCH d.project p " +
-           "LEFT JOIN FETCH p.client " +
-           "LEFT JOIN FETCH ra.project proj " +
-           "LEFT JOIN FETCH proj.client " +
-           "WHERE ra.resource.resourceId = :resourceId " +
-           "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
-           "AND ra.allocationStartDate <= :endDate " +
-           "AND ra.allocationEndDate >= :startDate")
+    @Query("""
+    SELECT ra
+    FROM ResourceAllocation ra
+    WHERE ra.resource.resourceId = :resourceId
+    AND ra.allocationStatus IN ('PLANNED', 'ACTIVE')
+    AND ra.allocationStartDate <= :endDate
+    AND ra.allocationEndDate >= :startDate
+""")
     List<ResourceAllocation> findConflictingAllocations(
             @Param("resourceId") String resourceId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
-    
-    @Query("SELECT ra FROM ResourceAllocation ra " +
-           "LEFT JOIN FETCH ra.resource " +
-           "LEFT JOIN FETCH ra.demand d " +
-           "LEFT JOIN FETCH d.project p " +
-           "LEFT JOIN FETCH p.client " +
-           "LEFT JOIN FETCH ra.project proj " +
-           "LEFT JOIN FETCH proj.client " +
+
+    @Query("SELECT ra FROM ResourceAllocation ra "+
            "WHERE ra.resource.resourceId IN :resourceIds " +
            "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
            "AND ra.allocationStartDate <= :endDate " +
@@ -107,7 +98,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
            "LEFT JOIN FETCH ra.project proj " +
            "LEFT JOIN FETCH proj.client " +
            "WHERE ra.resource.resourceId = :resourceId " +
-           "AND ra.allocationStatus IN ('PLANNED', 'ACTIVE') " +
+           "AND ra.allocationStatus IN ('ACTIVE') " +
            "AND ra.allocationStartDate <= :date " +
            "AND ra.allocationEndDate >= :date")
     List<ResourceAllocation> findActiveAllocationsForResourceOnDate(

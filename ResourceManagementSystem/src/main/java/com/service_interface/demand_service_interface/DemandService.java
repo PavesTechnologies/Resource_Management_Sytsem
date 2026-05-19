@@ -18,7 +18,7 @@ public interface DemandService {
     ResponseEntity<ApiResponse<?>> getDemandByProjectId(Long projectId);
 
     ResponseEntity<ApiResponse<?>> createDemand(CreateDemandDTO dto, Long id);
-    ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId);
+    ResponseEntity<ApiResponse<DemandDetailNestedResponseDTO>> getDemandById(UUID demandId);
     ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resourceManagerId);
     ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId);
     ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerId(Long resourceManagerId);

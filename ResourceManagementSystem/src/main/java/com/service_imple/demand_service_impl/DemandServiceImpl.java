@@ -742,14 +742,15 @@ private void validateCapacityLimits(Demand demand, DemandConflictValidationDTO v
         }
     }
 
-    // Check capacity limits
+    // Capacity check is informational only - PMs can raise multiple demands
+    // Actual capacity validation should occur during allocation, not demand creation
     if (totalAllocation > 100) {
         validation.getConflicts().add(
-                DemandConflictValidationDTO.ConflictDetail.error(
+                DemandConflictValidationDTO.ConflictDetail.warning(
                         "CAPACITY_EXCEEDED",
                         "Project resource allocation exceeds 100% capacity",
                         "Current allocation: " + totalAllocation + "% (Maximum allowed: 100%)",
-                        "Reduce allocation percentage or adjust demand dates to avoid overlap"
+                        "This is a demand request. Capacity will be validated during resource allocation."
                 )
         );
     } else if (totalAllocation > 90) {
@@ -2142,18 +2143,18 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             // Validate PM allocation limit
-            if (project.getProjectManagerId() != null && project.getProjectManagerId().equals(id)) {
-                // User is the PM of this project
-                List<DemandStatus> excludedStatuses = List.of(DemandStatus.CANCELLED, DemandStatus.REJECTED, DemandStatus.FULFILLED);
-                Integer totalAllocationForPM = demandRepository.calculateTotalAllocationForPM(id, excludedStatuses);
-                if (totalAllocationForPM + dto.getAllocationPercentage() > 100) {
-                    throw new DemandExceptionHandler(
-                            HttpStatus.BAD_REQUEST,
-                            "PM_ALLOCATION_LIMIT_EXCEEDED",
-                            "Project Manager allocation limit exceeded. Current total allocation: " + totalAllocationForPM + "%, Requested: " + dto.getAllocationPercentage() + "%"
-                    );
-                }
-            }
+//            if (project.getProjectManagerId() != null && project.getProjectManagerId().equals(id)) {
+//                // User is the PM of this project
+//                List<DemandStatus> excludedStatuses = List.of(DemandStatus.CANCELLED, DemandStatus.REJECTED, DemandStatus.FULFILLED);
+//                Integer totalAllocationForPM = demandRepository.calculateTotalAllocationForPM(id, excludedStatuses);
+//                if (totalAllocationForPM + dto.getAllocationPercentage() > 100) {
+//                    throw new DemandExceptionHandler(
+//                            HttpStatus.BAD_REQUEST,
+//                            "PM_ALLOCATION_LIMIT_EXCEEDED",
+//                            "Project Manager allocation limit exceeded. Current total allocation: " + totalAllocationForPM + "%, Requested: " + dto.getAllocationPercentage() + "%"
+//                    );
+//                }
+//            }
 
             Demand tempDemand = createTempDemand(dto, project, role);
 
@@ -2196,7 +2197,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             demand.setDemandName(dto.getDemandName() != null ? dto.getDemandName() : 
                     "Demand for " + role.getRole().getRoleName() + " in " + project.getName());
             demand.setDemandType(dto.getDemandType());
-            demand.setDemandStatus(DemandStatus.DRAFT); // always start in DRAFT; status advances via workflow
+            demand.setDemandStatus(dto.getDemandStatus());
             demand.setDemandStartDate(dto.getDemandStartDate());
             demand.setDemandEndDate(dto.getDemandEndDate());
             demand.setAllocationPercentage(dto.getAllocationPercentage());
@@ -2243,7 +2244,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     
     @Override
     @Cacheable(value = "demands", key = "#demandId")
-    public ResponseEntity<ApiResponse<?>> getDemandById(UUID demandId) {
+    public ResponseEntity<ApiResponse<DemandDetailNestedResponseDTO>> getDemandById(UUID demandId) {
         try {
             // Validate demand ID
             if (demandId == null) {
