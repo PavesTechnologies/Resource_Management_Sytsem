@@ -45,8 +45,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.stereotype.Service;
-
 @Slf4j
 @Service
 public class DemandServiceImpl implements DemandService {
@@ -1053,6 +1051,7 @@ public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
                 .build();
 
         for (Demand demand : demands) {
+
 
             DemandStatus status = demand.getDemandStatus();
             DemandCommitment commitment = demand.getDemandCommitment();
