@@ -21,9 +21,11 @@ import com.repo.bench_repo.ResourceCostRepository;
 import com.repo.skill_repo.ResourceSkillRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -54,6 +56,10 @@ public class BenchService {
     private final AllocationRepository allocationRepository;
     private final ResourceSkillRepository resourceSkillRepository;
     private final ResourceCostRepository resourceCostRepository;
+
+    @Lazy
+    @Autowired
+    private BenchService self;
 
     /**
      * Detect and update bench status for all eligible resources
@@ -164,7 +170,7 @@ public class BenchService {
     @Transactional(readOnly = true)
     public List<BenchResourceDTO> getHighRiskBenchResources() {
         log.debug("Fetching high-risk bench resources");
-        return getAllBenchResources()
+        return self.getAllBenchResources()
                 .stream()
                 .filter(dto -> "HIGH".equals(dto.getRiskLevel()) || "CRITICAL".equals(dto.getRiskLevel()))
                 .collect(Collectors.toList());
