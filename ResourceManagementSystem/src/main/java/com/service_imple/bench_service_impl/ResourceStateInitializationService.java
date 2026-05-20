@@ -35,10 +35,14 @@ public class ResourceStateInitializationService {
     public void initializeResourceStatesOnStartup() {
         log.info("Clearing all caches on startup");
         cacheManager.getCacheNames().forEach(name -> {
-            var cache = cacheManager.getCache(name);
-            if (cache != null) cache.clear();
+            try {
+                var cache = cacheManager.getCache(name);
+                if (cache != null) cache.clear();
+            } catch (Exception e) {
+                log.warn("Cache clear skipped for '{}' (Redis unavailable): {}", name, e.getMessage());
+            }
         });
-        log.info("All caches cleared on startup");
+        log.info("Cache clear on startup completed (errors skipped if Redis is down)");
 
         log.info("Starting resource state initialization on application startup");
         

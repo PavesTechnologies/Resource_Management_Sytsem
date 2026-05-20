@@ -11,7 +11,9 @@ import com.entity.demand_entities.DemandSLA;
 import com.entity.project_entities.Project;
 import com.entity.project_entities.ProjectSLA;
 import com.entity.resource_entities.Resource;
+import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.DeliveryRoleExpectation;
+import com.entity.skill_entities.Skill;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.DeliveryModel;
@@ -26,6 +28,7 @@ import com.repo.demand_repo.DemandSLARepository;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.project_repo.ProjectSLARepo;
 import com.repo.resource_repo.ResourceRepository;
+import com.repo.skill_repo.CertificateRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +46,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -59,6 +64,7 @@ public class DemandServiceImpl implements DemandService {
     private final ResourceRepository resourceRepository;
     private final AllocationRepository allocationRepository;
     private final DeliveryRoleExpectationRepository roleRepository;
+    private final CertificateRepository certificateRepository;
 
     @Lazy
     @Autowired
@@ -70,7 +76,8 @@ public class DemandServiceImpl implements DemandService {
                            ProjectRepository projectRepository,
                            ResourceRepository resourceRepository,
                            AllocationRepository allocationRepository,
-                           DeliveryRoleExpectationRepository roleRepository) {
+                           DeliveryRoleExpectationRepository roleRepository,
+                           CertificateRepository certificateRepository) {
         this.demandRepository = demandRepository;
         this.demandSLARepository = demandSLARepository;
         this.projectSLARepository = projectSLARepository;
@@ -78,6 +85,7 @@ public class DemandServiceImpl implements DemandService {
         this.resourceRepository = resourceRepository;
         this.allocationRepository = allocationRepository;
         this.roleRepository = roleRepository;
+        this.certificateRepository = certificateRepository;
     }
 
     
@@ -378,6 +386,34 @@ public void mapSlaToDemand(Demand demand) {
             .build();
 
     demandSLARepository.save(demandSLA);
+}
+
+@Transactional
+public void mapRoleSkillsAndCertificatesToDemand(Demand demand) {
+    UUID roleId = demand.getRole().getRole().getId();
+
+    List<DeliveryRoleExpectation> roleExpectations = roleRepository.findByRoleIdWithDetails(roleId);
+    if (roleExpectations.isEmpty()) {
+        return;
+    }
+
+    Set<Skill> skillsToAdd = new HashSet<>();
+    for (DeliveryRoleExpectation expectation : roleExpectations) {
+        if (expectation.getSkill() != null) {
+            skillsToAdd.add(expectation.getSkill());
+        }
+    }
+    demand.getRequiredSkills().addAll(skillsToAdd);
+
+    Set<Certificate> certificatesToAdd = new HashSet<>();
+    for (Skill skill : skillsToAdd) {
+        certificateRepository.findBySkillId(skill.getId()).stream()
+                .filter(cert -> Boolean.TRUE.equals(cert.getActiveFlag()))
+                .forEach(certificatesToAdd::add);
+    }
+    demand.getRequiredCertificates().addAll(certificatesToAdd);
+
+    demandRepository.save(demand);
 }
 
 // ============================
@@ -2227,6 +2263,9 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             if (savedDemand.getDemandCommitment() == DemandCommitment.CONFIRMED) {
                 mapSlaToDemand(savedDemand);
             }
+
+            // Auto-map role prerequisite skills and certifications to demand
+            mapRoleSkillsAndCertificatesToDemand(savedDemand);
 
             // Run conflict detection and resolution
             detectAllocationConflicts(savedDemand);

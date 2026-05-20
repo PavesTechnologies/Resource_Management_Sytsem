@@ -12,6 +12,6 @@ docker compose up -d --build
 # 2. Push to Docker Hub
 # Note: Ensure you have run 'docker login' once before running this
 Write-Host "Step 2: Pushing image to Docker Hub..." -ForegroundColor Yellow
-docker push pavesadmin/intranet-rms:latest
+# docker push pavesadmin/intranet-rms:latest
 
 Write-Host "--- Deployment Successful! ---" -ForegroundColor Green

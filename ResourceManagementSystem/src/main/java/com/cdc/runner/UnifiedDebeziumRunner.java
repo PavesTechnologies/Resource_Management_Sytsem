@@ -1,5 +1,6 @@
 package com.cdc.runner;
 
+import com.cdc.service.CdcConnectionManager;
 import com.cdc.service.CdcConnectorLeadershipService;
 import io.debezium.embedded.Connect;
 import io.debezium.engine.DebeziumEngine;
@@ -10,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.lang.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,6 +41,13 @@ public class UnifiedDebeziumRunner {
     private final boolean enabled;
     private final CdcConnectorLeadershipService leadershipService;
 
+    /**
+     * Optional pool whose lifecycle is tied to this runner's leadership.
+     * Null for runners whose handler uses the primary datasource (e.g. PMS).
+     */
+    @Nullable
+    private final CdcConnectionManager connectionManager;
+
     private final Duration leadershipDuration = Duration.ofMinutes(2);
 
     private volatile boolean leadershipHeld;
@@ -50,13 +59,15 @@ public class UnifiedDebeziumRunner {
                                  Consumer<RecordChangeEvent<SourceRecord>> eventHandler,
                                  String runnerName,
                                  boolean enabled,
-                                 CdcConnectorLeadershipService leadershipService) {
+                                 CdcConnectorLeadershipService leadershipService,
+                                 @Nullable CdcConnectionManager connectionManager) {
 
         this.config = config;
         this.eventHandler = eventHandler;
         this.runnerName = runnerName;
         this.enabled = enabled;
         this.leadershipService = leadershipService;
+        this.connectionManager = connectionManager;
 
         this.executor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "debezium-engine-" + runnerName);
@@ -129,6 +140,10 @@ public class UnifiedDebeziumRunner {
 
         if (leadershipHeld) {
 
+            // Close the pool only after the engine thread is fully stopped
+            // so in-flight handler calls can finish their DB work cleanly.
+            notifyLeadershipLost();
+
             leadershipService.release(lockName());
 
             leadershipHeld = false;
@@ -176,6 +191,10 @@ public class UnifiedDebeziumRunner {
             leadershipRenewalStarted = true;
         }
 
+        // Open the source DB pool before starting the engine so the handler
+        // can query it as soon as the first CDC event arrives.
+        notifyLeadershipAcquired();
+
         try {
             startEngine(config.asProperties(), false);
 
@@ -200,6 +219,9 @@ public class UnifiedDebeziumRunner {
             leadershipRenewalStarted = false;
 
             leadershipExecutor.shutdownNow();
+
+            // Engine never started, so close the pool immediately.
+            notifyLeadershipLost();
 
             if (leadershipHeld) {
 
@@ -409,6 +431,9 @@ public class UnifiedDebeziumRunner {
                         e
                 );
             }
+
+            // Close the pool after the engine is stopped.
+            notifyLeadershipLost();
         }
     }
 
@@ -422,6 +447,28 @@ public class UnifiedDebeziumRunner {
         }
 
         engineStarted = false;
+    }
+
+    private void notifyLeadershipAcquired() {
+        if (connectionManager != null) {
+            try {
+                connectionManager.onLeadershipAcquired();
+            } catch (Exception ex) {
+                log.error("[{}] Failed to open CDC connection pool on leadership acquire: {}",
+                        runnerName, ex.getMessage(), ex);
+            }
+        }
+    }
+
+    private void notifyLeadershipLost() {
+        if (connectionManager != null) {
+            try {
+                connectionManager.onLeadershipLost();
+            } catch (Exception ex) {
+                log.error("[{}] Failed to close CDC connection pool on leadership release: {}",
+                        runnerName, ex.getMessage(), ex);
+            }
+        }
     }
 
     private String lockName() {
