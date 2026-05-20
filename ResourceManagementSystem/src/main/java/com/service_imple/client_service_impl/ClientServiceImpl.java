@@ -226,6 +226,7 @@ public class ClientServiceImpl implements ClientService {
                         Double satisfactionScore = 100.0;
                         if (totalProjects > 0) {
                             satisfactionScore = (onTimeDeliveryRate * 0.5) + (resourceReadiness * 0.3) + (100.0 - (highRiskProjects.doubleValue() / totalProjects * 100) * 0.2);
+                            satisfactionScore = Math.min(satisfactionScore, 100.0);
                         }
 
                         String overallHealth = "EXCELLENT";

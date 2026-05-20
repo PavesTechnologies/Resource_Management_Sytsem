@@ -29,7 +29,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-public class                                                    ClientEscalationContact {
+public class ClientEscalationContact {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
