@@ -548,6 +548,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills",    allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true)
+    })
     public String deleteResourceSubSkill(UUID resourceSubSkillId) {
         // Find the existing resource sub-skill
         ResourceSubSkill existingResourceSubSkill = resourceSubSkillRepository.findById(resourceSubSkillId)

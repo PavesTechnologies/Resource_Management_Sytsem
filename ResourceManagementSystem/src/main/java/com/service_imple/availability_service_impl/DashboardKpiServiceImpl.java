@@ -19,7 +19,7 @@ public class DashboardKpiServiceImpl implements DashboardKpiService {
     private final DashboardKpiRepository dashboardKpiRepository;
 
     @Override
-    @Cacheable(value = "dashboard-kpis", key = "#fromDate + '-' + #toDate + '-' + #role + '-' + #location")
+    @Cacheable(value = "dashboard-kpis", key = "#fromDate + '-' + #toDate + '-' + (#role ?: 'ALL') + '-' + (#location ?: 'ALL') + '-' + (#employmentType ?: 'ALL') + '-' + (#minExperience ?: '0') + '-' + (#maxExperience ?: '999')")
     public DashboardKpiDTO calculateKpis(
             LocalDate fromDate,
             LocalDate toDate,

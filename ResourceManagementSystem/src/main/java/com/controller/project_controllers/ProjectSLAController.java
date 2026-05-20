@@ -41,7 +41,7 @@ public class ProjectSLAController {
     }
 
     @GetMapping("/project/{projectId}")
-    @PreAuthorize("hasAnyRole('Project_Manager', 'Resource_Manager')")
+    @PreAuthorize("hasAnyRole('Project_Manager', 'Resource_Manager', 'Admin')")
     public ResponseEntity<ApiResponse<List<ProjectSLAResponseDTO>>> getProjectSLAs(@PathVariable Long projectId) {
         return projectSLAService.getProjectSLAByProjectId(projectId);
     }
