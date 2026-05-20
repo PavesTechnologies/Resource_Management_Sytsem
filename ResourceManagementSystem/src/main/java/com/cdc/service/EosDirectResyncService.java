@@ -4,27 +4,30 @@ import com.cdc.model.CdcProcessingOutcome;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
 import java.util.Map;
 
 @Service
 @Slf4j
 public class EosDirectResyncService {
 
-    private final JdbcTemplate eosJdbcTemplate;
+    private final CdcConnectionManager eosConnectionManager;
     private final EosResourceSyncService eosResourceSyncService;
 
     public EosDirectResyncService(
-            @Qualifier("eosJdbcTemplate") JdbcTemplate eosJdbcTemplate,
+            @Qualifier("eosConnectionManager") CdcConnectionManager eosConnectionManager,
             EosResourceSyncService eosResourceSyncService) {
-        this.eosJdbcTemplate = eosJdbcTemplate;
+        this.eosConnectionManager = eosConnectionManager;
         this.eosResourceSyncService = eosResourceSyncService;
     }
 
     public boolean resync(String entityType, String entityId) {
+        if (!eosConnectionManager.isOpen()) {
+            log.warn("EOS re-sync skipped — this instance is not the CDC leader (pool not open). entityType={}, entityId={}",
+                    entityType, entityId);
+            return false;
+        }
         return switch (entityType) {
             case "EOS-employee_details" -> resyncEmployeeDetails(entityId);
             case "EOS-offer_letter_details" -> resyncOfferLetterDetails(entityId);
@@ -94,7 +97,7 @@ public class EosDirectResyncService {
 
     private Map<String, Object> fetchOne(String sql, Object param) {
         try {
-            return eosJdbcTemplate.queryForMap(sql, param);
+            return eosConnectionManager.getTemplate().queryForMap(sql, param);
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
