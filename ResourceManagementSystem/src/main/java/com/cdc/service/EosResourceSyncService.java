@@ -1,6 +1,7 @@
 package com.cdc.service;
 
 import com.cdc.config.properties.OfferLifecycleProperties;
+import com.cdc.service.CdcConnectionManager;
 import com.cdc.event.EmployeeDetailsCommittedEvent;
 import com.cdc.model.CdcProcessingOutcome;
 import com.cdc.protection.StaleEventProtectionService;
@@ -18,7 +19,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +41,7 @@ import java.util.Set;
 public class EosResourceSyncService {
 
     private final ResourceRepository resourceRepository;
-    private final JdbcTemplate eosJdbcTemplate;
+    private final CdcConnectionManager eosConnectionManager;
     private final StaleEventProtectionService staleEventProtectionService;
     private final CdcUtcSupport cdcUtcSupport;
     private final LedgerEventLogRepository ledgerEventLogRepository;
@@ -50,14 +50,14 @@ public class EosResourceSyncService {
 
     public EosResourceSyncService(
             ResourceRepository resourceRepository,
-            @Qualifier("eosJdbcTemplate") JdbcTemplate eosJdbcTemplate,
+            @Qualifier("eosConnectionManager") CdcConnectionManager eosConnectionManager,
             StaleEventProtectionService staleEventProtectionService,
             CdcUtcSupport cdcUtcSupport,
             LedgerEventLogRepository ledgerEventLogRepository,
             ApplicationEventPublisher applicationEventPublisher,
             OfferLifecycleProperties offerLifecycleProperties) {
         this.resourceRepository = resourceRepository;
-        this.eosJdbcTemplate = eosJdbcTemplate;
+        this.eosConnectionManager = eosConnectionManager;
         this.staleEventProtectionService = staleEventProtectionService;
         this.cdcUtcSupport = cdcUtcSupport;
         this.ledgerEventLogRepository = ledgerEventLogRepository;
@@ -701,7 +701,7 @@ public class EosResourceSyncService {
             return null;
         }
         try {
-            return eosJdbcTemplate.queryForObject(
+            return eosConnectionManager.getTemplate().queryForObject(
                     "SELECT employee_id FROM employee_details WHERE user_uuid = ?",
                     String.class,
                     userUuid
