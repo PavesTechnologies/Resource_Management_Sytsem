@@ -61,4 +61,6 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
             @Param("resourceId") String resourceId, 
             @Param("skillIds") List<UUID> skillIds, 
             @Param("effectiveDate") LocalDate effectiveDate);
+
+    boolean existsBySubSkillIdAndActiveFlagTrue(UUID subSkillId);
 }

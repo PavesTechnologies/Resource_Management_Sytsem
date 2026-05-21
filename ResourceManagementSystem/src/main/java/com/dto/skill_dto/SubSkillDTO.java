@@ -15,10 +15,10 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class SubSkillDTO {
-    
+
     @NotNull(message = "SubSkill ID is required")
     private UUID subSkillId;
-    
+
     @NotNull(message = "Proficiency ID is required")
     private UUID proficiencyId;
 }

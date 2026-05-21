@@ -1,7 +1,12 @@
 package com.service_interface.skill_service_interface;
 
+import com.dto.skill_dto.CategoryDto;
+import com.dto.skill_dto.SkillDto;
 import com.dto.skill_dto.SkillSearchResultDto;
+import com.dto.skill_dto.SkillTaxonomyRequestDto;
+import com.dto.skill_dto.SkillTaxonomyResponseDto;
 import com.dto.skill_dto.SkillTaxonomyTreeDto;
+import com.dto.skill_dto.SubSkillTaxoDto;
 import com.entity.skill_entities.SkillCategory;
 
 import java.util.List;
@@ -29,5 +34,12 @@ public interface SkillCategoryService {
      * @return List of unified search results with hierarchical context
      */
     List<SkillSearchResultDto> searchSkills(String searchTerm);
-}
 
+    List<CategoryDto> getAllCategoriesDto();
+
+    List<SkillDto> getSkillsByCategoryId(UUID categoryId);
+
+    List<SubSkillTaxoDto> getSubSkillsBySkillId(UUID skillId);
+
+    SkillTaxonomyResponseDto manageSkillTaxonomy(SkillTaxonomyRequestDto requestDto);
+}
