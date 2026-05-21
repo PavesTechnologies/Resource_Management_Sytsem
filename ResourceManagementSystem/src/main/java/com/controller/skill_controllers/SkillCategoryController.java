@@ -1,8 +1,13 @@
 package com.controller.skill_controllers;
 
 import com.dto.centralised_dto.ApiResponse;
+import com.dto.skill_dto.CategoryDto;
+import com.dto.skill_dto.SkillDto;
 import com.dto.skill_dto.SkillSearchResultDto;
+import com.dto.skill_dto.SkillTaxonomyRequestDto;
+import com.dto.skill_dto.SkillTaxonomyResponseDto;
 import com.dto.skill_dto.SkillTaxonomyTreeDto;
+import com.dto.skill_dto.SubSkillTaxoDto;
 import com.entity.skill_entities.SkillCategory;
 import com.service_interface.skill_service_interface.SkillCategoryService;
 import lombok.RequiredArgsConstructor;
@@ -90,5 +95,29 @@ public class SkillCategoryController {
         
         return ResponseEntity.ok(ApiResponse.success("Skills found successfully", results));
     }
-}
 
+    @GetMapping("/dto")
+    public ResponseEntity<ApiResponse<List<CategoryDto>>> getAllCategoriesAsDto() {
+        List<CategoryDto> categories = service.getAllCategoriesDto();
+        return ResponseEntity.ok(ApiResponse.success("Categories retrieved successfully", categories));
+    }
+
+    @GetMapping("/{categoryId}/skills-dto")
+    public ResponseEntity<ApiResponse<List<SkillDto>>> getSkillsByCategoryIdAsDto(@PathVariable UUID categoryId) {
+        List<SkillDto> skills = service.getSkillsByCategoryId(categoryId);
+        return ResponseEntity.ok(ApiResponse.success("Skills retrieved successfully for category " + categoryId, skills));
+    }
+
+    @GetMapping("/skills/{skillId}/subskills-dto")
+    public ResponseEntity<ApiResponse<List<SubSkillTaxoDto>>> getSubSkillsBySkillIdAsDto(@PathVariable UUID skillId) {
+        List<SubSkillTaxoDto> subSkills = service.getSubSkillsBySkillId(skillId);
+        return ResponseEntity.ok(ApiResponse.success("SubSkills retrieved successfully for skill " + skillId, subSkills));
+    }
+
+    @PostMapping("/taxonomy")
+    public ResponseEntity<ApiResponse<SkillTaxonomyResponseDto>> manageSkillTaxonomy(
+            @RequestBody SkillTaxonomyRequestDto requestDto) {
+        SkillTaxonomyResponseDto responseDto = service.manageSkillTaxonomy(requestDto);
+        return ResponseEntity.ok(ApiResponse.success("Skill taxonomy processed successfully", responseDto));
+    }
+}

@@ -1,5 +1,17 @@
 package com.service_imple.resource_service_impl;
 
+import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
+import com.repo.project_repo.ProjectRepository;
+import com.repo.resource_repo.ResourceRepository;
+import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.skill_repo.ResourceSubSkillRepository;
+import com.repo.skill_repo.SkillRepository;
+import com.service_imple.bench_service_impl.BenchService;
+import com.service_interface.resource_service_interface.ResourceEventService;
+import com.service_interface.resource_service_interface.ResourceService;
+import com.service_interface.roleoff_service_interface.RoleOffService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.resource.ResourceFiltersDTO;
 import com.dto.resource.ResourceNameDTO;
@@ -7,28 +19,22 @@ import com.entity.resource_entities.Resource;
 import com.entity_enums.project_enums.ProjectStatus;
 import com.entity_enums.resource_enums.EmploymentStatus;
 import com.global_exception_handler.ProjectExceptionHandler;
-import com.repo.project_repo.ProjectRepository;
-import com.repo.resource_repo.ResourceRepository;
-import com.repo.availability_repo.ResourceAvailabilityLedgerRepository;
-import com.service_interface.resource_service_interface.ResourceEventService;
-import com.service_interface.resource_service_interface.ResourceService;
-import com.service_interface.roleoff_service_interface.RoleOffService;
-import com.service_imple.bench_service_impl.BenchService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Slf4j
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class ResourceServiceImpl implements ResourceService {
 
+    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
+    private final SkillRepository skillRepository;
     private final ResourceRepository resourceRepository;
     private final ResourceAvailabilityLedgerRepository ledgerRepository;
     private final ResourceEventService resourceEventService;
@@ -87,7 +93,6 @@ public class ResourceServiceImpl implements ResourceService {
         }
 
         if (resource.getDateOfExit() != null && EmploymentStatus.ON_NOTICE.equals(resource.getEmploymentStatus())) {
-            log.info("Attrition detected for resource: {}. Triggering attrition flow.", resource.getResourceId());
             roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit(), 0L);
         }
 
@@ -123,5 +128,23 @@ public class ResourceServiceImpl implements ResourceService {
                 .map(resource -> new ResourceNameDTO(resource.getFullName(), resource.getResourceId(), resource.getDesignation()))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("Data fetched successfully", resources));
+    }
+
+    @Override
+    public boolean hasActiveResourcesUsingCategory(UUID categoryId) {
+        // Check if any active skill within this category is used by a resource
+        return skillRepository.existsByCategoryIdAndStatusAndResourceSkillsIsNotEmpty(categoryId, "ACTIVE");
+    }
+
+    @Override
+    public boolean hasActiveResourcesUsingSkill(UUID skillId) {
+        // Check if any active resource skill entry uses this skill
+        return resourceSkillRepository.existsBySkillIdAndActiveFlagTrue(skillId);
+    }
+
+    @Override
+    public boolean hasActiveResourcesUsingSubSkill(UUID subSkillId) {
+        // Check if any active resource sub-skill entry uses this sub-skill
+        return resourceSubSkillRepository.existsBySubSkillIdAndActiveFlagTrue(subSkillId);
     }
 }
