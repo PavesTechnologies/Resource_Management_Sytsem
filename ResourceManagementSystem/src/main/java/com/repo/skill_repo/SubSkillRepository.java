@@ -1,5 +1,6 @@
 package com.repo.skill_repo;
 
+import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,9 +17,15 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
 
     boolean existsByNameIgnoreCaseAndSkill_IdAndIdNot(String name, UUID skillId, UUID id);
 
+    boolean existsByNameIgnoreCaseAndSkill(String name, Skill skill);
+
+    boolean existsByNameIgnoreCase(String name);
+
     List<SubSkill> findByStatusIgnoreCase(String status);
 
     List<SubSkill> findBySkill_IdAndStatusIgnoreCase(UUID skillId, String status);
+
+    List<SubSkill> findBySkillAndStatus(Skill skill, String status);
 
     @Query("SELECT ss FROM SubSkill ss WHERE ss.status = 'ACTIVE' ORDER BY ss.name")
     List<SubSkill> findActiveSubSkills();
@@ -34,4 +41,3 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
     @Query("SELECT ss FROM SubSkill ss JOIN FETCH ss.skill WHERE ss.skill.id IN :skillIds AND ss.status = 'ACTIVE' ORDER BY ss.skill.name, ss.name")
     List<SubSkill> findActiveSubSkillsBySkillIds(@Param("skillIds") List<UUID> skillIds);
 }
-

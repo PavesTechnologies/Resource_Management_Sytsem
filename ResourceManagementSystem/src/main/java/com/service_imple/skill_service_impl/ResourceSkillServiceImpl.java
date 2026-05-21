@@ -1,16 +1,9 @@
 package com.service_imple.skill_service_impl;
 
-import com.entity.allocation_entities.ResourceAllocation;
-import com.entity.project_entities.Project;
+import com.dto.skill_dto.*;
 import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.service_interface.skill_service_interface.ResourceSkillService;
-import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
-import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
-import com.dto.skill_dto.ResourceSkillRequestDTO;
-import com.dto.skill_dto.ResourceSubSkillRequestDTO;
-import com.dto.skill_dto.SkillWithSubSkillDTO;
-import com.dto.skill_dto.SubSkillDTO;
 import com.entity.skill_entities.ProficiencyLevel;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.ResourceSubSkill;
@@ -82,7 +75,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
                 for (SubSkillDTO subSkillDTO : skillDTO.getSubSkills()) {
                     ResourceSubSkill subSkillResource = ResourceSubSkill.builder()
                             .resourceId(dto.getResourceId())
-                            .subSkill(subSkillRepository.getReferenceById(subSkillDTO.getSubSkillId()))
+                            .subSkill(subSkillRepository.getReferenceById(subSkillDTO.getProficiencyId()))
                             .proficiencyId(subSkillDTO.getProficiencyId())
                             .lastUsedDate(LocalDate.now())
                             .activeFlag(true)
@@ -141,7 +134,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         }
     }
     
-    private void validateSubSkill(String resourceId, UUID skillId, SubSkillDTO subSkillDTO, 
+    private void validateSubSkill(String resourceId, UUID skillId, SubSkillDTO subSkillDTO,
                                  ProficiencyLevel skillProficiency) {
         // Validate subSkill exists
         SubSkill subSkill = subSkillRepository.findById(subSkillDTO.getSubSkillId())
@@ -346,7 +339,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     /**
      * Validates that a resource exists and is active before allowing skill assignments
      * @param resourceId The resource ID to validate
-     * @throws SkillTaxonomyExceptionHandler if resource doesn't exist or is not active
+     * @throws //SkillTaxonomyExceptionHandler if resource doesn't exist or is not active
      */
     private void validateResourceExistsAndActive(String resourceId) {
         Resource resource = resourceRepository.findById(resourceId)
