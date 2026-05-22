@@ -4,6 +4,8 @@ import com.dto.centralised_dto.ApiResponse;
 import com.entity.resource_entities.Resource;
 import org.springframework.http.ResponseEntity;
 
+import java.util.UUID;
+
 public interface ResourceService {
     ResponseEntity<ApiResponse<?>> createResource(Resource resource);
     ResponseEntity<ApiResponse<?>> getResourceById(String resourceId);
@@ -12,4 +14,7 @@ public interface ResourceService {
     ResponseEntity<ApiResponse<?>> deleteResource(String resourceId);
     ResponseEntity<ApiResponse<?>> getAllResources();
     ResponseEntity<ApiResponse<?>> getResources();
+    boolean hasActiveResourcesUsingCategory(UUID categoryId);
+    boolean hasActiveResourcesUsingSkill(UUID skillId);
+    boolean hasActiveResourcesUsingSubSkill(UUID subSkillId);
 }
