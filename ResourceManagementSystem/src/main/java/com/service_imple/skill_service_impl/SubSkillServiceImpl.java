@@ -4,9 +4,12 @@ import com.dto.skill_dto.SubSkillItemDTO;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
 import com.global_exception_handler.SkillExceptionHandler;
+import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
 import com.service_interface.skill_service_interface.SubSkillService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +23,7 @@ public class SubSkillServiceImpl implements SubSkillService {
 
     private final SubSkillRepository subSkillRepository;
     private final SkillRepository skillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
 
     @Override
     public SubSkill create(UUID skillId, String name, String description) {
@@ -42,6 +46,29 @@ public class SubSkillServiceImpl implements SubSkillService {
         skill.addSubSkill(saved);
         
         return saved;
+    }
+
+    @Transactional
+    @Override
+    public void deleteSubSkill(UUID subSkillId) {
+
+        SubSkill subSkill =
+                subSkillRepository.findById(subSkillId)
+                        .orElseThrow(() ->
+                                SkillExceptionHandler.notFound(
+                                        "SubSkill not found"));
+
+        boolean assigned =
+                resourceSubSkillRepository
+                        .existsBySubSkillId(subSkillId);
+
+        if (assigned) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Cannot delete subskill. Resources are assigned to this subskill.");
+        }
+
+        subSkillRepository.delete(subSkill);
     }
 
     @Override

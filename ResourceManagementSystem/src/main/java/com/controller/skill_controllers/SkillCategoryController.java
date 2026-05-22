@@ -1,19 +1,13 @@
 package com.controller.skill_controllers;
 
 import com.dto.centralised_dto.ApiResponse;
-import com.dto.skill_dto.CategoryDto;
-import com.dto.skill_dto.SkillDto;
-import com.dto.skill_dto.SkillSearchResultDto;
-import com.dto.skill_dto.SkillTaxonomyRequestDto;
-import com.dto.skill_dto.SkillTaxonomyResponseDto;
-import com.dto.skill_dto.SkillTaxonomyTreeDto;
-import com.dto.skill_dto.SubSkillTaxoDto;
+import com.dto.skill_dto.*;
 import com.entity.skill_entities.SkillCategory;
 import com.service_interface.skill_service_interface.SkillCategoryService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -119,5 +113,52 @@ public class SkillCategoryController {
             @RequestBody SkillTaxonomyRequestDto requestDto) {
         SkillTaxonomyResponseDto responseDto = service.manageSkillTaxonomy(requestDto);
         return ResponseEntity.ok(ApiResponse.success("Skill taxonomy processed successfully", responseDto));
+    }
+
+    @PostMapping(
+            value = "/taxonomy/upload",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<ApiResponse<ExcelUploadResponseDto>>
+    uploadSkillTaxonomyExcel(
+            @RequestParam("file") MultipartFile file) {
+
+        ExcelUploadResponseDto response =
+                service.uploadSkillTaxonomyExcel(file);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Excel processed successfully",
+                        response
+                )
+        );
+    }
+
+    @DeleteMapping("/{categoryId}")
+    public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable UUID categoryId) {
+        service.deleteCategory(categoryId);
+        return ResponseEntity.ok(ApiResponse.success("Category deleted successfully", null));
+    }
+
+    @GetMapping("/taxonomy/export")
+    public ResponseEntity<byte[]> exportSkillTaxonomyExcel() {
+
+        byte[] excelData =
+                service.exportSkillTaxonomyExcel();
+
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.setContentType(
+                MediaType.APPLICATION_OCTET_STREAM);
+
+        headers.setContentDisposition(
+                ContentDisposition.builder("attachment")
+                        .filename(
+                                "skill-taxonomy.xlsx")
+                        .build());
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelData);
     }
 }
