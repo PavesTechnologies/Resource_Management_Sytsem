@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -36,6 +38,14 @@ public class Role {
     @Builder.Default
     private String status = "ACTIVE";
 
+    @OneToMany(
+            mappedBy = "role",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    @Builder.Default
+    private List<DeliveryRoleExpectation> expectations = new ArrayList<>();
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -52,5 +62,15 @@ public class Role {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+    }
+
+    public void addExpectation(DeliveryRoleExpectation expectation) {
+        expectations.add(expectation);
+        expectation.setRole(this);
+    }
+
+    public void removeExpectation(DeliveryRoleExpectation expectation) {
+        expectations.remove(expectation);
+        expectation.setRole(null);
     }
 }
