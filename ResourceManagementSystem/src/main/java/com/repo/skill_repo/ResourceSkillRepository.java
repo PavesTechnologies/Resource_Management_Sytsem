@@ -46,6 +46,8 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
 
     List<ResourceSkill> findByActiveFlagTrue();
 
+
+
     @Query("SELECT rs FROM ResourceSkill rs LEFT JOIN FETCH rs.skill")
     List<ResourceSkill> findAllWithSkills();
 
@@ -71,4 +73,7 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
             @Param("effectiveDate") LocalDate effectiveDate);
 
     boolean existsBySkillIdAndActiveFlagTrue(UUID skillId);
+
+//    boolean existsBySubSkillId(UUID subSkillId);
+
 }
