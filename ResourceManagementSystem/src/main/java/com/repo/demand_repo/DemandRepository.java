@@ -111,4 +111,10 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
            "d.demandStatus NOT IN (:excludedStatuses)")
     Integer calculateTotalAllocationForPM(@Param("pmId") Long pmId, 
                                          @Param("excludedStatuses") List<DemandStatus> excludedStatuses);
+
+    @Query("SELECT DISTINCT d.role.id FROM Demand d WHERE d.role.id IN :roleIds")
+    List<UUID> findExistingRoleIds(@Param("roleIds") List<UUID> roleIds);
+
+    @Query("SELECT COUNT(d) > 0 FROM Demand d WHERE d.role.id IN :expectationIds")
+    boolean existsByRoleIdIn(@Param("expectationIds") List<UUID> expectationIds);
 }
