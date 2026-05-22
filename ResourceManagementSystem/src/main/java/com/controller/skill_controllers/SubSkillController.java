@@ -65,5 +65,20 @@ public class SubSkillController {
 
         return ResponseEntity.ok(ApiResponse.success("Sub-skill updated successfully", updated));
     }
+
+    @DeleteMapping("/{subSkillId}")
+    public ResponseEntity<ApiResponse<Void>>
+    deleteSubSkill(
+            @PathVariable UUID subSkillId) {
+
+        service.deleteSubSkill(subSkillId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "SubSkill deleted successfully",
+                        null
+                )
+        );
+    }
 }
 

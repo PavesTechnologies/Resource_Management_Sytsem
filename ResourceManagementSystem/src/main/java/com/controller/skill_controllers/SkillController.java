@@ -72,5 +72,19 @@ public class SkillController {
 
         return ResponseEntity.ok(ApiResponse.success("Updated successfully", updated));
     }
+
+    @DeleteMapping("/{skillId}")
+    public ResponseEntity<ApiResponse<Void>>
+    deleteSkill(@PathVariable UUID skillId) {
+
+        service.delete(skillId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Skill deleted successfully",
+                        null
+                )
+        );
+    }
 }
 

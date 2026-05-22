@@ -63,4 +63,6 @@ public interface ResourceSubSkillRepository extends JpaRepository<ResourceSubSki
             @Param("effectiveDate") LocalDate effectiveDate);
 
     boolean existsBySubSkillIdAndActiveFlagTrue(UUID subSkillId);
+
+    boolean existsBySubSkillId(UUID subSkillId);
 }

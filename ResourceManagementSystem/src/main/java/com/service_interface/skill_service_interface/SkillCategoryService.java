@@ -1,13 +1,8 @@
 package com.service_interface.skill_service_interface;
 
-import com.dto.skill_dto.CategoryDto;
-import com.dto.skill_dto.SkillDto;
-import com.dto.skill_dto.SkillSearchResultDto;
-import com.dto.skill_dto.SkillTaxonomyRequestDto;
-import com.dto.skill_dto.SkillTaxonomyResponseDto;
-import com.dto.skill_dto.SkillTaxonomyTreeDto;
-import com.dto.skill_dto.SubSkillTaxoDto;
+import com.dto.skill_dto.*;
 import com.entity.skill_entities.SkillCategory;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +10,10 @@ import java.util.UUID;
 public interface SkillCategoryService {
 
     SkillCategory create(String name, String description);
+
+    void deleteCategory(UUID categoryId);
+
+    byte[] exportSkillTaxonomyExcel();
 
     List<SkillCategory> findAll();
 
@@ -42,4 +41,6 @@ public interface SkillCategoryService {
     List<SubSkillTaxoDto> getSubSkillsBySkillId(UUID skillId);
 
     SkillTaxonomyResponseDto manageSkillTaxonomy(SkillTaxonomyRequestDto requestDto);
+
+    ExcelUploadResponseDto uploadSkillTaxonomyExcel(MultipartFile file);
 }
