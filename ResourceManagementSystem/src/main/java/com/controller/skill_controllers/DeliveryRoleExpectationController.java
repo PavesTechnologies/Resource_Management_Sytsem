@@ -182,7 +182,7 @@ public class DeliveryRoleExpectationController {
     }
 
     @DeleteMapping("/{roleName}")
-    @PreAuthorize("hasRole('Admin')")
+    @PreAuthorize("hasAnyRole('Admin', 'Project_Manager')")
     public ResponseEntity<ApiResponse<Void>> deleteRoleExpectations(
             @PathVariable String roleName) {
         
@@ -190,7 +190,10 @@ public class DeliveryRoleExpectationController {
         
         try {
             service.deleteRoleExpectations(roleName);
-            return ResponseEntity.ok(ApiResponse.success("Role expectations soft deleted successfully"));
+            return ResponseEntity.ok(ApiResponse.success("Role expectations deleted successfully"));
+        } catch (DemandExceptionHandler e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(e.getMessage()));
         } catch (Exception e) {
             log.error("Error soft deleting role expectations for role: {}", roleName, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

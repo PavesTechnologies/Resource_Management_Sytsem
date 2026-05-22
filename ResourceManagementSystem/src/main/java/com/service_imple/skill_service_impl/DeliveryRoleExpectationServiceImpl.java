@@ -7,7 +7,9 @@ import com.entity.skill_entities.ProficiencyLevel;
 import com.entity.skill_entities.Role;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
+import com.global_exception_handler.DemandExceptionHandler;
 import com.global_exception_handler.SkillExceptionHandler;
+import com.repo.demand_repo.DemandRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
 import com.repo.skill_repo.ProficiencyLevelRepository;
 import com.repo.skill_repo.RoleRepository;
@@ -20,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.management.relation.RoleNotFoundException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +35,7 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     private final SkillRepository skillRepository;
     private final SubSkillRepository subSkillRepository;
     private final RoleRepository roleRepository;
+    private final DemandRepository demandRepository;
 
     @Override
     @Transactional
@@ -90,9 +94,14 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         List<DeliveryRoleExpectation> expectations = new ArrayList<>();
 
         for (DeliveryRoleExpectationRequest.SkillExpectation skillDto : request.getSkills()) {
-            saveSkillLevel(role, skillDto, expectations);
-            
-            if (skillDto.getSubSkills() != null && !skillDto.getSubSkills().isEmpty()) {
+
+            boolean hasSubSkills = skillDto.getSubSkills() != null && !skillDto.getSubSkills().isEmpty();
+
+            if (!hasSubSkills) {
+                // No subskills → create skill-only row
+                saveSkillLevel(role, skillDto, expectations);
+            } else {
+                // Has subskills → create one row per subskill, skip skill-only row
                 for (DeliveryRoleExpectationRequest.SubSkillExpectation subDto : skillDto.getSubSkills()) {
                     saveSubSkillLevel(role, skillDto, subDto, expectations);
                 }
@@ -124,9 +133,14 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         List<DeliveryRoleExpectation> expectations = new ArrayList<>();
 
         for (DeliveryRoleExpectationRequest.SkillExpectation skillDto : request.getSkills()) {
-            saveSkillLevel(role, skillDto, expectations);
-            
-            if (skillDto.getSubSkills() != null && !skillDto.getSubSkills().isEmpty()) {
+
+            boolean hasSubSkills = skillDto.getSubSkills() != null && !skillDto.getSubSkills().isEmpty();
+
+            if (!hasSubSkills) {
+                // No subskills → create skill-only row
+                saveSkillLevel(role, skillDto, expectations);
+            } else {
+                // Has subskills → create one row per subskill, skip skill-only row
                 for (DeliveryRoleExpectationRequest.SubSkillExpectation subDto : skillDto.getSubSkills()) {
                     saveSubSkillLevel(role, skillDto, subDto, expectations);
                 }
@@ -179,15 +193,24 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     @Transactional
     public void deleteRoleExpectations(String roleName) {
 
-        List<DeliveryRoleExpectation> expectations = expectationRepository.findByRoleNameAndStatus(roleName);
-        
-        if (expectations.isEmpty()) {
-            return;
+        Role role = roleRepository.findByRoleName(roleName)
+                .orElseThrow(() ->
+                        SkillExceptionHandler.badRequest(
+                                "Role not found: " + roleName));
+
+        List<UUID> expectationIds = role.getExpectations().stream()
+                .map(DeliveryRoleExpectation::getId)
+                .toList();
+
+        boolean isRoleUsedInDemand =
+                demandRepository.existsByRoleIdIn(expectationIds);
+
+        if (isRoleUsedInDemand) {
+            throw DemandExceptionHandler.badRequest(
+                    "Role is used in Demand");
         }
 
-        // Soft delete - set status to INACTIVE
-        expectations.forEach(expectation -> expectation.setStatus("INACTIVE"));
-        expectationRepository.saveAll(expectations);
+        roleRepository.delete(role);
     }
 
     @Override
@@ -300,17 +323,24 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
     }
 
     private void saveSubSkillLevel(Role role, DeliveryRoleExpectationRequest.SkillExpectation skillDto,
-                                  DeliveryRoleExpectationRequest.SubSkillExpectation subDto,
-                                  List<DeliveryRoleExpectation> expectations) {
+                                   DeliveryRoleExpectationRequest.SubSkillExpectation subDto,
+                                   List<DeliveryRoleExpectation> expectations) {
         Skill skill = getAndValidateSkill(skillDto.getSkillId());
         SubSkill subSkill = getAndValidateSubSkill(subDto.getSubSkillId(), skill);
-        ProficiencyLevel proficiencyLevel = getAndValidateProficiencyLevel(subDto.getProficiencyId());
+
+        // Sub-skill's own proficiency
+        ProficiencyLevel subSkillProficiency = getAndValidateProficiencyLevel(subDto.getProficiencyId());
+
+        // Parent skill's proficiency — needed because proficiency_id is NOT NULL on every row
+        ProficiencyLevel skillProficiency = getAndValidateProficiencyLevel(skillDto.getProficiencyId());
 
         DeliveryRoleExpectation expectation = DeliveryRoleExpectation.builder()
                 .role(role)
                 .skill(skill)
                 .subSkill(subSkill)
-                .subSkillProficiencyLevel(proficiencyLevel)
+                .proficiencyLevel(skillProficiency)
+                .mandatoryFlag(skillDto.getMandatoryFlag())
+                .subSkillProficiencyLevel(subSkillProficiency)
                 .subSkillMandatoryFlag(subDto.getMandatoryFlag())
                 .status("ACTIVE")
                 .build();
@@ -405,9 +435,9 @@ public class DeliveryRoleExpectationServiceImpl implements DeliveryRoleExpectati
         if (expectations.isEmpty()) {
             return response;
         }
-
+        response.setRole_id(expectations.get(0).getId());
         response.setRole(expectations.get(0).getRole().getRoleName());
-        response.setDev_role_id(expectations.get(0).getId());
+        response.setDev_role_id(expectations.get(0).getRole().getId());
         response.setCategory(expectations.get(0).getSkill().getCategory().getName());
 
         Map<String, List<DeliveryRoleExpectation>> groupedBySkill = expectations.stream()
