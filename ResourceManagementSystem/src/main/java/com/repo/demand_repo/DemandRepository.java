@@ -15,7 +15,8 @@ import java.util.UUID;
 
 @Repository
 public interface DemandRepository extends JpaRepository<Demand, UUID> {
-    List<Demand> findByProject_PmsProjectId(Long pmsProjectId);
+    @Query("SELECT DISTINCT d FROM Demand d WHERE d.project.pmsProjectId = :pmsProjectId")
+    List<Demand> findByProject_PmsProjectId(@Param("pmsProjectId") Long pmsProjectId);
     
     @Query("SELECT d FROM Demand d WHERE d.project.pmsProjectId = :pmsProjectId AND d.project.resourceManagerId = :resourceManagerId")
     List<Demand> findByProject_PmsProjectIdAndResourceManagerId(@Param("pmsProjectId") Long pmsProjectId, @Param("resourceManagerId") Long resourceManagerId);
@@ -35,7 +36,7 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
     @Query("SELECT d FROM Demand d WHERE d.project.pmsProjectId = :projectId AND (d.project.projectManagerId = :projectManagerId OR d.createdBy = :projectManagerId)")
     List<Demand> findByProjectIdAndProjectManagerIdOrCreatedBy(@Param("projectId") Long projectId, @Param("projectManagerId") Long projectManagerId);
 
-    @Query("SELECT d FROM Demand d WHERE d.project.pmsProjectId = :projectId")
+    @Query("SELECT DISTINCT d FROM Demand d WHERE d.project.pmsProjectId = :projectId")
     List<Demand> findByProjectId(@Param("projectId") Long projectId);
     
     List<Demand> findByDemandCommitmentAndCreatedAtBefore(DemandCommitment demandCommitment, LocalDateTime cutoffDate);
@@ -110,4 +111,10 @@ public interface DemandRepository extends JpaRepository<Demand, UUID> {
            "d.demandStatus NOT IN (:excludedStatuses)")
     Integer calculateTotalAllocationForPM(@Param("pmId") Long pmId, 
                                          @Param("excludedStatuses") List<DemandStatus> excludedStatuses);
+
+    @Query("SELECT DISTINCT d.role.id FROM Demand d WHERE d.role.id IN :roleIds")
+    List<UUID> findExistingRoleIds(@Param("roleIds") List<UUID> roleIds);
+
+    @Query("SELECT COUNT(d) > 0 FROM Demand d WHERE d.role.id IN :expectationIds")
+    boolean existsByRoleIdIn(@Param("expectationIds") List<UUID> expectationIds);
 }

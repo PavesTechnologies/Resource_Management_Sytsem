@@ -2,10 +2,11 @@ package com.service_imple.skill_service_impl;
 
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SkillCategory;
+import com.entity.skill_entities.SubSkill;
 import com.global_exception_handler.SkillExceptionHandler;
-import com.repo.skill_repo.SkillCategoryRepository;
-import com.repo.skill_repo.SkillRepository;
+import com.repo.skill_repo.*;
 import com.service_interface.skill_service_interface.SkillService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,9 @@ public class SkillServiceImpl implements SkillService {
 
     private final SkillRepository skillRepository;
     private final SkillCategoryRepository categoryRepository;
+    private final ResourceSkillRepository resourceSkillRepository;
+    private final SubSkillRepository subSkillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
 
     @Override
     public Skill create(UUID categoryId, String name, String description) {
@@ -37,6 +41,60 @@ public class SkillServiceImpl implements SkillService {
         skill.setCategory(category);
 
         return skillRepository.save(skill);
+    }
+
+    @Transactional
+    @Override
+    public Skill delete(UUID skillId) {
+
+        Skill skill = skillRepository.findById(skillId)
+                .orElseThrow(() ->
+                        SkillExceptionHandler.notFound(
+                                "Skill not found"));
+
+        // ==========================================
+        // CHECK DIRECT SKILL ASSIGNMENT
+        // ==========================================
+
+        boolean skillAssigned =
+                resourceSkillRepository
+                        .existsBySkillIdAndActiveFlagTrue(skillId);
+
+        if (skillAssigned) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Cannot delete skill. Resources are assigned to this skill.");
+        }
+
+        // ==========================================
+        // CHECK SUBSKILL ASSIGNMENT
+        // ==========================================
+
+        List<SubSkill> subSkills =
+                subSkillRepository.findBySkillId(skillId);
+
+        for (SubSkill subSkill : subSkills) {
+
+            boolean subSkillAssigned =
+                    resourceSubSkillRepository
+                            .existsBySubSkillId(subSkill.getId());
+
+            if (subSkillAssigned) {
+
+                throw SkillExceptionHandler.badRequest(
+                        "Cannot delete skill. Resources are assigned to subskills under this skill.");
+            }
+        }
+
+        // ==========================================
+        // SOFT DELETE (RECOMMENDED)
+        // ==========================================
+
+        skill.setStatus("INACTIVE");
+
+        skillRepository.save(skill);
+
+        return skill;
     }
 
     @Override

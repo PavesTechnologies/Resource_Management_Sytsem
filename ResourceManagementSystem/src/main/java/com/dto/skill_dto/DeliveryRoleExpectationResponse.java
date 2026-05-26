@@ -7,6 +7,7 @@ import java.util.UUID;
 
 @Data
 public class DeliveryRoleExpectationResponse {
+    private UUID role_id;
     private UUID dev_role_id;
     private String role;
     private String category;
