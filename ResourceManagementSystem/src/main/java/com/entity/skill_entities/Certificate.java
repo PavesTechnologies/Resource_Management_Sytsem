@@ -24,11 +24,9 @@ public class Certificate {
     @Column(name = "skill_id", nullable = true)
     private UUID skillId;
 
-//    @Enumerated(EnumType.STRING)
-//    @Column(name = "certificate_type", nullable = false)
-//    private CertificateType certificateType;
-// SKILL_BASED | ACHIEVEMENT
-
+    @Enumerated(EnumType.STRING)
+    @Column(name = "certificate_type", nullable = false)
+    private CertificateType certificateType;
 
     @Column(name = "provider_name")
     private String providerName;
@@ -48,5 +46,5 @@ public class Certificate {
     private Integer validityMonths;
 
     @Column(name = "active_flag")
-    private Boolean activeFlag;
+    private Boolean activeFlag = true;
 }
