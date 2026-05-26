@@ -33,6 +33,17 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
     private final SkillRepository skillRepository;
     private final ResourceRepository resourceRepository;
 
+    private String normalize(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
     @Override
     @Transactional
     public String assignCertificate(ResourceCertificateRequestDTO dto, MultipartFile certificateFile) {
@@ -107,6 +118,22 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
             } catch (IOException e) {
                 throw SkillExceptionHandler.badRequest("Failed to process certificate file");
             }
+        }
+        boolean exists =
+                certificateRepository.findByActiveFlagTrue()
+                        .stream()
+                        .anyMatch(cert ->
+
+                                normalize(cert.getCertificateName())
+                                        .equals(
+                                                normalize(dto.getCustomCertificateName())
+                                        )
+                        );
+
+        if (exists) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Certificate already exists in master");
         }
 
         // ✅ 7. Save
@@ -190,8 +217,8 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
 
     /**
      * Validates that a resource exists and is active before allowing certificate assignments
-     * @param resourceId The resource ID to validate
-     * @throws CertificationComplianceException if resource doesn't exist or is not active
+//     * @param resourceId The resource ID to validate
+//     * @throws CertificationComplianceException if resource doesn't exist or is not active
      */
     private void validateResourceExistsAndActive(String resourceId) {
         Resource resource = resourceRepository.findById(resourceId)
@@ -301,8 +328,10 @@ public class ResourceCertificateServiceImpl implements ResourceCertificateServic
 
         // 🔥 Create new master certificate
         Certificate newCert = Certificate.builder()
+                .certificateId(UUID.randomUUID())
                 .certificateName(rc.getCustomCertificateName())
                 .timeBound(false)
+                .activeFlag(true)
                 .build();
 
         certificateRepository.save(newCert);

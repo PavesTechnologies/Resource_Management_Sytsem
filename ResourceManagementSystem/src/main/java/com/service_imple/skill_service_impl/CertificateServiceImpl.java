@@ -1,6 +1,7 @@
 package com.service_imple.skill_service_impl;
 
 import com.dto.skill_dto.CertificateRequestDTO;
+import com.dto.skill_dto.CertificateResponseDTO;
 import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.Skill;
 import com.entity_enums.skill_enums.CertificateType;
@@ -25,25 +26,31 @@ public class CertificateServiceImpl implements CertificateService {
     @Transactional
     public String CreateCertificate(CertificateRequestDTO dto) {
 
-        if (dto.getTimeBound() == null) {
-            throw SkillExceptionHandler.badRequest("timeBound flag required");
-        }
-
-        if (dto.getTimeBound() && dto.getValidityMonths() == null) {
+        if (Boolean.TRUE.equals(dto.getTimeBound()) && dto.getValidityMonths() == null) {
             throw SkillExceptionHandler.badRequest(
                     "Validity months required for time-bound certificates");
+        }
+        if (dto.getCertificateType() == null) {
+            throw SkillExceptionHandler.badRequest("Certificate type is required");
         }
 
         if (dto.getCertificateName() == null || dto.getCertificateName().trim().isEmpty()) {
             throw SkillExceptionHandler.badRequest("Certificate name is required");
         }
+        if (dto.getCertificateType() == CertificateType.SKILL_BASED
+                && dto.getSkillId() == null) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Skill is required for skill-based certificates");
+        }
 
         Certificate certificate = Certificate.builder()
                 .certificateId(UUID.randomUUID())
+                .certificateType(dto.getCertificateType())
                 .skillId(dto.getSkillId())
                 .providerName(dto.getProviderName())
                 .certificateName(dto.getCertificateName())
-                .timeBound(dto.getTimeBound())
+                .timeBound(dto.getTimeBound() != null ? dto.getTimeBound() : false)
                 .validityMonths(dto.getValidityMonths())
                 .activeFlag(true)
                 .build();
@@ -54,9 +61,38 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<Certificate> getAllCertificationSkills() {
-        return certificateRepository.findAll();
-        //return skillRepository.findBySkillTypeIgnoreCaseAndStatusIgnoreCase("CERTIFICATION", "ACTIVE");
+    public List<CertificateResponseDTO> getAllCertificationSkills() {
+
+        List<Certificate> certificates = certificateRepository.findByActiveFlagTrue();
+
+        return certificates.stream().map(certificate -> {
+
+            Skill skill = null;
+
+            if (certificate.getSkillId() != null) {
+                skill = skillRepository.findById(certificate.getSkillId()).orElse(null);
+            }
+
+            return CertificateResponseDTO.builder()
+                    .certificateId(certificate.getCertificateId())
+                    .certificateName(certificate.getCertificateName())
+                    .providerName(certificate.getProviderName())
+                    .certificateType(certificate.getCertificateType())
+                    .skillId(certificate.getSkillId())
+                    .skillName(
+                            skill != null ? skill.getName() : null
+                    )
+                    .categoryName(
+                            skill != null && skill.getCategory() != null
+                                    ? skill.getCategory().getName()
+                                    : null
+                    )
+                    .timeBound(certificate.getTimeBound())
+                    .validityMonths(certificate.getValidityMonths())
+                    .activeFlag(certificate.getActiveFlag())
+                    .build();
+
+        }).toList();
     }
 
     @Override
@@ -77,16 +113,15 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate existingCertificate = certificateRepository.findById(certificateId)
                 .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found with ID: " + certificateId));
 
-        if (dto.getTimeBound() == null) {
-            throw SkillExceptionHandler.badRequest("timeBound flag required");
-        }
-
-        if (dto.getTimeBound() && dto.getValidityMonths() == null) {
+        if (Boolean.TRUE.equals(dto.getTimeBound()) && dto.getValidityMonths() == null) {
             throw SkillExceptionHandler.badRequest(
                     "Validity months required for time-bound certificates");
         }
 
         // Update fields
+        if (dto.getCertificateType() != null) {
+            existingCertificate.setCertificateType(dto.getCertificateType());
+        }
         if (dto.getSkillId() != null) {
             existingCertificate.setSkillId(dto.getSkillId());
         }
@@ -96,13 +131,30 @@ public class CertificateServiceImpl implements CertificateService {
         if (dto.getCertificateName() != null) {
             existingCertificate.setCertificateName(dto.getCertificateName());
         }
-        existingCertificate.setTimeBound(dto.getTimeBound());
-        existingCertificate.setValidityMonths(dto.getValidityMonths());
+        if (dto.getTimeBound() != null) {
+            existingCertificate.setTimeBound(dto.getTimeBound());
+        }
+        if (dto.getValidityMonths() != null) {
+            existingCertificate.setValidityMonths(dto.getValidityMonths());
+        }
         if (dto.getActiveFlag() != null) {
             existingCertificate.setActiveFlag(dto.getActiveFlag());
         }
 
         return certificateRepository.save(existingCertificate);
     }
-
+    
+    @Override
+    @Transactional
+    public void deleteCertificate(UUID id) {
+        Certificate existingCertificate = certificateRepository.findById(id)
+                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found with ID: " + id));
+        
+        if (Boolean.FALSE.equals(existingCertificate.getActiveFlag())) {
+            throw SkillExceptionHandler.badRequest("Certificate is already deleted (inactive)");
+        }
+        
+        existingCertificate.setActiveFlag(false);
+        certificateRepository.save(existingCertificate);
+    }
 }

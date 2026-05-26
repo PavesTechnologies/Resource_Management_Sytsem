@@ -25,15 +25,41 @@ public class SubSkillServiceImpl implements SubSkillService {
     private final SkillRepository skillRepository;
     private final ResourceSubSkillRepository resourceSubSkillRepository;
 
+    private String normalize(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
     @Override
     public SubSkill create(UUID skillId, String name, String description) {
 
         Skill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> SkillExceptionHandler.badRequest("Parent skill not found"));
 
-        String normalized = name.trim();
+        String normalized = normalize(name);
 
-        if (subSkillRepository.existsByNameIgnoreCaseAndSkill_Id(normalized, skillId)) {
+        boolean exists =
+                subSkillRepository.findAll()
+                        .stream()
+                        .anyMatch(subSkill ->
+
+                                normalize(subSkill.getName())
+                                        .equals(normalized)
+
+                                        &&
+
+                                        subSkill.getSkill()
+                                                .getId()
+                                                .equals(skillId)
+                        );
+
+        if (exists) {
             throw SkillExceptionHandler.badRequest("Sub-skill already exists under this skill");
         }
 
@@ -41,6 +67,28 @@ public class SubSkillServiceImpl implements SubSkillService {
         subSkill.setName(normalized);
         subSkill.setDescription(description);
         subSkill.setSkill(skill);
+        String normalizedSkill =
+                normalize(skill.getName());
+
+        boolean duplicateCombination =
+                subSkillRepository.findAll()
+                        .stream()
+                        .anyMatch(existing ->
+
+                                normalize(existing.getSkill().getName())
+                                        .equals(normalizedSkill)
+
+                                        &&
+
+                                        normalize(existing.getName())
+                                                .equals(normalized)
+                        );
+
+        if (duplicateCombination) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "This Skill + SubSkill combination already exists.");
+        }
 
         SubSkill saved = subSkillRepository.save(subSkill);
         skill.addSubSkill(saved);
@@ -144,17 +192,59 @@ public class SubSkillServiceImpl implements SubSkillService {
         Skill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> SkillExceptionHandler.badRequest("Parent skill not found"));
 
-        String normalized = name.trim();
+        String normalized = normalize(name);
 
-        if (!subSkill.getSkill().getId().equals(skillId) && 
-            subSkillRepository.existsByNameIgnoreCaseAndSkill_Id(normalized, skillId)) {
-            throw SkillExceptionHandler.badRequest("Sub-skill already exists under this skill");
+        boolean exists =
+                subSkillRepository.findAll()
+                        .stream()
+                        .anyMatch(existing ->
+
+                                !existing.getId()
+                                        .equals(subSkillId)
+
+                                        &&
+
+                                        normalize(existing.getName())
+                                                .equals(normalized)
+
+                                        &&
+
+                                        existing.getSkill()
+                                                .getId()
+                                                .equals(skillId)
+                        );
+
+        if (exists) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Sub-skill already exists under this skill");
         }
+        String normalizedSkill =
+                normalize(skill.getName());
 
-        if (!subSkill.getName().equalsIgnoreCase(normalized) || !subSkill.getSkill().getId().equals(skillId)) {
-            if (subSkillRepository.existsByNameIgnoreCaseAndSkill_IdAndIdNot(normalized, skillId, subSkillId)) {
-                throw SkillExceptionHandler.badRequest("Sub-skill already exists under this skill");
-            }
+        boolean duplicateCombination =
+                subSkillRepository.findAll()
+                        .stream()
+                        .anyMatch(existing ->
+
+                                !existing.getId()
+                                        .equals(subSkillId)
+
+                                        &&
+
+                                        normalize(existing.getSkill().getName())
+                                                .equals(normalizedSkill)
+
+                                        &&
+
+                                        normalize(existing.getName())
+                                                .equals(normalized)
+                        );
+
+        if (duplicateCombination) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "This Skill + SubSkill combination already exists.");
         }
 
         subSkill.setName(normalized);

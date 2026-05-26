@@ -14,7 +14,7 @@ public class CertificateRequestDTO {
     private UUID skillId;
     private String providerName;
     private String certificateName;
-//    private CertificateType certificateType;
+    private CertificateType certificateType;
 //    private LocalDate certifiedAt;
 //    private LocalDate expiryDate;
     private Integer validityMonths;

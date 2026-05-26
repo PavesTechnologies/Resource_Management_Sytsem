@@ -38,12 +38,29 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final ResourceService resourceService; // Added ResourceService dependency
 
+    private String normalize(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
     @Override
     public SkillCategory create(String name, String description) {
 
-        String normalized = name.trim();
+        String normalized = normalize(name);
 
-        if (repository.existsByNameIgnoreCase(normalized)) {
+        boolean exists = repository.findAll()
+                .stream()
+                .anyMatch(category ->
+                        normalize(category.getName())
+                                .equals(normalized));
+
+        if (exists) {
             throw SkillExceptionHandler.badRequest("Category already exists");
         }
 
@@ -602,7 +619,17 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         if (skillRepository.existsByNameIgnoreCaseAndCategory(skillRequest.getName().trim(), category)) {
                             throw SkillExceptionHandler.badRequest("Skill with name '" + skillRequest.getName() + "' already exists in category '" + category.getName() + "'.");
                         }
-                        if(skillRepository.existsByNameIgnoreCase(skillRequest.getName().trim()))
+                        String normalizedSkill =
+                                normalize(skillRequest.getName());
+
+                        boolean skillExists =
+                                skillRepository.findAll()
+                                        .stream()
+                                        .anyMatch(existingSkill ->
+                                                normalize(existingSkill.getName())
+                                                        .equals(normalizedSkill));
+
+                        if (skillExists)
                         {
                             throw SkillExceptionHandler.badRequest("Skill with name '" + skillRequest.getName() + "' already exists.");
                         }
@@ -657,6 +684,36 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                 if(subSkillRepository.existsByNameIgnoreCase(subSkillRequest.getName().trim()))
                                     throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
 
+                                String normalizedSkill =
+                                        normalize(skillRequest.getName());
+
+                                String normalizedSubSkill =
+                                        normalize(subSkillRequest.getName());
+
+                                boolean duplicateCombination =
+                                        subSkillRepository.findAll()
+                                                .stream()
+                                                .anyMatch(existing ->
+
+                                                        normalize(existing.getSkill().getName())
+                                                                .equals(normalizedSkill)
+
+                                                                &&
+
+                                                                normalize(existing.getName())
+                                                                        .equals(normalizedSubSkill)
+                                                );
+
+                                if (duplicateCombination) {
+
+                                    throw SkillExceptionHandler.badRequest(
+                                            "Skill '" + skillRequest.getName()
+                                                    + "' with SubSkill '"
+                                                    + subSkillRequest.getName()
+                                                    + "' already exists.");
+                                }
+
+
                                 subSkill = new SubSkill();
                                 subSkill.setName(subSkillRequest.getName().trim());
                                 subSkill.setSkill(skill);
@@ -679,6 +736,39 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                     if (resourceService.hasActiveResourcesUsingSubSkill(subSkill.getId())) {
                                         throw SkillExceptionHandler.badRequest("Cannot deactivate sub-skill '" + subSkill.getName() + "' as it is currently in use by resources.");
                                     }
+                                }
+                                String normalizedSkill =
+                                        normalize(skillRequest.getName());
+
+                                String normalizedSubSkill =
+                                        normalize(subSkillRequest.getName());
+
+                                boolean duplicateCombination =
+                                        subSkillRepository.findAll()
+                                                .stream()
+                                                .anyMatch(existing ->
+
+                                                        !existing.getId()
+                                                                .equals(subSkillRequest.getId())
+
+                                                                &&
+
+                                                                normalize(existing.getSkill().getName())
+                                                                        .equals(normalizedSkill)
+
+                                                                &&
+
+                                                                normalize(existing.getName())
+                                                                        .equals(normalizedSubSkill)
+                                                );
+
+                                if (duplicateCombination) {
+
+                                    throw SkillExceptionHandler.badRequest(
+                                            "Skill '" + skillRequest.getName()
+                                                    + "' with SubSkill '"
+                                                    + subSkillRequest.getName()
+                                                    + "' already exists.");
                                 }
 
                                 subSkill.setName(subSkillRequest.getName().trim());
@@ -781,35 +871,10 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
             }
         }
 
-        // ==========================================
-        // SOFT DELETE CATEGORY
-        // ==========================================
+        subSkillRepository.deleteAll(subSkills);
+        skillRepository.deleteAll(skills);
+        repository.delete(category);
 
-        category.setStatus("INACTIVE");
-
-        repository.save(category);
-
-        // ==========================================
-        // SOFT DELETE SKILLS
-        // ==========================================
-
-        for (Skill skill : skills) {
-
-            skill.setStatus("INACTIVE");
-
-            skillRepository.save(skill);
-        }
-
-        // ==========================================
-        // SOFT DELETE SUBSKILLS
-        // ==========================================
-
-        for (SubSkill subSkill : subSkills) {
-
-            subSkill.setStatus("INACTIVE");
-
-            subSkillRepository.save(subSkill);
-        }
     }
 
 
