@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-@Repository
+
 public interface ResourceRepository extends JpaRepository<Resource, String> {
 
     Optional<Resource> findByEmail(String email);
