@@ -19,7 +19,7 @@ public interface ProficiencyLevelRepository extends JpaRepository<ProficiencyLev
      * Find proficiency levels by their IDs in a single query
      * Optimized for skill gap matching to avoid N+1 queries
      */
-    @Query("SELECT pl FROM ProficiencyLevel pl WHERE pl.id IN :proficiencyIds")
+    @Query("SELECT pl FROM ProficiencyLevel pl WHERE pl.proficiencyId IN :proficiencyIds")
     List<ProficiencyLevel> findByIdIn(@Param("proficiencyIds") List<UUID> proficiencyIds);
 
     /**

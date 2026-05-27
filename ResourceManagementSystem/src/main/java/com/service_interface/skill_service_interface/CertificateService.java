@@ -1,6 +1,7 @@
 package com.service_interface.skill_service_interface;
 
 import com.dto.skill_dto.CertificateRequestDTO;
+import com.dto.skill_dto.CertificateResponseDTO;
 import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.Skill;
 
@@ -10,11 +11,14 @@ import java.util.UUID;
 public interface CertificateService {
     String CreateCertificate(CertificateRequestDTO dto);
     
-    List<Certificate> getAllCertificationSkills();
+    List<CertificateResponseDTO> getAllCertificationSkills();
     
     Skill getCertificationSkillById(UUID id);
     
     List<Skill> getCertificationSkillsByCategory(UUID categoryId);
     
     Certificate updateCertificate(UUID certificateId, CertificateRequestDTO dto);
+    
+    void deleteCertificate(UUID id);
+
 }

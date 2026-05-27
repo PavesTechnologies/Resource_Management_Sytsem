@@ -23,15 +23,41 @@ public class SkillServiceImpl implements SkillService {
     private final SubSkillRepository subSkillRepository;
     private final ResourceSubSkillRepository resourceSubSkillRepository;
 
+    private String normalize(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
     @Override
     public Skill create(UUID categoryId, String name, String description) {
 
         SkillCategory category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> SkillExceptionHandler.badRequest("Category not found"));
 
-        String normalized = name.trim();
+        String normalized = normalize(name);
 
-        if (skillRepository.existsByNameIgnoreCaseAndCategory_Id(normalized, categoryId)) {
+        boolean exists =
+                skillRepository.findAll()
+                        .stream()
+                        .anyMatch(skill ->
+
+                                normalize(skill.getName())
+                                        .equals(normalized)
+
+                                        &&
+
+                                        skill.getCategory()
+                                                .getId()
+                                                .equals(categoryId)
+                        );
+
+        if (exists) {
             throw SkillExceptionHandler.badRequest("Skill already exists in this category");
         }
 
@@ -135,17 +161,31 @@ public class SkillServiceImpl implements SkillService {
         SkillCategory category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> SkillExceptionHandler.badRequest("Category not found"));
 
-        String normalized = name.trim();
+        String normalized = normalize(name);
 
-        if (!skill.getCategory().getId().equals(categoryId) && 
-            skillRepository.existsByNameIgnoreCaseAndCategory_Id(normalized, categoryId)) {
-            throw SkillExceptionHandler.badRequest("Skill already exists in this category");
-        }
+        boolean exists =
+                skillRepository.findAll()
+                        .stream()
+                        .anyMatch(existing ->
 
-        if (!skill.getName().equalsIgnoreCase(normalized) || !skill.getCategory().getId().equals(categoryId)) {
-            if (skillRepository.existsByNameIgnoreCaseAndCategory_IdAndIdNot(normalized, categoryId, skillId)) {
-                throw SkillExceptionHandler.badRequest("Skill already exists in this category");
-            }
+                                !existing.getId().equals(skillId)
+
+                                        &&
+
+                                        normalize(existing.getName())
+                                                .equals(normalized)
+
+                                        &&
+
+                                        existing.getCategory()
+                                                .getId()
+                                                .equals(categoryId)
+                        );
+
+        if (exists) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Skill already exists in this category");
         }
 
         skill.setName(normalized);
