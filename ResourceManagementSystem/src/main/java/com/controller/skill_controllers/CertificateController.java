@@ -2,11 +2,13 @@ package com.controller.skill_controllers;
 
 import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.CertificateRequestDTO;
+import com.dto.skill_dto.CertificateResponseDTO;
 import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.Skill;
 import com.service_interface.skill_service_interface.CertificateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -29,8 +31,8 @@ public class CertificateController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Certificate>>> getAllCertificationSkills() {
-        List<Certificate> skills = service.getAllCertificationSkills();
+    public ResponseEntity<ApiResponse<List<CertificateResponseDTO>>> getAllCertificationSkills() {
+        List<CertificateResponseDTO> skills = service.getAllCertificationSkills();
         return ResponseEntity.ok(ApiResponse.success("All certification skills retrieved successfully", skills));
     }
 
@@ -50,5 +52,12 @@ public class CertificateController {
     public ResponseEntity<ApiResponse<Certificate>> updateCertificate(@PathVariable UUID certificateId, @Valid @RequestBody CertificateRequestDTO dto) {
         Certificate updated = service.updateCertificate(certificateId, dto);
         return ResponseEntity.ok(ApiResponse.success("Certificate updated successfully", updated));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN','RESOURCE_MANAGER')")
+    public ResponseEntity<ApiResponse<CertificateResponseDTO>> deleteCertificate(@PathVariable UUID id) {
+        service.deleteCertificate(id);
+        return ResponseEntity.ok(ApiResponse.success("Certificate deleted successfully", null));
     }
 }

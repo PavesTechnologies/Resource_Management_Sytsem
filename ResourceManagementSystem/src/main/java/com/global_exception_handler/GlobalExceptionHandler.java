@@ -1,9 +1,12 @@
 package com.global_exception_handler;
 
 import com.dto.centralised_dto.ApiResponse;
+import jakarta.persistence.PersistenceException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -135,6 +138,30 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(ApiResponse.error(message, errorDetails));
     }
 
+    // ── JSON parse / deserialization errors ──────────────────────────────────
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<?>> handleNotReadable(HttpMessageNotReadableException ex) {
+        log.warn("JSON parse error: {}", ex.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Malformed JSON or unreadable request body: " + ex.getMostSpecificCause().getMessage()));
+    }
+
+    // ── Database / persistence errors ─────────────────────────────────────────
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ApiResponse<?>> handleDataAccessException(DataAccessException ex) {
+        log.error("Database error: {}", ex.getMostSpecificCause().getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Database error: " + ex.getMostSpecificCause().getMessage()));
+    }
+
+    @ExceptionHandler(PersistenceException.class)
+    public ResponseEntity<ApiResponse<?>> handlePersistenceException(PersistenceException ex) {
+        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+        log.error("Persistence error: {}", cause.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error("Persistence error: " + cause.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<?>> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
@@ -144,6 +171,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<?>> handleRuntimeException(RuntimeException ex) {
         log.error("Unhandled runtime exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Internal server error"));
+                .body(ApiResponse.error("Internal server error: " + ex.getMessage()));
     }
 }

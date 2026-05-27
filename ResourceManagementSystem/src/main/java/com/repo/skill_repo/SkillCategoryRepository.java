@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SkillCategoryRepository extends JpaRepository<SkillCategory, UUID> {
@@ -168,5 +169,8 @@ public interface SkillCategoryRepository extends JpaRepository<SkillCategory, UU
            "AND LOWER(ss.name) LIKE LOWER(CONCAT(:searchTerm, '%')) " +
            "ORDER BY sc.name, s.name, ss.name")
     List<SkillSearchProjection> searchSubSkillsByPrefix(@Param("searchTerm") String searchTerm);
+
+    Optional<SkillCategory> findByNameIgnoreCase(
+            String name);
 }
 

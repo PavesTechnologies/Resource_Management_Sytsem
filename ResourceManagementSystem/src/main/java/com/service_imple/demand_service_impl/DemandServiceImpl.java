@@ -21,6 +21,7 @@ import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
+import com.entity_enums.skill_enums.CertificateType;
 import com.global_exception_handler.DemandExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandRepository;
@@ -51,8 +52,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
@@ -409,7 +408,7 @@ public void mapRoleSkillsAndCertificatesToDemand(Demand demand) {
 
     Set<Certificate> certificatesToAdd = new HashSet<>();
     for (Skill skill : skillsToAdd) {
-        certificateRepository.findBySkillId(skill.getId()).stream()
+        certificateRepository.findByCertificateType(CertificateType.SKILL_BASED).stream()
                 .filter(cert -> Boolean.TRUE.equals(cert.getActiveFlag()))
                 .forEach(certificatesToAdd::add);
     }
@@ -1097,6 +1096,7 @@ public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
                 .build();
 
         for (Demand demand : demands) {
+
 
             DemandStatus status = demand.getDemandStatus();
             DemandCommitment commitment = demand.getDemandCommitment();

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
@@ -27,6 +28,10 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
 
     List<SubSkill> findBySkillAndStatus(Skill skill, String status);
 
+    Optional<SubSkill> findByNameIgnoreCaseAndSkill(
+            String name,
+            Skill skill);
+
     @Query("SELECT ss FROM SubSkill ss WHERE ss.status = 'ACTIVE' ORDER BY ss.name")
     List<SubSkill> findActiveSubSkills();
 
@@ -40,4 +45,14 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
 
     @Query("SELECT ss FROM SubSkill ss JOIN FETCH ss.skill WHERE ss.skill.id IN :skillIds AND ss.status = 'ACTIVE' ORDER BY ss.skill.name, ss.name")
     List<SubSkill> findActiveSubSkillsBySkillIds(@Param("skillIds") List<UUID> skillIds);
+
+    List<SubSkill> findBySkillId(UUID skillId);
+
+    @Query("""
+    SELECT ss
+    FROM SubSkill ss
+    WHERE ss.skill.category.id = :categoryId
+""")
+    List<SubSkill> findByCategoryId(
+            @Param("categoryId") UUID categoryId);
 }

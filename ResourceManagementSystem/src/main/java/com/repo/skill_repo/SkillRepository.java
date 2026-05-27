@@ -22,11 +22,17 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     boolean existsByNameIgnoreCase(String name);
 
+    List<Skill> findByCategoryId(UUID categoryId);
+
     List<Skill> findByStatusIgnoreCase(String status);
 
     List<Skill> findByCategory_IdAndStatusIgnoreCase(UUID categoryId, String status);
 
     List<Skill> findByCategoryAndStatus(SkillCategory category, String status);
+
+    Optional<Skill> findByNameIgnoreCaseAndCategory(
+            String name,
+            SkillCategory category);
 
     @Query("SELECT s FROM Skill s JOIN FETCH s.category WHERE s.status = 'ACTIVE' ORDER BY s.name")
     List<Skill> findActiveSkills();

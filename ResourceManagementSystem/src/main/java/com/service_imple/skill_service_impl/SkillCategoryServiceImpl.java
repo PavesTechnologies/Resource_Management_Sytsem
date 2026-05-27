@@ -1,19 +1,6 @@
 package com.service_imple.skill_service_impl;
 
-import com.dto.skill_dto.CategoryDto;
-import com.dto.skill_dto.CategoryRequestDto;
-import com.dto.skill_dto.CategoryResponseDto;
-import com.dto.skill_dto.SkillDto;
-import com.dto.skill_dto.SkillRequestDto;
-import com.dto.skill_dto.SkillResponseDto;
-import com.dto.skill_dto.SkillSearchProjection;
-import com.dto.skill_dto.SkillSearchResultDto;
-import com.dto.skill_dto.SkillTaxonomyRequestDto;
-import com.dto.skill_dto.SkillTaxonomyResponseDto;
-import com.dto.skill_dto.SkillTaxonomyTreeDto;
-import com.dto.skill_dto.SubSkillTaxoDto;
-import com.dto.skill_dto.SubSkillRequestDto;
-import com.dto.skill_dto.SubSkillResponseDto;
+import com.dto.skill_dto.*;
 import com.entity.skill_entities.SkillCategory;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
@@ -21,19 +8,24 @@ import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.SkillCategoryRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.repo.skill_repo.SubSkillRepository;
+import com.repo.skill_repo.ResourceSkillRepository;
+import com.repo.skill_repo.ResourceSubSkillRepository;
 import com.service_interface.skill_service_interface.SkillCategoryService;
 import com.service_interface.resource_service_interface.ResourceService; // Assuming this path for ResourceService
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
+
+import static java.lang.Boolean.parseBoolean;
 
 @Service
 @RequiredArgsConstructor
@@ -42,14 +34,33 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     private final SkillCategoryRepository repository;
     private final SkillRepository skillRepository;
     private final SubSkillRepository subSkillRepository;
+    private final ResourceSkillRepository resourceSkillRepository;
+    private final ResourceSubSkillRepository resourceSubSkillRepository;
     private final ResourceService resourceService; // Added ResourceService dependency
+
+    private String normalize(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
 
     @Override
     public SkillCategory create(String name, String description) {
 
-        String normalized = name.trim();
+        String normalized = normalize(name);
 
-        if (repository.existsByNameIgnoreCase(normalized)) {
+        boolean exists = repository.findAll()
+                .stream()
+                .anyMatch(category ->
+                        normalize(category.getName())
+                                .equals(normalized));
+
+        if (exists) {
             throw SkillExceptionHandler.badRequest("Category already exists");
         }
 
@@ -306,6 +317,201 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
         return results;
     }
+    @Override
+    public byte[] exportSkillTaxonomyExcel() {
+
+        try (Workbook workbook =
+                     new XSSFWorkbook()) {
+
+            Sheet sheet =
+                    workbook.createSheet(
+                            "Skill Taxonomy");
+
+            // ==========================================
+            // HEADERS
+            // ==========================================
+
+            String[] headers = {
+
+                    "Category Name",
+                    "Category Description",
+                    "Category Active",
+
+                    "Skill Name",
+                    "Skill Description",
+                    "Skill Active",
+
+                    "SubSkill Name",
+                    "SubSkill Description",
+                    "SubSkill Active"
+            };
+
+            Row headerRow = sheet.createRow(0);
+
+            for (int i = 0; i < headers.length; i++) {
+
+                Cell cell =
+                        headerRow.createCell(i);
+
+                cell.setCellValue(headers[i]);
+            }
+
+            // ==========================================
+            // FETCH DATA
+            // ==========================================
+
+            List<SkillCategory> categories =
+                    repository.findAll();
+
+            int rowNum = 1;
+
+            // ==========================================
+            // WRITE DATA
+            // ==========================================
+
+            for (SkillCategory category : categories) {
+
+                List<Skill> skills =
+                        category.getSkills();
+
+                if (skills == null || skills.isEmpty()) {
+
+                    Row row =
+                            sheet.createRow(rowNum++);
+
+                    writeCell(row, 0,
+                            category.getName());
+
+                    writeCell(row, 1,
+                            category.getDescription());
+
+                    writeCell(row, 2,
+                            category.getStatus());
+
+                    continue;
+                }
+
+                for (Skill skill : skills) {
+
+                    List<SubSkill> subSkills =
+                            skill.getSubSkills();
+
+                    if (subSkills == null
+                            || subSkills.isEmpty()) {
+
+                        Row row =
+                                sheet.createRow(rowNum++);
+
+                        writeCategorySkillData(
+                                row,
+                                category,
+                                skill);
+
+                        continue;
+                    }
+
+                    for (SubSkill subSkill :
+                            subSkills) {
+
+                        Row row =
+                                sheet.createRow(rowNum++);
+
+                        // CATEGORY
+
+                        writeCell(row, 0,
+                                category.getName());
+
+                        writeCell(row, 1,
+                                category.getDescription());
+
+                        writeCell(row, 2,
+                                category.getStatus());
+
+                        // SKILL
+
+                        writeCell(row, 3,
+                                skill.getName());
+
+                        writeCell(row, 4,
+                                skill.getDescription());
+
+                        writeCell(row, 5,
+                                skill.getStatus());
+
+                        // SUBSKILL
+
+                        writeCell(row, 6,
+                                subSkill.getName());
+
+                        writeCell(row, 7,
+                                subSkill.getDescription());
+
+                        writeCell(row, 8,
+                                subSkill.getStatus());
+                    }
+                }
+            }
+
+            // ==========================================
+            // AUTO SIZE
+            // ==========================================
+
+            for (int i = 0; i < headers.length; i++) {
+
+                sheet.autoSizeColumn(i);
+            }
+
+            // ==========================================
+            // CONVERT TO BYTE[]
+            // ==========================================
+
+            ByteArrayOutputStream outputStream =
+                    new ByteArrayOutputStream();
+
+            workbook.write(outputStream);
+
+            return outputStream.toByteArray();
+
+        } catch (Exception e) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Failed to export taxonomy excel");
+        }
+    }
+
+    private void writeCell(
+            Row row,
+            int column,
+            String value) {
+
+        row.createCell(column)
+                .setCellValue(
+                        value != null ? value : "");
+    }
+
+    private void writeCategorySkillData(
+            Row row,
+            SkillCategory category,
+            Skill skill) {
+
+        writeCell(row, 0,
+                category.getName());
+
+        writeCell(row, 1,
+                category.getDescription());
+
+        writeCell(row, 2,
+                category.getStatus());
+
+        writeCell(row, 3,
+                skill.getName());
+
+        writeCell(row, 4,
+                skill.getDescription());
+
+        writeCell(row, 5,
+                skill.getStatus());
+    }
 
     @Override
     public List<CategoryDto> getAllCategoriesDto() {
@@ -413,7 +619,17 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         if (skillRepository.existsByNameIgnoreCaseAndCategory(skillRequest.getName().trim(), category)) {
                             throw SkillExceptionHandler.badRequest("Skill with name '" + skillRequest.getName() + "' already exists in category '" + category.getName() + "'.");
                         }
-                        if(skillRepository.existsByNameIgnoreCase(skillRequest.getName().trim()))
+                        String normalizedSkill =
+                                normalize(skillRequest.getName());
+
+                        boolean skillExists =
+                                skillRepository.findAll()
+                                        .stream()
+                                        .anyMatch(existingSkill ->
+                                                normalize(existingSkill.getName())
+                                                        .equals(normalizedSkill));
+
+                        if (skillExists)
                         {
                             throw SkillExceptionHandler.badRequest("Skill with name '" + skillRequest.getName() + "' already exists.");
                         }
@@ -468,6 +684,36 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                 if(subSkillRepository.existsByNameIgnoreCase(subSkillRequest.getName().trim()))
                                     throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
 
+                                String normalizedSkill =
+                                        normalize(skillRequest.getName());
+
+                                String normalizedSubSkill =
+                                        normalize(subSkillRequest.getName());
+
+                                boolean duplicateCombination =
+                                        subSkillRepository.findAll()
+                                                .stream()
+                                                .anyMatch(existing ->
+
+                                                        normalize(existing.getSkill().getName())
+                                                                .equals(normalizedSkill)
+
+                                                                &&
+
+                                                                normalize(existing.getName())
+                                                                        .equals(normalizedSubSkill)
+                                                );
+
+                                if (duplicateCombination) {
+
+                                    throw SkillExceptionHandler.badRequest(
+                                            "Skill '" + skillRequest.getName()
+                                                    + "' with SubSkill '"
+                                                    + subSkillRequest.getName()
+                                                    + "' already exists.");
+                                }
+
+
                                 subSkill = new SubSkill();
                                 subSkill.setName(subSkillRequest.getName().trim());
                                 subSkill.setSkill(skill);
@@ -490,6 +736,39 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                     if (resourceService.hasActiveResourcesUsingSubSkill(subSkill.getId())) {
                                         throw SkillExceptionHandler.badRequest("Cannot deactivate sub-skill '" + subSkill.getName() + "' as it is currently in use by resources.");
                                     }
+                                }
+                                String normalizedSkill =
+                                        normalize(skillRequest.getName());
+
+                                String normalizedSubSkill =
+                                        normalize(subSkillRequest.getName());
+
+                                boolean duplicateCombination =
+                                        subSkillRepository.findAll()
+                                                .stream()
+                                                .anyMatch(existing ->
+
+                                                        !existing.getId()
+                                                                .equals(subSkillRequest.getId())
+
+                                                                &&
+
+                                                                normalize(existing.getSkill().getName())
+                                                                        .equals(normalizedSkill)
+
+                                                                &&
+
+                                                                normalize(existing.getName())
+                                                                        .equals(normalizedSubSkill)
+                                                );
+
+                                if (duplicateCombination) {
+
+                                    throw SkillExceptionHandler.badRequest(
+                                            "Skill '" + skillRequest.getName()
+                                                    + "' with SubSkill '"
+                                                    + subSkillRequest.getName()
+                                                    + "' already exists.");
                                 }
 
                                 subSkill.setName(subSkillRequest.getName().trim());
@@ -527,6 +806,494 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
         return SkillTaxonomyResponseDto.builder()
                 .categories(categoryResponses)
+                .build();
+    }
+
+    @Transactional
+    @Override
+    public void deleteCategory(UUID categoryId) {
+
+        SkillCategory category =
+                repository.findById(categoryId)
+                        .orElseThrow(() ->
+                                SkillExceptionHandler.notFound(
+                                        "Category not found"));
+
+        // ==========================================
+        // FETCH SKILLS
+        // ==========================================
+
+        List<Skill> skills =
+                skillRepository
+                        .findByCategoryId(categoryId);
+
+        // ==========================================
+        // CHECK SKILL ASSIGNMENTS
+        // ==========================================
+
+        for (Skill skill : skills) {
+
+            boolean skillAssigned =
+                    resourceSkillRepository
+                            .existsBySkillIdAndActiveFlagTrue(
+                                    skill.getId());
+
+            if (skillAssigned) {
+
+                throw SkillExceptionHandler.badRequest(
+                        "Cannot delete category. Resources are assigned to skills under this category.");
+            }
+        }
+
+        // ==========================================
+        // FETCH SUBSKILLS
+        // ==========================================
+
+        List<SubSkill> subSkills =
+                subSkillRepository
+                        .findByCategoryId(categoryId);
+
+        // ==========================================
+        // CHECK SUBSKILL ASSIGNMENTS
+        // ==========================================
+
+        for (SubSkill subSkill : subSkills) {
+
+            boolean subSkillAssigned =
+                    resourceSubSkillRepository
+                            .existsBySubSkillId(
+                                    subSkill.getId());
+
+            if (subSkillAssigned) {
+
+                throw SkillExceptionHandler.badRequest(
+                        "Cannot delete category. Resources are assigned to subskills under this category.");
+            }
+        }
+
+        subSkillRepository.deleteAll(subSkills);
+        skillRepository.deleteAll(skills);
+        repository.delete(category);
+
+    }
+
+
+    @Override
+    @Transactional
+    public ExcelUploadResponseDto uploadSkillTaxonomyExcel(
+            MultipartFile file) {
+
+        List<RowErrorDto> errors = new ArrayList<>();
+
+        int totalRows = 0;
+
+        int duplicateRows = 0;
+
+        try (Workbook workbook =
+                     WorkbookFactory.create(file.getInputStream())) {
+
+            Sheet sheet = workbook.getSheetAt(0);
+
+            // =====================================================
+            // VALIDATE HEADERS
+            // =====================================================
+
+            validateHeaders(sheet.getRow(0));
+
+            // =====================================================
+            // DATA STRUCTURES
+            // =====================================================
+
+            Map<String, CategoryRequestDto> categoryMap =
+                    new LinkedHashMap<>();
+
+            Set<String> duplicateSet = new HashSet<>();
+
+            // =====================================================
+            // PROCESS ROWS
+            // =====================================================
+
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+
+                Row row = sheet.getRow(i);
+
+                if (row == null) {
+                    continue;
+                }
+
+                totalRows++;
+
+                try {
+
+                    // =============================================
+                    // READ CELLS
+                    // =============================================
+
+                    String categoryName =
+                            getCellValue(row.getCell(0));
+
+                    String categoryDescription =
+                            getCellValue(row.getCell(1));
+
+                    String categoryActive =
+                            getCellValue(row.getCell(2));
+
+                    String skillName =
+                            getCellValue(row.getCell(3));
+
+                    String skillDescription =
+                            getCellValue(row.getCell(4));
+
+                    String skillActive =
+                            getCellValue(row.getCell(5));
+
+                    String subSkillName =
+                            getCellValue(row.getCell(6));
+
+                    String subSkillDescription =
+                            getCellValue(row.getCell(7));
+
+                    String subSkillActive =
+                            getCellValue(row.getCell(8));
+
+                    // =============================================
+                    // EMPTY VALIDATIONS
+                    // =============================================
+
+                    if (categoryName.isBlank()) {
+
+                        errors.add(RowErrorDto.builder()
+                                .rowNumber(i + 1)
+                                .message(
+                                        "Category Name is mandatory")
+                                .build());
+
+                        continue;
+                    }
+
+                    if (skillName.isBlank()) {
+
+                        errors.add(RowErrorDto.builder()
+                                .rowNumber(i + 1)
+                                .message(
+                                        "Skill Name is mandatory")
+                                .build());
+
+                        continue;
+                    }
+
+                    if (subSkillName.isBlank()) {
+
+                        errors.add(RowErrorDto.builder()
+                                .rowNumber(i + 1)
+                                .message(
+                                        "SubSkill Name is mandatory")
+                                .build());
+
+                        continue;
+                    }
+
+                    // =============================================
+                    // DUPLICATE CHECK
+                    // =============================================
+
+                    String duplicateKey =
+                            categoryName.trim().toLowerCase()
+                                    + "|"
+                                    + skillName.trim().toLowerCase()
+                                    + "|"
+                                    + subSkillName.trim().toLowerCase();
+
+                    if (duplicateSet.contains(duplicateKey)) {
+
+                        duplicateRows++;
+
+                        errors.add(RowErrorDto.builder()
+                                .rowNumber(i + 1)
+                                .message(
+                                        "Duplicate row found")
+                                .build());
+
+                        continue;
+                    }
+
+                    duplicateSet.add(duplicateKey);
+
+                    // =============================================
+                    // CATEGORY BUILDING
+                    // =============================================
+
+                    CategoryRequestDto categoryDto =
+                            categoryMap.computeIfAbsent(
+                                    categoryName.toLowerCase(),
+                                    key -> {
+
+                                        CategoryRequestDto dto =
+                                                new CategoryRequestDto();
+
+                                        dto.setName(
+                                                categoryName.trim());
+
+                                        dto.setDescription(
+                                                categoryDescription);
+
+                                        dto.setActive(
+                                                parseBoolean(
+                                                        categoryActive));
+
+                                        dto.setSkills(
+                                                new ArrayList<>());
+
+                                        return dto;
+                                    });
+
+                    // =============================================
+                    // SKILL BUILDING
+                    // =============================================
+
+                    SkillRequestDto skillDto =
+                            categoryDto.getSkills()
+                                    .stream()
+                                    .filter(skill ->
+                                            skill.getName()
+                                                    .equalsIgnoreCase(
+                                                            skillName))
+                                    .findFirst()
+                                    .orElse(null);
+
+                    if (skillDto == null) {
+
+                        skillDto = new SkillRequestDto();
+
+                        skillDto.setName(skillName.trim());
+
+                        skillDto.setDescription(
+                                skillDescription);
+
+                        skillDto.setActive(
+                                parseBoolean(skillActive));
+
+                        skillDto.setSubSkills(
+                                new ArrayList<>());
+
+                        categoryDto.getSkills()
+                                .add(skillDto);
+                    }
+
+                    // =============================================
+                    // SUBSKILL BUILDING
+                    // =============================================
+
+                    boolean subSkillExists =
+                            skillDto.getSubSkills()
+                                    .stream()
+                                    .anyMatch(subSkill ->
+                                            subSkill.getName()
+                                                    .equalsIgnoreCase(
+                                                            subSkillName));
+
+                    if (!subSkillExists) {
+
+                        SubSkillRequestDto subSkillDto =
+                                new SubSkillRequestDto();
+
+                        subSkillDto.setName(
+                                subSkillName.trim());
+
+                        subSkillDto.setDescription(
+                                subSkillDescription);
+
+                        subSkillDto.setActive(
+                                parseBoolean(
+                                        subSkillActive));
+
+                        skillDto.getSubSkills()
+                                .add(subSkillDto);
+                    }
+
+                } catch (Exception ex) {
+
+                    errors.add(RowErrorDto.builder()
+                            .rowNumber(i + 1)
+                            .message(ex.getMessage())
+                            .build());
+                }
+            }
+
+            // =====================================================
+            // SAVE TO DB
+            // =====================================================
+
+            SkillTaxonomyRequestDto requestDto =
+                    new SkillTaxonomyRequestDto(
+                            new ArrayList<>(categoryMap.values()));
+
+            SkillTaxonomyResponseDto response =
+                    saveOrUpdateTaxonomy(requestDto);
+
+            return ExcelUploadResponseDto.builder()
+                    .totalRows(totalRows)
+                    .validRows(totalRows - errors.size())
+                    .invalidRows(errors.size())
+                    .duplicateRows(duplicateRows)
+                    .errors(errors)
+                    .savedData(response)
+                    .build();
+
+        } catch (Exception e) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Failed to process excel : "
+                            + e.getMessage());
+        }
+    }
+
+    private void validateHeaders(Row headerRow) {
+
+        String[] expectedHeaders = {
+
+                "Category Name",
+                "Category Description",
+                "Category Active",
+
+                "Skill Name",
+                "Skill Description",
+                "Skill Active",
+
+                "SubSkill Name",
+                "SubSkill Description",
+                "SubSkill Active"
+        };
+
+        for (int i = 0; i < expectedHeaders.length; i++) {
+
+            String actualHeader =
+                    getCellValue(headerRow.getCell(i));
+
+            if (!expectedHeaders[i]
+                    .equalsIgnoreCase(actualHeader)) {
+
+                throw SkillExceptionHandler.badRequest(
+                        "Invalid excel format. Expected column: "
+                                + expectedHeaders[i]);
+            }
+        }
+    }
+
+    private Boolean parseBoolean(String value) {
+
+        if (value == null || value.isBlank()) {
+            return true;
+        }
+
+        return value.equalsIgnoreCase("true")
+                || value.equalsIgnoreCase("yes")
+                || value.equalsIgnoreCase("active");
+    }
+
+    private String getCellValue(Cell cell) {
+
+        if (cell == null) {
+            return "";
+        }
+
+        return switch (cell.getCellType()) {
+
+            case STRING ->
+                    cell.getStringCellValue().trim();
+
+            case BOOLEAN ->
+                    String.valueOf(
+                            cell.getBooleanCellValue());
+
+            case NUMERIC ->
+                    String.valueOf(
+                            (long) cell.getNumericCellValue());
+
+            default -> "";
+        };
+    }
+
+    private SkillTaxonomyResponseDto saveOrUpdateTaxonomy(
+            SkillTaxonomyRequestDto requestDto) {
+
+        for (CategoryRequestDto categoryRequest :
+                requestDto.getCategories()) {
+
+            SkillCategory category =
+                    repository.findByNameIgnoreCase(
+                                    categoryRequest.getName())
+                            .orElseGet(SkillCategory::new);
+
+            category.setName(categoryRequest.getName());
+
+            category.setDescription(
+                    categoryRequest.getDescription());
+
+            category.setStatus(
+                    Boolean.TRUE.equals(
+                            categoryRequest.getActive())
+                            ? "ACTIVE"
+                            : "INACTIVE");
+
+            category = repository.save(category);
+
+            for (SkillRequestDto skillRequest :
+                    categoryRequest.getSkills()) {
+
+                Skill skill =
+                        skillRepository
+                                .findByNameIgnoreCaseAndCategory(
+                                        skillRequest.getName(),
+                                        category)
+                                .orElseGet(Skill::new);
+
+                skill.setName(skillRequest.getName());
+
+                skill.setDescription(
+                        skillRequest.getDescription());
+
+                skill.setStatus(
+                        Boolean.TRUE.equals(
+                                skillRequest.getActive())
+                                ? "ACTIVE"
+                                : "INACTIVE");
+
+                skill.setCategory(category);
+
+                skill = skillRepository.save(skill);
+
+                for (SubSkillRequestDto subSkillRequest :
+                        skillRequest.getSubSkills()) {
+
+                    SubSkill subSkill =
+                            subSkillRepository
+                                    .findByNameIgnoreCaseAndSkill(
+                                            subSkillRequest.getName(),
+                                            skill)
+                                    .orElseGet(SubSkill::new);
+
+                    subSkill.setName(
+                            subSkillRequest.getName());
+
+                    subSkill.setDescription(
+                            subSkillRequest.getDescription());
+
+                    subSkill.setStatus(
+                            Boolean.TRUE.equals(
+                                    subSkillRequest.getActive())
+                                    ? "ACTIVE"
+                                    : "INACTIVE");
+
+                    subSkill.setSkill(skill);
+
+                    subSkillRepository.save(subSkill);
+                }
+            }
+        }
+
+        return SkillTaxonomyResponseDto.builder()
+                .categories(new ArrayList<>())
                 .build();
     }
 
