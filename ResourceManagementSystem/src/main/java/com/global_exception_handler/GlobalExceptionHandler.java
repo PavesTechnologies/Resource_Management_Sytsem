@@ -4,6 +4,7 @@ import com.dto.centralised_dto.ApiResponse;
 import jakarta.persistence.PersistenceException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -172,5 +173,17 @@ public class GlobalExceptionHandler {
         log.error("Unhandled runtime exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("Internal server error: " + ex.getMessage()));
+    }
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex) {
+
+        ApiResponse response = new ApiResponse(
+                false,
+                "Cannot delete this record because it is mapped to employees/resources. Please remove all mappings first.",
+                null
+        );
+
+        return ResponseEntity.badRequest().body(response);
     }
 }

@@ -20,11 +20,11 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
 
     boolean existsByResourceIdAndSkillIdAndIdNot(String resourceId, UUID skillId, UUID id);
 
-    Optional<ResourceSkill>findByResourceIdAndSkillIdAndActiveFlagTrue(String resourceId, UUID certSkillId);
+    Optional<ResourceSkill> findByResourceIdAndSkillIdAndActiveFlagTrue(String resourceId, UUID certSkillId);
 
     @Query("SELECT rs FROM ResourceSkill rs " +
-           "LEFT JOIN FETCH rs.skill " +
-           "WHERE rs.resourceId = :resourceId AND rs.activeFlag = true")
+            "LEFT JOIN FETCH rs.skill " +
+            "WHERE rs.resourceId = :resourceId AND rs.activeFlag = true")
     List<ResourceSkill> findByResourceIdAndActiveFlagTrue(@Param("resourceId") String resourceId);
 
     /**
@@ -32,8 +32,8 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
      * This prevents N+1 query problems when validating skills for multiple resources
      */
     @Query("SELECT rs FROM ResourceSkill rs " +
-           "LEFT JOIN FETCH rs.skill " +
-           "WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
+            "LEFT JOIN FETCH rs.skill " +
+            "WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
     List<ResourceSkill> findByResourceIdInAndActiveFlagTrue(@Param("resourceIds") List<String> resourceIds);
 
     @Query("SELECT rs.resourceId, s.name FROM ResourceSkill rs JOIN rs.skill s WHERE rs.resourceId IN :resourceIds AND rs.activeFlag = true")
@@ -47,16 +47,15 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
     List<ResourceSkill> findByActiveFlagTrue();
 
 
-
     @Query("SELECT rs FROM ResourceSkill rs LEFT JOIN FETCH rs.skill")
     List<ResourceSkill> findAllWithSkills();
 
     @Query("""
-    SELECT rs.resourceId, rs.skill.name
-    FROM ResourceSkill rs
-    WHERE rs.resourceId IN :resourceIds
-    AND rs.activeFlag = true
-""")
+                SELECT rs.resourceId, rs.skill.name
+                FROM ResourceSkill rs
+                WHERE rs.resourceId IN :resourceIds
+                AND rs.activeFlag = true
+            """)
     List<Object[]> findSkillsByResourceIds(List<String> resourceIds);
 
     /**
@@ -64,15 +63,26 @@ public interface ResourceSkillRepository extends JpaRepository<ResourceSkill, UU
      * Used during role-off to update lastUsedDate for project-specific skills
      */
     @Query("UPDATE ResourceSkill rs SET rs.lastUsedDate = :effectiveDate " +
-           "WHERE rs.resourceId = :resourceId " +
-           "AND rs.skill.id IN :skillIds " +
-           "AND rs.activeFlag = true")
+            "WHERE rs.resourceId = :resourceId " +
+            "AND rs.skill.id IN :skillIds " +
+            "AND rs.activeFlag = true")
     int updateLastUsedDateByResourceIdAndSkillIds(
-            @Param("resourceId") String resourceId, 
-            @Param("skillIds") List<UUID> skillIds, 
+            @Param("resourceId") String resourceId,
+            @Param("skillIds") List<UUID> skillIds,
             @Param("effectiveDate") LocalDate effectiveDate);
 
     boolean existsBySkillIdAndActiveFlagTrue(UUID skillId);
+
+    boolean existsBySkillId(UUID skillId);
+
+    @Query("""
+                SELECT CASE WHEN COUNT(rs) > 0 THEN TRUE ELSE FALSE END
+                FROM ResourceSkill rs
+                WHERE rs.skill.category.id = :categoryId
+            """)
+    boolean existsByCategoryId(
+            @Param("categoryId") UUID categoryId);
+
 
 //    boolean existsBySubSkillId(UUID subSkillId);
 
