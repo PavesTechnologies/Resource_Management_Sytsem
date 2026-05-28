@@ -17,19 +17,22 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, 
+    public void commence(HttpServletRequest request, HttpServletResponse response,
                         AuthenticationException authException) throws IOException, ServletException {
-        
+
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        ApiResponse apiResponse = new ApiResponse();
-        apiResponse.setSuccess(false);
-        apiResponse.setMessage("Authentication failed: " + authException.getMessage());
-        apiResponse.setData(null);
-
-        String jsonResponse = objectMapper.writeValueAsString(apiResponse);
-        response.getWriter().write(jsonResponse);
+        if (authException.getMessage() != null && authException.getMessage().contains("Jwt expired")) {
+            response.getWriter().write("{\"detail\":\"401: Token has expired\"}");
+        } else {
+            ApiResponse apiResponse = new ApiResponse();
+            apiResponse.setSuccess(false);
+            apiResponse.setMessage("Authentication failed: " + authException.getMessage());
+            apiResponse.setData(null);
+            String jsonResponse = objectMapper.writeValueAsString(apiResponse);
+            response.getWriter().write(jsonResponse);
+        }
     }
 }
