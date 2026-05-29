@@ -613,7 +613,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         Skill existingSkill =
                                 skillRepository
                                         .findByNameIgnoreCaseAndCategory(
-                                                skillRequest.getName().trim(),
+                                                normalize(skillRequest.getName()),
                                                 category)
                                         .orElse(null);
 
@@ -671,7 +671,9 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                             if (subSkillRequest.getId() == null) {
                                 // Create SubSkill
-                                if (subSkillRepository.existsByNameIgnoreCaseAndSkill(subSkillRequest.getName().trim(), skill)) {
+                                if (subSkillRepository.existsByNameIgnoreCaseAndSkill(
+                                        normalize(subSkillRequest.getName()),
+                                        skill)) {
                                     throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists in skill '" + skill.getName() + "'.");
                                 }
 
@@ -679,9 +681,9 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 //                                    throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
 
 
-
                                 subSkill = new SubSkill();
-                                subSkill.setName(subSkillRequest.getName().trim());
+                                subSkill.setName(
+                                        normalize(subSkillRequest.getName()));
                                 subSkill.setSkill(skill);
                                 subSkillOperation = "CREATED";
                             } else {
@@ -706,7 +708,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                 Optional<SubSkill> existingSubSkill =
                                         subSkillRepository
                                                 .findByNameIgnoreCaseAndSkill(
-                                                        subSkillRequest.getName().trim(),
+                                                        normalize(subSkillRequest.getName()),
                                                         skill);
 
                                 if (existingSubSkill.isPresent()
@@ -869,13 +871,16 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     }
 
 
-
     @Override
     @Transactional
     public ExcelUploadResponseDto uploadSkillTaxonomyExcel(
             MultipartFile file) {
 
         List<RowErrorDto> errors = new ArrayList<>();
+
+        List<RowSuccessDto> existingRecords = new ArrayList<>();
+
+        List<RowSuccessDto> validRecords = new ArrayList<>();
 
         int totalRows = 0;
 
@@ -900,6 +905,11 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     new LinkedHashMap<>();
 
             Set<String> duplicateSet = new HashSet<>();
+            Set<String> categorySet = new HashSet<>();
+
+            Set<String> skillSet = new HashSet<>();
+
+            Set<String> subSkillSet = new HashSet<>();
 
             // =====================================================
             // PROCESS ROWS
@@ -948,17 +958,33 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     String subSkillActive =
                             getCellValue(row.getCell(8));
 
+                    String categoryKey =
+                            normalize(categoryName);
+
+                    String skillKey =
+                            normalize(categoryName)
+                                    + "|"
+                                    + normalize(skillName);
+
+                    String subSkillKey =
+                            normalize(categoryName)
+                                    + "|"
+                                    + normalize(skillName)
+                                    + "|"
+                                    + normalize(subSkillName);
+
                     // =============================================
                     // EMPTY VALIDATIONS
                     // =============================================
 
                     if (categoryName.isBlank()) {
 
-                        errors.add(RowErrorDto.builder()
-                                .rowNumber(i + 1)
-                                .message(
-                                        "Category Name is mandatory")
-                                .build());
+                        errors.add(
+                                RowErrorDto.builder()
+                                        .rowNumber(i + 1)
+                                        .message(
+                                                "Category Name is mandatory")
+                                        .build());
 
                         continue;
                     }
@@ -979,11 +1005,11 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     // =============================================
 
                     String duplicateKey =
-                            categoryName.trim().toLowerCase()
+                            normalize(categoryName)
                                     + "|"
-                                    + skillName.trim().toLowerCase()
+                                    + normalize(skillName)
                                     + "|"
-                                    + subSkillName.trim().toLowerCase();
+                                    + normalize(subSkillName);
 
                     if (duplicateSet.contains(duplicateKey)) {
 
@@ -999,14 +1025,96 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     }
 
                     duplicateSet.add(duplicateKey);
+// =====================================================
+// DATABASE EXISTING RECORD CHECK
+// =====================================================
 
-                    // =============================================
-                    // CATEGORY BUILDING
-                    // =============================================
+                    Optional<SkillCategory> existingCategory =
+                            repository.findByNameIgnoreCase(normalize(categoryName));
+
+                    if (existingCategory.isPresent()) {
+
+                        SkillCategory dbCategory =
+                                existingCategory.get();
+
+                        // ==============================================
+                        // CATEGORY EXISTS
+                        // ==============================================
+
+                        if (skillName.isBlank()) {
+
+                            existingRecords.add(
+                                    RowSuccessDto.builder()
+                                            .rowNumber(i + 1)
+                                            .message(
+                                                    "Category already exists")
+                                            .build());
+
+                            continue;
+                        }
+
+                        Optional<Skill> existingSkill =
+                                skillRepository
+                                        .findByNameIgnoreCaseAndCategory(
+                                                normalize(skillName),
+                                                dbCategory);
+
+                        if (existingSkill.isPresent()) {
+
+                            // ==========================================
+                            // SKILL EXISTS
+                            // ==========================================
+
+                            if (subSkillName.isBlank()) {
+
+                                existingRecords.add(
+                                        RowSuccessDto.builder()
+                                                .rowNumber(i + 1)
+                                                .message(
+                                                        "Skill already exists under category")
+                                                .build());
+
+                                continue;
+                            }
+
+                            Optional<SubSkill> existingSubSkill =
+                                    subSkillRepository
+                                            .findByNameIgnoreCaseAndSkill(
+                                                    normalize(subSkillName),
+                                                    existingSkill.get());
+
+                            // ==========================================
+                            // SUBSKILL EXISTS
+                            // ==========================================
+
+                            if (existingSubSkill.isPresent()) {
+
+                                existingRecords.add(
+                                        RowSuccessDto.builder()
+                                                .rowNumber(i + 1)
+                                                .message(
+                                                        "Category, Skill and SubSkill already exist")
+                                                .build());
+
+                                continue;
+                            }
+                        }
+                    }
+
+
+                    // ==========================================
+                    // VALID RECORD
+                    // ==========================================
+
+                    validRecords.add(
+                            RowSuccessDto.builder()
+                                    .rowNumber(i + 1)
+                                    .message("Ready for upload")
+                                    .build());
 
                     CategoryRequestDto categoryDto =
                             categoryMap.computeIfAbsent(
-                                    categoryName.toLowerCase(),
+                                    normalize(categoryName),
                                     key -> {
 
                                         CategoryRequestDto dto =
@@ -1046,7 +1154,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                         skillDto = new SkillRequestDto();
 
-                        skillDto.setName(skillName.trim());
+                        skillDto.setName(normalize(skillName));
 
                         skillDto.setDescription(
                                 skillDescription);
@@ -1079,7 +1187,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                     new SubSkillRequestDto();
 
                             subSkillDto.setName(
-                                    subSkillName.trim());
+                                    normalize(subSkillName));
 
                             subSkillDto.setDescription(
                                     subSkillDescription);
@@ -1115,12 +1223,15 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
             return ExcelUploadResponseDto.builder()
                     .totalRows(totalRows)
-                    .validRows(totalRows - errors.size())
-                    .invalidRows(errors.size())
+                    .validRows(validRecords.size())
                     .duplicateRows(duplicateRows)
+                    .existingRows(existingRecords.size())
+                    .invalidRows(errors.size())
+                    .validRecords(validRecords)
+                    .existingRecords(existingRecords)
                     .errors(errors)
-                    .savedData(response)
                     .build();
+
 
         } catch (Exception e) {
 
@@ -1220,7 +1331,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                 Skill skill =
                         skillRepository
                                 .findByNameIgnoreCaseAndCategory(
-                                        skillRequest.getName(),
+                                        normalize(skillRequest.getName()),
                                         category)
                                 .orElseGet(Skill::new);
 
@@ -1245,7 +1356,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     SubSkill subSkill =
                             subSkillRepository
                                     .findByNameIgnoreCaseAndSkill(
-                                            subSkillRequest.getName(),
+                                            normalize(subSkillRequest.getName()),
                                             skill)
                                     .orElseGet(SubSkill::new);
 
@@ -1276,7 +1387,8 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     /**
      * Check if entity was recently created (within last 5 minutes)
      * This prevents newly created skills from appearing in search immediately.
-     * @param entityId ID of the entity to check
+     *
+     * @param entityId   ID of the entity to check
      * @param entityType Type of entity (CATEGORY, SKILL, SUBSKILL)
      * @return true if recently created, false otherwise
      */
@@ -1304,6 +1416,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
      * This selective approach is more efficient than JOIN FETCH for large datasets.
      * N+1 Prevention: Called only for skills that match search criteria
      * Memory Impact: Minimal - only names, not full entities
+     *
      * @param skillId Skill UUID
      * @return List of active subskill names
      */

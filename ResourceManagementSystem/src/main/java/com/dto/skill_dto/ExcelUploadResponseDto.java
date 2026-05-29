@@ -20,6 +20,12 @@ public class ExcelUploadResponseDto {
 
     private int duplicateRows;
 
+    private int existingRows;
+
+    private List<RowSuccessDto> existingRecords;
+
+    private List<RowSuccessDto> validRecords;
+
     private List<RowErrorDto> errors;
 
     private SkillTaxonomyResponseDto savedData;
