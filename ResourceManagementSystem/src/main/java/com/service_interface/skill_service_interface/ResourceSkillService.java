@@ -1,5 +1,8 @@
 package com.service_interface.skill_service_interface;
 
+import com.dto.skill_dto.EmployeeSkillRequestDto;
+import com.dto.skill_dto.EmployeeSkillResponseDto;
+import com.dto.skill_dto.EmployeeSkillsRequestDto;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
 import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
 import com.dto.skill_dto.ResourceSkillRequestDTO;
@@ -12,6 +15,12 @@ import java.util.UUID;
 
 public interface ResourceSkillService {
     
+    String saveSkillMappings(EmployeeSkillsRequestDto requestDto);
+
+    String saveSkillMapping(EmployeeSkillRequestDto requestDto);
+
+    List<EmployeeSkillResponseDto> getEmployeeSkills(String resourceId);
+
     String addSkillsToResource(ResourceSkillBulkRequestDTO dto);
     
     String addSingleSkillToResource(ResourceSkillRequestDTO dto);

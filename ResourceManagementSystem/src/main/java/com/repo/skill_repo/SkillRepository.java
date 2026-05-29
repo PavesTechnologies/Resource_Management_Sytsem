@@ -62,4 +62,8 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
 
     @Query("SELECT CASE WHEN COUNT(rs) > 0 THEN TRUE ELSE FALSE END FROM ResourceSkill rs JOIN rs.skill s WHERE s.category.id = :categoryId AND s.status = :status AND rs.activeFlag = TRUE")
     boolean existsByCategoryIdAndStatusAndResourceSkillsIsNotEmpty(@Param("categoryId") UUID categoryId, @Param("status") String status);
+
+    Optional<Skill> findByNameIgnoreCaseAndCategory_Id(
+            String name,
+            UUID categoryId);
 }
