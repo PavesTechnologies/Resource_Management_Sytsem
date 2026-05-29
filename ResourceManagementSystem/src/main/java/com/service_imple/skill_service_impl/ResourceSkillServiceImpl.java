@@ -24,10 +24,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +37,226 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     private final ProficiencyLevelRepository proficiencyLevelRepository;
     private final ResourceRepository resourceRepository;
     private final AllocationRepository allocationRepository;
+
+    // -------------------------------------------------------------------------
+    // EmployeeSkillMapping migration: bulk upsert via EmployeeSkillsRequestDto
+    // -------------------------------------------------------------------------
+
+    @Override
+    @Transactional
+    public String saveSkillMappings(EmployeeSkillsRequestDto requestDto) {
+        if (requestDto.getResourceId() == null || requestDto.getResourceId().isBlank()) {
+            throw SkillExceptionHandler.badRequest("Resource ID is required");
+        }
+        if (requestDto.getSkills() == null || requestDto.getSkills().isEmpty()) {
+            throw SkillExceptionHandler.badRequest("At least one skill is required");
+        }
+
+        for (SkillMappingItemDto skillDto : requestDto.getSkills()) {
+            if (skillDto.getSkillId() == null) {
+                throw SkillExceptionHandler.badRequest("skillId is required for every skill entry");
+            }
+
+            Skill skill = skillRepository.findById(skillDto.getSkillId())
+                    .orElseThrow(() -> SkillExceptionHandler.notFound(
+                            "Skill not found: " + skillDto.getSkillId()));
+
+            boolean skillActiveFlag = !"INACTIVE".equalsIgnoreCase(skillDto.getStatus());
+
+            if (skillDto.getSubSkills() == null || skillDto.getSubSkills().isEmpty()) {
+                upsertResourceSkill(requestDto.getResourceId(), skill,
+                        skillDto.getProficiencyId(), skillActiveFlag);
+            } else {
+                upsertResourceSkill(requestDto.getResourceId(), skill,
+                        skillDto.getProficiencyId(), skillActiveFlag);
+
+                for (SubSkillMappingItemDto subSkillDto : skillDto.getSubSkills()) {
+                    if (subSkillDto.getSubSkillId() == null) {
+                        throw SkillExceptionHandler.badRequest(
+                                "subSkillId is required for every subSkill entry");
+                    }
+                    SubSkill subSkill = subSkillRepository.findById(subSkillDto.getSubSkillId())
+                            .orElseThrow(() -> SkillExceptionHandler.notFound(
+                                    "SubSkill not found: " + subSkillDto.getSubSkillId()));
+
+                    UUID subProficiencyId = subSkillDto.getProficiencyId() != null
+                            ? subSkillDto.getProficiencyId() : skillDto.getProficiencyId();
+                    boolean subActiveFlag = subSkillDto.getStatus() != null
+                            ? !"INACTIVE".equalsIgnoreCase(subSkillDto.getStatus()) : skillActiveFlag;
+
+                    upsertResourceSubSkill(requestDto.getResourceId(), subSkill,
+                            subProficiencyId, subActiveFlag);
+                }
+            }
+        }
+        return "Skills mapped successfully";
+    }
+
+    // -------------------------------------------------------------------------
+    // EmployeeSkillMapping migration: single-skill save (used by approval flow)
+    // -------------------------------------------------------------------------
+
+    @Override
+    @Transactional
+    public String saveSkillMapping(EmployeeSkillRequestDto requestDto) {
+        if (requestDto.getEmployeeId() == null || requestDto.getEmployeeId().isBlank()) {
+            throw SkillExceptionHandler.badRequest("Employee ID is required");
+        }
+        if (requestDto.getSkillId() == null) {
+            throw SkillExceptionHandler.badRequest("Skill ID is required");
+        }
+
+        Skill skill = skillRepository.findById(requestDto.getSkillId())
+                .orElseThrow(() -> SkillExceptionHandler.notFound("Skill not found"));
+
+        boolean activeFlag = !"INACTIVE".equalsIgnoreCase(requestDto.getStatus());
+
+        if (requestDto.getSubskillId() == null) {
+            if (resourceSkillRepository.existsByResourceIdAndSkillId(
+                    requestDto.getEmployeeId(), requestDto.getSkillId())) {
+                throw SkillExceptionHandler.conflict("Skill already mapped to this employee");
+            }
+            ResourceSkill rs = ResourceSkill.builder()
+                    .resourceId(requestDto.getEmployeeId())
+                    .skill(skill)
+                    .proficiencyId(requestDto.getProficiencyId())
+                    .lastUsedDate(LocalDate.now())
+                    .activeFlag(activeFlag)
+                    .build();
+            resourceSkillRepository.save(rs);
+        } else {
+            SubSkill subSkill = subSkillRepository.findById(requestDto.getSubskillId())
+                    .orElseThrow(() -> SkillExceptionHandler.notFound("SubSkill not found"));
+
+            if (resourceSubSkillRepository.existsByResourceIdAndSubSkillId(
+                    requestDto.getEmployeeId(), requestDto.getSubskillId())) {
+                throw SkillExceptionHandler.conflict("Skill already mapped to this employee");
+            }
+
+            if (!resourceSkillRepository.existsByResourceIdAndSkillId(
+                    requestDto.getEmployeeId(), requestDto.getSkillId())) {
+                ResourceSkill rs = ResourceSkill.builder()
+                        .resourceId(requestDto.getEmployeeId())
+                        .skill(skill)
+                        .proficiencyId(requestDto.getProficiencyId())
+                        .lastUsedDate(LocalDate.now())
+                        .activeFlag(activeFlag)
+                        .build();
+                resourceSkillRepository.save(rs);
+            }
+
+            ResourceSubSkill rss = ResourceSubSkill.builder()
+                    .resourceId(requestDto.getEmployeeId())
+                    .subSkill(subSkill)
+                    .proficiencyId(requestDto.getProficiencyId())
+                    .lastUsedDate(LocalDate.now())
+                    .activeFlag(activeFlag)
+                    .build();
+            resourceSubSkillRepository.save(rss);
+        }
+        return "Skill mapped successfully";
+    }
+
+    // -------------------------------------------------------------------------
+    // EmployeeSkillMapping migration: flat skill list for a resource
+    // -------------------------------------------------------------------------
+
+    @Override
+    public List<EmployeeSkillResponseDto> getEmployeeSkills(String resourceId) {
+        List<ResourceSkill> skills = resourceSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
+        List<ResourceSubSkill> subSkills = resourceSubSkillRepository.findByResourceIdAndActiveFlagTrue(resourceId);
+
+        // Collect the skill IDs that have at least one active subskill entry.
+        // For those skills we emit only the subskill rows (matches original behaviour
+        // where a skill+subskill combo never produced an extra skill-only row).
+        Set<UUID> skillIdsWithSubSkills = subSkills.stream()
+                .map(rss -> rss.getSubSkill().getSkill().getId())
+                .collect(Collectors.toSet());
+
+        List<EmployeeSkillResponseDto> result = new ArrayList<>();
+
+        // Skill-only rows: only when no active subskills exist for that skill
+        for (ResourceSkill rs : skills) {
+            if (skillIdsWithSubSkills.contains(rs.getSkill().getId())) {
+                continue;
+            }
+            Skill skill = rs.getSkill();
+            ProficiencyLevel proficiency = rs.getProficiencyId() != null
+                    ? proficiencyLevelRepository.findById(rs.getProficiencyId()).orElse(null) : null;
+
+            result.add(EmployeeSkillResponseDto.builder()
+                    .id(rs.getId())
+                    .employeeId(rs.getResourceId())
+                    .categoryName(skill.getCategory() != null ? skill.getCategory().getName() : null)
+                    .skillName(skill.getName())
+                    .subskillName(null)
+                    .proficiency(proficiency != null ? proficiency.getProficiencyName() : null)
+                    .status(Boolean.TRUE.equals(rs.getActiveFlag()) ? "ACTIVE" : "INACTIVE")
+                    .build());
+        }
+
+        // Subskill rows: one entry per active ResourceSubSkill
+        for (ResourceSubSkill rss : subSkills) {
+            SubSkill subSkill = rss.getSubSkill();
+            Skill parentSkill = subSkill.getSkill();
+            ProficiencyLevel proficiency = rss.getProficiencyId() != null
+                    ? proficiencyLevelRepository.findById(rss.getProficiencyId()).orElse(null) : null;
+
+            result.add(EmployeeSkillResponseDto.builder()
+                    .id(rss.getId())
+                    .employeeId(rss.getResourceId())
+                    .categoryName(parentSkill != null && parentSkill.getCategory() != null
+                            ? parentSkill.getCategory().getName() : null)
+                    .skillName(parentSkill != null ? parentSkill.getName() : null)
+                    .subskillName(subSkill.getName())
+                    .proficiency(proficiency != null ? proficiency.getProficiencyName() : null)
+                    .status(Boolean.TRUE.equals(rss.getActiveFlag()) ? "ACTIVE" : "INACTIVE")
+                    .build());
+        }
+
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Upsert helpers for saveSkillMappings
+    // -------------------------------------------------------------------------
+
+    private void upsertResourceSkill(String resourceId, Skill skill, UUID proficiencyId, boolean activeFlag) {
+        resourceSkillRepository.findByResourceIdAndSkillId(resourceId, skill.getId())
+                .ifPresentOrElse(existing -> {
+                    existing.setProficiencyId(proficiencyId);
+                    existing.setActiveFlag(activeFlag);
+                    resourceSkillRepository.save(existing);
+                }, () -> {
+                    ResourceSkill rs = ResourceSkill.builder()
+                            .resourceId(resourceId)
+                            .skill(skill)
+                            .proficiencyId(proficiencyId)
+                            .lastUsedDate(LocalDate.now())
+                            .activeFlag(activeFlag)
+                            .build();
+                    resourceSkillRepository.save(rs);
+                });
+    }
+
+    private void upsertResourceSubSkill(String resourceId, SubSkill subSkill,
+                                        UUID proficiencyId, boolean activeFlag) {
+        resourceSubSkillRepository.findByResourceIdAndSubSkillId(resourceId, subSkill.getId())
+                .ifPresentOrElse(existing -> {
+                    existing.setProficiencyId(proficiencyId);
+                    existing.setActiveFlag(activeFlag);
+                    resourceSubSkillRepository.save(existing);
+                }, () -> {
+                    ResourceSubSkill rss = ResourceSubSkill.builder()
+                            .resourceId(resourceId)
+                            .subSkill(subSkill)
+                            .proficiencyId(proficiencyId)
+                            .lastUsedDate(LocalDate.now())
+                            .activeFlag(activeFlag)
+                            .build();
+                    resourceSubSkillRepository.save(rss);
+                });
+    }
 
     @Override
     @Transactional
