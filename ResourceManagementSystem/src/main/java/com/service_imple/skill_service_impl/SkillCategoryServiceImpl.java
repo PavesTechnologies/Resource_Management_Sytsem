@@ -1,17 +1,13 @@
 package com.service_imple.skill_service_impl;
 
 import com.dto.skill_dto.*;
-import com.entity.skill_entities.SkillCategory;
 import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.SkillCategory;
 import com.entity.skill_entities.SubSkill;
 import com.global_exception_handler.SkillExceptionHandler;
-import com.repo.skill_repo.SkillCategoryRepository;
-import com.repo.skill_repo.SkillRepository;
-import com.repo.skill_repo.SubSkillRepository;
-import com.repo.skill_repo.ResourceSkillRepository;
-import com.repo.skill_repo.ResourceSubSkillRepository;
-import com.service_interface.skill_service_interface.SkillCategoryService;
+import com.repo.skill_repo.*;
 import com.service_interface.resource_service_interface.ResourceService; // Assuming this path for ResourceService
+import com.service_interface.skill_service_interface.SkillCategoryService;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -24,8 +20,6 @@ import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static java.lang.Boolean.parseBoolean;
 
 @Service
 @RequiredArgsConstructor
@@ -115,7 +109,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
         }
 
         List<Skill> skills = repository.findActiveSkillsByCategoryId(categoryId);
-        List<UUID> skillIds = skills.stream().map(Skill::getId).collect(Collectors.toList());
+        List<UUID> skillIds = skills.stream().map(Skill::getId).toList();
         List<SubSkill> subSkills = subSkillRepository.findActiveSubSkillsBySkillIds(skillIds);
 
         Map<UUID, List<SubSkill>> subSkillsBySkillId = subSkills.stream()
@@ -135,7 +129,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                         .id(subSkill.getId().toString())
                                         .name(subSkill.getName())
                                         .build())
-                                .collect(Collectors.toList());
+                                .toList();
                         skillDto.setSubSkills(subSkillDtos);
                     } else {
                         skillDto.setSubSkills(new ArrayList<>());
@@ -143,7 +137,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                     return skillDto;
                 })
-                .collect(Collectors.toList());
+                .toList();
 
         return SkillTaxonomyTreeDto.builder()
                 .id(category.getId().toString())
@@ -153,9 +147,8 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     }
 
     private List<SkillTaxonomyTreeDto> buildTaxonomyTree(List<SkillCategory> categories) {
-        List<UUID> categoryIds = categories.stream().map(SkillCategory::getId).collect(Collectors.toList());
         List<Skill> allSkills = skillRepository.findActiveSkills();
-        List<UUID> skillIds = allSkills.stream().map(Skill::getId).collect(Collectors.toList());
+        List<UUID> skillIds = allSkills.stream().map(Skill::getId).toList();
         List<SubSkill> allSubSkills = subSkillRepository.findActiveSubSkillsBySkillIds(skillIds);
 
 
@@ -182,14 +175,14 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                             .build();
 
                                     List<SubSkill> skillSubSkills = subSkillsBySkillId.get(skill.getId());
-                                    
+
                                     if (skillSubSkills != null && !skillSubSkills.isEmpty()) {
                                         List<SkillTaxonomyTreeDto.SubSkillTreeDto> subSkillDtos = skillSubSkills.stream()
                                                 .map(subSkill -> SkillTaxonomyTreeDto.SubSkillTreeDto.builder()
                                                         .id(subSkill.getId().toString())
                                                         .name(subSkill.getName())
                                                         .build())
-                                                .collect(Collectors.toList());
+                                                .toList();
                                         skillDto.setSubSkills(subSkillDtos);
                                     } else {
                                         skillDto.setSubSkills(new ArrayList<>());
@@ -197,13 +190,13 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                                     return skillDto;
                                 })
-                                .collect(Collectors.toList());
+                                .toList();
                         categoryDto.setSkills(skillDtos);
                     }
 
                     return categoryDto;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -228,20 +221,20 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
             // - ~90% memory reduction vs entity loading
             // - Single query per entity type (no N+1)
             // - Index-friendly queries
-            
+
             // ========================================================================
             // CATEGORY SEARCH - O(N) Time Complexity
             // ========================================================================
             // DTO Projection: Only 7 fields vs full entity graph
             // No JOIN FETCH: No collection loading, no cartesian product
             List<SkillSearchProjection> categoryProjections = repository.searchCategoriesByName(trimmedSearchTerm);
-            
+
             for (SkillSearchProjection projection : categoryProjections) {
                 // Check if category was recently created (within last 5 minutes)
                 if (isRecentlyCreated(projection.getId(), "CATEGORY")) {
                     continue; // Skip recently created categories
                 }
-                
+
                 results.add(SkillSearchResultDto.builder()
                         .type(projection.getType())
                         .id(projection.getId())
@@ -255,18 +248,18 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
             }
 
             // ========================================================================
-            // SKILL SEARCH - O(S) Time Complexity  
+            // SKILL SEARCH - O(S) Time Complexity
             // ========================================================================
             // DTO Projection: Category name fetched via explicit JOIN
             // Memory: ~85% reduction vs JOIN FETCH approach
             List<SkillSearchProjection> skillProjections = repository.searchSkillsByName(trimmedSearchTerm);
-            
+
             for (SkillSearchProjection projection : skillProjections) {
                 // Check if skill was recently created (within last 5 minutes)
                 if (isRecentlyCreated(projection.getId(), "SKILL")) {
                     continue; // Skip recently created skills
                 }
-                
+
                 // For skills, we need to fetch subskills separately (only if needed)
                 // This is more efficient than JOIN FETCH for large datasets
                 List<String> subSkillNames = getSubSkillNamesForSkill(projection.getId());
@@ -289,13 +282,13 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
             // DTO Projection: Most efficient - leaf nodes with minimal joins
             // Memory: ~80% reduction vs entity loading
             List<SkillSearchProjection> subSkillProjections = repository.searchSubSkillsByName(trimmedSearchTerm);
-            
+
             for (SkillSearchProjection projection : subSkillProjections) {
                 // Check if subskill was recently created (within last 5 minutes)
                 if (isRecentlyCreated(projection.getId(), "SUBSKILL")) {
                     continue; // Skip recently created subskills
                 }
-                
+
                 results.add(SkillSearchResultDto.builder()
                         .type(projection.getType())
                         .id(projection.getId())
@@ -317,6 +310,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
         return results;
     }
+
     @Override
     public byte[] exportSkillTaxonomyExcel() {
 
@@ -515,14 +509,14 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
     @Override
     public List<CategoryDto> getAllCategoriesDto() {
-        return repository.findAll().stream()
+        return repository.findActiveCategories().stream()
                 .map(category -> new CategoryDto(
                         category.getId(),
                         category.getName(),
                         category.getDescription(),
                         "ACTIVE".equals(category.getStatus())
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -537,7 +531,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         skill.getDescription(),
                         "ACTIVE".equals(skill.getStatus())
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -552,7 +546,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         subSkill.getDescription(),
                         "ACTIVE".equals(subSkill.getStatus())
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -569,7 +563,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                 throw SkillExceptionHandler.badRequest("Category name cannot be empty.");
             }
 
-            String operation = "";
+            String operation;
             SkillCategory category;
 
             if (categoryRequest.getId() == null) {
@@ -611,53 +605,53 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         throw SkillExceptionHandler.badRequest("Skill name cannot be empty for category '" + category.getName() + "'.");
                     }
 
-                    String skillOperation = "";
+                    String skillOperation;
                     Skill skill;
 
                     if (skillRequest.getId() == null) {
-                        // Create Skill
-                        if (skillRepository.existsByNameIgnoreCaseAndCategory(skillRequest.getName().trim(), category)) {
-                            throw SkillExceptionHandler.badRequest("Skill with name '" + skillRequest.getName() + "' already exists in category '" + category.getName() + "'.");
-                        }
-                        String normalizedSkill =
-                                normalize(skillRequest.getName());
 
-                        boolean skillExists =
-                                skillRepository.findAll()
-                                        .stream()
-                                        .anyMatch(existingSkill ->
-                                                normalize(existingSkill.getName())
-                                                        .equals(normalizedSkill));
+                        Skill existingSkill =
+                                skillRepository
+                                        .findByNameIgnoreCaseAndCategory(
+                                                skillRequest.getName().trim(),
+                                                category)
+                                        .orElse(null);
 
-                        if (skillExists)
-                        {
-                            throw SkillExceptionHandler.badRequest("Skill with name '" + skillRequest.getName() + "' already exists.");
+                        if (existingSkill != null) {
+
+                            skill = existingSkill;
+                            skillOperation = "EXISTING";
+
+                        } else {
+
+                            skill = new Skill();
+
+                            skill.setName(
+                                    normalize(skillRequest.getName()));
+
+                            skill.setCategory(category);
+
+                            skillOperation = "CREATED";
                         }
-                        skill = new Skill();
-                        skill.setName(skillRequest.getName().trim());
-                        skill.setCategory(category);
-                        skillOperation = "CREATED";
+
                     } else {
-                        // Update Skill
+
                         skill = skillRepository.findById(skillRequest.getId())
-                                .orElseThrow(() -> SkillExceptionHandler.badRequest("Skill with ID '" + skillRequest.getId() + "' not found."));
+                                .orElseThrow(() ->
+                                        SkillExceptionHandler.badRequest(
+                                                "Skill with ID '"
+                                                        + skillRequest.getId()
+                                                        + "' not found."));
 
                         if (!skill.getCategory().getId().equals(category.getId())) {
-                            throw SkillExceptionHandler.badRequest("Skill with ID '" + skillRequest.getId() + "' does not belong to category '" + category.getName() + "'.");
+
+                            throw SkillExceptionHandler.badRequest(
+                                    "Skill does not belong to category");
                         }
 
-                        if (!skill.getName().equalsIgnoreCase(skillRequest.getName().trim()) && skillRepository.existsByNameIgnoreCaseAndCategory(skillRequest.getName().trim(), category)) {
-                            throw SkillExceptionHandler.badRequest("Another skill with name '" + skillRequest.getName() + "' already exists in category '" + category.getName() + "'.");
-                        }
+                        skill.setName(
+                                normalize(skillRequest.getName()));
 
-                        // Validation: Prevent deactivating if resources are using it
-                        if ("ACTIVE".equals(skill.getStatus()) && (skillRequest.getActive() == null || !skillRequest.getActive())) {
-                            if (resourceService.hasActiveResourcesUsingSkill(skill.getId())) {
-                                throw SkillExceptionHandler.badRequest("Cannot deactivate skill '" + skill.getName() + "' as it is currently in use by resources.");
-                            }
-                        }
-
-                        skill.setName(skillRequest.getName().trim());
                         skillOperation = "UPDATED";
                     }
 
@@ -669,10 +663,10 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     if (skillRequest.getSubSkills() != null) {
                         for (SubSkillRequestDto subSkillRequest : skillRequest.getSubSkills()) {
                             if (!StringUtils.hasText(subSkillRequest.getName())) {
-                                throw SkillExceptionHandler.badRequest("SubSkill name cannot be empty for skill '" + skill.getName() + "'.");
+                                continue;
                             }
 
-                            String subSkillOperation = "";
+                            String subSkillOperation;
                             SubSkill subSkill;
 
                             if (subSkillRequest.getId() == null) {
@@ -680,38 +674,10 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                 if (subSkillRepository.existsByNameIgnoreCaseAndSkill(subSkillRequest.getName().trim(), skill)) {
                                     throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists in skill '" + skill.getName() + "'.");
                                 }
-                                
-                                if(subSkillRepository.existsByNameIgnoreCase(subSkillRequest.getName().trim()))
-                                    throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
 
-                                String normalizedSkill =
-                                        normalize(skillRequest.getName());
+//                                if (subSkillRepository.existsByNameIgnoreCase(subSkillRequest.getName().trim()))
+//                                    throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
 
-                                String normalizedSubSkill =
-                                        normalize(subSkillRequest.getName());
-
-                                boolean duplicateCombination =
-                                        subSkillRepository.findAll()
-                                                .stream()
-                                                .anyMatch(existing ->
-
-                                                        normalize(existing.getSkill().getName())
-                                                                .equals(normalizedSkill)
-
-                                                                &&
-
-                                                                normalize(existing.getName())
-                                                                        .equals(normalizedSubSkill)
-                                                );
-
-                                if (duplicateCombination) {
-
-                                    throw SkillExceptionHandler.badRequest(
-                                            "Skill '" + skillRequest.getName()
-                                                    + "' with SubSkill '"
-                                                    + subSkillRequest.getName()
-                                                    + "' already exists.");
-                                }
 
 
                                 subSkill = new SubSkill();
@@ -737,38 +703,18 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                         throw SkillExceptionHandler.badRequest("Cannot deactivate sub-skill '" + subSkill.getName() + "' as it is currently in use by resources.");
                                     }
                                 }
-                                String normalizedSkill =
-                                        normalize(skillRequest.getName());
+                                Optional<SubSkill> existingSubSkill =
+                                        subSkillRepository
+                                                .findByNameIgnoreCaseAndSkill(
+                                                        subSkillRequest.getName().trim(),
+                                                        skill);
 
-                                String normalizedSubSkill =
-                                        normalize(subSkillRequest.getName());
-
-                                boolean duplicateCombination =
-                                        subSkillRepository.findAll()
-                                                .stream()
-                                                .anyMatch(existing ->
-
-                                                        !existing.getId()
-                                                                .equals(subSkillRequest.getId())
-
-                                                                &&
-
-                                                                normalize(existing.getSkill().getName())
-                                                                        .equals(normalizedSkill)
-
-                                                                &&
-
-                                                                normalize(existing.getName())
-                                                                        .equals(normalizedSubSkill)
-                                                );
-
-                                if (duplicateCombination) {
+                                if (existingSubSkill.isPresent()
+                                        && !existingSubSkill.get().getId()
+                                        .equals(subSkill.getId())) {
 
                                     throw SkillExceptionHandler.badRequest(
-                                            "Skill '" + skillRequest.getName()
-                                                    + "' with SubSkill '"
-                                                    + subSkillRequest.getName()
-                                                    + "' already exists.");
+                                            "SubSkill already exists under this skill");
                                 }
 
                                 subSkill.setName(subSkillRequest.getName().trim());
@@ -809,6 +755,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                 .build();
     }
 
+
     @Transactional
     @Override
     public void deleteCategory(UUID categoryId) {
@@ -819,43 +766,63 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                 SkillExceptionHandler.notFound(
                                         "Category not found"));
 
-        // ==========================================
-        // FETCH SKILLS
-        // ==========================================
+        // =====================================================
+        // FETCH ALL SKILLS UNDER CATEGORY
+        // =====================================================
 
         List<Skill> skills =
-                skillRepository
-                        .findByCategoryId(categoryId);
+                skillRepository.findByCategoryId(categoryId);
 
-        // ==========================================
-        // CHECK SKILL ASSIGNMENTS
-        // ==========================================
+        // =====================================================
+        // FETCH ALL SUBSKILLS UNDER CATEGORY
+        // =====================================================
+
+        List<SubSkill> subSkills =
+                subSkillRepository.findByCategoryId(categoryId);
+
+        // =====================================================
+        // CHECK CATEGORY LEVEL MAPPINGS
+        // =====================================================
+
+        boolean categoryMapped =
+                resourceSkillRepository
+                        .existsByCategoryId(categoryId);
+
+        if (categoryMapped) {
+
+            throw SkillExceptionHandler.badRequest(
+                    "Cannot delete category '"
+                            + category.getName()
+                            + "' because employees/resources are mapped to it. "
+                            + "Please remove all mappings first.");
+        }
+
+        // =====================================================
+        // CHECK SKILL LEVEL MAPPINGS
+        // =====================================================
 
         for (Skill skill : skills) {
 
             boolean skillAssigned =
                     resourceSkillRepository
-                            .existsBySkillIdAndActiveFlagTrue(
+                            .existsBySkillId(
                                     skill.getId());
 
             if (skillAssigned) {
 
                 throw SkillExceptionHandler.badRequest(
-                        "Cannot delete category. Resources are assigned to skills under this category.");
+                        "Cannot delete category '"
+                                + category.getName()
+                                + "' because skill '"
+                                + skill.getName()
+                                + "' is mapped to employees/resources. "
+                                + "Please remove all resource mappings first.");
             }
         }
 
-        // ==========================================
-        // FETCH SUBSKILLS
-        // ==========================================
-
-        List<SubSkill> subSkills =
-                subSkillRepository
-                        .findByCategoryId(categoryId);
-
-        // ==========================================
-        // CHECK SUBSKILL ASSIGNMENTS
-        // ==========================================
+        // =====================================================
+        // CHECK SUBSKILL LEVEL MAPPINGS
+        // =====================================================
 
         for (SubSkill subSkill : subSkills) {
 
@@ -867,15 +834,40 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
             if (subSkillAssigned) {
 
                 throw SkillExceptionHandler.badRequest(
-                        "Cannot delete category. Resources are assigned to subskills under this category.");
+                        "Cannot delete category '"
+                                + category.getName()
+                                + "' because subskill '"
+                                + subSkill.getName()
+                                + "' is mapped to employees/resources. "
+                                + "Please remove all resource mappings first.");
             }
         }
 
-        subSkillRepository.deleteAll(subSkills);
-        skillRepository.deleteAll(skills);
-        repository.delete(category);
+        // =====================================================
+        // DELETE SUBSKILLS
+        // =====================================================
 
+        if (!subSkills.isEmpty()) {
+
+            subSkillRepository.deleteAll(subSkills);
+        }
+
+        // =====================================================
+        // DELETE SKILLS
+        // =====================================================
+
+        if (!skills.isEmpty()) {
+
+            skillRepository.deleteAll(skills);
+        }
+
+        // =====================================================
+        // DELETE CATEGORY
+        // =====================================================
+
+        repository.delete(category);
     }
+
 
 
     @Override
@@ -982,17 +974,6 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                         continue;
                     }
 
-                    if (subSkillName.isBlank()) {
-
-                        errors.add(RowErrorDto.builder()
-                                .rowNumber(i + 1)
-                                .message(
-                                        "SubSkill Name is mandatory")
-                                .build());
-
-                        continue;
-                    }
-
                     // =============================================
                     // DUPLICATE CHECK
                     // =============================================
@@ -1083,32 +1064,33 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     // =============================================
                     // SUBSKILL BUILDING
                     // =============================================
+                    if (!subSkillName.isBlank()) {
+                        boolean subSkillExists =
+                                skillDto.getSubSkills()
+                                        .stream()
+                                        .anyMatch(subSkill ->
+                                                subSkill.getName()
+                                                        .equalsIgnoreCase(
+                                                                subSkillName));
 
-                    boolean subSkillExists =
+                        if (!subSkillExists) {
+
+                            SubSkillRequestDto subSkillDto =
+                                    new SubSkillRequestDto();
+
+                            subSkillDto.setName(
+                                    subSkillName.trim());
+
+                            subSkillDto.setDescription(
+                                    subSkillDescription);
+
+                            subSkillDto.setActive(
+                                    parseBoolean(
+                                            subSkillActive));
+
                             skillDto.getSubSkills()
-                                    .stream()
-                                    .anyMatch(subSkill ->
-                                            subSkill.getName()
-                                                    .equalsIgnoreCase(
-                                                            subSkillName));
-
-                    if (!subSkillExists) {
-
-                        SubSkillRequestDto subSkillDto =
-                                new SubSkillRequestDto();
-
-                        subSkillDto.setName(
-                                subSkillName.trim());
-
-                        subSkillDto.setDescription(
-                                subSkillDescription);
-
-                        subSkillDto.setActive(
-                                parseBoolean(
-                                        subSkillActive));
-
-                        skillDto.getSubSkills()
-                                .add(subSkillDto);
+                                    .add(subSkillDto);
+                        }
                     }
 
                 } catch (Exception ex) {
@@ -1180,7 +1162,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
         }
     }
 
-    private Boolean parseBoolean(String value) {
+    private boolean parseBoolean(String value) {
 
         if (value == null || value.isBlank()) {
             return true;
@@ -1199,17 +1181,11 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
         return switch (cell.getCellType()) {
 
-            case STRING ->
-                    cell.getStringCellValue().trim();
-
-            case BOOLEAN ->
-                    String.valueOf(
-                            cell.getBooleanCellValue());
-
-            case NUMERIC ->
-                    String.valueOf(
-                            (long) cell.getNumericCellValue());
-
+            case STRING -> cell.getStringCellValue().trim();
+            case BOOLEAN -> String.valueOf(
+                    cell.getBooleanCellValue());
+            case NUMERIC -> String.valueOf(
+                    (long) cell.getNumericCellValue());
             default -> "";
         };
     }
@@ -1222,10 +1198,10 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
             SkillCategory category =
                     repository.findByNameIgnoreCase(
-                                    categoryRequest.getName())
+                                    normalize(categoryRequest.getName()))
                             .orElseGet(SkillCategory::new);
 
-            category.setName(categoryRequest.getName());
+            category.setName(normalize(categoryRequest.getName()));
 
             category.setDescription(
                     categoryRequest.getDescription());
@@ -1248,7 +1224,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                         category)
                                 .orElseGet(Skill::new);
 
-                skill.setName(skillRequest.getName());
+                skill.setName(normalize(skillRequest.getName()));
 
                 skill.setDescription(
                         skillRequest.getDescription());
@@ -1273,8 +1249,8 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                             skill)
                                     .orElseGet(SubSkill::new);
 
-                    subSkill.setName(
-                            subSkillRequest.getName());
+                    subSkill.setName(normalize(
+                            subSkillRequest.getName()));
 
                     subSkill.setDescription(
                             subSkillRequest.getDescription());
@@ -1299,8 +1275,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
     /**
      * Check if entity was recently created (within last 5 minutes)
-     * This prevents newly created skills from appearing in search immediately
-     * 
+     * This prevents newly created skills from appearing in search immediately.
      * @param entityId ID of the entity to check
      * @param entityType Type of entity (CATEGORY, SKILL, SUBSKILL)
      * @return true if recently created, false otherwise
@@ -1308,23 +1283,16 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     private boolean isRecentlyCreated(UUID entityId, String entityType) {
         try {
             LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
-            
-            switch (entityType) {
-                case "CATEGORY":
-                    SkillCategory category = repository.findById(entityId).orElse(null);
-                    return category != null && category.getCreatedAt().isAfter(fiveMinutesAgo);
-                    
-                case "SKILL":
-                    Skill skill = skillRepository.findById(entityId).orElse(null);
-                    return skill != null && skill.getCreatedAt().isAfter(fiveMinutesAgo);
-                    
-                case "SUBSKILL":
-                    SubSkill subSkill = subSkillRepository.findById(entityId).orElse(null);
-                    return subSkill != null && subSkill.getCreatedAt().isAfter(fiveMinutesAgo);
-                    
-                default:
-                    return false;
-            }
+
+            return switch (entityType) {
+                case "CATEGORY" ->
+                        repository.findById(entityId).map(e -> e.getCreatedAt().isAfter(fiveMinutesAgo)).orElse(false);
+                case "SKILL" ->
+                        skillRepository.findById(entityId).map(e -> e.getCreatedAt().isAfter(fiveMinutesAgo)).orElse(false);
+                case "SUBSKILL" ->
+                        subSkillRepository.findById(entityId).map(e -> e.getCreatedAt().isAfter(fiveMinutesAgo)).orElse(false);
+                default -> false;
+            };
         } catch (Exception e) {
             // If we can't determine creation time, assume it's not recent
             return false;
@@ -1334,10 +1302,8 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     /**
      * Helper method to fetch subskill names for a specific skill.
      * This selective approach is more efficient than JOIN FETCH for large datasets.
-     * 
      * N+1 Prevention: Called only for skills that match search criteria
      * Memory Impact: Minimal - only names, not full entities
-     * 
      * @param skillId Skill UUID
      * @return List of active subskill names
      */
@@ -1347,6 +1313,6 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
         return subSkills.stream()
                 .map(SubSkill::getName)
                 .sorted()
-                .collect(Collectors.toList());
+                .toList();
     }
 }
