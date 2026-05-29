@@ -55,4 +55,8 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
 """)
     List<SubSkill> findByCategoryId(
             @Param("categoryId") UUID categoryId);
+
+    Optional<SubSkill> findByNameIgnoreCaseAndSkill_Id(
+            String name,
+            UUID skillId);
 }

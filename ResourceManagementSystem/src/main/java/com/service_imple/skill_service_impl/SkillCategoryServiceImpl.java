@@ -875,6 +875,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
     @Transactional
     public ExcelUploadResponseDto uploadSkillTaxonomyExcel(
             MultipartFile file) {
+        System.out.println("UPLOAD API HIT");
 
         List<RowErrorDto> errors = new ArrayList<>();
 
@@ -905,11 +906,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     new LinkedHashMap<>();
 
             Set<String> duplicateSet = new HashSet<>();
-            Set<String> categorySet = new HashSet<>();
 
-            Set<String> skillSet = new HashSet<>();
-
-            Set<String> subSkillSet = new HashSet<>();
 
             // =====================================================
             // PROCESS ROWS
@@ -1028,9 +1025,18 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 // =====================================================
 // DATABASE EXISTING RECORD CHECK
 // =====================================================
+                    System.out.println("=================================");
+                    System.out.println("Checking Row : " + (i + 1));
+                    System.out.println("Category = " + normalize(categoryName));
+                    System.out.println("Skill = " + normalize(skillName));
+                    System.out.println("SubSkill = " + normalize(subSkillName));
 
                     Optional<SkillCategory> existingCategory =
                             repository.findByNameIgnoreCase(normalize(categoryName));
+
+                    System.out.println(
+                            "Category Found = "
+                                    + existingCategory.isPresent());
 
                     if (existingCategory.isPresent()) {
 
@@ -1055,9 +1061,12 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                         Optional<Skill> existingSkill =
                                 skillRepository
-                                        .findByNameIgnoreCaseAndCategory(
+                                        .findByNameIgnoreCaseAndCategory_Id(
                                                 normalize(skillName),
-                                                dbCategory);
+                                                dbCategory.getId());
+                        System.out.println(
+                                "Skill Found = "
+                                        + existingSkill.isPresent());
 
                         if (existingSkill.isPresent()) {
 
@@ -1079,9 +1088,12 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                             Optional<SubSkill> existingSubSkill =
                                     subSkillRepository
-                                            .findByNameIgnoreCaseAndSkill(
+                                            .findByNameIgnoreCaseAndSkill_Id(
                                                     normalize(subSkillName),
-                                                    existingSkill.get());
+                                                    existingSkill.get().getId());
+                            System.out.println(
+                                    "SubSkill Found = "
+                                            + existingSubSkill.isPresent());
 
                             // ==========================================
                             // SUBSKILL EXISTS
@@ -1213,13 +1225,28 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
             // =====================================================
             // SAVE TO DB
             // =====================================================
+//
+//            SkillTaxonomyRequestDto requestDto =
+//                    new SkillTaxonomyRequestDto(
+//                            new ArrayList<>(categoryMap.values()));
+//
+//            SkillTaxonomyResponseDto response =
+//                    saveOrUpdateTaxonomy(requestDto);
 
+            System.out.println(
+                    "EXISTING RECORDS SIZE = "
+                            + existingRecords.size());
+
+            System.out.println(
+                    "VALID RECORDS SIZE = "
+                            + validRecords.size());
+
+            System.out.println(
+                    "ERRORS SIZE = "
+                            + errors.size());
             SkillTaxonomyRequestDto requestDto =
                     new SkillTaxonomyRequestDto(
                             new ArrayList<>(categoryMap.values()));
-
-            SkillTaxonomyResponseDto response =
-                    saveOrUpdateTaxonomy(requestDto);
 
             return ExcelUploadResponseDto.builder()
                     .totalRows(totalRows)
@@ -1230,6 +1257,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     .validRecords(validRecords)
                     .existingRecords(existingRecords)
                     .errors(errors)
+                    .uploadData(requestDto)
                     .build();
 
 

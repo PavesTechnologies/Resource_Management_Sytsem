@@ -29,4 +29,6 @@ public class ExcelUploadResponseDto {
     private List<RowErrorDto> errors;
 
     private SkillTaxonomyResponseDto savedData;
+
+    private SkillTaxonomyRequestDto uploadData;
 }

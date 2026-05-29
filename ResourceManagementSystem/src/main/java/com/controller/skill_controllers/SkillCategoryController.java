@@ -161,4 +161,20 @@ public class SkillCategoryController {
                 .headers(headers)
                 .body(excelData);
     }
+
+    @PostMapping("/taxonomy/save")
+    public ResponseEntity<ApiResponse<SkillTaxonomyResponseDto>>
+    saveSkillTaxonomy(
+            @RequestBody SkillTaxonomyRequestDto requestDto) {
+
+        SkillTaxonomyResponseDto response =
+                service.manageSkillTaxonomy(requestDto);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "Skill taxonomy saved successfully",
+                        response
+                )
+        );
+    }
 }
