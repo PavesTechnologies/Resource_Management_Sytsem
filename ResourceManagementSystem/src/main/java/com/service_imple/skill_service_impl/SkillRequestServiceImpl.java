@@ -6,7 +6,7 @@ import com.entity_enums.skill_enums.SkillRequestStatus;
 import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.*;
-import com.service_interface.skill_service_interface.EmployeeSkillMappingService;
+import com.service_interface.skill_service_interface.ResourceSkillService;
 import com.service_interface.skill_service_interface.SkillRequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ public class SkillRequestServiceImpl implements SkillRequestService {
     private final SkillRepository skillRepository;
     private final SubSkillRepository subSkillRepository;
     private final ProficiencyLevelRepository proficiencyLevelRepository;
-    private final EmployeeSkillMappingService employeeSkillMappingService;
+    private final ResourceSkillService resourceSkillService;
     private final ResourceRepository resourceRepository;
 
     // -------------------------------------------------------------------------
@@ -178,7 +178,7 @@ public class SkillRequestServiceImpl implements SkillRequestService {
                 .status("ACTIVE")
                 .build();
 
-        employeeSkillMappingService.saveSkillMapping(mappingDto);
+        resourceSkillService.saveSkillMapping(mappingDto);
 
         request.setRequestStatus(SkillRequestStatus.APPROVED);
         request.setApprovedAt(LocalDateTime.now());
@@ -251,7 +251,7 @@ public class SkillRequestServiceImpl implements SkillRequestService {
                     .build();
 
             try {
-                employeeSkillMappingService.saveSkillMapping(mappingDto);
+                resourceSkillService.saveSkillMapping(mappingDto);
             } catch (SkillExceptionHandler ignored) {
                 // Mapping already exists — still mark the request APPROVED
             }
