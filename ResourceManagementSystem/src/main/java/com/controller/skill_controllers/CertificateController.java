@@ -55,7 +55,6 @@ public class CertificateController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN','RESOURCE_MANAGER')")
     public ResponseEntity<ApiResponse<CertificateResponseDTO>> deleteCertificate(@PathVariable UUID id) {
         service.deleteCertificate(id);
         return ResponseEntity.ok(ApiResponse.success("Certificate deleted successfully", null));
