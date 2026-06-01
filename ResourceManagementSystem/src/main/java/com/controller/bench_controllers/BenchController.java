@@ -30,7 +30,6 @@ import java.util.UUID;
 @RequestMapping("/api/bench")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*", allowCredentials = "false")
 public class BenchController {
 
     private final BenchService benchDetectionService;
