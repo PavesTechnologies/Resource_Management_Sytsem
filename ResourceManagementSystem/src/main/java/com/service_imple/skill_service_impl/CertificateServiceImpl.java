@@ -7,6 +7,7 @@ import com.entity.skill_entities.Skill;
 import com.entity_enums.skill_enums.CertificateType;
 import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.skill_repo.CertificateRepository;
+import com.repo.skill_repo.ResourceCertificateRepository;
 import com.repo.skill_repo.SkillRepository;
 import com.service_interface.skill_service_interface.CertificateService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class CertificateServiceImpl implements CertificateService {
     private final CertificateRepository certificateRepository;
     private final SkillRepository skillRepository;
+    private final ResourceCertificateRepository resourceCertificateRepository;
 
     @Override
     @Transactional
@@ -143,18 +145,32 @@ public class CertificateServiceImpl implements CertificateService {
 
         return certificateRepository.save(existingCertificate);
     }
-    
+
     @Override
     @Transactional
     public void deleteCertificate(UUID id) {
+
         Certificate existingCertificate = certificateRepository.findById(id)
-                .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found with ID: " + id));
-        
+                .orElseThrow(() ->
+                        SkillExceptionHandler.badRequest(
+                                "Certificate not found with ID: " + id));
+
         if (Boolean.FALSE.equals(existingCertificate.getActiveFlag())) {
-            throw SkillExceptionHandler.badRequest("Certificate is already deleted (inactive)");
+            throw SkillExceptionHandler.badRequest(
+                    "Certificate is already deleted (inactive)");
         }
-        
+
+        boolean assigned =
+                resourceCertificateRepository
+                        .existsByCertificateIdAndActiveFlagTrue(id);
+
+        if (assigned) {
+            throw SkillExceptionHandler.badRequest(
+                    "Certificate cannot be deleted because it is assigned to one or more resources");
+        }
+
         existingCertificate.setActiveFlag(false);
+
         certificateRepository.save(existingCertificate);
     }
 }

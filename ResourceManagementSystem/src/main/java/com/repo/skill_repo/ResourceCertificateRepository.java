@@ -34,4 +34,6 @@ public interface ResourceCertificateRepository extends JpaRepository<ResourceCer
      */
     @Query("SELECT rc FROM ResourceCertificate rc WHERE rc.resourceId IN :resourceIds AND rc.activeFlag = true AND (rc.expiryDate IS NULL OR rc.expiryDate > :currentDate)")
     List<ResourceCertificate> findCertificatesForResources(@Param("resourceIds") List<String> resourceIds, @Param("currentDate") LocalDate currentDate);
+
+    boolean existsByCertificateIdAndActiveFlagTrue(UUID certificateId);
 }
