@@ -28,4 +28,6 @@ public interface ProficiencyLevelRepository extends JpaRepository<ProficiencyLev
      */
     @Query("SELECT pl FROM ProficiencyLevel pl WHERE pl.activeFlag = true")
     List<ProficiencyLevel> findAllActiveProficiencyLevels();
+
+    boolean existsByProficiencyCodeIgnoreCase(String proficiencyCode);
 }
