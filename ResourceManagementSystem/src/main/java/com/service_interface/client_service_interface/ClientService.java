@@ -1,0 +1,33 @@
+package com.service_interface.client_service_interface;
+
+import com.dto.centralised_dto.ApiResponse;
+import com.dto.client_dto.ClientProjectStatisticsDTO;
+import com.dto.client_dto.*;
+import com.entity.client_entities.Client;
+import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+public interface ClientService {
+    ResponseEntity<ApiResponse<Client>> createClient(Client client);
+    ResponseEntity<ApiResponse<Map<String, Object>>> searchClients(
+            ClientFilterDTO filter,
+            int page,
+            int size
+    );
+
+    ResponseEntity<ApiResponse<Void>> countClients();
+    ResponseEntity<ApiResponse<List<Client>>> clientDetails();
+    ResponseEntity<ApiResponse<List<ClientDTO>>> getActiveClients();
+    ResponseEntity<ApiResponse<Client>> getClientById(UUID id);
+
+    ResponseEntity<ApiResponse<AdminKPIDTO>> getAdminKPI();
+    ResponseEntity<ApiResponse<ClientProjectStatisticsDTO>> getClientProjectStatistics(UUID clientId);
+
+    ResponseEntity<ApiResponse<Client>> updateClient(Client client);
+    ResponseEntity<ApiResponse<Void>> deleteClient(UUID id);
+    ResponseEntity<ApiResponse<List<ActiveClientsPMSDTO>>> getActiveClientsPMS();
+
+}
