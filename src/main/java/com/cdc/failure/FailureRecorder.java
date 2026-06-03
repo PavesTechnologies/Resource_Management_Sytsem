@@ -1,0 +1,49 @@
+package com.cdc.failure;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class FailureRecorder {
+
+
+    private final CdcFailureRepository repository;
+
+    /**
+     * Record CDC failure safely.
+     * This method MUST NEVER throw an exception.
+     */
+    public void recordFailure(
+            String entityType,
+            String entityId,
+            String operation,
+            String errorType,
+            String errorMessage,
+            String payload
+    ) {
+        try {
+            CdcFailure failure = new CdcFailure();
+            failure.setEntityType(entityType);
+            failure.setEntityId(entityId);
+            failure.setOperation(operation);
+            failure.setErrorType(errorType);
+            failure.setErrorMessage(errorMessage);
+            failure.setPayload(payload);
+            failure.setStatus("NEW");
+            failure.setRetryCount(0);
+            failure.setNextRetryAt(
+                    LocalDateTime.now().plusMinutes(5)
+            );
+
+            repository.save(failure);
+
+        } catch (Exception e) {
+            // LAST LINE OF DEFENSE
+        }
+    }
+}

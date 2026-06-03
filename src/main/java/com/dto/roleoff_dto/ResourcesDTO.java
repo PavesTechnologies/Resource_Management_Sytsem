@@ -1,0 +1,43 @@
+package com.dto.roleoff_dto;
+
+import com.entity_enums.allocation_enums.AllocationStatus;
+import com.entity_enums.roleoff_enums.RoleOffStatus;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class ResourcesDTO {
+    private UUID roleOffId;
+    private String resourceId;
+    private String name;
+    private String department;
+    private String projectName;
+    private String clientName;
+    private UUID deliveryRoleId;
+    private String demandName;
+    private List<String> skills;
+    private List<String> subSkills;
+    private UUID allocationId;
+    private String impact;
+    private AllocationStatus status;
+    private RoleOffStatus roleOffStatus;
+    private Integer allocationPercentage;
+    private LocalDate endDate;
+    private LocalDate effectiveDate;
+    private String rejectedBy;
+    private String rejectionReason;
+    // Delivery manager approval fields for KPI tracking
+    private Boolean dlApproved;
+    private LocalDate dlActionDate;
+    private LocalDate createdAt;
+    private LocalDate updatedAt;
+}

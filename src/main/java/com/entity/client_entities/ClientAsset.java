@@ -1,0 +1,80 @@
+package com.entity.client_entities;
+
+
+import com.entity_enums.client_enums.AssetCategory;
+import com.entity_enums.client_enums.AssetStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "client_asset")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonIgnoreProperties({"hibernateLazyInitializer","handler"})
+public class ClientAsset {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "asset_id")
+    private UUID assetId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "client_id", nullable = false, referencedColumnName = "client_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Client client;
+
+    @Column(name = "asset_name", nullable = false)
+    @NotBlank(message = "Asset name is required")
+    @Size(min = 3, max = 100, message = "Asset name must be between 3 and 100 characters")
+    @Pattern(
+            regexp = "^[A-Za-z0-9\\s\\-_]+$",
+            message = "Asset name must contain only alphanumeric characters, spaces, hyphens, and underscores"
+    )
+    private String assetName;
+
+//    @Column
+//    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AssetCategory assetCategory;
+
+    @Column(nullable = false)
+    private String assetType;
+
+    @Column(length = 500)
+    private String description;
+
+    private Integer quantity;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AssetStatus status;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    @Column(name = "serial_numbers")
+    @OneToMany(mappedBy = "asset", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    @Builder.Default
+    private List<ClientAssetSerial> serialNumbers = new ArrayList<>();
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+}
