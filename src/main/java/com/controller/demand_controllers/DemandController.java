@@ -16,7 +16,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/demand")
-@CrossOrigin
 public class DemandController {
 
     @Autowired

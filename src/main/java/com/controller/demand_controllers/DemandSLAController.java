@@ -12,7 +12,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/demand-sla")
-@CrossOrigin
 @RequiredArgsConstructor
 public class DemandSLAController {
 
