@@ -27,7 +27,6 @@ import java.util.List;
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*", allowCredentials = "false")
 @Tag(name = "Bench Pool Reports", description = "APIs for bench and internal pool reporting with risk analysis")
 public class BenchPoolReportController {
 

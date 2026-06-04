@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicLong;
 @RestController
 @RequestMapping("/api/matching")
 @RequiredArgsConstructor
-@CrossOrigin
 public class SkillGapMatchingController {
 
     private final AllocationService allocationService;
