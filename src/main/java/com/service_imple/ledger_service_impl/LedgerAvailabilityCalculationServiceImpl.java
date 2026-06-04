@@ -157,6 +157,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
             }
         } catch (Exception e) {
             log.error("Failed to derive daily entries for resource {} month {}: {}", resourceId, month, e.getMessage());
+            throw new RuntimeException("Failed to derive daily entries for resource " + resourceId + " month " + month, e);
         }
     }
     

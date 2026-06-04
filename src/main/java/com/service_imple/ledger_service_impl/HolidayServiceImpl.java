@@ -27,7 +27,7 @@ public class HolidayServiceImpl implements HolidayService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     
-    @Value("${external.api.holiday.base-url}")
+    @Value("${external.api.leave.base-url}")
     private String holidayApiBaseUrl;
     
     @Value("${external.api.holiday.year-endpoint}")

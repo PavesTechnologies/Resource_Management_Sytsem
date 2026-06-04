@@ -4,6 +4,8 @@ import com.entity.ledger_entities.LedgerEventLog;
 import com.entity.ledger_entities.DeadLetterQueue;
 import com.entity_enums.ledger_enums.DLQStatus;
 import com.entity_enums.ledger_enums.EventStatus;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.repo.ledger_repo.LedgerEventLogRepository;
 import com.repo.ledger_repo.DeadLetterQueueRepository;
 import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculationService;
@@ -13,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,6 +27,7 @@ public class LedgerRetryService {
     private final LedgerEventLogRepository ledgerEventLogRepository;
     private final DeadLetterQueueRepository deadLetterQueueRepository;
     private final LedgerAvailabilityCalculationService availabilityCalculationService;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public void processFailedEvents() {
@@ -66,22 +70,40 @@ public class LedgerRetryService {
     public void retryFailedEvent(LedgerEventLog event) {
         event.setRetryCount(event.getRetryCount() + 1);
         event.setNextRetryAt(calculateNextRetryTime(event.getRetryCount()));
-        
+
         if (event.getRetryCount() >= 3) {
             event.setStatus(EventStatus.PERMANENTLY_FAILED);
             ledgerEventLogRepository.save(event);
             return;
         }
-        
+
         event.setStatus(EventStatus.NEW);
         event.setErrorMessage(null);
         ledgerEventLogRepository.save(event);
-        
-        availabilityCalculationService.recalculateDailyWithIdempotency(
-                event.getResourceId(), 
-                event.getCreatedAt().toLocalDate(), 
-                event.getEventId()
+
+        LocalDate[] range = extractDateRangeFromPayload(event);
+        availabilityCalculationService.recalculateForDateRange(
+                event.getResourceId(),
+                range[0],
+                range[1]
         );
+    }
+
+    private LocalDate[] extractDateRangeFromPayload(LedgerEventLog event) {
+        try {
+            if (event.getPayload() != null && !event.getPayload().isBlank()) {
+                JsonNode node = objectMapper.readTree(event.getPayload());
+                LocalDate start = LocalDate.parse(node.get("startDate").asText());
+                LocalDate end = LocalDate.parse(node.get("endDate").asText());
+                return new LocalDate[]{start, end};
+            }
+        } catch (Exception e) {
+            log.warn("Could not parse date range from payload for event {}, falling back to createdAt: {}",
+                    event.getEventId(), e.getMessage());
+        }
+        // fallback: recalculate the single day the event was created on
+        LocalDate fallback = event.getCreatedAt().toLocalDate();
+        return new LocalDate[]{fallback, fallback};
     }
 
     @Transactional

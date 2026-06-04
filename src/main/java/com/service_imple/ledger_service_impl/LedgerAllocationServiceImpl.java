@@ -1,19 +1,17 @@
 package com.service_imple.ledger_service_impl;
 
+import com.entity.allocation_entities.ResourceAllocation;
+import com.entity_enums.allocation_enums.AllocationStatus;
+import com.repo.allocation_repo.AllocationRepository;
+import com.repo.resource_repo.ResourceRepository;
 import com.service_interface.ledger_service_interface.LedgerAllocationDataService;
-import com.dto.common.ExternalAllocationDto;
-import com.dto.common.ExternalAllocationResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Service("ledgerAllocationService")
@@ -21,119 +19,40 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class LedgerAllocationServiceImpl implements LedgerAllocationDataService {
 
-    private final RestTemplate restTemplate;
-
-    @Value("${allocation.api.base-url:http://localhost:8083/api/allocations}")
-    private String allocationApiBaseUrl;
-
-    private volatile boolean apiHealthy = true;
+    private final AllocationRepository allocationRepository;
+    private final ResourceRepository resourceRepository;
 
     @Override
     public AllocationData getAllocationDataForResourceAndDate(String resourceId, LocalDate date) {
-        return getAllocationDataInternal(resourceId, date);
-    }
-
-    private AllocationData getAllocationDataInternal(String resourceId, LocalDate date) {
         try {
-            String url = String.format("%s/resources/%s/allocations?date=%s",
-                    allocationApiBaseUrl, resourceId, date);
-            ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
-            
-            if (response == null || response.getAllocations() == null) {
-                return new AllocationData(0, 0);
-            }
-
-            int confirmedPercentage = 0;
-            int draftPercentage = 0;
-
-            for (ExternalAllocationDto allocation : response.getAllocations()) {
-                if (allocation.isConfirmed()) {
-                    confirmedPercentage += allocation.getPercentage();
-                } else if (allocation.isDraft()) {
-                    draftPercentage += allocation.getPercentage();
-                }
-            }
-
-            return new AllocationData(confirmedPercentage, draftPercentage);
-
-        } catch (ResourceAccessException e) {
-            apiHealthy = false;
-            log.error("Allocation API connection failed for resource {} on date {}: {}", resourceId, date, e.getMessage());
-            return new AllocationData(0, 0);
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode().value() != 404) {
-                apiHealthy = false;
-                log.error("Allocation API error for resource {} on date {}: {}", resourceId, date, e.getMessage());
-            }
-            return new AllocationData(0, 0);
+            List<ResourceAllocation> allocations =
+                    allocationRepository.findByResource_ResourceIdAndAllocationStartDateLessThanEqualAndAllocationEndDateGreaterThanEqual(
+                            resourceId, date);
+            return sumAllocations(allocations);
         } catch (Exception e) {
-            apiHealthy = false;
-            log.error("Unexpected error fetching allocation for resource {} on date {}: {}", resourceId, date, e.getMessage());
+            log.error("Failed to fetch allocation for resource {} on date {}: {}", resourceId, date, e.getMessage());
             return new AllocationData(0, 0);
         }
     }
 
     @Override
     public AllocationData getAllocationDataForResourceForMonth(String resourceId, YearMonth yearMonth) {
-        return getAllocationDataInternalForMonth(resourceId, yearMonth);
-    }
-
-    private AllocationData getAllocationDataInternalForMonth(String resourceId, YearMonth yearMonth) {
         try {
-            String url = String.format("%s/resources/%s/allocations?month=%s-%s", 
-                    allocationApiBaseUrl, resourceId, yearMonth.getYear(), yearMonth.getMonthValue());
-            ExternalAllocationResponse response = restTemplate.getForObject(url, ExternalAllocationResponse.class);
-            
-            if (response == null || response.getAllocations() == null) {
-                return new AllocationData(0, 0);
-            }
-
-            int confirmedPercentage = 0;
-            int draftPercentage = 0;
-
-            for (ExternalAllocationDto allocation : response.getAllocations()) {
-                if (allocation.isConfirmed()) {
-                    confirmedPercentage += allocation.getPercentage();
-                } else if (allocation.isDraft()) {
-                    draftPercentage += allocation.getPercentage();
-                }
-            }
-
-            return new AllocationData(confirmedPercentage, draftPercentage);
-
-        } catch (ResourceAccessException e) {
-            apiHealthy = false;
-            log.error("Allocation API connection failed for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
-            return new AllocationData(0, 0);
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode().value() != 404) {
-                apiHealthy = false;
-                log.error("Allocation API error for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
-            }
-            return new AllocationData(0, 0);
+            LocalDate monthStart = yearMonth.atDay(1);
+            LocalDate monthEnd = yearMonth.atEndOfMonth();
+            List<ResourceAllocation> allocations =
+                    allocationRepository.findConflictingAllocations(resourceId, monthStart, monthEnd);
+            return sumAllocations(allocations);
         } catch (Exception e) {
-            apiHealthy = false;
-            log.error("Unexpected error fetching allocation for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
+            log.error("Failed to fetch allocation for resource {} for month {}: {}", resourceId, yearMonth, e.getMessage());
             return new AllocationData(0, 0);
         }
     }
 
     @Override
-    public boolean isApiHealthy() {
-        return apiHealthy;
-    }
-
-    @Retryable(retryFor = {ResourceAccessException.class}, maxAttempts = 2, backoff = @org.springframework.retry.annotation.Backoff(delay = 500))
-    public CompletableFuture<AllocationData> getAllocationDataForResourceAndDateAsync(String resourceId, LocalDate date) {
-        return CompletableFuture.supplyAsync(() -> getAllocationDataForResourceAndDate(resourceId, date));
-    }
-
-    @Override
     public LocalDate getMaxAllocationEndDate(String resourceId) {
         try {
-            String url = String.format("%s/resources/%s/allocations/max-end-date", allocationApiBaseUrl, resourceId);
-            MaxEndDateResponse response = restTemplate.getForObject(url, MaxEndDateResponse.class);
-            return (response != null) ? response.getMaxEndDate() : null;
+            return allocationRepository.findMaxAllocationEndDateForResource(resourceId).orElse(null);
         } catch (Exception e) {
             log.warn("Failed to get max allocation end date for resource {}: {}", resourceId, e.getMessage());
             return null;
@@ -143,10 +62,7 @@ public class LedgerAllocationServiceImpl implements LedgerAllocationDataService 
     @Override
     public LocalDate getMaxAllocationEndDateAfter(String resourceId, LocalDate baseDate) {
         try {
-            String url = String.format("%s/resources/%s/allocations/max-end-date?after=%s", 
-                    allocationApiBaseUrl, resourceId, baseDate);
-            MaxEndDateResponse response = restTemplate.getForObject(url, MaxEndDateResponse.class);
-            return (response != null) ? response.getMaxEndDate() : null;
+            return allocationRepository.findMaxAllocationEndDateAfter(resourceId, baseDate).orElse(null);
         } catch (Exception e) {
             log.warn("Failed to get max end date after {} for resource {}: {}", baseDate, resourceId, e.getMessage());
             return null;
@@ -156,24 +72,34 @@ public class LedgerAllocationServiceImpl implements LedgerAllocationDataService 
     @Override
     public LocalDate getResourceExitDate(String resourceId) {
         try {
-            String url = String.format("%s/resources/%s/exit-date", allocationApiBaseUrl, resourceId);
-            ResourceExitDateResponse response = restTemplate.getForObject(url, ResourceExitDateResponse.class);
-            return (response != null) ? response.getExitDate() : null;
+            return resourceRepository.findById(resourceId)
+                    .map(r -> r.getDateOfExit())
+                    .orElse(null);
         } catch (Exception e) {
             log.warn("Failed to get exit date for resource {}: {}", resourceId, e.getMessage());
             return null;
         }
     }
 
-    public static class MaxEndDateResponse {
-        private LocalDate maxEndDate;
-        public LocalDate getMaxEndDate() { return maxEndDate; }
-        public void setMaxEndDate(LocalDate maxEndDate) { this.maxEndDate = maxEndDate; }
+    @Override
+    public boolean isApiHealthy() {
+        return true;
     }
 
-    public static class ResourceExitDateResponse {
-        private LocalDate exitDate;
-        public LocalDate getExitDate() { return exitDate; }
-        public void setExitDate(LocalDate exitDate) { this.exitDate = exitDate; }
+    public CompletableFuture<AllocationData> getAllocationDataForResourceAndDateAsync(String resourceId, LocalDate date) {
+        return CompletableFuture.supplyAsync(() -> getAllocationDataForResourceAndDate(resourceId, date));
+    }
+
+    private AllocationData sumAllocations(List<ResourceAllocation> allocations) {
+        int confirmedPercentage = 0;
+        int draftPercentage = 0;
+        for (ResourceAllocation allocation : allocations) {
+            if (allocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
+                confirmedPercentage += allocation.getAllocationPercentage();
+            } else if (allocation.getAllocationStatus() == AllocationStatus.PLANNED) {
+                draftPercentage += allocation.getAllocationPercentage();
+            }
+        }
+        return new AllocationData(confirmedPercentage, draftPercentage);
     }
 }
