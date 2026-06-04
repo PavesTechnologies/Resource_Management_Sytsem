@@ -20,7 +20,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/resource-skills")
 @RequiredArgsConstructor
-@CrossOrigin
 public class ResourceSkillController {
 
     private final ResourceSkillService resourceSkillService;
