@@ -182,7 +182,7 @@ public class LedgerEventHandler {
     public int recoverStalledCdcEvents() {
         List<LedgerEventLog> stalled = eventLogRepository.findStalledCdcEvents(
                 EventStatus.PROCESSING,
-                cdcUtcSupport.utcDateTime(cdcUtcSupport.now().minusSeconds(120))
+                cdcUtcSupport.utcDateTime(cdcUtcSupport.now().minusSeconds(600))
         );
         int recovered = 0;
         for (LedgerEventLog event : stalled) {
@@ -342,6 +342,7 @@ public class LedgerEventHandler {
                 endDate = resourceCreatedEvent.getCalculationEndDate();
             }
             if (startDate != null && endDate != null && !startDate.isAfter(endDate)) {
+                storeEventDateRange(event.getEventId(), startDate, endDate);
                 availabilityCalculationService.recalculateForDateRange(event.getResourceId(), startDate, endDate);
                 markEventAsCompleted(event.getEventId());
             } else {
@@ -398,6 +399,17 @@ public class LedgerEventHandler {
 
     private String generateEventHash(BaseLedgerEvent event) {
         return event.generateEventHash();
+    }
+
+    private void storeEventDateRange(String eventId, LocalDate startDate, LocalDate endDate) {
+        try {
+            eventLogRepository.findByEventId(eventId).ifPresent(eventLog -> {
+                eventLog.setPayload("{\"startDate\":\"" + startDate + "\",\"endDate\":\"" + endDate + "\"}");
+                eventLogRepository.save(eventLog);
+            });
+        } catch (Exception e) {
+            log.warn("Could not store date range for event {}: {}", eventId, e.getMessage());
+        }
     }
 
     private void markEventAsCompleted(String eventId) {
