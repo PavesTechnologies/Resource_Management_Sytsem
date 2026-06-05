@@ -6,31 +6,37 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.centralised_dto.UserDTO;
 import com.dto.demand_dto.*;
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.client_entities.ClientCompliance;
 import com.entity.demand_entities.Demand;
 import com.entity.demand_entities.DemandSLA;
 import com.entity.project_entities.Project;
+import com.entity.project_entities.ProjectCompliance;
 import com.entity.project_entities.ProjectSLA;
 import com.entity.resource_entities.Resource;
 import com.entity.skill_entities.Certificate;
 import com.entity.skill_entities.DeliveryRoleExpectation;
 import com.entity.skill_entities.Skill;
+import com.entity.skill_entities.SkillRequirement;
 import com.entity_enums.allocation_enums.AllocationStatus;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.DeliveryModel;
+import com.entity_enums.client_enums.RequirementType;
 import com.entity_enums.client_enums.SLAType;
 import com.entity_enums.demand_enums.DemandCommitment;
 import com.entity_enums.demand_enums.DemandStatus;
 import com.entity_enums.demand_enums.DemandType;
-import com.entity_enums.skill_enums.CertificateType;
 import com.global_exception_handler.DemandExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandRepository;
 import com.repo.demand_repo.DemandSLARepository;
+import com.repo.project_repo.ProjectComplianceRepo;
 import com.repo.project_repo.ProjectRepository;
 import com.repo.project_repo.ProjectSLARepo;
 import com.repo.resource_repo.ResourceRepository;
 import com.repo.skill_repo.CertificateRepository;
 import com.repo.skill_repo.DeliveryRoleExpectationRepository;
+import com.repo.skill_repo.SkillRepository;
+import com.repo.skill_repo.SkillRequirementRepository;
 import com.service_interface.demand_service_interface.DemandService;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -66,6 +72,9 @@ public class DemandServiceImpl implements DemandService {
     private final AllocationRepository allocationRepository;
     private final DeliveryRoleExpectationRepository roleRepository;
     private final CertificateRepository certificateRepository;
+    private final SkillRequirementRepository skillRequirementRepository;
+    private final SkillRepository skillRepository;
+    private final ProjectComplianceRepo projectComplianceRepo;
 
     @Lazy
     @Autowired
@@ -78,7 +87,10 @@ public class DemandServiceImpl implements DemandService {
                            ResourceRepository resourceRepository,
                            AllocationRepository allocationRepository,
                            DeliveryRoleExpectationRepository roleRepository,
-                           CertificateRepository certificateRepository) {
+                           CertificateRepository certificateRepository,
+                           SkillRequirementRepository skillRequirementRepository,
+                           SkillRepository skillRepository,
+                           ProjectComplianceRepo projectComplianceRepo) {
         this.demandRepository = demandRepository;
         this.demandSLARepository = demandSLARepository;
         this.projectSLARepository = projectSLARepository;
@@ -87,6 +99,9 @@ public class DemandServiceImpl implements DemandService {
         this.allocationRepository = allocationRepository;
         this.roleRepository = roleRepository;
         this.certificateRepository = certificateRepository;
+        this.skillRequirementRepository = skillRequirementRepository;
+        this.skillRepository = skillRepository;
+        this.projectComplianceRepo = projectComplianceRepo;
     }
 
     
@@ -391,27 +406,47 @@ public void mapSlaToDemand(Demand demand) {
 
 @Transactional
 public void mapRoleSkillsAndCertificatesToDemand(Demand demand) {
-    UUID roleId = demand.getRole().getRole().getId();
+    Long projectId = demand.getProject().getPmsProjectId();
 
-    List<DeliveryRoleExpectation> roleExpectations = roleRepository.findByRoleIdWithDetails(roleId);
-    if (roleExpectations.isEmpty()) {
+    List<ProjectCompliance> compliances =
+            projectComplianceRepo.findAllByProjectIdWithDetails(projectId);
+
+    if (compliances.isEmpty()) {
         return;
     }
 
     Set<Skill> skillsToAdd = new HashSet<>();
-    for (DeliveryRoleExpectation expectation : roleExpectations) {
-        if (expectation.getSkill() != null) {
-            skillsToAdd.add(expectation.getSkill());
+    Set<Certificate> certificatesToAdd = new HashSet<>();
+
+    for (ProjectCompliance compliance : compliances) {
+        if (Boolean.TRUE.equals(compliance.getIsInherited()) && compliance.getClientCompliance() != null) {
+            // Inherited from client — Skill/Certificate are directly on ClientCompliance
+            ClientCompliance cc = compliance.getClientCompliance();
+            if (RequirementType.SKILL == compliance.getRequirementType()
+                    && cc.getSkill() != null
+                    && "ACTIVE".equalsIgnoreCase(cc.getSkill().getStatus())) {
+                skillsToAdd.add(cc.getSkill());
+            } else if (RequirementType.CERTIFICATION == compliance.getRequirementType()
+                    && cc.getCertificate() != null
+                    && Boolean.TRUE.equals(cc.getCertificate().getActiveFlag())) {
+                certificatesToAdd.add(cc.getCertificate());
+            }
+        } else {
+            // Project-specific compliance — look up by requirementName
+            if (RequirementType.SKILL == compliance.getRequirementType()) {
+                skillRepository.findByNameIgnoreCase(compliance.getRequirementName()).ifPresent(skill -> {
+                    if ("ACTIVE".equalsIgnoreCase(skill.getStatus())) {
+                        skillsToAdd.add(skill);
+                    }
+                });
+            } else if (RequirementType.CERTIFICATION == compliance.getRequirementType()) {
+                certificateRepository.findByCertificateNameIgnoreCaseAndActiveFlagTrue(compliance.getRequirementName())
+                        .ifPresent(certificatesToAdd::add);
+            }
         }
     }
-    demand.getRequiredSkills().addAll(skillsToAdd);
 
-    Set<Certificate> certificatesToAdd = new HashSet<>();
-    for (Skill skill : skillsToAdd) {
-        certificateRepository.findByCertificateType(CertificateType.SKILL_BASED).stream()
-                .filter(cert -> Boolean.TRUE.equals(cert.getActiveFlag()))
-                .forEach(certificatesToAdd::add);
-    }
+    demand.getRequiredSkills().addAll(skillsToAdd);
     demand.getRequiredCertificates().addAll(certificatesToAdd);
 
     demandRepository.save(demand);
@@ -706,10 +741,10 @@ public ResponseEntity<ApiResponse<DemandConflictValidationDTO>> validateDemandCo
         Demand tempDemand = createTempDemand(dto, project, role);
 
         // Check all conflict types
-        validateCapacityLimits(tempDemand, validation);
-        validateContradictoryRoles(tempDemand, validation);
-        validateTimelineConflicts(tempDemand, validation);
-        validateSkillRequirements(tempDemand, validation);
+        //validateCapacityLimits(tempDemand, validation);
+        //validateContradictoryRoles(tempDemand, validation);
+        //validateTimelineConflicts(tempDemand, validation);
+        //validateSkillRequirements(tempDemand, validation);
         validateBusinessRules(tempDemand, validation);
 
         // Determine if submission is allowed
@@ -1348,7 +1383,6 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
         demand.setRmRejectionReason(null);
         demandSLA.ifPresent(sla -> {
             sla.setFulfillDate(LocalDate.now());
-            sla.setActiveFlag(false);
             demandSLARepository.save(sla);
         });
     }
@@ -2266,12 +2300,12 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             // Auto-map role prerequisite skills and certifications to demand
-            mapRoleSkillsAndCertificatesToDemand(savedDemand);
+            self.mapRoleSkillsAndCertificatesToDemand(savedDemand);
 
             // Run conflict detection and resolution
-            detectAllocationConflicts(savedDemand);
-            detectTimelineConflicts(savedDemand);
-            detectSkillConflicts(savedDemand);
+            //detectAllocationConflicts(savedDemand);
+            //detectTimelineConflicts(savedDemand);
+            //detectSkillConflicts(savedDemand);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Demand created successfully", 
@@ -2354,11 +2388,8 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         .status(demand.getProject().getProjectStatus() != null ?
                                 demand.getProject().getProjectStatus().toString() : null)
                         .build())
-                .DemandskillsRequirements(DemandDetailNestedResponseDTO.DemandskillsRequirements.builder()
-                        .requiredSkills(buildRequiredSkillsDTO(demand))
-                        .requiredCertificates(buildRequiredCertificatesDTO(demand))
-                        .deliveryRoleDetails(buildDeliveryRoleDetailsDTO(demand))
-                        .build())
+                .DemandskillsRequirements(buildDemandSkillsRequirements(demand))
+
                 .build();
 
         if (demandSLAOpt.isPresent()) {
@@ -2400,6 +2431,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     }
 
     @Override
+    @Transactional
     @Caching(evict = {
         @CacheEvict(value = "demands", allEntries = true),
         @CacheEvict(value = "bench-matches", allEntries = true)
@@ -2475,14 +2507,9 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 }
             }
 
-            // Archive SLA if exists
-            Optional<DemandSLA> demandSLAOpt = demandSLARepository
-                    .findByDemand_DemandIdAndActiveFlagTrue(demandId);
-            if (demandSLAOpt.isPresent()) {
-                DemandSLA demandSLA = demandSLAOpt.get();
-                demandSLA.setActiveFlag(false);
-                demandSLARepository.save(demandSLA);
-            }
+            // Delete SLA before demand to avoid FK constraint violation
+            demandSLARepository.deleteByDemand_DemandId(demandId);
+
             // Delete the demand
             demandRepository.delete(demand);
 
@@ -2503,25 +2530,66 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     
     // Helper methods for building enhanced DTOs
     
-    private List<DemandDetailNestedResponseDTO.SkillDTO> buildRequiredSkillsDTO(Demand demand) {
+    private DemandDetailNestedResponseDTO.DemandskillsRequirements buildDemandSkillsRequirements(Demand demand) {
+        List<ProjectCompliance> compliances =
+                projectComplianceRepo.findAllByProjectIdWithDetails(demand.getProject().getPmsProjectId());
+        return DemandDetailNestedResponseDTO.DemandskillsRequirements.builder()
+                .requiredSkills(buildRequiredSkillsDTO(demand, compliances))
+                .requiredCertificates(buildRequiredCertificatesDTO(demand, compliances))
+                .deliveryRoleDetails(buildDeliveryRoleDetailsDTO(demand))
+                .build();
+    }
+
+    private List<DemandDetailNestedResponseDTO.SkillDTO> buildRequiredSkillsDTO(Demand demand, List<ProjectCompliance> compliances) {
         return demand.getRequiredSkills().stream()
                 .map(skill -> DemandDetailNestedResponseDTO.SkillDTO.builder()
                         .skillName(skill.getName())
                         .subSkillName(null)
                         .proficiencyLevelName(null)
-                        .mandatoryFlag(null)
+                        .mandatoryFlag(resolveMandatoryFlagForSkill(skill, compliances))
                         .status(skill.getStatus())
                         .build())
                 .collect(java.util.stream.Collectors.toList());
     }
-    
-    private List<DemandDetailNestedResponseDTO.CertificateDTO> buildRequiredCertificatesDTO(Demand demand) {
+
+    private List<DemandDetailNestedResponseDTO.CertificateDTO> buildRequiredCertificatesDTO(Demand demand, List<ProjectCompliance> compliances) {
         return demand.getRequiredCertificates().stream()
                 .map(certificate -> DemandDetailNestedResponseDTO.CertificateDTO.builder()
                         .certificateName(certificate.getCertificateName())
                         .issuingAuthority(certificate.getProviderName())
+                        .mandatoryFlag(resolveMandatoryFlagForCertificate(certificate, compliances))
                         .build())
                 .collect(java.util.stream.Collectors.toList());
+    }
+
+    private Boolean resolveMandatoryFlagForSkill(Skill skill, List<ProjectCompliance> compliances) {
+        return compliances.stream()
+                .filter(c -> RequirementType.SKILL == c.getRequirementType())
+                .filter(c -> {
+                    if (Boolean.TRUE.equals(c.getIsInherited()) && c.getClientCompliance() != null
+                            && c.getClientCompliance().getSkill() != null) {
+                        return c.getClientCompliance().getSkill().getId().equals(skill.getId());
+                    }
+                    return skill.getName().equalsIgnoreCase(c.getRequirementName());
+                })
+                .map(ProjectCompliance::getMandatoryFlag)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Boolean resolveMandatoryFlagForCertificate(Certificate certificate, List<ProjectCompliance> compliances) {
+        return compliances.stream()
+                .filter(c -> RequirementType.CERTIFICATION == c.getRequirementType())
+                .filter(c -> {
+                    if (Boolean.TRUE.equals(c.getIsInherited()) && c.getClientCompliance() != null
+                            && c.getClientCompliance().getCertificate() != null) {
+                        return c.getClientCompliance().getCertificate().getCertificateId().equals(certificate.getCertificateId());
+                    }
+                    return certificate.getCertificateName().equalsIgnoreCase(c.getRequirementName());
+                })
+                .map(ProjectCompliance::getMandatoryFlag)
+                .findFirst()
+                .orElse(null);
     }
     
     private DemandDetailNestedResponseDTO.DeliveryRoleDetailDTO buildDeliveryRoleDetailsDTO(Demand demand) {
