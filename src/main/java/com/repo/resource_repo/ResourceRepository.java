@@ -5,8 +5,10 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,4 +45,7 @@ public interface ResourceRepository extends JpaRepository<Resource, String> {
     @Query("SELECT r FROM Resource r WHERE r.resourceId = :resourceId")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Resource> findByIdWithLock(String resourceId);
+
+    @Query("SELECT r FROM Resource r WHERE r.employmentStatus = 'ON_NOTICE' AND r.noticeEndDate = :targetDate")
+    List<Resource> findOnNoticeResourcesDueOn(@Param("targetDate") LocalDate targetDate);
 }

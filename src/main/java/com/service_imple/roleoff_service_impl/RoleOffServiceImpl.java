@@ -1116,12 +1116,6 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
 
         roleOffRepo.save(event);
 
-        // Immediate execution
-        closeResourceAllocation(event);
-
-        event.setRoleOffStatus(RoleOffStatus.FULFILLED);
-        roleOffRepo.save(event);
-
         return;
     }
 
@@ -2143,6 +2137,77 @@ public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId
 
 @Override
 @Transactional
+public void processAttritionNoticeResources() {
+    LocalDate targetDate = LocalDate.now().plusDays(7);
+    List<com.entity.resource_entities.Resource> resources = resourceRepo.findOnNoticeResourcesDueOn(targetDate);
+
+    if (resources.isEmpty()) {
+        log.info("No ON_NOTICE resources due for attrition processing on {}", targetDate);
+        return;
+    }
+
+    log.info("Processing attrition for {} resource(s) with noticeEndDate {}", resources.size(), targetDate);
+
+    for (com.entity.resource_entities.Resource resource : resources) {
+        try {
+            processAttritionForResource(resource, targetDate);
+        } catch (Exception e) {
+            log.error("Failed attrition processing for resource {}: {}", resource.getResourceId(), e.getMessage());
+        }
+    }
+}
+
+private void processAttritionForResource(com.entity.resource_entities.Resource resource, LocalDate noticeEndDate) {
+    List<ResourceAllocation> allocations = allocationRepository.findByResource_ResourceId(resource.getResourceId());
+
+    for (ResourceAllocation allocation : allocations) {
+        if (AllocationStatus.ENDED.equals(allocation.getAllocationStatus()) ||
+                AllocationStatus.CANCELLED.equals(allocation.getAllocationStatus()) ||
+                AllocationStatus.ROLLED_OFF.equals(allocation.getAllocationStatus())) {
+            continue;
+        }
+
+        LocalDate startDate = allocation.getAllocationStartDate();
+        LocalDate endDate = allocation.getAllocationEndDate();
+
+        if (startDate == null || endDate == null) {
+            continue;
+        }
+
+        // CASE 1: Allocation ends before notice end date — skip, ends naturally
+        if (endDate.isBefore(noticeEndDate)) {
+            log.debug("Skipping allocation {} — ends before noticeEndDate", allocation.getAllocationId());
+            continue;
+        }
+
+        LocalDate originalEndDate = endDate;
+
+        // CASE 2: Future allocation — starts after notice end date, cancel it
+        if (startDate.isAfter(noticeEndDate)) {
+            allocation.setAllocationStatus(AllocationStatus.CANCELLED);
+            allocation.setClosureReason("ATTRITION");
+            allocationRepository.save(allocation);
+            log.info("Cancelled future allocation {} for resource {}", allocation.getAllocationId(), resource.getResourceId());
+
+            demandService.createReplacementDemandFromAllocation(allocation, startDate, originalEndDate, 0L);
+            continue;
+        }
+
+        // CASE 3: Overlapping allocation — trim end date to noticeEndDate, keep active
+        allocation.setAllocationEndDate(noticeEndDate);
+        allocation.setClosureReason("ATTRITION");
+        allocationRepository.save(allocation);
+        log.info("Trimmed allocation {} end date to {} for resource {}",
+                allocation.getAllocationId(), noticeEndDate, resource.getResourceId());
+
+        demandService.createReplacementDemandFromAllocation(allocation, noticeEndDate.plusDays(1), originalEndDate, 0L);
+    }
+
+    log.info("Attrition notice processing completed for resource: {}", resource.getFullName());
+}
+
+@Override
+@Transactional
 public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long userId) {
     log.info("Processing resource removal from organization for resource ID: {}", removalDTO.getResourceId());
 
@@ -2176,16 +2241,8 @@ public String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long
         log.info("Resource {} marked as ON_NOTICE with exit date: {}",
                 resource.getFullName(), removalDTO.getNoticePeriodEndDate());
 
-        // Step 3: Trigger attrition immediately if requested
-        if (Boolean.TRUE.equals(removalDTO.getTriggerAttritionImmediately())) {
-            log.info("Triggering immediate attrition for resource: {}", resource.getResourceId());
-            handleAttrition(resource.getResourceId(), removalDTO.getNoticePeriodEndDate(), userId);
-            return "Resource removal processed successfully. Resource marked as ON_NOTICE and attrition triggered immediately.";
-        } else {
-            log.info("Resource marked as ON_NOTICE. Attrition will be triggered automatically by ResourceService when conditions are met.");
-            return "Resource removal processed successfully. Resource marked as ON_NOTICE with notice period until " +
-                    removalDTO.getNoticePeriodEndDate() + ". Attrition will be triggered automatically.";
-        }
+        return "Resource removal processed successfully. Resource marked as ON_NOTICE with notice period until " +
+                removalDTO.getNoticePeriodEndDate() + ". Attrition will be processed automatically 7 days before exit date.";
 
     } catch (RoleOffExceptionHandler e) {
         log.error("Resource removal failed for resource ID {}: {}", removalDTO.getResourceId(), e.getMessage());

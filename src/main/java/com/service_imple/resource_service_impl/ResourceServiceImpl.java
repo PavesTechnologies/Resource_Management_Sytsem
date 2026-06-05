@@ -92,10 +92,6 @@ public class ResourceServiceImpl implements ResourceService {
             throw new ProjectExceptionHandler(HttpStatus.CONFLICT, "DUPLICATE_EMAIL", "Email already exists");
         }
 
-        if (resource.getDateOfExit() != null && EmploymentStatus.ON_NOTICE.equals(resource.getEmploymentStatus())) {
-            roleOffService.handleAttrition(resource.getResourceId(), resource.getDateOfExit(), 0L);
-        }
-
         resourceRepository.save(resource);
         resourceEventService.triggerLedgerCalculationAfterUpdate(resource.getResourceId());
         return ResponseEntity.ok(ApiResponse.success("Updated successfully", existing.getResourceId()));
