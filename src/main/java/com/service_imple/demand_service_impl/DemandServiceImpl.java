@@ -1673,6 +1673,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
 
     Demand saved = demandRepository.save(demand);
     mapSlaToDemand(saved);
+    mapRoleSkillsAndCertificatesToDemand(saved);
 
     log.info("Replacement demand created successfully with ID: {}", saved.getDemandId());
 }

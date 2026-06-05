@@ -138,6 +138,12 @@ public interface RoleOffService {
     String removeResourceFromOrganization(ResourceRemovalDTO removalDTO, Long userId);
 
     /**
+     * Daily cron: processes attrition for ON_NOTICE resources whose noticeEndDate is exactly 7 days away.
+     * Trims active allocations to noticeEndDate and creates replacement demands.
+     */
+    void processAttritionNoticeResources();
+
+    /**
      * Logs role-off decision for audit purposes
      */
     void logRoleOffDecision(RoleOffRequestDTO dto, String warning, boolean confirmed, Long userId);
