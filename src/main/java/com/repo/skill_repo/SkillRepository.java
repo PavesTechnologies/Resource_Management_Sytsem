@@ -54,6 +54,8 @@ public interface SkillRepository extends JpaRepository<Skill, UUID> {
     @Query("SELECT s FROM Skill s WHERE s.name = :name")
     Optional<Skill> findByName(@Param("name") String name);
 
+    Optional<Skill> findByNameIgnoreCase(String name);
+
     // Commented out - skillType field doesn't exist in Skill entity
     // List<Skill> findBySkillTypeIgnoreCaseAndStatusIgnoreCase(String certification, String active);
 
