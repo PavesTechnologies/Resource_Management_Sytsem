@@ -111,6 +111,7 @@ public class DemandDetailNestedResponseDTO {
     public static class CertificateDTO {
         private String certificateName;
         private String issuingAuthority;
+        private Boolean mandatoryFlag;
     }
     
     @Data

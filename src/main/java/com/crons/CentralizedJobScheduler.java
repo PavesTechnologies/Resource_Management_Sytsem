@@ -7,6 +7,7 @@ import com.service_imple.allocation_service_imple.AllocationServiceImpl;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.bench_service_impl.ResourceStateInitializationService;
 import com.service_imple.ledger_service_impl.LedgerRetryService;
+import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.skill_service_impl.CertificateExpiryScheduler;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -47,6 +48,7 @@ public class CentralizedJobScheduler {
     private final LedgerEventHandler ledgerEventHandler;
     private final ResourceStateInitializationService resourceStateService;
     private final JobLoggingService jobLoggingService;
+    private final RoleOffService roleOffService;
 
     public CentralizedJobScheduler(
             CertificateExpiryScheduler certificateExpiryScheduler,
@@ -57,7 +59,8 @@ public class CentralizedJobScheduler {
             UnifiedCdcRetryService unifiedCdcRetryService,
             LedgerEventHandler ledgerEventHandler,
             ResourceStateInitializationService resourceStateService,
-            JobLoggingService jobLoggingService) {
+            JobLoggingService jobLoggingService,
+            RoleOffService roleOffService) {
         this.certificateExpiryScheduler = certificateExpiryScheduler;
         this.allocationClosureScheduler = allocationClosureScheduler;
         this.benchService = benchService;
@@ -67,6 +70,7 @@ public class CentralizedJobScheduler {
         this.ledgerEventHandler = ledgerEventHandler;
         this.resourceStateService = resourceStateService;
         this.jobLoggingService = jobLoggingService;
+        this.roleOffService = roleOffService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -89,6 +93,8 @@ public class CentralizedJobScheduler {
                 allocationClosureScheduler::processAutoClosures);
         runJob("PLANNED-ALLOCATION-ACTIVATION",
                 allocationClosureScheduler::activatePlannedAllocations);
+        runJob("ATTRITION-NOTICE-PROCESSING",
+                roleOffService::processAttritionNoticeResources);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

@@ -35,4 +35,7 @@ public class SkillRequirement {
 
     @Column(name = "mandatory_flag")
     private Boolean mandatoryFlag;
+
+    @Column(name = "active_flag", nullable = false)
+    private Boolean activeFlag = true;
 }
