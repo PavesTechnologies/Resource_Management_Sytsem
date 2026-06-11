@@ -23,7 +23,6 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/allocation-modifications")
-@CrossOrigin
 public class AllocationModificationController {
 
     @Autowired

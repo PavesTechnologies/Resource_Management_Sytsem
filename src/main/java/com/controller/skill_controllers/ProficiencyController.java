@@ -12,7 +12,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/proficiency")
-@CrossOrigin
 @RequiredArgsConstructor
 public class ProficiencyController {
 

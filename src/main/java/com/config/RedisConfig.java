@@ -6,11 +6,14 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.support.NoOpCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -27,22 +30,23 @@ import java.util.Map;
 public class RedisConfig {
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory factory) {
-        // Create ObjectMapper with JSR310 module for LocalDate support
+    public CacheManager cacheManager(RedisConnectionFactory factory) {
+        try (RedisConnection conn = factory.getConnection()) {
+            conn.ping();
+        } catch (Exception e) {
+            log.warn("Redis unreachable at startup - caching disabled, all requests will hit the DB: {}", e.getMessage());
+            return new NoOpCacheManager();
+        }
+
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        
-        // Configure ObjectMapper to handle Spring objects properly
         objectMapper.activateDefaultTyping(
-            objectMapper.getPolymorphicTypeValidator(), 
+            objectMapper.getPolymorphicTypeValidator(),
             ObjectMapper.DefaultTyping.NON_FINAL
         );
-        
-        // Ignore properties that can't be serialized
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        
-        // Create custom serializer with the configured ObjectMapper
+
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
 
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
@@ -54,7 +58,6 @@ public class RedisConfig {
                         .fromSerializer(jsonSerializer));
 
         Map<String, RedisCacheConfiguration> configs = new HashMap<>();
-
         configs.put("holidays", config.entryTtl(Duration.ofHours(24)));
         configs.put("leaves", config.entryTtl(Duration.ofHours(4)));
         configs.put("active-allocations", config.entryTtl(Duration.ofMinutes(5)));
@@ -65,13 +68,11 @@ public class RedisConfig {
         configs.put("resource-timelines", config.entryTtl(Duration.ofMinutes(5)));
         configs.put("demands", config.entryTtl(Duration.ofHours(1)));
 
-        RedisCacheManager cacheManager = RedisCacheManager.builder(factory)
+        log.info("Redis CacheManager configured with {} cache regions", configs.size());
+        return RedisCacheManager.builder(factory)
                 .cacheDefaults(config)
                 .withInitialCacheConfigurations(configs)
                 .build();
-
-        log.info("Redis CacheManager configured with {} cache regions", configs.size());
-        return cacheManager;
     }
 
 }
