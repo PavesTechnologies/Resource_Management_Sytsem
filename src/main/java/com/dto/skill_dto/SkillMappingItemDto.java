@@ -14,6 +14,10 @@ import java.util.UUID;
 @AllArgsConstructor
 public class SkillMappingItemDto {
 
+    private UUID categoryId;
+    private String categoryName;
+    private Boolean categoryActive;
+
     private UUID skillId;
     private String skillName;
     private UUID proficiencyId;

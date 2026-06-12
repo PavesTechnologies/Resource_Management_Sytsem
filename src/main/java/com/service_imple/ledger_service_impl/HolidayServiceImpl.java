@@ -28,7 +28,7 @@ public class HolidayServiceImpl implements HolidayService {
     private final ObjectMapper objectMapper;
     
     @Value("${external.api.leave.base-url}")
-    private String holidayApiBaseUrl;
+    private String lmsBaseUrl;
     
     @Value("${external.api.holiday.year-endpoint}")
     private String holidayYearEndpoint;
@@ -43,7 +43,7 @@ public class HolidayServiceImpl implements HolidayService {
 
     private Set<LocalDate> getHolidaysInternal(int year) throws HolidayApiException {
         try {
-            String url = holidayApiBaseUrl + holidayYearEndpoint.replace("{year}", String.valueOf(year));
+            String url = lmsBaseUrl + holidayYearEndpoint.replace("{year}", String.valueOf(year));
             String responseBody = restTemplate.getForObject(url, String.class);
             Set<LocalDate> holidays = parseHolidayDates(responseBody);
 

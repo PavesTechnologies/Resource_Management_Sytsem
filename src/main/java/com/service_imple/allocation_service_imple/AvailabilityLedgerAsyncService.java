@@ -9,6 +9,7 @@ import com.service_interface.ledger_service_interface.LedgerAvailabilityCalculat
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -26,57 +27,60 @@ public class AvailabilityLedgerAsyncService {
     private final DeadLetterQueueRepository deadLetterQueueRepository;
     private final ObjectMapper objectMapper;
 
+    private static final int MAX_RETRIES = 3;
+
     @Async
     public void updateLedgerAsync(ResourceAllocation allocation) {
-        try {
-            String resourceId = allocation.getResource().getResourceId();
-            LocalDate startDate = allocation.getAllocationStartDate();
-            LocalDate endDate = allocation.getAllocationEndDate();
-
-            availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
-        } catch (Exception e) {
-            log.error("Ledger calculation failed for allocation {}, saving to DLQ",
-                    allocation.getAllocationId(), e);
-
-            saveToDeadLetterQueue("ALLOCATION_UPDATE", allocation.getResource().getResourceId(),
-                    allocation.getAllocationStartDate(), allocation.getAllocationEndDate(), e);
-        }
+        String resourceId = allocation.getResource().getResourceId();
+        LocalDate startDate = allocation.getAllocationStartDate();
+        LocalDate endDate = allocation.getAllocationEndDate();
+        recalculateWithRetry("ALLOCATION_UPDATE", resourceId, startDate, endDate);
     }
 
     @Async
     public void updateLedger(String resourceId, LocalDate startDate, LocalDate endDate) {
-        try {
-            availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
-        } catch (Exception e) {
-            log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
-
-            saveToDeadLetterQueue("RANGE_UPDATE", resourceId, startDate, endDate, e);
-        }
+        recalculateWithRetry("RANGE_UPDATE", resourceId, startDate, endDate);
     }
 
     @Async
     public void triggerLedgerUpdateForResource(String resourceId) {
         LocalDate currentDate = LocalDate.now();
         LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
-        try {
-            availabilityCalculationService.recalculateForDateRange(resourceId, currentDate, endDate);
-        } catch (Exception e) {
-            log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
-
-            saveToDeadLetterQueue("RESOURCE_UPDATE", resourceId, currentDate, endDate, e);
-        }
+        recalculateWithRetry("RESOURCE_UPDATE", resourceId, currentDate, endDate);
     }
 
     @Async
     public void synchronizeAvailabilityAcrossModules(String resourceId, LocalDate roleOffDate) {
         LocalDate currentDate = LocalDate.now();
         LocalDate endDate = calculateHorizonEnd(resourceId, currentDate);
-        try {
-            availabilityCalculationService.recalculateForDateRange(resourceId, roleOffDate, endDate);
-        } catch (Exception e) {
-            log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
+        recalculateWithRetry("SYNC_UPDATE", resourceId, roleOffDate, endDate);
+    }
 
-            saveToDeadLetterQueue("SYNC_UPDATE", resourceId, roleOffDate, endDate, e);
+    private void recalculateWithRetry(String eventType, String resourceId, LocalDate startDate, LocalDate endDate) {
+        int attempt = 0;
+        while (attempt < MAX_RETRIES) {
+            try {
+                availabilityCalculationService.recalculateForDateRange(resourceId, startDate, endDate);
+                return;
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRIES) {
+                    log.error("Ledger calculation failed after {} retries for resource {}, saving to DLQ", MAX_RETRIES, resourceId, e);
+                    saveToDeadLetterQueue(eventType, resourceId, startDate, endDate, e);
+                    return;
+                }
+                log.warn("Optimistic lock conflict for resource {} (attempt {}/{}), retrying...", resourceId, attempt, MAX_RETRIES);
+                try {
+                    Thread.sleep(100L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            } catch (Exception e) {
+                log.error("Ledger calculation failed for resource {}, saving to DLQ", resourceId, e);
+                saveToDeadLetterQueue(eventType, resourceId, startDate, endDate, e);
+                return;
+            }
         }
     }
 

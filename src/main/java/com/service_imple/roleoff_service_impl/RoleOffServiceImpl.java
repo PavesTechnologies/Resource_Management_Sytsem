@@ -1073,6 +1073,21 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         }
     }
 
+    // Guard: block re-request if an active role-off already exists for this allocation
+    RoleOffEvent existingRoleOff = roleOffRepo.findByAllocation_AllocationId(allocation.getAllocationId());
+    if (existingRoleOff != null) {
+        RoleOffStatus existingStatus = existingRoleOff.getRoleOffStatus();
+        if (existingStatus == RoleOffStatus.REJECTED || existingStatus == RoleOffStatus.CANCELLED) {
+            // Previous request was cancelled by PM or rejected by DM/RM — allow re-request
+            roleOffRepo.delete(existingRoleOff);
+        } else {
+            throw new RoleOffExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "ROLE_OFF_ALREADY_EXISTS",
+                    "A role-off request already exists for this allocation with status: " + existingStatus);
+        }
+    }
+
     // Create event
     RoleOffEvent event = new RoleOffEvent();
     event.setProject(project);
@@ -1553,30 +1568,22 @@ public ResponseEntity<ApiResponse<?>> pmCancel(UUID id, UserDTO userDTO) {
         return ResponseEntity.badRequest().body(ApiResponse.error("You can only cancel role-off requests for your own projects"));
     }
 
-    // 5. Business validation - cannot cancel if already fulfilled or rejected
+    // 5. Business validation - cannot cancel if already fulfilled
     if (event.getRoleOffStatus() == RoleOffStatus.FULFILLED) {
         return ResponseEntity.badRequest().body(ApiResponse.error("Cannot cancel a role-off request that has already been fulfilled"));
-    }
-
-    if (event.getRoleOffStatus() == RoleOffStatus.CANCELLED) {
-        return ResponseEntity.badRequest().body(ApiResponse.error("Role-off request is already cancelled"));
     }
 
     // ========== EXECUTION ==========
 
     try {
-        logRoleOffCancellation(event, "Cancelled by Project Manager", userDTO.getId());
+        logRoleOffDeletion(event, "Cancelled by Project Manager");
 
-        event.setRoleOffStatus(RoleOffStatus.CANCELLED);
-        event.setRejectedBy(userDTO.getName() != null ? userDTO.getName() : "Project_Manager");
-        event.setRejectionReason("Cancelled by Project Manager");
-        roleOffRepo.save(event);
+        roleOffRepo.delete(event);
 
-        return ResponseEntity.ok(ApiResponse.success("Updated successfully",
+        return ResponseEntity.ok(ApiResponse.success("Role-off request cancelled and deleted successfully",
                 Map.of(
                         "eventId", id,
-                        "status", RoleOffStatus.CANCELLED,
-                        "cancelledBy", "Project_Manager"
+                        "cancelledBy", userDTO.getName() != null ? userDTO.getName() : "Project_Manager"
                 )));
 
     } catch (Exception e) {
@@ -1677,12 +1684,14 @@ public ResponseEntity<ApiResponse<?>> bulkPlannedRoleOff(BulkRoleOffRequestDTO b
             // Check for existing role-off
             RoleOffEvent existingRoleOff = roleOffRepo.findByAllocation_AllocationId(allocation.getAllocationId());
             if (existingRoleOff != null) {
-                if (existingRoleOff.getRoleOffStatus() == RoleOffStatus.REJECTED) {
+                RoleOffStatus existingStatus = existingRoleOff.getRoleOffStatus();
+                if (existingStatus == RoleOffStatus.REJECTED || existingStatus == RoleOffStatus.CANCELLED) {
+                    // Previous request was cancelled by PM or rejected by DM/RM — allow re-request
                     roleOffRepo.delete(existingRoleOff);
                 } else {
                     failedEvents.add(Map.of(
                             "allocationId", allocation.getAllocationId(),
-                            "reason", "Role-off already exists with status: " + existingRoleOff.getRoleOffStatus()
+                            "reason", "Role-off already exists with status: " + existingStatus
                     ));
                     continue;
                 }

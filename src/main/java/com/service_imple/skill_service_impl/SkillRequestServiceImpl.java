@@ -9,6 +9,7 @@ import com.repo.skill_repo.*;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import com.service_interface.skill_service_interface.SkillRequestService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SkillRequestServiceImpl implements SkillRequestService {
@@ -375,6 +377,19 @@ public class SkillRequestServiceImpl implements SkillRequestService {
                     newSubSkill.setSkill(skill);
                     return subSkillRepository.save(newSubSkill);
                 });
+    }
+
+    // -------------------------------------------------------------------------
+    // Nightly purge — called by CentralizedJobScheduler
+    // -------------------------------------------------------------------------
+
+    @Override
+    @Transactional
+    public void purgeOldResolvedRequests() {
+        LocalDateTime cutoff = LocalDateTime.now().minusMonths(1);
+        int deleted = skillRequestRepository.deleteByStatusInAndUpdatedAtBefore(
+                List.of(SkillRequestStatus.APPROVED, SkillRequestStatus.REJECTED), cutoff);
+        log.info("Purged {} skill request(s) with APPROVED/REJECTED status older than 1 month", deleted);
     }
 
     private SkillRequestResponseDto toResponseDto(SkillRequest request, Map<String, String> resourceNameMap) {

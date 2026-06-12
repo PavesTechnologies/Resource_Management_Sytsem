@@ -24,4 +24,6 @@ public interface SkillRequestService {
     Map<String, Integer> bulkApproveByEmployee(String resourceId, BulkSkillApprovalRequestDto dto);
 
     Map<String, Integer> bulkRejectByEmployee(String resourceId, BulkSkillApprovalRequestDto dto);
+
+    void purgeOldResolvedRequests();
 }

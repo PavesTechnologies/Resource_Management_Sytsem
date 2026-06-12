@@ -31,7 +31,7 @@ public class DemandController {
     }
 
     @PutMapping("/update/pm")
-    @PreAuthorize("hasAnyRole('Project_Manager','Delivery_Manager')")
+    @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> updateDemandByPM(
             @RequestBody UpdateDemandDTO dto,
             @CurrentUser UserDTO userDTO) {
