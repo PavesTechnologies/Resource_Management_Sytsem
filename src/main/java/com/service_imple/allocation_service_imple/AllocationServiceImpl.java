@@ -763,7 +763,7 @@ public class AllocationServiceImpl implements AllocationService {
             if (demand.getDemandStatus() != DemandStatus.FULFILLED) {
                 demand.setDemandStatus(DemandStatus.FULFILLED);
                 demandRepository.save(demand);
-                demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId).ifPresent(sla -> {
+                demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demandId).ifPresent(sla -> {
                     sla.setActiveFlag(false);
                     sla.setFulfillDate(LocalDate.now());
                     demandSLARepository.save(sla);

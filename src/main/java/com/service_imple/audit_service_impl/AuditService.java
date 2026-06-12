@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,13 +67,22 @@ public class AuditService {
     private String getCurrentUser() {
         try {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                return authentication.getName();
+            if (authentication != null && authentication.isAuthenticated()
+                    && authentication.getPrincipal() instanceof Jwt jwt) {
+                String userId = jwt.getClaimAsString("user_id");
+                String name = jwt.getClaimAsString("name");
+                if (userId != null && name != null) {
+                    return userId + " (" + name + ")";
+                }
+                if (userId != null) return userId;
+                if (name != null) return name;
+                String email = jwt.getClaimAsString("email");
+                if (email != null) return email;
             }
         } catch (Exception e) {
             log.debug("Failed to get current user from security context: {}", e.getMessage());
         }
-        return "anonymous";
+        return "SYSTEM";
     }
 
     private String convertToJsonSafely(Object object) {

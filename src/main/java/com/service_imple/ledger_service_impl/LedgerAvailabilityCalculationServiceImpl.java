@@ -89,7 +89,7 @@ public class LedgerAvailabilityCalculationServiceImpl implements LedgerAvailabil
             
             boolean availabilityTrustFlag = holidayService.isApiHealthy() && leaveService.isApiHealthy();
             
-            Optional<ResourceAvailabilityLedger> existing = ledgerRepository.findByResourceIdAndPeriodStart(resourceId, monthStart);
+            Optional<ResourceAvailabilityLedger> existing = ledgerRepository.findByResourceIdAndPeriodStartForUpdate(resourceId, monthStart);
             ResourceAvailabilityLedger ledger = existing.orElseGet(() -> {
                 Resource resource = resourceRepository.findById(resourceId)
                         .orElseThrow(() -> new RuntimeException("Resource not found: " + resourceId));

@@ -1,5 +1,6 @@
 package com.entity.demand_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.project_entities.ProjectSLA;
 import com.entity_enums.client_enums.SLAType;
 import jakarta.persistence.*;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "demand_sla")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

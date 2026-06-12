@@ -1,11 +1,15 @@
 package com.repo.availability_repo;
 
 import com.entity.resource_entities.ResourceAvailabilityLedger;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.QueryHint;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -16,8 +20,15 @@ public interface ResourceAvailabilityLedgerRepository extends JpaRepository<Reso
 
     @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart = :periodStart")
-    Optional<ResourceAvailabilityLedger> findByResourceIdAndPeriodStart(@Param("resourceId") String resourceId, 
+    Optional<ResourceAvailabilityLedger> findByResourceIdAndPeriodStart(@Param("resourceId") String resourceId,
                                                                       @Param("periodStart") LocalDate periodStart);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
+    @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
+           "AND ral.periodStart = :periodStart")
+    Optional<ResourceAvailabilityLedger> findByResourceIdAndPeriodStartForUpdate(@Param("resourceId") String resourceId,
+                                                                                 @Param("periodStart") LocalDate periodStart);
 
     @Query("SELECT ral FROM ResourceAvailabilityLedger ral WHERE ral.resource.resourceId = :resourceId " +
            "AND ral.periodStart BETWEEN :startDate AND :endDate ORDER BY ral.periodStart")

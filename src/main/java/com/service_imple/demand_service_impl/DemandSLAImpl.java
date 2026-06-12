@@ -30,7 +30,7 @@ public class DemandSLAImpl implements DemandSLAService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> getDemandSLAById(UUID demandId) {
-        DemandSLA demandSLA = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId)
+        DemandSLA demandSLA = demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demandId)
                 .orElseThrow(() -> new DemandExceptionHandler(HttpStatus.NOT_FOUND, "DEMAND_SLA_NOT_FOUND", "Demand SLA not found"));
         LocalDate now = LocalDate.now();
 

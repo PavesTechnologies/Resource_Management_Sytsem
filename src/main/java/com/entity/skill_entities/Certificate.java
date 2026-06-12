@@ -1,5 +1,6 @@
 package com.entity.skill_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.skill_enums.CertificateType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,6 +10,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "certificate")
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor
