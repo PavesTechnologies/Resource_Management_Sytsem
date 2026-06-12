@@ -1,11 +1,13 @@
 package com.entity.skill_entities;
 
+import com.audit.AuditEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.UUID;
 
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(
         name = "proficiency_level",
         uniqueConstraints = @UniqueConstraint(columnNames = "proficiency_code")

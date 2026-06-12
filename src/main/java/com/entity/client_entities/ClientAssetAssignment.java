@@ -1,6 +1,7 @@
 package com.entity.client_entities;
 
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 @Builder
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
