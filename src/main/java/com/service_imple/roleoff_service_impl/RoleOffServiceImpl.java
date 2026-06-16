@@ -1111,6 +1111,7 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
 
         event.setRoleOffReason(dto.getEmergencyReason());
         event.setRoleOffStatus(RoleOffStatus.APPROVED);
+        event.setRmApproved(true);
 
         roleOffRepo.save(event);
 
@@ -1308,6 +1309,12 @@ public ResponseEntity<ApiResponse<?>> rmReject(UUID id, String rejectionReason, 
         // closeResourceAllocation handles ending + saving the allocation and async ledger update.
         // Do NOT save the allocation separately before this call to avoid a double-write.
         closeResourceAllocation(event);
+
+        // If rolloff effective date is today or past, immediately move resource to bench
+        // (skip waiting for the nightly 1 AM detection job)
+        if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
+            benchService.createOrUpdateBenchState(event.getResource().getResourceId());
+        }
 
         roleOffRepo.save(event);
 
@@ -1955,6 +1962,7 @@ public ResponseEntity<ApiResponse<?>> bulkDlFulfill(List<UUID> ids, UserDTO user
             // Execute immediately if date has passed
             if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
                 closeResourceAllocation(event);
+                benchService.createOrUpdateBenchState(event.getResource().getResourceId());
             }
 
             fulfilledEvents.add(event);
