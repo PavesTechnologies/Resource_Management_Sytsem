@@ -105,25 +105,30 @@ public class BenchService {
     @Transactional
     public void createOrUpdateBenchState(String resourceId) {
         log.debug("Processing bench state for resource {}", resourceId);
-//        validateBenchData(resourceId);
-//        validateStateConsistency(resourceId);
-        
+
+        // If the resource still has other active allocations (e.g. multiple timelines on same or
+        // different projects), do NOT move to bench — the role-off only closed one allocation.
+        if (benchDetectionRepository.hasActiveAllocations(resourceId)) {
+            log.debug("Resource {} still has active allocations, skipping bench transition", resourceId);
+            return;
+        }
+
         // Fetch current active RESOURCE_STATE
         Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
-        
+
         // If already BENCH → do nothing
         if (currentState.isPresent() && currentState.get().getStateType() == StateType.BENCH) {
             log.debug("Resource {} is already in BENCH state, skipping", resourceId);
             return;
         }
-        
+
         // Close old state (set current_flag = false, set effective_to)
         currentState.ifPresent(this::closeCurrentState);
-        
+
         // Insert new BENCH state
         ResourceState newBenchState = createBenchState(resourceId);
         benchDetectionRepository.save(newBenchState);
-        
+
         log.info("Resource {} moved to BENCH state", resourceId);
     }
 
@@ -137,10 +142,12 @@ public class BenchService {
     public void moveToProject(String resourceId, UUID allocationId) {
         log.debug("Moving resource {} to PROJECT state with allocation {}", resourceId, allocationId);
         
-        // Close current BENCH state if exists
-        Optional<ResourceState> currentBenchState = benchDetectionRepository.findCurrentBenchState(resourceId);
-        currentBenchState.ifPresent(this::closeCurrentState);
-        
+        // Close any current state (BENCH or PROJECT) before creating new PROJECT state.
+        // Using findCurrentState instead of findCurrentBenchState prevents duplicate
+        // current_flag=true rows when an active allocation is modified.
+        Optional<ResourceState> currentState = benchDetectionRepository.findCurrentState(resourceId);
+        currentState.ifPresent(this::closeCurrentState);
+
         // Insert new PROJECT state
         ResourceState newProjectState = createProjectState(resourceId, allocationId);
         benchDetectionRepository.save(newProjectState);

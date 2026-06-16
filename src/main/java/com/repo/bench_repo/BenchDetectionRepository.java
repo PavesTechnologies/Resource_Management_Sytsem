@@ -44,7 +44,8 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
     /**
      * Find current active state for a resource by resourceId and currentFlag
      */
-    Optional<ResourceState> findByResourceIdAndCurrentFlagTrue(String resourceId);
+    @Query("SELECT rs FROM ResourceState rs WHERE rs.resourceId = :resourceId AND rs.currentFlag = true ORDER BY rs.effectiveFrom DESC LIMIT 1")
+    Optional<ResourceState> findByResourceIdAndCurrentFlagTrue(@Param("resourceId") String resourceId);
 
     /**
      * Find current active state for a resource
@@ -91,7 +92,7 @@ public interface BenchDetectionRepository extends JpaRepository<ResourceState, L
         SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
         FROM ResourceAllocation a
         WHERE a.resource.resourceId = :resourceId
-          AND a.allocationStatus = 'ACTIVE'
+          AND (a.allocationStatus = 'ACTIVE' OR a.allocationStatus = 'PLANNED')
         """)
     boolean hasActiveAllocations(@Param("resourceId") String resourceId);
 

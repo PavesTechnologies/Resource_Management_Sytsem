@@ -141,6 +141,7 @@ public ResponseEntity<ApiResponse<?>> roleOffByRM(RoleOffRequestDTO roleOff, Use
 }
 
 @Override
+@Transactional
 public void manualReplacement(UUID roleOffEventId, Long userId) {
     try {
         // Find the role-off event
@@ -1115,11 +1116,9 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         event.setRoleOffStatus(RoleOffStatus.APPROVED);
         event.setRmApproved(true);
 
-        roleOffRepo.save(event);
-
-        // Replacement
+        // Replacement demand is NOT created here.
+        // It will be created in dlFulfill() once the role-off reaches FULFILLED status.
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-            createReplacementDemand(event, userId);
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
         } else {
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
@@ -1133,7 +1132,6 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         }
 
         roleOffRepo.save(event);
-
         return;
     }
 
@@ -1167,11 +1165,9 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         event.setRoleOffReason(dto.getRoleOffReason().name());
         event.setRoleOffStatus(RoleOffStatus.PENDING);
 
-        roleOffRepo.save(event);
-
-        // ✅ SINGLE replacement logic (FIXED)
+        // Replacement demand is NOT created here.
+        // It will be created in dlFulfill() once the role-off reaches FULFILLED status.
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-            createReplacementDemand(event, userId);
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
         } else {
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
@@ -1189,21 +1185,26 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
 }
 
 /**
- * Helper method to create replacement demand for a role-off event
+ * Helper method to create replacement demand for a role-off event.
+ *
+ * Business rule: this must only be called once the role-off status is FULFILLED.
+ * It is safe to call only for PLANNED or EMERGENCY role-off types.
  */
 private void createReplacementDemand(RoleOffEvent event, Long userId) {
     try {
-        if (event.getAllocation() != null && event.getRole() != null) {
-            ResourceAllocation allocation = event.getAllocation();
-
-            // Create replacement demand starting from role-off effective date
-            LocalDate startDate = event.getEffectiveRoleOffDate();
-            LocalDate endDate = allocation.getAllocationEndDate();
-
-            demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate, userId);
-
-            log.info("Replacement demand created for role-off event: {}", event.getId());
+        if (event.getAllocation() == null || event.getRole() == null) {
+            return;
         }
+
+        ResourceAllocation allocation = event.getAllocation();
+
+        // Create replacement demand starting from role-off effective date
+        LocalDate startDate = event.getEffectiveRoleOffDate();
+        LocalDate endDate = allocation.getAllocationEndDate();
+
+        demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate, userId);
+        log.info("Replacement demand created for role-off event: {}", event.getId());
+
     } catch (Exception e) {
         log.error("Failed to create replacement demand for role-off event {}: {}",
                  event.getId(), e.getMessage());
@@ -1324,6 +1325,15 @@ public ResponseEntity<ApiResponse<?>> rmReject(UUID id, String rejectionReason, 
         if (event.getAllocation() != null && event.getAllocation().getDemand() != null) {
             allocationService.checkAndUpdateDemandFulfillment(
                     event.getAllocation().getDemand().getDemandId());
+        }
+
+        // Now that the role-off is FULFILLED, create the replacement demand if needed.
+        // Demand creation is gated on FULFILLED status — it is never triggered at role-off
+        // creation time. Only PLANNED and EMERGENCY role-off types qualify for auto-replacement.
+        if (event.getReplacementStatus() == ReplacementStatus.AUTO_CREATED
+                && (event.getRoleOffType() == RoleOffType.PLANNED
+                    || event.getRoleOffType() == RoleOffType.EMERGENCY)) {
+            createReplacementDemand(event, event.getCreatedBy());
         }
 
         // Build comprehensive response with approval details
