@@ -158,6 +158,7 @@ public class AllocationServiceImpl implements AllocationService {
             if (existingAllocation.isEmpty()) return ResponseEntity.notFound().build();
 
             ResourceAllocation allocation = existingAllocation.get();
+            AllocationStatus previousStatus = allocation.getAllocationStatus();
 
             if (allocation.getAllocationStatus() == AllocationStatus.DELETED) {
                 ApiResponse<Object> response = new ApiResponse<>();
@@ -211,7 +212,12 @@ public class AllocationServiceImpl implements AllocationService {
                 );
             }
 
-            if (updatedAllocation.getAllocationStatus() == AllocationStatus.ACTIVE) {
+            // Only move to PROJECT state when transitioning TO ACTIVE (e.g. PLANNED → ACTIVE).
+            // If already ACTIVE and staying ACTIVE (a pure percentage/date edit), skip moveToProject
+            // to avoid closing and recreating the PROJECT state record unnecessarily, which also
+            // causes stale allocationId pointers when a resource has multiple active allocations.
+            if (updatedAllocation.getAllocationStatus() == AllocationStatus.ACTIVE
+                    && previousStatus != AllocationStatus.ACTIVE) {
                 benchDetectionService.moveToProject(updatedAllocation.getResource().getResourceId(), updatedAllocation.getAllocationId());
             } else if (updatedAllocation.getAllocationStatus() == AllocationStatus.ENDED || updatedAllocation.getAllocationStatus() == AllocationStatus.CANCELLED) {
                 benchDetectionService.detectBenchResources();

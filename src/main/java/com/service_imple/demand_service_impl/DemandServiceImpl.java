@@ -1681,7 +1681,8 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
     demand.setCreatedBy(createdBy);
 
     // Set justification
-    demand.setDemandJustification("Auto-created due to resource attrition (LWD: " + allocation.getResource().getDateOfExit() + ")");
+    demand.setDemandJustification("Auto-created replacement for " + allocation.getResource().getFullName()
+            + " (role-off effective: " + startDate + ")");
 
     // Set delivery model from project or default
     demand.setDeliveryModel(com.entity_enums.centralised_enums.DeliveryModel.ONSITE);
@@ -1830,28 +1831,19 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 demand.setDemandPriority(dto.getDemandPriority());
             }
 
-            // When demand is REQUESTED, status cannot be changed via update.
-            // APPROVED, REJECTED, FULFILLED, CANCELLED transitions are handled by dedicated workflow endpoints.
-//            if (dto.getDemandStatus() != null) {
-//                DemandStatus current = demand.getDemandStatus();
-//                DemandStatus requested = dto.getDemandStatus();
-//                if (current == DemandStatus.REQUESTED) {
-//                    throw new DemandExceptionHandler(
-//                            HttpStatus.BAD_REQUEST,
-//                            "STATUS_CHANGE_NOT_ALLOWED",
-//                            "Status cannot be changed when demand is in REQUESTED state"
-//                    );
-//                }
-//                // From DRAFT, only DRAFT → REQUESTED is allowed
-//                if (current == DemandStatus.DRAFT && requested != DemandStatus.REQUESTED) {
-//                    throw new DemandExceptionHandler(
-//                            HttpStatus.BAD_REQUEST,
-//                            "INVALID_STATUS_TRANSITION",
-//                            "From DRAFT, demand can only be submitted to REQUESTED"
-//                    );
-//                }
-//                demand.setDemandStatus(requested);
-//            }
+            // PM can only transition DRAFT → REQUESTED; all other status changes go through dedicated endpoints.
+            if (dto.getDemandStatus() != null) {
+                DemandStatus current = demand.getDemandStatus();
+                DemandStatus requested = dto.getDemandStatus();
+                if (current != DemandStatus.DRAFT || requested != DemandStatus.REQUESTED) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "INVALID_STATUS_TRANSITION",
+                            "Only DRAFT → REQUESTED transition is allowed here"
+                    );
+                }
+                demand.setDemandStatus(DemandStatus.REQUESTED);
+            }
 
             if (dto.getDemandCommitment() != null) {
                 demand.setDemandCommitment(dto.getDemandCommitment());

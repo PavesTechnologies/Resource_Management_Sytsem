@@ -154,10 +154,19 @@ public class EosCdcHandler {
         if (struct == null) {
             return "unknown";
         }
+        // employee_details and employee_exit have employee_id — most stable key
         if (struct.schema().field("employee_id") != null) {
             Object id = struct.get("employee_id");
             if (id != null) {
                 return id.toString();
+            }
+        }
+        // offer_letter_details has no employee_id; user_uuid is the reliable join key
+        // (same value as employee_details.user_uuid — do NOT use mail which is personal email)
+        if (struct.schema().field("user_uuid") != null) {
+            Object uuid = struct.get("user_uuid");
+            if (uuid != null) {
+                return uuid.toString();
             }
         }
         if (struct.schema().field("mail") != null) {
