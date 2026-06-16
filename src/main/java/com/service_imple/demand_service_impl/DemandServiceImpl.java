@@ -208,7 +208,7 @@ public class DemandServiceImpl implements DemandService {
 
     @Override
     public ResponseEntity<ApiResponse<?>> getDemandsByResourceManagerId(Long resourceManagerId) {
-        ApiResponse<?> apiResponse = getDemandsByResourceManagerIdData(resourceManagerId);
+        ApiResponse<?> apiResponse = self.getDemandsByResourceManagerIdData(resourceManagerId);
         
         // Determine HTTP status based on ApiResponse success flag
         HttpStatus status = apiResponse.getSuccess() ? HttpStatus.OK : HttpStatus.INTERNAL_SERVER_ERROR;
@@ -1189,6 +1189,10 @@ public ResponseEntity<ApiResponse<?>> getDashboardKpi(Long projectId) {
 
 @Override
 @Transactional
+@Caching(evict = {
+    @CacheEvict(value = "demands", allEntries = true),
+    @CacheEvict(value = "bench-matches", allEntries = true)
+})
 public ResponseEntity<ApiResponse<?>> processDemandDecision(DemandDecisionDTO dto) {
 
     if (dto.getDemandId() == null) {
@@ -1301,6 +1305,10 @@ public ResponseEntity<ApiResponse<DemandKpiDTO>> getDeliveryManagerKpi(UserDTO u
 
 @Override
 @Transactional
+@Caching(evict = {
+    @CacheEvict(value = "demands", allEntries = true),
+    @CacheEvict(value = "bench-matches", allEntries = true)
+})
 public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
         DemandDecisionDTO dto,
         UserDTO userDTO) {

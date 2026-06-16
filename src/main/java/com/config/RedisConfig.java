@@ -38,6 +38,15 @@ public class RedisConfig {
             return new NoOpCacheManager();
         }
 
+        // Set eviction policy so Redis never returns OOM errors under memory pressure.
+        // Non-fatal: managed Redis instances (AWS ElastiCache) may disallow CONFIG SET.
+        try (RedisConnection conn = factory.getConnection()) {
+            conn.serverCommands().setConfig("maxmemory-policy", "volatile-lru");
+            log.info("Redis eviction policy set to volatile-lru");
+        } catch (Exception e) {
+            log.warn("Could not set Redis maxmemory-policy via CONFIG SET (set it in redis.conf manually): {}", e.getMessage());
+        }
+
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.activateDefaultTyping(

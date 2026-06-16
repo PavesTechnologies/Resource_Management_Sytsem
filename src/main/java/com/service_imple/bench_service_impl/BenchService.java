@@ -229,7 +229,7 @@ public class BenchService {
                         arr -> (Long) arr[1]
                 ));
         // 🔥 NEW: COST + RISK CALCULATION
-        List<BenchResourceDTO> benchResources = getAllBenchResources();
+        List<BenchResourceDTO> benchResources = self.getAllBenchResources();
 
         BigDecimal totalCost = benchResources.stream()
                 .filter(dto -> dto.getTotalBenchCost() != null)
