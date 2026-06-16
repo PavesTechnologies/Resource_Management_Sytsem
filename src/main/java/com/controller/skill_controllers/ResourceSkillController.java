@@ -4,6 +4,7 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.skill_dto.ResourceSkillBulkRequestDTO;
 import com.dto.skill_dto.ResourceSkillProfileResponseDTO;
 import com.dto.skill_dto.ResourceSkillRequestDTO;
+import com.dto.skill_dto.ResourceSkillResponseDTO;
 import com.dto.skill_dto.ResourceSubSkillRequestDTO;
 import com.entity.skill_entities.ResourceSkill;
 import com.entity.skill_entities.ResourceSubSkill;
@@ -43,8 +44,8 @@ public class ResourceSkillController {
     }
 
     @GetMapping("/resource/{resourceId}/skills")
-    public ResponseEntity<ApiResponse<List<ResourceSkill>>> getAllResourceSkills(@PathVariable String resourceId) {
-        List<ResourceSkill> skills = resourceSkillService.getAllResourceSkills(resourceId);
+    public ResponseEntity<ApiResponse<List<ResourceSkillResponseDTO>>> getAllResourceSkills(@PathVariable String resourceId) {
+        List<ResourceSkillResponseDTO> skills = resourceSkillService.getAllResourceSkills(resourceId);
         return ResponseEntity.ok(ApiResponse.success("Resource skills retrieved successfully", skills));
     }
 
@@ -75,6 +76,7 @@ public class ResourceSkillController {
 
     
     @PutMapping("/skill/{resourceSkillId}")
+    @PreAuthorize("hasAnyRole('General')")
     public ResponseEntity<ApiResponse<ResourceSkill>> updateResourceSkill(@PathVariable UUID resourceSkillId, @Valid @RequestBody ResourceSkillRequestDTO dto) {
         ResourceSkill updated = resourceSkillService.updateResourceSkill(resourceSkillId, dto);
         return ResponseEntity.ok(ApiResponse.success("Resource skill updated successfully", updated));

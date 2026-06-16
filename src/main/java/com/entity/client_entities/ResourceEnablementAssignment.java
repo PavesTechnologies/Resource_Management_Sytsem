@@ -1,6 +1,7 @@
 package com.entity.client_entities;
 
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.client_enums.EnablementAssignmentStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name="resource_enablement_assignment")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

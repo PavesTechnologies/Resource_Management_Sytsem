@@ -43,6 +43,22 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                 .toLowerCase();
     }
 
+    private String toPascalCase(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return "";
+        }
+        String[] words = value.trim().replaceAll("\\s+", " ").split(" ");
+        StringBuilder result = new StringBuilder();
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                result.append(Character.toUpperCase(word.charAt(0)))
+                        .append(word.substring(1).toLowerCase())
+                        .append(" ");
+            }
+        }
+        return result.toString().trim();
+    }
+
     @Override
     public SkillCategory create(String name, String description) {
 
@@ -572,7 +588,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     throw SkillExceptionHandler.badRequest("Category with name '" + categoryRequest.getName() + "' already exists.");
                 }
                 category = new SkillCategory();
-                category.setName(categoryRequest.getName().trim());
+                category.setName(toPascalCase(categoryRequest.getName()));
                 operation = "CREATED";
             } else {
                 // Update Category
@@ -590,7 +606,7 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                     }
                 }
 
-                category.setName(categoryRequest.getName().trim());
+                category.setName(toPascalCase(categoryRequest.getName()));
                 operation = "UPDATED";
             }
 
@@ -610,29 +626,15 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                     if (skillRequest.getId() == null) {
 
-                        Skill existingSkill =
-                                skillRepository
-                                        .findByNameIgnoreCaseAndCategory(
-                                                normalize(skillRequest.getName()),
-                                                category)
-                                        .orElse(null);
-
-                        if (existingSkill != null) {
-
-                            skill = existingSkill;
-                            skillOperation = "EXISTING";
-
-                        } else {
-
-                            skill = new Skill();
-
-                            skill.setName(
-                                    normalize(skillRequest.getName()));
-
-                            skill.setCategory(category);
-
-                            skillOperation = "CREATED";
+                        if (skillRepository.existsByNameIgnoreCase(skillRequest.getName().trim())) {
+                            throw SkillExceptionHandler.badRequest(
+                                    "Skill with name '" + skillRequest.getName() + "' already exists.");
                         }
+
+                        skill = new Skill();
+                        skill.setName(toPascalCase(skillRequest.getName()));
+                        skill.setCategory(category);
+                        skillOperation = "CREATED";
 
                     } else {
 
@@ -649,8 +651,15 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                     "Skill does not belong to category");
                         }
 
-                        skill.setName(
-                                normalize(skillRequest.getName()));
+                        if (!skill.getName().equalsIgnoreCase(skillRequest.getName().trim())) {
+                            Optional<Skill> existingSkillByName = skillRepository.findByNameIgnoreCase(skillRequest.getName().trim());
+                            if (existingSkillByName.isPresent() && !existingSkillByName.get().getId().equals(skill.getId())) {
+                                throw SkillExceptionHandler.badRequest(
+                                        "Another skill with name '" + skillRequest.getName() + "' already exists.");
+                            }
+                        }
+
+                        skill.setName(toPascalCase(skillRequest.getName()));
 
                         skillOperation = "UPDATED";
                     }
@@ -671,19 +680,12 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
 
                             if (subSkillRequest.getId() == null) {
                                 // Create SubSkill
-                                if (subSkillRepository.existsByNameIgnoreCaseAndSkill(
-                                        normalize(subSkillRequest.getName()),
-                                        skill)) {
-                                    throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists in skill '" + skill.getName() + "'.");
+                                if (subSkillRepository.existsByNameIgnoreCase(subSkillRequest.getName().trim())) {
+                                    throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
                                 }
 
-//                                if (subSkillRepository.existsByNameIgnoreCase(subSkillRequest.getName().trim()))
-//                                    throw SkillExceptionHandler.badRequest("SubSkill with name '" + subSkillRequest.getName() + "' already exists.");
-
-
                                 subSkill = new SubSkill();
-                                subSkill.setName(
-                                        normalize(subSkillRequest.getName()));
+                                subSkill.setName(toPascalCase(subSkillRequest.getName()));
                                 subSkill.setSkill(skill);
                                 subSkillOperation = "CREATED";
                             } else {
@@ -695,8 +697,11 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                     throw SkillExceptionHandler.badRequest("SubSkill with ID '" + subSkillRequest.getId() + "' does not belong to skill '" + skill.getName() + "'.");
                                 }
 
-                                if (!subSkill.getName().equalsIgnoreCase(subSkillRequest.getName().trim()) && subSkillRepository.existsByNameIgnoreCaseAndSkill(subSkillRequest.getName().trim(), skill)) {
-                                    throw SkillExceptionHandler.badRequest("Another subSkill with name '" + subSkillRequest.getName() + "' already exists in skill '" + skill.getName() + "'.");
+                                if (!subSkill.getName().equalsIgnoreCase(subSkillRequest.getName().trim())) {
+                                    Optional<SubSkill> existingSubSkill = subSkillRepository.findByNameIgnoreCase(subSkillRequest.getName().trim());
+                                    if (existingSubSkill.isPresent() && !existingSubSkill.get().getId().equals(subSkill.getId())) {
+                                        throw SkillExceptionHandler.badRequest("Another subSkill with name '" + subSkillRequest.getName() + "' already exists.");
+                                    }
                                 }
 
                                 // Validation: Prevent deactivating if resources are using it
@@ -705,21 +710,8 @@ public class SkillCategoryServiceImpl implements SkillCategoryService {
                                         throw SkillExceptionHandler.badRequest("Cannot deactivate sub-skill '" + subSkill.getName() + "' as it is currently in use by resources.");
                                     }
                                 }
-                                Optional<SubSkill> existingSubSkill =
-                                        subSkillRepository
-                                                .findByNameIgnoreCaseAndSkill(
-                                                        normalize(subSkillRequest.getName()),
-                                                        skill);
 
-                                if (existingSubSkill.isPresent()
-                                        && !existingSubSkill.get().getId()
-                                        .equals(subSkill.getId())) {
-
-                                    throw SkillExceptionHandler.badRequest(
-                                            "SubSkill already exists under this skill");
-                                }
-
-                                subSkill.setName(subSkillRequest.getName().trim());
+                                subSkill.setName(toPascalCase(subSkillRequest.getName()));
                                 subSkillOperation = "UPDATED";
                             }
 

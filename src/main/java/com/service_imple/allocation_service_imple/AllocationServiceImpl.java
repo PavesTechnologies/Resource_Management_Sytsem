@@ -342,6 +342,8 @@ public class AllocationServiceImpl implements AllocationService {
     @Caching(evict = {
         @CacheEvict(value = "active-allocations", allEntries = true),
         @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
         @CacheEvict(value = "resource-timelines", allEntries = true)
     })
     public ResponseEntity<ApiResponse<?>> rejectAllocation(UUID allocationId, String reason, String dmName) {
@@ -763,7 +765,7 @@ public class AllocationServiceImpl implements AllocationService {
             if (demand.getDemandStatus() != DemandStatus.FULFILLED) {
                 demand.setDemandStatus(DemandStatus.FULFILLED);
                 demandRepository.save(demand);
-                demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demandId).ifPresent(sla -> {
+                demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demandId).ifPresent(sla -> {
                     sla.setActiveFlag(false);
                     sla.setFulfillDate(LocalDate.now());
                     demandSLARepository.save(sla);

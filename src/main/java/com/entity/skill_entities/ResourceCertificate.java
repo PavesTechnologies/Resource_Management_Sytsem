@@ -1,5 +1,6 @@
 package com.entity.skill_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.skill_enums.CertificateStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,6 +10,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(
         name = "resource_certificate",
         uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "certificate_id"}, 

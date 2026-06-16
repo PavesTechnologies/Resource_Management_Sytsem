@@ -37,6 +37,8 @@ import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -1073,6 +1075,21 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         }
     }
 
+    // Guard: block re-request if an active role-off already exists for this allocation
+    RoleOffEvent existingRoleOff = roleOffRepo.findByAllocation_AllocationId(allocation.getAllocationId());
+    if (existingRoleOff != null) {
+        RoleOffStatus existingStatus = existingRoleOff.getRoleOffStatus();
+        if (existingStatus == RoleOffStatus.REJECTED || existingStatus == RoleOffStatus.CANCELLED) {
+            // Previous request was cancelled by PM or rejected by DM/RM — allow re-request
+            roleOffRepo.delete(existingRoleOff);
+        } else {
+            throw new RoleOffExceptionHandler(
+                    HttpStatus.CONFLICT,
+                    "ROLE_OFF_ALREADY_EXISTS",
+                    "A role-off request already exists for this allocation with status: " + existingStatus);
+        }
+    }
+
     // Create event
     RoleOffEvent event = new RoleOffEvent();
     event.setProject(project);
@@ -1096,6 +1113,7 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
 
         event.setRoleOffReason(dto.getEmergencyReason());
         event.setRoleOffStatus(RoleOffStatus.APPROVED);
+        event.setRmApproved(true);
 
         roleOffRepo.save(event);
 
@@ -1293,6 +1311,12 @@ public ResponseEntity<ApiResponse<?>> rmReject(UUID id, String rejectionReason, 
         // closeResourceAllocation handles ending + saving the allocation and async ledger update.
         // Do NOT save the allocation separately before this call to avoid a double-write.
         closeResourceAllocation(event);
+
+        // If rolloff effective date is today or past, immediately move resource to bench
+        // (skip waiting for the nightly 1 AM detection job)
+        if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
+            benchService.createOrUpdateBenchState(event.getResource().getResourceId());
+        }
 
         roleOffRepo.save(event);
 
@@ -1553,30 +1577,22 @@ public ResponseEntity<ApiResponse<?>> pmCancel(UUID id, UserDTO userDTO) {
         return ResponseEntity.badRequest().body(ApiResponse.error("You can only cancel role-off requests for your own projects"));
     }
 
-    // 5. Business validation - cannot cancel if already fulfilled or rejected
+    // 5. Business validation - cannot cancel if already fulfilled
     if (event.getRoleOffStatus() == RoleOffStatus.FULFILLED) {
         return ResponseEntity.badRequest().body(ApiResponse.error("Cannot cancel a role-off request that has already been fulfilled"));
-    }
-
-    if (event.getRoleOffStatus() == RoleOffStatus.CANCELLED) {
-        return ResponseEntity.badRequest().body(ApiResponse.error("Role-off request is already cancelled"));
     }
 
     // ========== EXECUTION ==========
 
     try {
-        logRoleOffCancellation(event, "Cancelled by Project Manager", userDTO.getId());
+        logRoleOffDeletion(event, "Cancelled by Project Manager");
 
-        event.setRoleOffStatus(RoleOffStatus.CANCELLED);
-        event.setRejectedBy(userDTO.getName() != null ? userDTO.getName() : "Project_Manager");
-        event.setRejectionReason("Cancelled by Project Manager");
-        roleOffRepo.save(event);
+        roleOffRepo.delete(event);
 
-        return ResponseEntity.ok(ApiResponse.success("Updated successfully",
+        return ResponseEntity.ok(ApiResponse.success("Role-off request cancelled and deleted successfully",
                 Map.of(
                         "eventId", id,
-                        "status", RoleOffStatus.CANCELLED,
-                        "cancelledBy", "Project_Manager"
+                        "cancelledBy", userDTO.getName() != null ? userDTO.getName() : "Project_Manager"
                 )));
 
     } catch (Exception e) {
@@ -1677,12 +1693,14 @@ public ResponseEntity<ApiResponse<?>> bulkPlannedRoleOff(BulkRoleOffRequestDTO b
             // Check for existing role-off
             RoleOffEvent existingRoleOff = roleOffRepo.findByAllocation_AllocationId(allocation.getAllocationId());
             if (existingRoleOff != null) {
-                if (existingRoleOff.getRoleOffStatus() == RoleOffStatus.REJECTED) {
+                RoleOffStatus existingStatus = existingRoleOff.getRoleOffStatus();
+                if (existingStatus == RoleOffStatus.REJECTED || existingStatus == RoleOffStatus.CANCELLED) {
+                    // Previous request was cancelled by PM or rejected by DM/RM — allow re-request
                     roleOffRepo.delete(existingRoleOff);
                 } else {
                     failedEvents.add(Map.of(
                             "allocationId", allocation.getAllocationId(),
-                            "reason", "Role-off already exists with status: " + existingRoleOff.getRoleOffStatus()
+                            "reason", "Role-off already exists with status: " + existingStatus
                     ));
                     continue;
                 }
@@ -1946,6 +1964,7 @@ public ResponseEntity<ApiResponse<?>> bulkDlFulfill(List<UUID> ids, UserDTO user
             // Execute immediately if date has passed
             if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
                 closeResourceAllocation(event);
+                benchService.createOrUpdateBenchState(event.getResource().getResourceId());
             }
 
             fulfilledEvents.add(event);
@@ -2034,6 +2053,14 @@ public ResponseEntity<ApiResponse<?>> bulkDlReject(List<UUID> ids, String reject
 
 @Override
 @Transactional
+@Caching(evict = {
+    @CacheEvict(value = "active-allocations", allEntries = true),
+    @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+    @CacheEvict(value = "bench-resources",    allEntries = true),
+    @CacheEvict(value = "bench-matches",      allEntries = true),
+    @CacheEvict(value = "resource-timelines", allEntries = true),
+    @CacheEvict(value = "demands",            allEntries = true)
+})
 public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId) {
     log.info("Processing attrition for resource ID: {} with exit date: {}", resourceId, dateOfExit);
 
@@ -2137,6 +2164,14 @@ public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId
 
 @Override
 @Transactional
+@Caching(evict = {
+    @CacheEvict(value = "active-allocations", allEntries = true),
+    @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+    @CacheEvict(value = "bench-resources",    allEntries = true),
+    @CacheEvict(value = "bench-matches",      allEntries = true),
+    @CacheEvict(value = "resource-timelines", allEntries = true),
+    @CacheEvict(value = "demands",            allEntries = true)
+})
 public void processAttritionNoticeResources() {
     LocalDate targetDate = LocalDate.now().plusDays(7);
     List<com.entity.resource_entities.Resource> resources = resourceRepo.findOnNoticeResourcesDueOn(targetDate);

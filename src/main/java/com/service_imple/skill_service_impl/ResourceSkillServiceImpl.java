@@ -3,6 +3,7 @@ package com.service_imple.skill_service_impl;
 import com.dto.skill_dto.*;
 import com.global_exception_handler.SkillExceptionHandler;
 import com.repo.allocation_repo.AllocationRepository;
+import com.repo.skill_repo.*;
 import com.service_interface.skill_service_interface.ResourceSkillService;
 import com.entity.skill_entities.ProficiencyLevel;
 import com.entity.skill_entities.ResourceSkill;
@@ -10,11 +11,6 @@ import com.entity.skill_entities.ResourceSubSkill;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.SubSkill;
 import com.entity.resource_entities.Resource;
-import com.repo.skill_repo.ProficiencyLevelRepository;
-import com.repo.skill_repo.ResourceSkillRepository;
-import com.repo.skill_repo.ResourceSubSkillRepository;
-import com.repo.skill_repo.SkillRepository;
-import com.repo.skill_repo.SubSkillRepository;
 import com.repo.resource_repo.ResourceRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +19,10 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
+import com.entity.skill_entities.SkillRequest;
+import com.entity_enums.skill_enums.SkillRequestStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,6 +36,7 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
     private final ProficiencyLevelRepository proficiencyLevelRepository;
     private final ResourceRepository resourceRepository;
     private final AllocationRepository allocationRepository;
+    private final SkillRequestRepository skillRequestRepository;
 
     // -------------------------------------------------------------------------
     // EmployeeSkillMapping migration: bulk upsert via EmployeeSkillsRequestDto
@@ -44,6 +44,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", key = "#requestDto.resourceId"),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     public String saveSkillMappings(EmployeeSkillsRequestDto requestDto) {
         if (requestDto.getResourceId() == null || requestDto.getResourceId().isBlank()) {
             throw SkillExceptionHandler.badRequest("Resource ID is required");
@@ -53,40 +58,94 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         }
 
         for (SkillMappingItemDto skillDto : requestDto.getSkills()) {
-            if (skillDto.getSkillId() == null) {
-                throw SkillExceptionHandler.badRequest("skillId is required for every skill entry");
-            }
-
-            Skill skill = skillRepository.findById(skillDto.getSkillId())
-                    .orElseThrow(() -> SkillExceptionHandler.notFound(
-                            "Skill not found: " + skillDto.getSkillId()));
-
             boolean skillActiveFlag = !"INACTIVE".equalsIgnoreCase(skillDto.getStatus());
 
-            if (skillDto.getSubSkills() == null || skillDto.getSubSkills().isEmpty()) {
-                upsertResourceSkill(requestDto.getResourceId(), skill,
-                        skillDto.getProficiencyId(), skillActiveFlag);
-            } else {
+            if (skillDto.getSkillId() != null) {
+                // ── EXISTING SKILL: map directly ─────────────────────────────
+                Skill skill = skillRepository.findById(skillDto.getSkillId())
+                        .orElseThrow(() -> SkillExceptionHandler.notFound(
+                                "Skill not found: " + skillDto.getSkillId()));
+
                 upsertResourceSkill(requestDto.getResourceId(), skill,
                         skillDto.getProficiencyId(), skillActiveFlag);
 
-                for (SubSkillMappingItemDto subSkillDto : skillDto.getSubSkills()) {
-                    if (subSkillDto.getSubSkillId() == null) {
-                        throw SkillExceptionHandler.badRequest(
-                                "subSkillId is required for every subSkill entry");
+                if (skillDto.getSubSkills() != null) {
+                    // Collect the subskill IDs explicitly sent in this request
+                    Set<UUID> incomingSubSkillIds = new HashSet<>();
+                    for (SubSkillMappingItemDto subSkillDto : skillDto.getSubSkills()) {
+                        if (subSkillDto.getSubSkillId() != null) {
+                            incomingSubSkillIds.add(subSkillDto.getSubSkillId());
+                        }
                     }
-                    SubSkill subSkill = subSkillRepository.findById(subSkillDto.getSubSkillId())
-                            .orElseThrow(() -> SkillExceptionHandler.notFound(
-                                    "SubSkill not found: " + subSkillDto.getSubSkillId()));
 
-                    UUID subProficiencyId = subSkillDto.getProficiencyId() != null
-                            ? subSkillDto.getProficiencyId() : skillDto.getProficiencyId();
-                    boolean subActiveFlag = subSkillDto.getStatus() != null
-                            ? !"INACTIVE".equalsIgnoreCase(subSkillDto.getStatus()) : skillActiveFlag;
+                    // Delete subskills no longer present in the incoming list
+                    List<ResourceSubSkill> existingSubSkills = resourceSubSkillRepository
+                            .findByResourceIdAndParentSkillId(requestDto.getResourceId(), skill.getId());
+                    List<ResourceSubSkill> toDelete = existingSubSkills.stream()
+                            .filter(rss -> !incomingSubSkillIds.contains(rss.getSubSkill().getId()))
+                            .collect(Collectors.toList());
+                    if (!toDelete.isEmpty()) {
+                        resourceSubSkillRepository.deleteAll(toDelete);
+                    }
 
-                    upsertResourceSubSkill(requestDto.getResourceId(), subSkill,
-                            subProficiencyId, subActiveFlag);
+                    // Upsert existing or raise approval for new subskills
+                    for (SubSkillMappingItemDto subSkillDto : skillDto.getSubSkills()) {
+                        boolean subActiveFlag = subSkillDto.getStatus() != null
+                                ? !"INACTIVE".equalsIgnoreCase(subSkillDto.getStatus()) : skillActiveFlag;
+                        UUID subProficiencyId = subSkillDto.getProficiencyId() != null
+                                ? subSkillDto.getProficiencyId() : skillDto.getProficiencyId();
+
+                        if (subSkillDto.getSubSkillId() != null) {
+                            // Existing subskill: map directly
+                            SubSkill subSkill = subSkillRepository.findById(subSkillDto.getSubSkillId())
+                                    .orElseThrow(() -> SkillExceptionHandler.notFound(
+                                            "SubSkill not found: " + subSkillDto.getSubSkillId()));
+                            upsertResourceSubSkill(requestDto.getResourceId(), subSkill,
+                                    subProficiencyId, subActiveFlag);
+                        } else if (subSkillDto.getSubSkillName() != null
+                                && !subSkillDto.getSubSkillName().isBlank()) {
+                            // New subskill under existing skill: raise approval request
+                            String categoryName = (skillDto.getCategoryName() != null
+                                    && !skillDto.getCategoryName().isBlank())
+                                    ? skillDto.getCategoryName().trim()
+                                    : (skill.getCategory() != null ? skill.getCategory().getName() : "");
+                            createSkillApprovalRequest(requestDto.getResourceId(), categoryName,
+                                    skill.getName(), subSkillDto.getSubSkillName().trim(), subProficiencyId);
+                        } else {
+                            throw SkillExceptionHandler.badRequest(
+                                    "Either subSkillId or subSkillName is required for every subSkill entry");
+                        }
+                    }
                 }
+
+            } else if (skillDto.getSkillName() != null && !skillDto.getSkillName().isBlank()) {
+                // ── NEW SKILL: raise approval request ────────────────────────
+                if (skillDto.getCategoryName() == null || skillDto.getCategoryName().isBlank()) {
+                    throw SkillExceptionHandler.badRequest(
+                            "categoryName is required for new skill: " + skillDto.getSkillName());
+                }
+                String categoryName = skillDto.getCategoryName().trim();
+                String skillName = skillDto.getSkillName().trim();
+
+                if (skillDto.getSubSkills() == null || skillDto.getSubSkills().isEmpty()) {
+                    createSkillApprovalRequest(requestDto.getResourceId(), categoryName,
+                            skillName, null, skillDto.getProficiencyId());
+                } else {
+                    for (SubSkillMappingItemDto subSkillDto : skillDto.getSubSkills()) {
+                        UUID subProficiencyId = subSkillDto.getProficiencyId() != null
+                                ? subSkillDto.getProficiencyId() : skillDto.getProficiencyId();
+                        if (subSkillDto.getSubSkillName() == null || subSkillDto.getSubSkillName().isBlank()) {
+                            throw SkillExceptionHandler.badRequest(
+                                    "subSkillName is required for new subSkill entries under new skill: " + skillName);
+                        }
+                        createSkillApprovalRequest(requestDto.getResourceId(), categoryName,
+                                skillName, subSkillDto.getSubSkillName().trim(), subProficiencyId);
+                    }
+                }
+
+            } else {
+                throw SkillExceptionHandler.badRequest(
+                        "Either skillId or skillName is required for every skill entry");
             }
         }
         return "Skills mapped successfully";
@@ -98,6 +157,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", key = "#requestDto.employeeId"),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     public String saveSkillMapping(EmployeeSkillRequestDto requestDto) {
         if (requestDto.getEmployeeId() == null || requestDto.getEmployeeId().isBlank()) {
             throw SkillExceptionHandler.badRequest("Employee ID is required");
@@ -215,6 +279,26 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         }
 
         return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Approval request helper for saveSkillMappings
+    // -------------------------------------------------------------------------
+
+    private void createSkillApprovalRequest(String resourceId, String categoryName,
+                                            String skillName, String subSkillName, UUID proficiencyId) {
+        ProficiencyLevel proficiency = proficiencyId != null
+                ? proficiencyLevelRepository.findById(proficiencyId).orElse(null) : null;
+
+        SkillRequest request = new SkillRequest();
+        request.setResourceId(resourceId);
+        request.setCategoryName(categoryName);
+        request.setSkillName(skillName);
+        request.setSubskillName(subSkillName);
+        request.setProficiency(proficiency);
+        request.setRequestStatus(SkillRequestStatus.PENDING);
+        request.setRequestedAt(LocalDateTime.now());
+        skillRequestRepository.save(request);
     }
 
     // -------------------------------------------------------------------------
@@ -581,8 +665,47 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Cacheable(value = "resource-skills", key = "#resourceId")
-    public List<ResourceSkill> getAllResourceSkills(String resourceId) {
-        return resourceSkillRepository.findByResourceId(resourceId);
+    public List<ResourceSkillResponseDTO> getAllResourceSkills(String resourceId) {
+        List<ResourceSkill> skills = resourceSkillRepository.findByResourceId(resourceId);
+        List<ResourceSubSkill> subSkills = resourceSubSkillRepository.findByResourceId(resourceId);
+
+        // Batch-load all proficiency levels in one query
+        Set<UUID> proficiencyIds = new HashSet<>();
+        skills.forEach(rs -> { if (rs.getProficiencyId() != null) proficiencyIds.add(rs.getProficiencyId()); });
+        subSkills.forEach(rss -> { if (rss.getProficiencyId() != null) proficiencyIds.add(rss.getProficiencyId()); });
+
+        Map<UUID, String> proficiencyNames = proficiencyLevelRepository
+                .findByIdIn(new ArrayList<>(proficiencyIds))
+                .stream()
+                .collect(Collectors.toMap(ProficiencyLevel::getProficiencyId, ProficiencyLevel::getProficiencyName));
+
+        // Group subskills by parent skill ID
+        Map<UUID, List<ResourceSubSkill>> subSkillsBySkillId = subSkills.stream()
+                .collect(Collectors.groupingBy(rss -> rss.getSubSkill().getSkill().getId()));
+
+        return skills.stream().map(rs -> {
+            List<ResourceSkillResponseDTO.SubSkillDTO> subSkillDTOs = subSkillsBySkillId
+                    .getOrDefault(rs.getSkill().getId(), Collections.emptyList())
+                    .stream()
+                    .map(rss -> ResourceSkillResponseDTO.SubSkillDTO.builder()
+                            .subSkillId(rss.getSubSkill().getId())
+                            .subSkillName(rss.getSubSkill().getName())
+                            .proficiency(proficiencyNames.get(rss.getProficiencyId()))
+                            .active(rss.getActiveFlag())
+                            .build())
+                    .collect(Collectors.toList());
+
+            return ResourceSkillResponseDTO.builder()
+                    .resourceSkillId(rs.getId())
+                    .categoryId(rs.getSkill().getCategory() != null ? rs.getSkill().getCategory().getId() : null)
+                    .categoryName(rs.getSkill().getCategory() != null ? rs.getSkill().getCategory().getName() : null)
+                    .skillId(rs.getSkill().getId())
+                    .skillName(rs.getSkill().getName())
+                    .proficiency(proficiencyNames.get(rs.getProficiencyId()))
+                    .active(rs.getActiveFlag())
+                    .subSkills(subSkillDTOs)
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -661,67 +784,85 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
         existingResourceSkill.setLastUsedDate(LocalDate.now());
         existingResourceSkill.setActiveFlag(true);
         
-        // Handle sub-skills update
-        if (dto.getSubSkills() != null && !dto.getSubSkills().isEmpty()) {
-            updateSubSkillsForResourceSkill(existingResourceSkill.getResourceId(), 
+        // Sync sub-skills: null = no change, explicit list (even empty) = desired final state
+        if (dto.getSubSkills() != null) {
+            syncSubSkillsForResourceSkill(existingResourceSkill.getResourceId(),
                     existingResourceSkill.getSkill().getId(), dto.getSubSkills());
         }
-        
+
         return resourceSkillRepository.save(existingResourceSkill);
     }
-    
-    private void updateSubSkillsForResourceSkill(String resourceId, UUID skillId, 
+
+    /**
+     * Syncs the subskills for a resource+skill pair to exactly match {@code subSkillUpdates}.
+     * <ul>
+     *   <li>Subskills in the list that already exist → proficiency updated.</li>
+     *   <li>Subskills in the list that don't exist yet → created.</li>
+     *   <li>Subskills currently on the resource that are NOT in the list → deleted.</li>
+     *   <li>Empty list → all existing subskills for this skill are deleted.</li>
+     * </ul>
+     */
+    private void syncSubSkillsForResourceSkill(String resourceId, UUID skillId,
             List<ResourceSkillRequestDTO.SubSkillUpdateDTO> subSkillUpdates) {
-        
+
+        // Fetch all current subskills for this resource + parent skill
+        List<ResourceSubSkill> existing = resourceSubSkillRepository
+                .findByResourceIdAndParentSkillId(resourceId, skillId);
+
+        Set<UUID> incomingIds = subSkillUpdates.stream()
+                .map(ResourceSkillRequestDTO.SubSkillUpdateDTO::getSubSkillId)
+                .collect(Collectors.toSet());
+
+        // Delete subskills that are no longer in the incoming list
+        List<ResourceSubSkill> toDelete = existing.stream()
+                .filter(rss -> !incomingIds.contains(rss.getSubSkill().getId()))
+                .collect(Collectors.toList());
+        resourceSubSkillRepository.deleteAll(toDelete);
+
+        // Upsert each incoming subskill
         for (ResourceSkillRequestDTO.SubSkillUpdateDTO subSkillDTO : subSkillUpdates) {
-            // Validate sub-skill exists and belongs to the skill
             SubSkill subSkill = subSkillRepository.findById(subSkillDTO.getSubSkillId())
                     .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "SubSkill not found: " + subSkillDTO.getSubSkillId()));
-            
+
             if (!skillId.equals(subSkill.getSkill().getId())) {
                 throw SkillExceptionHandler.badRequest(
                         "SubSkill does not belong to the specified skill: " + subSkill.getName());
             }
-            
+
             if (!"ACTIVE".equalsIgnoreCase(subSkill.getStatus())) {
                 throw SkillExceptionHandler.badRequest(
                         "SubSkill is not active: " + subSkill.getName());
             }
-            
-            // Validate proficiency exists and is ACTIVE
+
             ProficiencyLevel proficiency = proficiencyLevelRepository
                     .findById(subSkillDTO.getProficiencyId())
                     .orElseThrow(() -> SkillExceptionHandler.badRequest(
                             "Proficiency not found for subSkill: " + subSkillDTO.getProficiencyId()));
-            
+
             if (!Boolean.TRUE.equals(proficiency.getActiveFlag())) {
                 throw SkillExceptionHandler.badRequest(
                         "Proficiency level is inactive for subSkill: " + proficiency.getProficiencyName());
             }
-            
-            // Find existing resource sub-skill or create new one
-            ResourceSubSkill existingResourceSubSkill = resourceSubSkillRepository
+
+            ResourceSubSkill existingRss = resourceSubSkillRepository
                     .findByResourceIdAndSubSkillId(resourceId, subSkillDTO.getSubSkillId())
                     .orElse(null);
-            
-            if (existingResourceSubSkill != null) {
-                // Update existing sub-skill
-                existingResourceSubSkill.setProficiencyId(subSkillDTO.getProficiencyId());
-                // Automatically set lastUsedDate to current date and activeFlag to true
-                existingResourceSubSkill.setLastUsedDate(LocalDate.now());
-                existingResourceSubSkill.setActiveFlag(true);
-                resourceSubSkillRepository.save(existingResourceSubSkill);
+
+            if (existingRss != null) {
+                existingRss.setProficiencyId(subSkillDTO.getProficiencyId());
+                existingRss.setLastUsedDate(LocalDate.now());
+                existingRss.setActiveFlag(true);
+                resourceSubSkillRepository.save(existingRss);
             } else {
-                // Create new sub-skill assignment
-                ResourceSubSkill newResourceSubSkill = ResourceSubSkill.builder()
+                ResourceSubSkill newRss = ResourceSubSkill.builder()
                         .resourceId(resourceId)
                         .subSkill(subSkillRepository.getReferenceById(subSkillDTO.getSubSkillId()))
                         .proficiencyId(subSkillDTO.getProficiencyId())
                         .lastUsedDate(LocalDate.now())
                         .activeFlag(true)
                         .build();
-                resourceSubSkillRepository.save(newResourceSubSkill);
+                resourceSubSkillRepository.save(newRss);
             }
         }
     }

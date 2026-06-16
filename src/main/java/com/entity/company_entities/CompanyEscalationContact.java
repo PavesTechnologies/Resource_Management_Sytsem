@@ -1,5 +1,6 @@
 package com.entity.company_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.client_enums.ContactRole;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -14,6 +15,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(
         name = "company_escalation_contact",
         uniqueConstraints = {

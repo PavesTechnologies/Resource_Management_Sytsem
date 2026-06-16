@@ -1,5 +1,6 @@
 package com.entity.project_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.client_entities.ClientCompliance;
 import com.entity_enums.client_enums.RequirementType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "project_compliance")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

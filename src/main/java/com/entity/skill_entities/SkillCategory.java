@@ -1,6 +1,7 @@
 package com.entity.skill_entities;
 
 
+import com.audit.AuditEntityListener;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(
         name = "skill_category",
         uniqueConstraints = {

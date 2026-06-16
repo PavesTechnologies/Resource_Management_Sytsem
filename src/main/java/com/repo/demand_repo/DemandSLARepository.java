@@ -18,7 +18,7 @@ public interface DemandSLARepository extends JpaRepository<DemandSLA, UUID> {
 
     List<DemandSLA> findByDueAtBeforeAndActiveFlagTrue(LocalDate now);
 
-    Optional<DemandSLA> findByDemand_DemandIdAndActiveFlagTrue(UUID demandId);
+    Optional<DemandSLA> findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(UUID demandId);
     @Modifying
     @Query("""
        UPDATE DemandSLA d

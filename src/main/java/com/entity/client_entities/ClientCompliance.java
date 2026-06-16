@@ -1,5 +1,6 @@
 package com.entity.client_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.client_enums.RequirementType;
 import com.entity.skill_entities.Skill;
 import com.entity.skill_entities.Certificate;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "client_compliance")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

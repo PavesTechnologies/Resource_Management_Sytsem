@@ -16,7 +16,9 @@ import com.repo.allocation_repo.AllocationRepository;
 import com.repo.demand_repo.DemandRepository; // Import DemandRepository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +41,13 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     private final SkillGapAnalysisService skillGapAnalysisService;
     private final DemandRepository demandRepository; // Inject DemandRepository
 
+    @Lazy
+    @Autowired
+    private BenchDemandMatchingServiceImpl self;
+
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "bench-matches", key = "'raw-all'")
     public List<MatchResponse> getMatches() {
         log.info("Getting bench-demand matches using comprehensive skill analysis (APPROVED demands only)");
 
@@ -116,10 +124,12 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "bench-matches", key = "'raw-' + (#skill ?: 'ALL') + '-' + (#minExp ?: '0')")
     public List<MatchResponse> getMatches(String skill, Integer minExp) {
         log.info("Getting filtered matches - skill: {}, minExp: {}", skill, minExp);
-        
-        List<MatchResponse> allMatches = getMatches();
+
+        List<MatchResponse> allMatches = self.getMatches();
         log.info("Total matches found: {}", allMatches.size());
         
         List<MatchResponse> filteredMatches = allMatches.stream()
@@ -145,9 +155,9 @@ public class BenchDemandMatchingServiceImpl implements BenchDemandMatchingServic
         List<MatchResponse> matches;
 
         if (skill != null || minExp != null) {
-            matches = getMatches(skill, minExp);
+            matches = self.getMatches(skill, minExp);
         } else {
-            matches = getMatches();
+            matches = self.getMatches();
         }
         
         log.info("Total matches found: {}", matches.size());

@@ -3,9 +3,11 @@ package com.repo.skill_repo;
 import com.entity.skill_entities.SkillRequest;
 import com.entity_enums.skill_enums.SkillRequestStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,4 +35,10 @@ public interface SkillRequestRepository extends JpaRepository<SkillRequest, UUID
     List<SkillRequest> findByResourceIdAndIdIn(
             @Param("resourceId") String resourceId,
             @Param("requestIds") List<UUID> requestIds);
+
+    @Modifying
+    @Query("DELETE FROM SkillRequest sr WHERE sr.requestStatus IN :statuses AND sr.updatedAt < :cutoff")
+    int deleteByStatusInAndUpdatedAtBefore(
+            @Param("statuses") List<SkillRequestStatus> statuses,
+            @Param("cutoff") LocalDateTime cutoff);
 }

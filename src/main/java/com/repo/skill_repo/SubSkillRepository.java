@@ -59,4 +59,6 @@ public interface SubSkillRepository extends JpaRepository<SubSkill, UUID> {
     Optional<SubSkill> findByNameIgnoreCaseAndSkill_Id(
             String name,
             UUID skillId);
+
+    Optional<SubSkill> findByNameIgnoreCase(String name);
 }
