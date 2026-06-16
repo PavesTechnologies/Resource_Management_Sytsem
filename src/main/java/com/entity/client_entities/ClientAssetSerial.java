@@ -1,5 +1,6 @@
 package com.entity.client_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.client_enums.AssetStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -15,6 +16,7 @@ import java.util.UUID;
  * Ensures global uniqueness of serial numbers across the system.
  */
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(name = "client_asset_serial",
         uniqueConstraints = {
                 @UniqueConstraint(

@@ -1,5 +1,6 @@
 package com.entity.skill_entities;
 
+import com.audit.AuditEntityListener;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -8,6 +9,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(
         name = "resource_skill",
         uniqueConstraints = @UniqueConstraint(columnNames = {"resource_id", "skill_id"})

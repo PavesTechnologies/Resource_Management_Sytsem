@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 
 import jakarta.persistence.*;
@@ -86,6 +87,7 @@ public class AuditEntityListener {
     private String getModuleName(Object entity) {
         String packageName = entity.getClass().getPackage().getName();
         if (packageName.contains("client")) return "CLIENT";
+        if (packageName.contains("company")) return "COMPANY";
         if (packageName.contains("resource")) return "RESOURCE";
         if (packageName.contains("project")) return "PROJECT";
         if (packageName.contains("demand")) return "DEMAND";
@@ -99,8 +101,17 @@ public class AuditEntityListener {
     private String getCurrentUser() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName())) {
-                return auth.getName();
+            if (auth != null && auth.isAuthenticated()
+                    && auth.getPrincipal() instanceof Jwt jwt) {
+                String userId = jwt.getClaimAsString("user_id");
+                String name = jwt.getClaimAsString("name");
+                if (userId != null && name != null) {
+                    return userId + " (" + name + ")";
+                }
+                if (userId != null) return userId;
+                if (name != null) return name;
+                String email = jwt.getClaimAsString("email");
+                if (email != null) return email;
             }
         } catch (Exception e) {
             log.debug("Failed to get current user: {}", e.getMessage());
@@ -116,16 +127,23 @@ public class AuditEntityListener {
         return "REQ-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000);
     }
 
+    private static final int MAX_JSON_LENGTH = 60000;
+
     private String convertToJsonSafely(Object obj) {
         if (obj == null) return null;
         try {
             if (objectMapper != null) {
-                return objectMapper.writeValueAsString(obj);
+                String json = objectMapper.writeValueAsString(obj);
+                if (json.length() > MAX_JSON_LENGTH) {
+                    return "{\"truncated\":true,\"type\":\"" + obj.getClass().getSimpleName() + "\"}";
+                }
+                return json;
             }
         } catch (Exception e) {
             log.debug("Failed to convert to JSON: {}", e.getMessage());
         }
-        return obj.toString();
+        String s = obj.toString();
+        return s.length() > MAX_JSON_LENGTH ? s.substring(0, MAX_JSON_LENGTH) : s;
     }
 
     private String getEntityId(Object entity) {

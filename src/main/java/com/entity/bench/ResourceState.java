@@ -1,5 +1,6 @@
 package com.entity.bench;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.bench.BenchReason;
 import com.entity_enums.bench.StateType;
 import com.entity_enums.bench.SubState;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "resource_state")
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor

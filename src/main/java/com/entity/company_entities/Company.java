@@ -1,5 +1,6 @@
 package com.entity.company_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.centralised_enums.PriorityLevel;
 import com.entity_enums.centralised_enums.RecordStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "company")
+@EntityListeners(AuditEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

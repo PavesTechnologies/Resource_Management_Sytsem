@@ -1,5 +1,6 @@
 package com.entity.skill_entities;
 
+import com.audit.AuditEntityListener;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "role")
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @Builder

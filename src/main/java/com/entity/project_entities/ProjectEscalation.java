@@ -1,5 +1,6 @@
 package com.entity.project_entities;
 
+import com.audit.AuditEntityListener;
 import com.entity.client_entities.ClientEscalationContact;
 import com.entity_enums.client_enums.ContactRole;
 import com.entity_enums.project_enums.EscalationLevel;
@@ -19,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
+@EntityListeners(AuditEntityListener.class)
 @Table(name = "project_escalation", 
        uniqueConstraints = {
            @UniqueConstraint(columnNames = {"project_id", "email"}, 

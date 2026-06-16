@@ -8,6 +8,7 @@ import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.bench_service_impl.ResourceStateInitializationService;
 import com.service_imple.ledger_service_impl.LedgerRetryService;
 import com.service_interface.roleoff_service_interface.RoleOffService;
+import com.service_interface.skill_service_interface.SkillRequestService;
 import com.service_imple.skill_service_impl.CertificateExpiryScheduler;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -49,6 +50,7 @@ public class CentralizedJobScheduler {
     private final ResourceStateInitializationService resourceStateService;
     private final JobLoggingService jobLoggingService;
     private final RoleOffService roleOffService;
+    private final SkillRequestService skillRequestService;
 
     public CentralizedJobScheduler(
             CertificateExpiryScheduler certificateExpiryScheduler,
@@ -60,7 +62,8 @@ public class CentralizedJobScheduler {
             LedgerEventHandler ledgerEventHandler,
             ResourceStateInitializationService resourceStateService,
             JobLoggingService jobLoggingService,
-            RoleOffService roleOffService) {
+            RoleOffService roleOffService,
+            SkillRequestService skillRequestService) {
         this.certificateExpiryScheduler = certificateExpiryScheduler;
         this.allocationClosureScheduler = allocationClosureScheduler;
         this.benchService = benchService;
@@ -71,6 +74,7 @@ public class CentralizedJobScheduler {
         this.resourceStateService = resourceStateService;
         this.jobLoggingService = jobLoggingService;
         this.roleOffService = roleOffService;
+        this.skillRequestService = skillRequestService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -135,6 +139,8 @@ public class CentralizedJobScheduler {
                 resourceStateService::dailyResourceStateCheck);
         runJob("DELETE-OLD-JOB-LOGS",
                 () -> jobLoggingService.deleteOldLogs(30));
+        runJob("SKILL-REQUEST-HISTORY-PURGE",
+                skillRequestService::purgeOldResolvedRequests);
     }
 
     // ═══════════════════════════════════════════════════════════════════════

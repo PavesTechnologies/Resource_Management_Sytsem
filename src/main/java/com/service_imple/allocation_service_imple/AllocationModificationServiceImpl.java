@@ -55,24 +55,20 @@ public class AllocationModificationServiceImpl implements AllocationModification
             ResourceAllocation allocation = allocationRepository.findById(dto.getAllocationId())
                     .orElseThrow(() -> AllocationExceptionHandler.notFound("Allocation not found"));
 
-            // STRICT VALIDATION: If allocation is linked to a demand, percentage cannot be changed
-            if (allocation.getDemand() != null) {
-                Integer demandPercentage = allocation.getDemand().getAllocationPercentage();
-                Integer currentPercentage = allocation.getAllocationPercentage();
-                Integer requestedPercentage = dto.getRequestedAllocationPercentage();
+//            // STRICT VALIDATION: If allocation is linked to a demand, percentage cannot be changed
+//            if (allocation.getDemand() != null) {
+//                Integer demandPercentage = allocation.getDemand().getAllocationPercentage();
+//                Integer currentPercentage = allocation.getAllocationPercentage();
+//                Integer requestedPercentage = dto.getRequestedAllocationPercentage();
+//
+//                if (requestedPercentage != null && !requestedPercentage.equals(currentPercentage)) {
+//                    throw AllocationExceptionHandler.badRequest(
+//                        String.format("Allocation percentage cannot be modified for demand-based allocations. Demand '%s' requires exactly %d%% allocation. Current allocation is %d%%, requested change to %d%% is not allowed.",
+//                            allocation.getDemand().getDemandName(), demandPercentage, currentPercentage, requestedPercentage)
+//                    );
+//                }
+//            }
 
-                if (requestedPercentage != null && !requestedPercentage.equals(currentPercentage)) {
-                    throw AllocationExceptionHandler.badRequest(
-                        String.format("Allocation percentage cannot be modified for demand-based allocations. Demand '%s' requires exactly %d%% allocation. Current allocation is %d%%, requested change to %d%% is not allowed. Resource Managers cannot modify the allocation percentage defined by the Project Manager.",
-                            allocation.getDemand().getDemandName(), demandPercentage, currentPercentage, requestedPercentage)
-                    );
-                }
-            }
-
-            // Check for role-off scenario
-            if (validator.shouldTriggerRoleOff(dto.getRequestedAllocationPercentage())) {
-                return triggerRoleOffProcessFromDTO(dto, userDTO);
-            }
 
             // Unified validation with override duration support
             validator.validateAllocationChange(

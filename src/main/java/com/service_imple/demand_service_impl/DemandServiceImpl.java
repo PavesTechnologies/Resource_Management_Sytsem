@@ -132,7 +132,7 @@ public class DemandServiceImpl implements DemandService {
 
                     .map(demand -> {
                         // Get SLA details for demand
-                        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId());
 
                         DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
                                 .clientId(demand.getProject().getClientId())
@@ -263,7 +263,7 @@ public ResponseEntity<ApiResponse<?>> getDemandsByCreatedByAndProjectId(Long cre
 
                 .map(demand -> {
                     // Get SLA details for the demand
-                    Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                    Optional<DemandSLA> demandSLAOpt = demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId());
 
                     DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
                             .clientId(demand.getProject().getClientId())
@@ -389,6 +389,11 @@ public void mapSlaToDemand(Demand demand) {
 
     LocalDate now = LocalDate.now();
     LocalDate dueAt = now.plusDays(projectSLA.getSlaDurationDays());
+
+    // SLA already exists for this demand — no need to create another one
+    if (demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId()).isPresent()) {
+        return;
+    }
 
     DemandSLA demandSLA = DemandSLA.builder()
             .demand(demand)
@@ -1070,28 +1075,30 @@ public ResponseEntity<ApiResponse<?>> getDemandKpiByResourceManagerId(Long resou
             }
 
             // -------- SLA --------
-            demandSLARepository
-                    .findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId())
-                    .ifPresent(sla -> {
+            if (status != DemandStatus.FULFILLED) {
+                demandSLARepository
+                        .findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId())
+                        .ifPresent(sla -> {
 
-                        LocalDate dueAt = sla.getDueAt();
-                        if (dueAt == null) return;
+                            LocalDate dueAt = sla.getDueAt();
+                            if (dueAt == null) return;
 
-                        if (today.isAfter(dueAt)) {
-                            kpi.setSlaBreached(kpi.getSlaBreached() + 1);
-                            return;
-                        }
-
-                        Integer threshold = sla.getWarningThresholdDays();
-                        if (threshold != null) {
-                            long daysRemaining =
-                                    ChronoUnit.DAYS.between(today, dueAt);
-
-                            if (daysRemaining <= threshold) {
-                                kpi.setSlaAtRisk(kpi.getSlaAtRisk() + 1);
+                            if (today.isAfter(dueAt)) {
+                                kpi.setSlaBreached(kpi.getSlaBreached() + 1);
+                                return;
                             }
-                        }
-                    });
+
+                            Integer threshold = sla.getWarningThresholdDays();
+                            if (threshold != null) {
+                                long daysRemaining =
+                                        ChronoUnit.DAYS.between(today, dueAt);
+
+                                if (daysRemaining <= threshold) {
+                                    kpi.setSlaAtRisk(kpi.getSlaAtRisk() + 1);
+                                }
+                            }
+                        });
+            }
         }
 
         return ResponseEntity.ok(
@@ -1312,7 +1319,7 @@ public ResponseEntity<ApiResponse<?>> processResourceManagerDecision(
                     "DEMAND_NOT_FOUND",
                     "Demand not found"
             ));
-    Optional<DemandSLA> demandSLA = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(dto.getDemandId());
+    Optional<DemandSLA> demandSLA = demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(dto.getDemandId());
     DemandStatus decision = dto.getDecision();
 
     if (decision == null) {
@@ -1447,7 +1454,7 @@ public ResponseEntity<ApiResponse<List<DeliveryManagerDemandDTO>>> getDeliveryMa
             List<Demand> projectDemands = demandRepository.findByProject_PmsProjectId(project.getPmsProjectId());
 
             for (Demand demand : projectDemands) {
-                Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                Optional<DemandSLA> demandSLAOpt = demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId());
 
                 DeliveryManagerDemandDTO.DeliveryManagerDemandDTOBuilder demandBuilder =
                         DeliveryManagerDemandDTO.builder()
@@ -1577,7 +1584,7 @@ private DemandKpiDTO calculateDemandKpi(List<Demand> demands) {
 
         // SLA calculations
         demandSLARepository
-                .findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId())
+                .findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId())
                 .ifPresent(sla -> {
                     LocalDate dueAt = sla.getDueAt();
                     if (dueAt == null) return;
@@ -1734,7 +1741,15 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                     );
             }
 
-            // Cannot edit fulfilled/cancelled
+            // Only DRAFT and REQUESTED demands can be edited
+            if (demand.getDemandStatus() == DemandStatus.APPROVED) {
+                throw new DemandExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot update approved demand"
+                );
+            }
+
             if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
                 throw new DemandExceptionHandler(
                         HttpStatus.BAD_REQUEST,
@@ -1748,6 +1763,14 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         HttpStatus.BAD_REQUEST,
                         "INVALID_STATE",
                         "Cannot update cancelled demand"
+                );
+            }
+
+            if (demand.getDemandStatus() == DemandStatus.REJECTED) {
+                throw new DemandExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "INVALID_STATE",
+                        "Cannot update rejected demand"
                 );
             }
 
@@ -1799,23 +1822,28 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                 demand.setDemandPriority(dto.getDemandPriority());
             }
 
-            // Status can only be moved DRAFT → SUBMITTED by the creator via updateDemand.
-            // All other transitions (APPROVED, REJECTED, FULFILLED, CANCELLED) are
-            // handled by dedicated workflow endpoints and must not be set here.
-            if (dto.getDemandStatus() != null) {
-                DemandStatus current = demand.getDemandStatus();
-                DemandStatus requested = dto.getDemandStatus();
-                boolean allowed = (current == DemandStatus.DRAFT && requested == DemandStatus.REQUESTED)
-                        || (current == DemandStatus.REQUESTED && requested == DemandStatus.DRAFT);
-                if (!allowed) {
-                    throw new DemandExceptionHandler(
-                            HttpStatus.BAD_REQUEST,
-                            "INVALID_STATUS_TRANSITION",
-                            "Status transition from " + current + " to " + requested + " is not allowed via update."
-                    );
-                }
-                demand.setDemandStatus(requested);
-            }
+            // When demand is REQUESTED, status cannot be changed via update.
+            // APPROVED, REJECTED, FULFILLED, CANCELLED transitions are handled by dedicated workflow endpoints.
+//            if (dto.getDemandStatus() != null) {
+//                DemandStatus current = demand.getDemandStatus();
+//                DemandStatus requested = dto.getDemandStatus();
+//                if (current == DemandStatus.REQUESTED) {
+//                    throw new DemandExceptionHandler(
+//                            HttpStatus.BAD_REQUEST,
+//                            "STATUS_CHANGE_NOT_ALLOWED",
+//                            "Status cannot be changed when demand is in REQUESTED state"
+//                    );
+//                }
+//                // From DRAFT, only DRAFT → REQUESTED is allowed
+//                if (current == DemandStatus.DRAFT && requested != DemandStatus.REQUESTED) {
+//                    throw new DemandExceptionHandler(
+//                            HttpStatus.BAD_REQUEST,
+//                            "INVALID_STATUS_TRANSITION",
+//                            "From DRAFT, demand can only be submitted to REQUESTED"
+//                    );
+//                }
+//                demand.setDemandStatus(requested);
+//            }
 
             if (dto.getDemandCommitment() != null) {
                 demand.setDemandCommitment(dto.getDemandCommitment());
@@ -1853,6 +1881,50 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             }
 
             // =========================
+            // PROJECT STATUS VALIDATION
+            // =========================
+
+            if (!com.config.ProjectDemandRules.ALLOWED_PROJECT_STATUSES.contains(demand.getProject().getProjectStatus())) {
+                throw new DemandExceptionHandler(
+                        HttpStatus.BAD_REQUEST,
+                        "PROJECT_STATUS_NOT_ALLOWED",
+                        "Demands cannot be updated for a project in status: " + demand.getProject().getProjectStatus()
+                );
+            }
+
+            // =========================
+            // DEMAND TYPE VALIDATIONS
+            // =========================
+
+            if (demand.getDemandType() == DemandType.NET_NEW) {
+                if (demand.getDemandJustification() == null || demand.getDemandJustification().trim().length() < 20) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "INSUFFICIENT_JUSTIFICATION",
+                            "Net-New demand requires detailed business justification (minimum 20 characters)"
+                    );
+                }
+            }
+
+            if (demand.getDemandType() == DemandType.REPLACEMENT) {
+                if (dto.getOutgoingResourceId() != null) {
+                    Resource outgoingResource = resourceRepository.findById(dto.getOutgoingResourceId())
+                            .orElseThrow(() -> new DemandExceptionHandler(
+                                    HttpStatus.NOT_FOUND,
+                                    "OUTGOING_RESOURCE_NOT_FOUND",
+                                    "Outgoing resource not found with ID: " + dto.getOutgoingResourceId()
+                            ));
+                    demand.setOutgoingResource(outgoingResource);
+                } else if (demand.getOutgoingResource() == null) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "OUTGOING_RESOURCE_REQUIRED",
+                            "Outgoing resource ID is required for replacement demands"
+                    );
+                }
+            }
+
+            // =========================
             // DATE VALIDATION
             // =========================
 
@@ -1864,6 +1936,19 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                         "INVALID_DATE_RANGE",
                         "Start date cannot be after end date"
                 );
+            }
+
+            Project demandProject = demand.getProject();
+            if (demandProject.getStartDate() != null && demandProject.getEndDate() != null) {
+                LocalDate projectStart = demandProject.getStartDate().toLocalDate();
+                LocalDate projectEnd = demandProject.getEndDate().toLocalDate();
+                if (demand.getDemandStartDate().isBefore(projectStart) || demand.getDemandEndDate().isAfter(projectEnd)) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "DEMAND_DATES_OUT_OF_PROJECT_RANGE",
+                            "Demand dates must be within project dates (" + projectStart + " to " + projectEnd + ")"
+                    );
+                }
             }
 
             // =========================
@@ -1897,33 +1982,27 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
             // CONFLICT CHECK
             // =========================
 
-            UUID currentRoleId = demand.getRole() != null
-                    ? demand.getRole().getId()
-                    : null;
+            detectAllocationConflicts(demand);
+            detectTimelineConflicts(demand);
 
-            boolean timelineChanged =
-                    !originalStartDate.equals(demand.getDemandStartDate()) ||
-                            !originalEndDate.equals(demand.getDemandEndDate());
+            // =========================
+            // DUPLICATE CHECK
+            // =========================
 
-            boolean allocationChanged =
-                    !originalAllocation.equals(demand.getAllocationPercentage());
-
-            boolean roleChanged =
-                    currentRoleId != null &&
-                            !currentRoleId.equals(originalRoleId);
-
-            if (timelineChanged || allocationChanged || roleChanged) {
-
-                detectAllocationConflicts(demand);
-                detectTimelineConflicts(demand);
+            List<Demand> existingDemands = demandRepository.findByProject_PmsProjectId(demand.getProject().getPmsProjectId());
+            for (Demand existing : existingDemands) {
+                if (!existing.getDemandId().equals(demand.getDemandId()) && isExactDuplicate(demand, existing)) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.CONFLICT,
+                            "DUPLICATE_DEMAND",
+                            "An identical demand already exists for this project"
+                    );
+                }
             }
 
             // =========================
             // SAVE
             // =========================
-            // =========================
-// SAVE
-// =========================
             log.info("Saving demand {} with type={} role={}",
                     demand.getDemandId(), demand.getDemandType(),
                     demand.getRole().getId());
@@ -2001,7 +2080,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                     .map(demand -> {
                         // Get SLA details for demand
                         Optional<DemandSLA> demandSLAOpt = demandSLARepository
-                                .findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+                                .findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId());
 
                         DemandDetailResponseDTO demandInfo = DemandDetailResponseDTO.builder()
                                 .clientId(project.getClientId())
@@ -2165,6 +2244,18 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
                             "PROJECT_NOT_FOUND",
                             "Project not found with ID: " + dto.getProjectId()
                     ));
+
+            if (project.getStartDate() != null && project.getEndDate() != null) {
+                LocalDate projectStart = project.getStartDate().toLocalDate();
+                LocalDate projectEnd = project.getEndDate().toLocalDate();
+                if (dto.getDemandStartDate().isBefore(projectStart) || dto.getDemandEndDate().isAfter(projectEnd)) {
+                    throw new DemandExceptionHandler(
+                            HttpStatus.BAD_REQUEST,
+                            "DEMAND_DATES_OUT_OF_PROJECT_RANGE",
+                            "Demand dates must be within project dates (" + projectStart + " to " + projectEnd + ")"
+                    );
+                }
+            }
 
             // Validate role exists
             DeliveryRoleExpectation role;
@@ -2349,7 +2440,7 @@ public void createReplacementDemandFromAllocation(ResourceAllocation allocation,
         }
 
         Demand demand = demandOpt.get();
-        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findByDemand_DemandIdAndActiveFlagTrue(demand.getDemandId());
+        Optional<DemandSLA> demandSLAOpt = demandSLARepository.findTopByDemand_DemandIdAndActiveFlagTrueOrderByCreatedAtDesc(demand.getDemandId());
 
         DemandDetailNestedResponseDTO demandInfo = DemandDetailNestedResponseDTO.builder()
                 .demandId(demand.getDemandId())

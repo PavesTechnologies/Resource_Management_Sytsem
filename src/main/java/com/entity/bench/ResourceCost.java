@@ -1,5 +1,6 @@
 package com.entity.bench;
 
+import com.audit.AuditEntityListener;
 import com.entity_enums.bench.Currency;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,6 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "resource_cost")
+@EntityListeners(AuditEntityListener.class)
 @Getter
 @Setter
 @NoArgsConstructor
