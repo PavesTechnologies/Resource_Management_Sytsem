@@ -115,6 +115,20 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate existingCertificate = certificateRepository.findById(certificateId)
                 .orElseThrow(() -> SkillExceptionHandler.badRequest("Certificate not found with ID: " + certificateId));
 
+        boolean assigned =
+                resourceCertificateRepository
+                        .existsByCertificateIdAndActiveFlagTrue(certificateId);
+
+        if (assigned) {
+            throw SkillExceptionHandler.badRequest(
+                    "Certificate cannot be modified because it is assigned to one or more resources");
+        }
+
+        if (Boolean.TRUE.equals(dto.getTimeBound()) && dto.getValidityMonths() == null) {
+            throw SkillExceptionHandler.badRequest(
+                    "Validity months required for time-bound certificates");
+        }
+
         if (Boolean.TRUE.equals(dto.getTimeBound()) && dto.getValidityMonths() == null) {
             throw SkillExceptionHandler.badRequest(
                     "Validity months required for time-bound certificates");
