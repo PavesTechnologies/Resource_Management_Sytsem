@@ -777,11 +777,6 @@ public class AllocationServiceImpl implements AllocationService {
                     demandSLARepository.save(sla);
                 });
             }
-        } else if (demand.getDemandStatus() == DemandStatus.FULFILLED) {
-            // If not fulfilled but was marked as FULFILLED, revert to APPROVED
-            // This handles the case when a PLANNED allocation is cancelled
-            demand.setDemandStatus(DemandStatus.APPROVED);
-            demandRepository.save(demand);
         }
     }
 

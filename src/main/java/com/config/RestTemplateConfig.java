@@ -30,10 +30,10 @@ public class RestTemplateConfig {
     @Value("${external.auth.password}")
     private String authPassword;
 
-    @Value("${external.token.cache.minutes:50}")
+    @Value("${external.token.cache.minutes:5}")
     private long tokenCacheMinutes;
 
-    @Value("${external.token.refresh.buffer.minutes:10}")
+    @Value("${external.token.refresh.buffer.minutes:1}")
     private long refreshBufferMinutes;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
