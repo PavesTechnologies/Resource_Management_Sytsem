@@ -154,7 +154,7 @@ public class DemandServiceImpl implements DemandService {
                                 .demandCommitment(demand.getDemandCommitment())
                                 .demandStartDate(demand.getDemandStartDate())
                                 .demandEndDate(demand.getDemandEndDate())
-                                .priorityScore(calculatePriorityScore(demand))
+                                .priorityScore(Math.min(10, calculatePriorityScore(demand)))
                                 .build();
 
                         // Add SLA details if present
