@@ -172,6 +172,12 @@
             <version>${debezium.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-storage-jdbc</artifactId>
+            <version>${debezium.version}</version>
+        </dependency>
+
         <!-- ShedLock core -->
         <dependency>
             <groupId>net.javacrumbs.shedlock</groupId>
