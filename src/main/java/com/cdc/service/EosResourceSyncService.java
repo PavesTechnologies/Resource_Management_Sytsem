@@ -185,24 +185,28 @@ public class EosResourceSyncService {
         }
 
         if (isNonActionableOfferStatus(offerStatus)) {
-            log.info("Skipping offer_letter_details enrichment for resourceId={}, mail={}, status={} because lifecycle state is non-actionable",
+            if (!canApplyDeferredOfferEnrichment(resource)) {
+                log.info("Skipping offer_letter_details enrichment for resourceId={}, mail={}, status={} because lifecycle state is non-actionable and enrichment fields are already populated",
+                        employeeId, mail, offerStatus);
+                return CdcProcessingOutcome.cancelled(
+                        "offer_letter_details lifecycle state is non-actionable for enrichment",
+                        "NON_ACTIONABLE_STATUS",
+                        offerStatus
+                );
+            }
+            log.info("Applying offer_letter_details enrichment for resourceId={}, mail={}, status={} despite non-actionable status because enrichment fields are incomplete",
                     employeeId, mail, offerStatus);
-            return CdcProcessingOutcome.cancelled(
-                    "offer_letter_details lifecycle state is non-actionable for enrichment",
-                    "NON_ACTIONABLE_STATUS",
-                    offerStatus
-            );
         }
 
         boolean staleOfferEvent = staleEventProtectionService.isStaleEvent(resource.getChangedAt(), sourceTimestamp, employeeId);
-        boolean allowDeferredReplay = dependencyReplay && staleOfferEvent && canApplyDeferredOfferEnrichment(resource);
-        if (staleOfferEvent && !allowDeferredReplay) {
+        boolean allowEnrichmentDespiteStale = staleOfferEvent && canApplyDeferredOfferEnrichment(resource);
+        if (staleOfferEvent && !allowEnrichmentDespiteStale) {
             log.warn("Skipping stale EOS offer_letter_details event for resourceId={}, mail={}, status={}, dependencyReplay={}",
                     employeeId, mail, offerStatus, dependencyReplay);
             return CdcProcessingOutcome.success();
         }
-        if (allowDeferredReplay) {
-            log.info("Applying deferred offer_letter_details replay for resourceId={}, mail={}, status={} despite older source timestamp because enrichment fields are still incomplete",
+        if (allowEnrichmentDespiteStale) {
+            log.info("Applying offer_letter_details enrichment for resourceId={}, mail={}, status={} despite older source timestamp because enrichment fields are incomplete",
                     employeeId, mail, offerStatus);
         }
 
@@ -216,7 +220,7 @@ public class EosResourceSyncService {
         }
 
         deriveHourlyCostRate(resource);
-        resource.setChangedAt(resolveOfferChangedAt(resource, data, sourceTimestamp, allowDeferredReplay));
+        resource.setChangedAt(resolveOfferChangedAt(resource, data, sourceTimestamp, allowEnrichmentDespiteStale));
         resourceRepository.save(resource);
         log.info("offer_letter_details enriched for resourceId={}, mail={}, status={}, dependencyReplay={}",
                 resource.getResourceId(), mail, offerStatus, dependencyReplay);
@@ -481,7 +485,10 @@ public class EosResourceSyncService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int releaseWaitingOfferEventsAfterCommit(String employeeId, String workEmail) {
-        List<String> entityIds = new ArrayList<>(deduplicateEntityIds(employeeId, workEmail));
+        // Also search by user_uuid — offer_letter_details events use user_uuid as entity_id
+        // (mail column is personal email, not work email, so workEmail alone never matches)
+        String userUuid = resolveUserUuidByEmployeeId(employeeId);
+        List<String> entityIds = new ArrayList<>(deduplicateEntityIds(employeeId, workEmail, userUuid));
         if (entityIds.isEmpty()) {
             return 0;
         }
@@ -533,15 +540,32 @@ public class EosResourceSyncService {
         applicationEventPublisher.publishEvent(new EmployeeDetailsCommittedEvent(employeeId, workEmail));
     }
 
-    private Set<String> deduplicateEntityIds(String employeeId, String workEmail) {
+    private Set<String> deduplicateEntityIds(String... values) {
         Set<String> entityIds = new LinkedHashSet<>();
-        if (!isBlank(employeeId)) {
-            entityIds.add(employeeId);
-        }
-        if (!isBlank(workEmail)) {
-            entityIds.add(workEmail);
+        for (String v : values) {
+            if (!isBlank(v)) {
+                entityIds.add(v);
+            }
         }
         return entityIds;
+    }
+
+    private String resolveUserUuidByEmployeeId(String employeeId) {
+        if (employeeId == null) {
+            return null;
+        }
+        try {
+            return eosConnectionManager.getTemplate().queryForObject(
+                    "SELECT user_uuid FROM employee_details WHERE employee_id = ?",
+                    String.class,
+                    employeeId
+            );
+        } catch (EmptyResultDataAccessException ex) {
+            return null;
+        } catch (Exception ex) {
+            log.warn("Cannot resolve user_uuid for employeeId={}: {}", employeeId, ex.getMessage());
+            return null;
+        }
     }
 
     private boolean isWaitingOfferStatus(String offerStatus) {

@@ -37,6 +37,8 @@ import com.service_interface.roleoff_service_interface.RoleOffService;
 import com.service_imple.bench_service_impl.BenchService;
 import com.service_imple.allocation_service_imple.AvailabilityLedgerAsyncService;
 import com.service_imple.skill_service_impl.ResourceSkillUsageService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -139,6 +141,7 @@ public ResponseEntity<ApiResponse<?>> roleOffByRM(RoleOffRequestDTO roleOff, Use
 }
 
 @Override
+@Transactional
 public void manualReplacement(UUID roleOffEventId, Long userId) {
     try {
         // Find the role-off event
@@ -1111,12 +1114,11 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
 
         event.setRoleOffReason(dto.getEmergencyReason());
         event.setRoleOffStatus(RoleOffStatus.APPROVED);
+        event.setRmApproved(true);
 
-        roleOffRepo.save(event);
-
-        // Replacement
+        // Replacement demand is NOT created here.
+        // It will be created in dlFulfill() once the role-off reaches FULFILLED status.
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-            createReplacementDemand(event, userId);
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
         } else {
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
@@ -1130,7 +1132,6 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         }
 
         roleOffRepo.save(event);
-
         return;
     }
 
@@ -1164,11 +1165,9 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         event.setRoleOffReason(dto.getRoleOffReason().name());
         event.setRoleOffStatus(RoleOffStatus.PENDING);
 
-        roleOffRepo.save(event);
-
-        // ✅ SINGLE replacement logic (FIXED)
+        // Replacement demand is NOT created here.
+        // It will be created in dlFulfill() once the role-off reaches FULFILLED status.
         if (Boolean.TRUE.equals(dto.getAutoReplacementRequired())) {
-            createReplacementDemand(event, userId);
             event.setReplacementStatus(ReplacementStatus.AUTO_CREATED);
         } else {
             if (dto.getSkipReason() == null || dto.getSkipReason().isBlank()) {
@@ -1186,21 +1185,26 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
 }
 
 /**
- * Helper method to create replacement demand for a role-off event
+ * Helper method to create replacement demand for a role-off event.
+ *
+ * Business rule: this must only be called once the role-off status is FULFILLED.
+ * It is safe to call only for PLANNED or EMERGENCY role-off types.
  */
 private void createReplacementDemand(RoleOffEvent event, Long userId) {
     try {
-        if (event.getAllocation() != null && event.getRole() != null) {
-            ResourceAllocation allocation = event.getAllocation();
-
-            // Create replacement demand starting from role-off effective date
-            LocalDate startDate = event.getEffectiveRoleOffDate();
-            LocalDate endDate = allocation.getAllocationEndDate();
-
-            demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate, userId);
-
-            log.info("Replacement demand created for role-off event: {}", event.getId());
+        if (event.getAllocation() == null || event.getRole() == null) {
+            return;
         }
+
+        ResourceAllocation allocation = event.getAllocation();
+
+        // Create replacement demand starting from role-off effective date
+        LocalDate startDate = event.getEffectiveRoleOffDate();
+        LocalDate endDate = allocation.getAllocationEndDate();
+
+        demandService.createReplacementDemandFromAllocation(allocation, startDate, endDate, userId);
+        log.info("Replacement demand created for role-off event: {}", event.getId());
+
     } catch (Exception e) {
         log.error("Failed to create replacement demand for role-off event {}: {}",
                  event.getId(), e.getMessage());
@@ -1309,12 +1313,27 @@ public ResponseEntity<ApiResponse<?>> rmReject(UUID id, String rejectionReason, 
         // Do NOT save the allocation separately before this call to avoid a double-write.
         closeResourceAllocation(event);
 
+        // If rolloff effective date is today or past, immediately move resource to bench
+        // (skip waiting for the nightly 1 AM detection job)
+        if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
+            benchService.createOrUpdateBenchState(event.getResource().getResourceId());
+        }
+
         roleOffRepo.save(event);
 
         // Revert demand to APPROVED if this was the only fulfilling allocation
         if (event.getAllocation() != null && event.getAllocation().getDemand() != null) {
             allocationService.checkAndUpdateDemandFulfillment(
                     event.getAllocation().getDemand().getDemandId());
+        }
+
+        // Now that the role-off is FULFILLED, create the replacement demand if needed.
+        // Demand creation is gated on FULFILLED status — it is never triggered at role-off
+        // creation time. Only PLANNED and EMERGENCY role-off types qualify for auto-replacement.
+        if (event.getReplacementStatus() == ReplacementStatus.AUTO_CREATED
+                && (event.getRoleOffType() == RoleOffType.PLANNED
+                    || event.getRoleOffType() == RoleOffType.EMERGENCY)) {
+            createReplacementDemand(event, event.getCreatedBy());
         }
 
         // Build comprehensive response with approval details
@@ -1955,6 +1974,7 @@ public ResponseEntity<ApiResponse<?>> bulkDlFulfill(List<UUID> ids, UserDTO user
             // Execute immediately if date has passed
             if (!event.getEffectiveRoleOffDate().isAfter(LocalDate.now())) {
                 closeResourceAllocation(event);
+                benchService.createOrUpdateBenchState(event.getResource().getResourceId());
             }
 
             fulfilledEvents.add(event);
@@ -2043,6 +2063,14 @@ public ResponseEntity<ApiResponse<?>> bulkDlReject(List<UUID> ids, String reject
 
 @Override
 @Transactional
+@Caching(evict = {
+    @CacheEvict(value = "active-allocations", allEntries = true),
+    @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+    @CacheEvict(value = "bench-resources",    allEntries = true),
+    @CacheEvict(value = "bench-matches",      allEntries = true),
+    @CacheEvict(value = "resource-timelines", allEntries = true),
+    @CacheEvict(value = "demands",            allEntries = true)
+})
 public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId) {
     log.info("Processing attrition for resource ID: {} with exit date: {}", resourceId, dateOfExit);
 
@@ -2146,6 +2174,14 @@ public void handleAttrition(String resourceId, LocalDate dateOfExit, Long userId
 
 @Override
 @Transactional
+@Caching(evict = {
+    @CacheEvict(value = "active-allocations", allEntries = true),
+    @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+    @CacheEvict(value = "bench-resources",    allEntries = true),
+    @CacheEvict(value = "bench-matches",      allEntries = true),
+    @CacheEvict(value = "resource-timelines", allEntries = true),
+    @CacheEvict(value = "demands",            allEntries = true)
+})
 public void processAttritionNoticeResources() {
     LocalDate targetDate = LocalDate.now().plusDays(7);
     List<com.entity.resource_entities.Resource> resources = resourceRepo.findOnNoticeResourcesDueOn(targetDate);

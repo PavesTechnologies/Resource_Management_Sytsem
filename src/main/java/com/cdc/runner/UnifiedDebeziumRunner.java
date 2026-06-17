@@ -158,6 +158,21 @@ public class UnifiedDebeziumRunner {
             return;
         }
 
+        // Schedule the maintenance loop once — for both leaders and passive nodes.
+        // Leaders use it to renew; passive nodes use it to retry acquisition after
+        // the leader crashes and the lock expires (within 2 minutes).
+        if (!leadershipRenewalStarted) {
+
+            leadershipExecutor.scheduleAtFixedRate(
+                    this::maintainLeadership,
+                    30,
+                    30,
+                    TimeUnit.SECONDS
+            );
+
+            leadershipRenewalStarted = true;
+        }
+
         boolean acquired = leadershipService.tryAcquireLeadership(
                 lockName(),
                 leadershipDuration
@@ -168,7 +183,7 @@ public class UnifiedDebeziumRunner {
             leadershipHeld = false;
 
             log.info(
-                    "[{}] Passive CDC node for {}. Leader={}",
+                    "[{}] Passive CDC node for {}. Leader={}. Will retry leadership every 30s.",
                     runnerName,
                     lockName(),
                     leadershipService.currentLeader(lockName()).orElse("unknown")
@@ -178,18 +193,6 @@ public class UnifiedDebeziumRunner {
         }
 
         leadershipHeld = true;
-
-        if (!leadershipRenewalStarted) {
-
-            leadershipExecutor.scheduleAtFixedRate(
-                    this::renewLeadership,
-                    30,
-                    30,
-                    TimeUnit.SECONDS
-            );
-
-            leadershipRenewalStarted = true;
-        }
 
         // Open the source DB pool before starting the engine so the handler
         // can query it as soon as the first CDC event arrives.
@@ -207,7 +210,7 @@ public class UnifiedDebeziumRunner {
         } catch (Exception ex) {
 
             log.error(
-                    "[{}] Debezium startup failed for {}: {}. Node will remain passive.",
+                    "[{}] Debezium startup failed for {}: {}. Node will remain passive and retry.",
                     runnerName,
                     lockName(),
                     ex.getMessage(),
@@ -215,20 +218,22 @@ public class UnifiedDebeziumRunner {
             );
 
             engineStarted = false;
-
-            leadershipRenewalStarted = false;
-
-            leadershipExecutor.shutdownNow();
+            leadershipHeld = false;
 
             // Engine never started, so close the pool immediately.
             notifyLeadershipLost();
 
-            if (leadershipHeld) {
+            leadershipService.release(lockName());
+        }
+    }
 
-                leadershipService.release(lockName());
-
-                leadershipHeld = false;
-            }
+    // Runs every 30s on ALL nodes.
+    // Leaders renew their lock. Passive nodes try to acquire if the leader is gone.
+    private void maintainLeadership() {
+        if (leadershipHeld) {
+            renewLeadership();
+        } else if (!engineStarted) {
+            tryAcquireLeadershipAndStart();
         }
     }
 
@@ -407,16 +412,15 @@ public class UnifiedDebeziumRunner {
         if (!renewed) {
 
             log.error(
-                    "[{}] Lost CDC leadership for {}. Stopping connector and switching to passive mode.",
+                    "[{}] Lost CDC leadership for {}. Stopping engine and reverting to passive mode. Will retry acquisition every 30s.",
                     runnerName,
                     lockName()
             );
 
             leadershipHeld = false;
 
-            leadershipRenewalStarted = false;
-
-            leadershipExecutor.shutdownNow();
+            // Do NOT shut down leadershipExecutor — maintainLeadership() keeps running
+            // so this node can reacquire if the new leader also fails.
 
             try {
 

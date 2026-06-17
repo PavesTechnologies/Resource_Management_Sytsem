@@ -44,6 +44,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", key = "#requestDto.resourceId"),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     public String saveSkillMappings(EmployeeSkillsRequestDto requestDto) {
         if (requestDto.getResourceId() == null || requestDto.getResourceId().isBlank()) {
             throw SkillExceptionHandler.badRequest("Resource ID is required");
@@ -152,6 +157,11 @@ public class ResourceSkillServiceImpl implements ResourceSkillService {
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "resource-skills", key = "#requestDto.employeeId"),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "bench-matches", allEntries = true)
+    })
     public String saveSkillMapping(EmployeeSkillRequestDto requestDto) {
         if (requestDto.getEmployeeId() == null || requestDto.getEmployeeId().isBlank()) {
             throw SkillExceptionHandler.badRequest("Employee ID is required");

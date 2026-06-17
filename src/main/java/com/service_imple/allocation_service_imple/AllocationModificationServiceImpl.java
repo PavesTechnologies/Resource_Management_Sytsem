@@ -17,6 +17,8 @@ import com.service_interface.allocation_service_interface.AllocationService;
 import com.service_interface.allocation_service_interface.AllocationModificationValidator;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,14 @@ public class AllocationModificationServiceImpl implements AllocationModification
      * This method works directly with CreateAllocationModificationDTO to avoid conversion
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands",            allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> createUnifiedAllocationChangeFromDTO(
             CreateAllocationModificationDTO dto, UserDTO userDTO) {
         try {
@@ -202,9 +212,17 @@ public class AllocationModificationServiceImpl implements AllocationModification
      * This method is used by Resource Managers to approve or reject allocation change requests
      */
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands",            allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> processRMApproval(
-            UUID modificationId, 
-            String decision, 
+            UUID modificationId,
+            String decision,
             String approvalComments,
             UserDTO rmUser) {
         
@@ -417,6 +435,14 @@ public class AllocationModificationServiceImpl implements AllocationModification
 
     @Override
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "active-allocations", allEntries = true),
+        @CacheEvict(value = "dashboard-kpis",     allEntries = true),
+        @CacheEvict(value = "bench-resources",    allEntries = true),
+        @CacheEvict(value = "bench-matches",      allEntries = true),
+        @CacheEvict(value = "resource-timelines", allEntries = true),
+        @CacheEvict(value = "demands",            allEntries = true)
+    })
     public ResponseEntity<ApiResponse<?>> processModificationDecision(UUID modificationId, AllocationModificationDecisionDTO dto, UserDTO userDTO) {
         try {
             AllocationModification modification = modificationRepository.findById(modificationId)

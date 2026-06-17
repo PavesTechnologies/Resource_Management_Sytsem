@@ -38,6 +38,8 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
     private final ResourceCertificateRepository resourceCertificateRepository;
 
     @Override
+    @Transactional(readOnly = true)
+    @Cacheable(value = "resource-timelines", key = "'all'")
     public List<ResourceTimelineDTO> getAllResourceTimelines() {
         // Get all resources without date filtering - use full history mode with default parameters
         List<ResourceTimelineProjection> allResources = resourceTimelineRepository.getResourceTimelineFullHistory(
