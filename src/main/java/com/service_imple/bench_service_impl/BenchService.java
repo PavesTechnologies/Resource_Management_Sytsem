@@ -663,6 +663,7 @@ public class BenchService {
                 .lastAllocationDate(lastAllocationDate)
                 .experience(resource.getExperiance())
                 .location(resource.getWorkingLocation())
+                .currencyType(resource.getCurrencyType())
                 .build();
     }
 

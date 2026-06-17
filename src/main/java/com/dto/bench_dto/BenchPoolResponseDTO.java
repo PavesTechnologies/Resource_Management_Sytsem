@@ -26,4 +26,5 @@ public class BenchPoolResponseDTO {
     private LocalDate lastAllocationDate;
     private String location;
     private Double experience;
+    private String currencyType;
 }
