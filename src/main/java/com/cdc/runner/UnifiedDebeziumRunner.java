@@ -230,10 +230,19 @@ public class UnifiedDebeziumRunner {
     // Runs every 30s on ALL nodes.
     // Leaders renew their lock. Passive nodes try to acquire if the leader is gone.
     private void maintainLeadership() {
-        if (leadershipHeld) {
-            renewLeadership();
-        } else if (!engineStarted) {
-            tryAcquireLeadershipAndStart();
+        try {
+            if (leadershipHeld) {
+                renewLeadership();
+                // Engine may have died while we still hold leadership — restart it.
+                if (leadershipHeld && !engineStarted) {
+                    log.warn("[{}] Engine died while holding leadership. Attempting restart.", runnerName);
+                    startEngine(config.asProperties(), false);
+                }
+            } else if (!engineStarted) {
+                tryAcquireLeadershipAndStart();
+            }
+        } catch (Exception ex) {
+            log.error("[{}] Unexpected error in CDC leadership maintenance loop: {}", runnerName, ex.getMessage(), ex);
         }
     }
 
