@@ -2,16 +2,27 @@ package com.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
+import org.springframework.cache.support.NoOpCacheManager;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class CacheConfig implements CachingConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
+
+    @Bean
+    @ConditionalOnProperty(name = "app.redis.enabled", havingValue = "false")
+    public CacheManager cacheManager() {
+        log.info("Redis disabled - using NoOpCacheManager, all @Cacheable calls will pass through to the DB");
+        return new NoOpCacheManager();
+    }
 
     @Override
     public CacheErrorHandler errorHandler() {

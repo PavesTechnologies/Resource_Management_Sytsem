@@ -230,38 +230,48 @@ public class UnifiedDebeziumRunner {
     // Runs every 30s on ALL nodes.
     // Leaders renew their lock. Passive nodes try to acquire if the leader is gone.
     private void maintainLeadership() {
-        if (leadershipHeld) {
-            renewLeadership();
-        } else if (!engineStarted) {
-            tryAcquireLeadershipAndStart();
+        try {
+            if (leadershipHeld) {
+                renewLeadership();
+                // Engine may have died while we still hold leadership — restart it.
+                if (leadershipHeld && !engineStarted) {
+                    log.warn("[{}] Engine died while holding leadership. Attempting restart.", runnerName);
+                    startEngine(config.asProperties(), false);
+                }
+            } else if (!engineStarted) {
+                tryAcquireLeadershipAndStart();
+            }
+        } catch (Exception ex) {
+            log.error("[{}] Unexpected error in CDC leadership maintenance loop: {}", runnerName, ex.getMessage(), ex);
         }
     }
 
+    private String buildStorageInfo(Properties properties) {
+        String offsetStorage = properties.getProperty("offset.storage", "");
+        if (offsetStorage.contains("Jdbc")) {
+            return "JDBC offsetTable=" + properties.getProperty("offset.storage.jdbc.offset.table.name", "?")
+                    + " schemaHistoryTable=" + properties.getProperty("schema.history.internal.jdbc.schema.history.table.name", "?");
+        }
+        return "file offsetFile=" + properties.getProperty("offset.storage.file.filename", "?")
+                + " schemaHistoryFile=" + properties.getProperty("schema.history.internal.file.filename", "?");
+    }
+
     private synchronized void startEngine(Properties properties, boolean recoveryMode) {
-        String offsetFile = properties.getProperty(
-                "offset.storage.file.filename",
-                "unknown"
-        );
-        String schemaHistoryFile = properties.getProperty(
-                "schema.history.internal.file.filename",
-                "unknown"
-        );
         String snapshotMode = properties.getProperty("snapshot.mode", "unknown");
+        String storageInfo = buildStorageInfo(properties);
 
         if (recoveryMode) {
             log.warn(
-                    "[{}] Restarting Debezium in temporary schema recovery mode. offsetFile={}, schemaHistoryFile={}, snapshotMode={}",
+                    "[{}] Restarting Debezium in temporary schema recovery mode. storage={}, snapshotMode={}",
                     runnerName,
-                    offsetFile,
-                    schemaHistoryFile,
+                    storageInfo,
                     snapshotMode
             );
         } else {
             log.info(
-                    "[{}] CDC leadership confirmed. Starting Debezium with offset file={}, schemaHistoryFile={}, snapshotMode={}",
+                    "[{}] CDC leadership confirmed. Starting Debezium with storage={}, snapshotMode={}",
                     runnerName,
-                    offsetFile,
-                    schemaHistoryFile,
+                    storageInfo,
                     snapshotMode
             );
         }

@@ -17,8 +17,6 @@ public class CdcProperties {
 
     private boolean enabled = true;
 
-    private String baseDirectory = "C:/rms/cdc-data";
-
     @Min(1000)
     private long inboxPollIntervalMs = 5000L;
 

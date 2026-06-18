@@ -21,6 +21,7 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@ConditionalOnProperty(name = "app.redis.enabled", havingValue = "true", matchIfMissing = true)
 public class RedisStartupDiagnostics {
 
     private static final String DIAGNOSTIC_KEY = "rms:redis:start-up:diagnostic";
