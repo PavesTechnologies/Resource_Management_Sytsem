@@ -7,6 +7,8 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.util.TimeZone;
+
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @EnableScheduling
@@ -15,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class ResourceManagementSystemApplication {
 
 	public static void main(String[] args) {
+		TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 		SpringApplication.run(ResourceManagementSystemApplication.class, args);
 	}
 }
