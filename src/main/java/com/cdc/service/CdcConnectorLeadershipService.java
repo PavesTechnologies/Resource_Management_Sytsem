@@ -19,9 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -140,15 +138,12 @@ public class CdcConnectorLeadershipService {
         try {
             writeTransactionTemplate.executeWithoutResult(status -> {
                 forceWriteConnection();
-                Instant now = Instant.now();
                 jdbcTemplate.update("""
                         UPDATE shedlock
-                           SET lock_until = ?, locked_at = ?, locked_by = ?
+                           SET lock_until = NOW(3), locked_at = NOW(3), locked_by = ?
                          WHERE name = ?
                            AND locked_by = ?
                         """,
-                        Timestamp.from(now),
-                        Timestamp.from(now),
                         ownerId,
                         connectorName,
                         ownerId
@@ -168,11 +163,10 @@ public class CdcConnectorLeadershipService {
                             SELECT locked_by
                               FROM shedlock
                              WHERE name = ?
-                               AND lock_until > ?
+                               AND lock_until > NOW(3)
                         """,
                     rs -> rs.next() ? Optional.ofNullable(rs.getString("locked_by")) : Optional.empty(),
-                    connectorName,
-                    Timestamp.from(Instant.now())
+                    connectorName
             );
         } catch (DataAccessException ex) {
             log.debug("Unable to fetch current CDC leader for {}: {}", connectorName, ex.getMessage());
@@ -189,20 +183,19 @@ public class CdcConnectorLeadershipService {
     }
 
     private boolean acquireOrRenewInternal(String connectorName, Duration lockDuration, boolean renewalOnly) {
-        Instant now = Instant.now();
-        Instant lockUntil = now.plus(lockDuration);
+        long durationSeconds = lockDuration.getSeconds();
 
         int updated = jdbcTemplate.update("""
                 UPDATE shedlock
-                   SET lock_until = ?, locked_at = ?, locked_by = ?
+                   SET lock_until = NOW(3) + INTERVAL ? SECOND,
+                       locked_at  = NOW(3),
+                       locked_by  = ?
                  WHERE name = ?
-                   AND (lock_until IS NULL OR lock_until <= ? OR locked_by = ?)
+                   AND (lock_until IS NULL OR lock_until <= NOW(3) OR locked_by = ?)
                 """,
-                Timestamp.from(lockUntil),
-                Timestamp.from(now),
+                durationSeconds,
                 ownerId,
                 connectorName,
-                Timestamp.from(now),
                 ownerId
         );
         if (updated > 0) {
@@ -216,11 +209,10 @@ public class CdcConnectorLeadershipService {
         try {
             int inserted = jdbcTemplate.update("""
                     INSERT INTO shedlock(name, lock_until, locked_at, locked_by)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (?, NOW(3) + INTERVAL ? SECOND, NOW(3), ?)
                     """,
                     connectorName,
-                    Timestamp.from(lockUntil),
-                    Timestamp.from(now),
+                    durationSeconds,
                     ownerId
             );
             return inserted > 0;
