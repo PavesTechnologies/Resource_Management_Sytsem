@@ -205,17 +205,16 @@ public class ResourceTimelineServiceImpl implements ResourceTimelineService {
                             ), Collectors.toList())
                     ));
             
-            // Fetch resource certifications (only active and non-expired)
-            LocalDate currentDate = LocalDate.now();
-            resourceCertificationsMap = resourceCertificateRepository.findResourceIdAndCertificateDetails(resourceIds, currentDate).stream()
+            // Fetch all certifications for resources
+            resourceCertificationsMap = resourceCertificateRepository.findAllCertificateDetailsForResources(resourceIds).stream()
                     .collect(Collectors.groupingBy(
-                            result -> (String) result[0], // resource ID is first element
+                            result -> (String) result[0],
                             Collectors.mapping(result -> CertificationInfoDTO.builder()
-                                    .certificateName((String) result[1]) // certificate name from skill
-                                    .providerName((String) result[2]) // provider name
-                                    .expiryDate((LocalDate) result[3]) // expiry date
-                                    .isActive(true) // active because of query filter
-                                    .build(), 
+                                    .certificateName((String) result[1])
+                                    .providerName((String) result[2])
+                                    .expiryDate((LocalDate) result[3])
+                                    .isActive((Boolean) result[4])
+                                    .build(),
                             Collectors.toList())
                     ));
         } else {

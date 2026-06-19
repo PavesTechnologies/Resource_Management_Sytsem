@@ -69,7 +69,7 @@ public interface AllocationRepository extends JpaRepository<ResourceAllocation, 
     List<ResourceAllocation> findByProject_PmsProjectId(
             @Param("projectId") Long projectId);
 
-    @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId AND ra.allocationStatus <> 'DELETED'")
+    @Query("SELECT ra.resource FROM ResourceAllocation ra WHERE ra.project.pmsProjectId = :projectId AND ra.allocationStatus = 'ACTIVE'")
     List<Resource> findResourcesByProjectId(@Param("projectId") Long projectId);
 
     @Query("""
