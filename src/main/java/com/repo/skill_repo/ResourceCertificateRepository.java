@@ -21,6 +21,9 @@ public interface ResourceCertificateRepository extends JpaRepository<ResourceCer
     @Query("SELECT rc.resourceId, s.name, c.providerName, rc.expiryDate FROM ResourceCertificate rc JOIN rc.certificate c LEFT JOIN Skill s ON c.skillId = s.id WHERE rc.resourceId IN :resourceIds AND rc.activeFlag = true AND (rc.expiryDate IS NULL OR rc.expiryDate > :currentDate)")
     List<Object[]> findResourceIdAndCertificateDetails(@Param("resourceIds") List<String> resourceIds, @Param("currentDate") LocalDate currentDate);
 
+    @Query("SELECT rc.resourceId, s.name, c.providerName, rc.expiryDate, rc.activeFlag FROM ResourceCertificate rc JOIN rc.certificate c LEFT JOIN Skill s ON c.skillId = s.id WHERE rc.resourceId IN :resourceIds")
+    List<Object[]> findAllCertificateDetailsForResources(@Param("resourceIds") List<String> resourceIds);
+
         List<ResourceCertificate> findByResourceIdAndActiveFlagTrue(String resourceId);
 
     List<ResourceCertificate> findByActiveFlagTrue();
