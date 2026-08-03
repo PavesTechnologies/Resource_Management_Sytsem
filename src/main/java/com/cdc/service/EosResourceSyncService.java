@@ -13,6 +13,7 @@ import com.entity_enums.resource_enums.EmploymentType;
 import com.entity_enums.resource_enums.WorkingMode;
 import com.repo.ledger_repo.LedgerEventLogRepository;
 import com.repo.resource_repo.ResourceRepository;
+import com.service_imple.bench_service_impl.BenchService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.connect.data.Struct;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -47,6 +48,7 @@ public class EosResourceSyncService {
     private final LedgerEventLogRepository ledgerEventLogRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final OfferLifecycleProperties offerLifecycleProperties;
+    private final BenchService benchDetectionService;
 
     public EosResourceSyncService(
             ResourceRepository resourceRepository,
@@ -55,7 +57,8 @@ public class EosResourceSyncService {
             CdcUtcSupport cdcUtcSupport,
             LedgerEventLogRepository ledgerEventLogRepository,
             ApplicationEventPublisher applicationEventPublisher,
-            OfferLifecycleProperties offerLifecycleProperties) {
+            OfferLifecycleProperties offerLifecycleProperties,
+            BenchService benchDetectionService) {
         this.resourceRepository = resourceRepository;
         this.eosConnectionManager = eosConnectionManager;
         this.staleEventProtectionService = staleEventProtectionService;
@@ -63,6 +66,7 @@ public class EosResourceSyncService {
         this.ledgerEventLogRepository = ledgerEventLogRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.offerLifecycleProperties = offerLifecycleProperties;
+        this.benchDetectionService = benchDetectionService;
     }
 
     @Transactional
@@ -148,6 +152,11 @@ public class EosResourceSyncService {
 
         resource.setChangedAt(resolveChangedAt(data, sourceTimestamp));
         resourceRepository.save(resource);
+
+        if (isNew) {
+            benchDetectionService.initializeResourceState(employeeId);
+        }
+
         publishEmployeeDetailsCommittedEvent(employeeId, getMapString(data, "work_email"));
         log.info("employee_details synced successfully for resourceId={}", employeeId);
     }
