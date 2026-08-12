@@ -31,47 +31,6 @@ public class AllocationModificationController {
     @Autowired
     private AllocationModificationServiceImpl unifiedModificationService;
 
-    /**
-     * Create allocation change request - Enhanced CreateAllocationModificationDTO with override duration control
-     * 
-     * This endpoint handles both normal modifications and overrides automatically.
-     * The system determines if an override is needed based on capacity constraints.
-     * ALL changes require Resource Manager approval.
-     * 
-     * Examples:
-     * 
-     * 1️⃣ Standard Modification (≤100% total allocation):
-     * POST /api/allocation-modifications/pm
-     * {
-     *   "allocationId": "uuid",
-     *   "requestedAllocationPercentage": 80,
-     *   "effectiveDate": "2026-03-27",
-     *   "reason": "Project timeline adjustment - reduced scope"
-     * }
-     * 
-     * Note: overrideEndDate is NOT required when total allocation ≤ 100%
-     * 
-     * 2️⃣ Override with Expiration Date (Required for >100% total allocation):
-     * POST /api/allocation-modifications/pm
-     * {
-     *   "allocationId": "uuid",
-     *   "requestedAllocationPercentage": 130,
-     *   "effectiveDate": "2026-03-27",
-     *   "overrideEndDate": "2026-05-31",
-     *   "reason": "Critical project deadline - need extra capacity for 2 months"
-     * }
-     * 
-     * Note: overrideEndDate is MANDATORY when total allocation (existing + requested) > 100%
-     * 
-     * 4️⃣ Role-Off (0% Allocation):
-     * POST /api/allocation-modifications/pm
-     * {
-     *   "allocationId": "uuid",
-     *   "requestedAllocationPercentage": 0,
-     *   "effectiveDate": "2026-03-27",
-     *   "reason": "Project completed - resource role-off"
-     * }
-     */
     @PostMapping("/pm")
     @PreAuthorize("hasRole('Project_Manager')")
     public ResponseEntity<ApiResponse<?>> createModification(
