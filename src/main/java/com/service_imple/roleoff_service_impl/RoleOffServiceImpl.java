@@ -1155,7 +1155,8 @@ private void processRoleOff(com.dto.allocation_dto.RoleOffRequestDTO dto, Long u
         }
 
         // Project timeline validation
-        if (project.getEndDate().toLocalDate().isBefore(dto.getEffectiveRoleOffDate())) {
+        if (project.getEndDate() != null
+                && project.getEndDate().toLocalDate().isBefore(dto.getEffectiveRoleOffDate())) {
             throw new RoleOffExceptionHandler(
                     HttpStatus.BAD_REQUEST,
                     "INVALID_PROJECT_TIMELINE",
