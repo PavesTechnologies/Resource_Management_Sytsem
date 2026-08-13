@@ -208,7 +208,8 @@ public class AllocationServiceImpl implements AllocationService {
                 resourceSkillUsageService.updateResourceSkillLastUsedOnRoleOff(
                     updatedAllocation.getResource(), updatedAllocation.getProject(), 
                     allocationRequest.getRoleOffDate(), updatedAllocation.getAllocationEndDate(),
-                    updatedAllocation.getProject() != null ? updatedAllocation.getProject().getEndDate().toLocalDate() : null
+                    updatedAllocation.getProject() != null && updatedAllocation.getProject().getEndDate() != null
+                        ? updatedAllocation.getProject().getEndDate().toLocalDate() : null
                 );
             }
 
