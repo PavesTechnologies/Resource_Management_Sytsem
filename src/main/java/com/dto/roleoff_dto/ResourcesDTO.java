@@ -28,6 +28,7 @@ public class ResourcesDTO {
     private List<String> subSkills;
     private UUID allocationId;
     private String impact;
+    private String resourcePerformance;
     private AllocationStatus status;
     private RoleOffStatus roleOffStatus;
     private Integer allocationPercentage;

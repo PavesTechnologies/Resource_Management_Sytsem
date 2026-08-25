@@ -2,6 +2,7 @@ package com.repo.roleoff_repo;
 
 import com.dto.roleoff_dto.RoleOffProjectDashboardKpiDataTransferObject;
 import com.entity.allocation_entities.ResourceAllocation;
+import com.entity.project_entities.Project;
 import com.entity.roleoff_entities.RoleOffEvent;
 import com.entity_enums.roleoff_enums.RoleOffReason;
 import com.entity_enums.roleoff_enums.RoleOffStatus;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -330,4 +332,26 @@ public interface RoleOffEventRepository extends JpaRepository<RoleOffEvent, UUID
                 ORDER BY r.updatedAt DESC
             """)
     List<RoleOffEvent> findFulfilledRoleOffsForDM(@Param("dmId") Long dmId);
+
+    @Query("""
+        SELECT p
+        FROM Project p
+        WHERE p.pmsProjectId = :projectId
+        AND p.projectManagerId = :managerId
+        """)
+    Optional<Project> debugProject(
+            @Param("projectId") Long projectId,
+            @Param("managerId") Long managerId
+    );
+
+    @Query("""
+        SELECT ra
+        FROM ResourceAllocation ra
+        JOIN ra.project p
+        WHERE p.pmsProjectId = :projectId
+        AND ra.allocationStatus = com.entity_enums.allocation_enums.AllocationStatus.ACTIVE
+        """)
+    List<ResourceAllocation> debugAllocations(
+            @Param("projectId") Long projectId
+    );
 }
