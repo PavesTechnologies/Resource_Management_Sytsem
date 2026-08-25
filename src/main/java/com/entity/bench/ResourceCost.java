@@ -30,6 +30,7 @@ public class ResourceCost {
     @Column(nullable = false)
     private BigDecimal costPerDay;
 
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private Currency currency = Currency.INR;
