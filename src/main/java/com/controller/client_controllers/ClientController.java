@@ -4,6 +4,7 @@ import com.dto.centralised_dto.ApiResponse;
 import com.dto.client_dto.*;
 import com.entity.client_entities.Client;
 import com.service_interface.client_service_interface.ClientService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -22,7 +23,7 @@ public class ClientController {
 
     @PostMapping("create")
     @PreAuthorize("hasAnyRole('Resource_Manager','Admin')")
-    public ResponseEntity<ApiResponse<Client>> createClient(@RequestBody Client client)
+    public ResponseEntity<ApiResponse<Client>> createClient(@Valid @RequestBody Client client)
     {
         return clientService.createClient(client);
     }
@@ -75,7 +76,7 @@ public class ClientController {
 
     @PutMapping("/update-client")
     @PreAuthorize("hasRole('Admin')")
-    public ResponseEntity<ApiResponse<Client>> updateClientDetails(@RequestBody Client clientDetails) {
+    public ResponseEntity<ApiResponse<Client>> updateClientDetails(@Valid @RequestBody Client clientDetails) {
         return clientService.updateClient(clientDetails);
     }
 

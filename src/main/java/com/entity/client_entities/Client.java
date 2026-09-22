@@ -8,6 +8,7 @@ import com.entity_enums.client_enums.ClientType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -48,6 +49,16 @@ public class Client {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ClientType clientType;
+
+    @Column(nullable = false, unique = true)
+    @NotBlank(message = "Email is required")
+    @Email(message = "Please enter a valid email address")
+    private String email;
+
+    private String countryCode;
+
+    @Column(unique = true)
+    private String phoneNumber;
 
 //    @Column(nullable = false)
 //    private String email;
