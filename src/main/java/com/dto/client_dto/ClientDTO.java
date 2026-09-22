@@ -22,4 +22,7 @@ public class ClientDTO {
     private String countryName;
     private String defaultTimezone;
     private String status;
+    private String email;
+    private String countryCode;
+    private String phoneNumber;
 }

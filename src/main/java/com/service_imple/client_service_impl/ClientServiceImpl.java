@@ -52,6 +52,17 @@ public class ClientServiceImpl implements ClientService {
                 client.setCreatedAt(LocalDateTime.now());
             }
 
+            // Normalize email: trim and convert to lowercase
+            if (client.getEmail() != null) {
+                client.setEmail(client.getEmail().trim().toLowerCase());
+            }
+
+            // Check for duplicate email
+            if (client.getEmail() != null && clientRepo.existsByEmailIgnoreCase(client.getEmail())) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Email already exists"));
+            }
+
             Client savedClient = clientRepo.save(client);
             return ResponseEntity.ok(ApiResponse.success("Client created successfully", savedClient));
 
@@ -283,6 +294,19 @@ public class ClientServiceImpl implements ClientService {
                         .body(response.getAPIResponse(false, "Client has active projects, cannot update", null));
             }
         }
+
+        // Normalize email: trim and convert to lowercase
+        if (client.getEmail() != null) {
+            client.setEmail(client.getEmail().trim().toLowerCase());
+        }
+
+        // Check for duplicate email (excluding current client)
+        if (client.getEmail() != null && clientRepo.existsByEmailIgnoreCaseAndClientIdNot(client.getEmail(), client.getClientId())) {
+            ApiResponse<Client> response = new ApiResponse<>();
+            return ResponseEntity.badRequest()
+                    .body(response.getAPIResponse(false, "Email already exists", null));
+        }
+
         clientRepo.save(client);
         ApiResponse<Client> response = new ApiResponse<>();
         return ResponseEntity.ok(response.getAPIResponse(true, "Client updated successfully", client));
@@ -323,6 +347,9 @@ public class ClientServiceImpl implements ClientService {
                 .countryName(client.getCountryName())
                 .defaultTimezone(client.getDefaultTimezone())
                 .status(client.getStatus() != null ? client.getStatus().toString() : null)
+                .email(client.getEmail())
+                .countryCode(client.getCountryCode())
+                .phoneNumber(client.getPhoneNumber())
                 .build();
     }
 

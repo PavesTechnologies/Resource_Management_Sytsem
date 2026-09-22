@@ -14,4 +14,6 @@ import java.util.UUID;
 public interface ClientRepo extends JpaRepository<Client,UUID>, JpaSpecificationExecutor<Client> {
 //    Optional<Client> findById(Long aLong);
     List<Client> findByStatus(RecordStatus status);
+    boolean existsByEmailIgnoreCase(String email);
+    boolean existsByEmailIgnoreCaseAndClientIdNot(String email, UUID clientId);
 }
