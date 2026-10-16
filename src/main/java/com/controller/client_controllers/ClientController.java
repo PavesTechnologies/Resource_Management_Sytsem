@@ -45,7 +45,7 @@ public class ClientController {
     }
 
     @GetMapping("/get-all-clients")
-    @PreAuthorize("hasAnyRole('Admin','Resource_Manager')")
+    @PreAuthorize("hasAnyRole('Admin','Resource_Manager','General')")
     public ResponseEntity<ApiResponse<List<Client>>> getClientDetails() {
         return clientService.clientDetails();
     }
